@@ -2,7 +2,7 @@
 
 國立臺灣師範大學「遊戲程式設計」（115-1）第七組的期末專題。玩家扮演大二生小晨身體裡的營運長，調度各器官部門、處理突發事件，讓小晨撐到期末考而不被送進急診。遊戲以 p5.js 開發，以職場諷刺的笑點包裝衛教知識，目標玩家是大學生。
 
-目前處於企劃與原型階段，遊戲本體的程式碼尚未開始撰寫。
+目前處於企劃與原型階段，遊戲本體的程式碼尚未開始撰寫。期中提案用的展示版可以線上試玩：https://115-1-ntnu-game-programming-pols.github.io/body-inc-midterm-demo/ （原始碼在 [body-inc-midterm-demo](https://github.com/115-1-NTNU-Game-Programming-POLS/body-inc-midterm-demo)）。
 
 ## 資料夾內容
 
