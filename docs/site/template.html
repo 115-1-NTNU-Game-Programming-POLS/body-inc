@@ -1,0 +1,233 @@
+<meta charset="utf-8">
+<title>{{TITLE}}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@600;700&display=swap">
+<style>
+/* Layout: sticky chapter rail on the left like a company handbook's index tabs; reading column on the right. */
+:root {
+  --bg: #f4f6f9;
+  --surface: #ffffff;
+  --fg: #1a2130;
+  --muted: #5a6476;
+  --line: #d6dbe4;
+  --accent: #2446a6;
+  --accent-soft: #e5ebf8;
+  --sev-low-bg: #eceff4; --sev-low-fg: #485366;
+  --sev-mid-bg: #e3eafb; --sev-mid-fg: #2446a6;
+  --sev-high-bg: #fbeedb; --sev-high-fg: #8a4b00;
+  --sev-crit-bg: #fbe3e4; --sev-crit-fg: #a51d27;
+  --font-display: "Noto Serif TC", "Songti TC", "PMingLiU", serif;
+  --font-body: "Noto Sans TC", "Microsoft JhengHei", "PingFang TC", sans-serif;
+  --font-mono: "IBM Plex Mono", Consolas, "Courier New", monospace;
+  --rail: 248px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #10141b; --surface: #161b24; --fg: #e5e9f0; --muted: #9aa4b5; --line: #2a3241;
+    --accent: #93abff; --accent-soft: #1c2742;
+    --sev-low-bg: #232a36; --sev-low-fg: #b8c1cf;
+    --sev-mid-bg: #1c2742; --sev-mid-fg: #a9bcff;
+    --sev-high-bg: #33260f; --sev-high-fg: #f2bd6b;
+    --sev-crit-bg: #3a171b; --sev-crit-fg: #ff9a9f;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #10141b; --surface: #161b24; --fg: #e5e9f0; --muted: #9aa4b5; --line: #2a3241;
+  --accent: #93abff; --accent-soft: #1c2742;
+  --sev-low-bg: #232a36; --sev-low-fg: #b8c1cf;
+  --sev-mid-bg: #1c2742; --sev-mid-fg: #a9bcff;
+  --sev-high-bg: #33260f; --sev-high-fg: #f2bd6b;
+  --sev-crit-bg: #3a171b; --sev-crit-fg: #ff9a9f;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; scroll-padding-top: calc(env(safe-area-inset-top, 0px) + 24px); }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+body { background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 16px; line-height: 1.8; }
+
+.shell { display: grid; grid-template-columns: var(--rail) minmax(0, 1fr); gap: 48px; max-width: 1180px; margin: 0 auto; padding-inline: 24px; }
+
+/* Rail */
+.rail { position: sticky; top: env(safe-area-inset-top, 0px); align-self: start; max-height: 100vh; overflow-y: auto; padding-block: 40px 32px; }
+.rail-brand { display: flex; flex-direction: column; gap: 2px; padding-bottom: 20px; margin-bottom: 16px; border-bottom: 1px solid var(--line); }
+.rail-brand b { font-family: var(--font-display); font-size: 17px; letter-spacing: 0.04em; }
+.rail-brand span { font-size: 12px; color: var(--muted); letter-spacing: 0.06em; }
+.toc summary { display: none; }
+.toc ol { list-style: none; margin: 0; padding: 0; }
+.toc > ol { display: flex; flex-direction: column; gap: 2px; }
+.toc a { display: flex; gap: 10px; align-items: baseline; padding: 5px 10px; border-radius: 6px; color: var(--muted); text-decoration: none; font-size: 14px; line-height: 1.45; border-left: 2px solid transparent; }
+.toc a .num { font-family: var(--font-mono); font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; flex: none; }
+.toc a:hover { color: var(--fg); background: var(--accent-soft); }
+.toc a:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.toc a.active { color: var(--accent); font-weight: 700; border-left-color: var(--accent); background: var(--accent-soft); border-radius: 0 6px 6px 0; }
+.toc a.active .num { color: var(--accent); }
+.toc .sub { margin: 2px 0 6px 31px; display: flex; flex-direction: column; gap: 1px; }
+.toc .sub a { font-size: 13px; padding: 3px 10px; }
+.pages { margin-top: 20px; padding-top: 14px; border-top: 1px solid var(--line); }
+.pages-title { font-size: 12px; letter-spacing: 0.1em; color: var(--muted); padding: 0 10px 6px; }
+.pages ol { display: flex; flex-direction: column; gap: 2px; }
+.pages a.here { color: var(--fg); font-weight: 700; background: var(--accent-soft); }
+
+/* Appendix pages rendered from Markdown */
+main h4 { font-size: 16px; margin: 26px 0 8px; }
+main ul { margin: 0 0 18px; padding-left: 1.4em; display: flex; flex-direction: column; gap: 6px; }
+main li > ul, main li > ol { margin: 6px 0 0; }
+main blockquote { margin: 0 0 18px; padding: 10px 16px; border-left: 3px solid var(--line); color: var(--muted); background: var(--surface); border-radius: 0 8px 8px 0; }
+main blockquote p:last-child { margin-bottom: 0; }
+main hr { border: 0; border-top: 1px solid var(--line); margin: 40px 0; }
+pre.mermaid { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; overflow-x: auto; margin: 4px 0 22px; text-align: center; }
+.formula.tex { white-space: normal; }
+
+.rail-foot { margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--line); font-size: 12px; color: var(--muted); line-height: 1.6; }
+.rail-foot a { color: var(--accent); }
+
+/* Reading column */
+main { min-width: 0; max-width: 760px; padding-block: 40px 96px; }
+.masthead { display: flex; flex-direction: column; gap: 10px; padding-bottom: 28px; margin-bottom: 8px; border-bottom: 2px solid var(--fg); }
+.eyebrow { font-size: 12px; letter-spacing: 0.14em; color: var(--muted); }
+h1 { font-family: var(--font-display); font-size: clamp(30px, 5vw, 44px); line-height: 1.25; margin: 0; text-wrap: balance; letter-spacing: 0.02em; }
+.meta { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13px; color: var(--muted); }
+.meta b { color: var(--fg); font-weight: 500; }
+.source-note { font-size: 13px; color: var(--muted); background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 10px 14px; }
+.source-note a { color: var(--accent); }
+
+h2 { font-family: var(--font-display); font-size: 26px; line-height: 1.35; margin: 64px 0 16px; text-wrap: balance; display: flex; gap: 14px; align-items: baseline; }
+h2 .num { font-family: var(--font-mono); font-size: 14px; font-weight: 500; color: var(--accent); letter-spacing: 0.04em; }
+h3 { font-size: 18px; margin: 36px 0 10px; text-wrap: balance; }
+p { margin: 0 0 16px; }
+a { color: var(--accent); text-underline-offset: 3px; }
+code { font-family: var(--font-mono); font-size: 0.86em; background: var(--accent-soft); padding: 1px 6px; border-radius: 4px; }
+strong { font-weight: 700; }
+ol { margin: 0 0 18px; padding-left: 1.6em; display: flex; flex-direction: column; gap: 6px; }
+
+.table-wrap { overflow-x: auto; margin: 4px 0 22px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 14px; line-height: 1.6; }
+th, td { text-align: left; vertical-align: top; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+th { font-size: 12px; letter-spacing: 0.08em; color: var(--muted); font-weight: 500; white-space: nowrap; background: var(--bg); }
+tbody tr:last-child td { border-bottom: 0; }
+td:first-child { font-weight: 500; white-space: nowrap; }
+
+.chip { display: inline-block; font-size: 12px; font-weight: 700; padding: 1px 9px; border-radius: 999px; white-space: nowrap; letter-spacing: 0.04em; }
+.chip-note { display: block; font-size: 12px; color: var(--muted); margin-top: 2px; white-space: nowrap; }
+.sev-low { background: var(--sev-low-bg); color: var(--sev-low-fg); }
+.sev-mid { background: var(--sev-mid-bg); color: var(--sev-mid-fg); }
+.sev-high { background: var(--sev-high-bg); color: var(--sev-high-fg); }
+.sev-crit { background: var(--sev-crit-bg); color: var(--sev-crit-fg); }
+
+.formula { font-family: var(--font-mono); font-size: 15px; background: var(--surface); border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: 0 8px 8px 0; padding: 12px 16px; margin: 4px 0 20px; overflow-x: auto; white-space: nowrap; }
+.formula sub { font-size: 0.72em; }
+.code-wrap { overflow-x: auto; margin: 4px 0 22px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
+pre { margin: 0; padding: 14px 16px; font-family: var(--font-mono); font-size: 13px; line-height: 1.6; }
+pre code { background: none; padding: 0; font-size: inherit; }
+
+.memo { margin: 8px 0 24px; background: var(--surface); border: 1px solid var(--line); border-radius: 4px; box-shadow: 0 1px 0 var(--line), 0 6px 0 -3px var(--surface), 0 7px 0 -3px var(--line); }
+.memo-head { display: flex; justify-content: space-between; padding: 10px 18px; border-bottom: 2px double var(--line); font-family: var(--font-display); font-size: 15px; letter-spacing: 0.2em; }
+.memo-head span:last-child { font-family: var(--font-body); font-size: 12px; letter-spacing: 0.1em; color: var(--sev-crit-fg); border: 1px solid currentColor; padding: 0 8px; border-radius: 3px; }
+.memo dl { margin: 0; padding: 14px 18px 16px; display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 8px 16px; font-size: 15px; }
+.memo dt { font-weight: 700; color: var(--muted); font-size: 13px; padding-top: 2px; }
+.memo dd { margin: 0; }
+
+.tasks { list-style: none; padding: 0; margin: 0 0 22px; display: flex; flex-direction: column; gap: 8px; }
+.tasks li { display: flex; gap: 10px; align-items: flex-start; }
+.box-check { flex: none; width: 16px; height: 16px; margin-top: 6px; border: 1.5px solid var(--muted); border-radius: 4px; position: relative; }
+.tasks li.done { color: var(--muted); }
+.tasks li.done .box-check { background: var(--accent); border-color: var(--accent); }
+.tasks li.done .box-check::after { content: ""; position: absolute; left: 4px; top: 1px; width: 5px; height: 9px; border: solid var(--surface); border-width: 0 2px 2px 0; transform: rotate(45deg); }
+
+.fig { margin: 8px 0 26px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px 12px 12px; }
+.fig-scroll { overflow-x: auto; }
+.diagram { display: block; width: 100%; min-width: 560px; height: auto; font-family: var(--font-body); }
+.fig figcaption { font-size: 13px; color: var(--muted); padding: 10px 6px 0; }
+.diagram .edges path { fill: none; stroke: var(--muted); stroke-width: 1.25; }
+.diagram .arrowhead { fill: var(--muted); }
+.diagram .box { fill: none; stroke: var(--muted); stroke-width: 1.25; }
+.diagram .box.main { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 2; }
+.diagram .t-name { fill: var(--fg); font-size: 14px; font-weight: 700; text-anchor: middle; }
+.diagram .t-line { fill: var(--muted); font-size: 12px; text-anchor: middle; }
+.diagram .t-edge, .diagram .t-tick, .diagram .t-date { fill: var(--muted); font-size: 12px; }
+.diagram .t-row { fill: var(--fg); font-size: 13px; }
+.diagram .grid { stroke: var(--line); stroke-width: 1; }
+.diagram .axis { stroke: var(--muted); stroke-width: 1.25; }
+.diagram .span { fill: var(--sev-low-bg); stroke: var(--muted); stroke-width: 1.25; }
+.diagram .mark { fill: var(--muted); }
+.diagram .mark.accent { fill: var(--accent); }
+
+/* Narrow screens: the rail collapses into a chapter menu above the text. */
+@media (max-width: 900px) {
+  .shell { grid-template-columns: minmax(0, 1fr); gap: 0; padding-inline: 16px; }
+  .rail { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; max-height: none; overflow: visible; padding-block: 10px; background: var(--bg); border-bottom: 1px solid var(--line); }
+  .rail-brand, .rail-foot { display: none; }
+  .toc summary { display: flex; justify-content: space-between; align-items: center; cursor: pointer; list-style: none; font-weight: 700; font-size: 14px; padding: 6px 4px; }
+  .toc summary::-webkit-details-marker { display: none; }
+  .toc summary .current { font-weight: 400; color: var(--muted); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 60%; }
+  .toc[open] > ol { max-height: 60vh; overflow-y: auto; padding-top: 6px; }
+  main { padding-block: 24px 72px; }
+  h2 { margin-top: 48px; font-size: 23px; }
+}
+</style>
+
+<div class="shell">
+  <aside class="rail">
+    <div class="rail-brand"><b>人體股份有限公司</b><span>遊戲設計文件</span></div>
+    <details class="toc" id="toc" open>
+      <summary><span>章節目錄</span><span class="current" id="toc-current"></span></summary>
+      <ol>{{TOC}}</ol>
+      <nav class="pages" aria-label="文件頁面"><div class="pages-title">文件頁面</div><ol>{{PAGES}}</ol></nav>
+    </details>
+    <div class="rail-foot">本頁為閱讀版，以程式庫中的 docs/design-doc.md 為準。</div>
+  </aside>
+
+  <main>
+    <header class="masthead">
+      <div class="eyebrow">{{EYEBROW}}</div>
+      <h1>{{H1}}</h1>
+      <div class="meta"><span>版本 <b>2026-10-12</b></span><span>作者 <b>Isaries</b></span><span>遊戲程式設計 115-1 期末專題</span></div>
+      <div class="source-note">{{NOTE}}</div>
+    </header>
+{{BODY}}
+  </main>
+</div>
+
+<script>
+(function () {
+  var links = Array.prototype.slice.call(document.querySelectorAll('.toc a[data-target]'));
+  var byId = {};
+  links.forEach(function (a) { byId[a.dataset.target] = a; });
+  var heads = links.map(function (a) { return document.getElementById(a.dataset.target); }).filter(Boolean);
+  var current = document.getElementById('toc-current');
+  var toc = document.getElementById('toc');
+  var narrow = window.matchMedia('(max-width: 900px)');
+
+  function syncOpen() { toc.open = !narrow.matches; }
+  syncOpen();
+  if (narrow.addEventListener) narrow.addEventListener('change', syncOpen);
+
+  function setActive(id) {
+    links.forEach(function (a) { a.classList.toggle('active', a.dataset.target === id); });
+    var a = byId[id];
+    if (!a) return;
+    current.textContent = a.textContent.replace(/^\d+/, '').trim();
+    if (!narrow.matches && a.scrollIntoView) {
+      var rail = document.querySelector('.rail');
+      var r = a.getBoundingClientRect(), rr = rail.getBoundingClientRect();
+      if (r.top < rr.top || r.bottom > rr.bottom) a.scrollIntoView({ block: 'nearest' });
+    }
+  }
+
+  function update() {
+    var y = window.innerHeight * 0.3, id = heads.length ? heads[0].id : null;
+    heads.forEach(function (h) { if (h.getBoundingClientRect().top <= y) id = h.id; });
+    setActive(id);
+  }
+  window.addEventListener('scroll', update, { passive: true });
+  window.addEventListener('resize', update);
+  update();
+
+  links.forEach(function (a) {
+    a.addEventListener('click', function () { if (narrow.matches) toc.open = false; });
+  });
+})();
+</script>

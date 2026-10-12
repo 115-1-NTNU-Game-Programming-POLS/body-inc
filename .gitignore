@@ -1,0 +1,14 @@
+node_modules/
+
+# Generated reading site (rebuild with: python docs/site/build.py)
+docs/site/dist/
+
+# Feasibility benchmark scratch output
+prototypes/feasibility/chrome-prof/
+prototypes/feasibility/dom.txt
+
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/

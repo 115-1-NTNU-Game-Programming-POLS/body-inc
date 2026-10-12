@@ -1,0 +1,56 @@
+﻿== Traced bankrupt run (strategy=caffeine, seed=1, accumulateCauses=false, timeBounded=false) ==
+graph nodes total: 44, ancestors of crisis: 11
+  #2 d1 h25 activity:stayed_up <- []
+  #7 d2 h25 activity:stayed_up <- []
+  #8 d2 h25 tag:sleep_debt <- [2,7]
+  #21 d4 h25 tag:brain_strike <- [8]
+  #23 d5 h9 event:deadline <- []
+  #29 d6 h9 event:deadline <- []
+  #34 d6 h25 tag:chronic_stress <- [23,29]
+  #35 d6 h25 event:immune_budget_cut <- [34]
+  #41 d7 h12 event:roommate_flu <- []
+  #42 d7 h12 tag:flu <- [41,34,8,35]
+  #43 d7 h12 crisis:er_visit <- [21,42]
+
+事故經過：第 1 天，宿主凌晨 1 點才就寢，夜班清潔隊無法完成修復；第 2 天，宿主凌晨 1 點才就寢，夜班清潔隊無法完成修復；第 2 天起，公司背負「睡眠債」；第 4 天，大腦部門宣布罷工；第 5 天，報告死線逼近；第 6 天，報告死線逼近；第 6 天，公司進入「長期高壓」狀態；免疫保全部預算遭緊急應變小組挪用；第 7 天，室友把流感病毒帶進宿舍；病毒長驅直入，宿主發燒；結果：第 7 天，宿主被送進急診，公司宣告倒閉。
+
+== Traced bankrupt run (strategy=caffeine, seed=1, accumulateCauses=true, timeBounded=false) ==
+graph nodes total: 44, ancestors of crisis: 14
+  #2 d1 h25 activity:stayed_up <- []
+  #7 d2 h25 activity:stayed_up <- []
+  #8 d2 h25 tag:sleep_debt <- [2,7,39]
+  #21 d4 h25 tag:brain_strike <- [8]
+  #23 d5 h9 event:deadline <- []
+  #29 d6 h9 event:deadline <- []
+  #30 d6 h20 activity:study_late <- []
+  #34 d6 h25 tag:chronic_stress <- [23,29,30]
+  #35 d6 h25 event:immune_budget_cut <- [34]
+  #41 d7 h12 event:roommate_flu <- []
+  #42 d7 h12 tag:flu <- [41,34,8,35]
+  #43 d7 h12 crisis:er_visit <- [21,42]
+  #36 d7 h15 event:coffee <- [8]
+  #39 d7 h25 effect:caffeine_insomnia <- [36]
+
+事故經過：第 1 天，宿主凌晨 1 點才就寢，夜班清潔隊無法完成修復；第 2 天，宿主凌晨 1 點才就寢，夜班清潔隊無法完成修復；第 2 天起，公司背負「睡眠債」；第 4 天，大腦部門宣布罷工；第 5 天，報告死線逼近；第 6 天，報告死線逼近；第 6 天，宿主熬夜讀書，大腦部門持續加班；第 6 天，公司進入「長期高壓」狀態；免疫保全部預算遭緊急應變小組挪用；第 7 天，室友把流感病毒帶進宿舍；病毒長驅直入，宿主發燒；結果：第 7 天，宿主被送進急診，公司宣告倒閉；第 7 天下午，董事長批准緊急咖啡採購；當晚咖啡因殘留 69 單位，宿主輾轉難眠。
+
+== Traced bankrupt run (strategy=caffeine, seed=1, accumulateCauses=true, timeBounded=true) ==
+graph nodes total: 44, ancestors of crisis: 11
+  #2 d1 h25 activity:stayed_up <- []
+  #7 d2 h25 activity:stayed_up <- []
+  #8 d2 h25 tag:sleep_debt <- [2,7,39]
+  #21 d4 h25 tag:brain_strike <- [8]
+  #23 d5 h9 event:deadline <- []
+  #29 d6 h9 event:deadline <- []
+  #34 d6 h25 tag:chronic_stress <- [23,29,30]
+  #35 d6 h25 event:immune_budget_cut <- [34]
+  #41 d7 h12 event:roommate_flu <- []
+  #42 d7 h12 tag:flu <- [41,34,8,35]
+  #43 d7 h12 crisis:er_visit <- [21,42]
+
+事故經過：第 1 天，宿主凌晨 1 點才就寢，夜班清潔隊無法完成修復；第 2 天，宿主凌晨 1 點才就寢，夜班清潔隊無法完成修復；第 2 天起，公司背負「睡眠債」；第 4 天，大腦部門宣布罷工；第 5 天，報告死線逼近；第 6 天，報告死線逼近；第 6 天，公司進入「長期高壓」狀態；免疫保全部預算遭緊急應變小組挪用；第 7 天，室友把流感病毒帶進宿舍；病毒長驅直入，宿主發燒；結果：第 7 天，宿主被送進急診，公司宣告倒閉。
+
+nightOwl  x500: {"bankrupt":414,"pass":0,"fail":86} reportsWithMissingTemplate=0
+caffeine  x500: {"bankrupt":414,"pass":0,"fail":86} reportsWithMissingTemplate=0
+healthy   x500: {"bankrupt":0,"pass":0,"fail":500} reportsWithMissingTemplate=0
+balanced  x500: {"bankrupt":196,"pass":0,"fail":304} reportsWithMissingTemplate=196
+batch time: 189.912 ms for 2000 runs

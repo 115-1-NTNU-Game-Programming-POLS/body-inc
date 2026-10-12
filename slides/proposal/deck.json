@@ -1,0 +1,19 @@
+{
+  "v": 4,
+  "createdOnFiles": {"v": 1, "at": "2026-10-12T08:00:00Z"},
+  "lists": "css",
+  "title": "人體股份有限公司：期末專題提案",
+  "order": ["cover", "hook", "pitch", "origin", "screen", "loop", "tokens", "chain", "mechanics", "sim", "report", "demo", "scope", "tech", "team", "timeline", "risks", "end", "thanks"],
+  "sections": {
+    "s1": {"description": "開場與發想過程", "start": "cover"},
+    "s2": {"description": "跟著小晨看懂玩法", "start": "screen"},
+    "s3": {"description": "原型展示", "start": "demo"},
+    "s4": {"description": "功能範圍、技術、分工與時程", "start": "scope"},
+    "s5": {"description": "技術障礙與解法、回饋", "start": "risks"}
+  },
+  "faces": {
+    "lxgw-wenkai-tc": {"family": "LXGW WenKai TC", "href": "https://fonts.googleapis.com/css2?family=LXGW+WenKai+TC:wght@400;700&display=swap"},
+    "noto-sans-tc": {"family": "Noto Sans TC", "href": "https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap"}
+  },
+  "designSystems": []
+}

@@ -1,0 +1,4 @@
+﻿BENCH particles=300 frames=200 avgMs=1.43 p95Ms=2.90 =&gt; est.maxFps=700
+BENCH particles=600 frames=200 avgMs=1.44 p95Ms=1.90 =&gt; est.maxFps=693
+BENCH particles=1500 frames=200 avgMs=1.83 p95Ms=2.50 =&gt; est.maxFps=547
+BENCH particles=3000 frames=200 avgMs=3.83 p95Ms=7.20 =&gt; est.maxFps=261

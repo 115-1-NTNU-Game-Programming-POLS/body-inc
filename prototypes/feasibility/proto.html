@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<title>Body Inc spike</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.4/p5.min.js"></script>
+<style>body{margin:0;background:#222;color:#ddd;font:12px monospace} pre{margin:4px}</style>
+</head>
+<body>
+<pre id="stats">loading</pre>
+<pre id="selftest"></pre>
+<script>
+// Spike: N blood particles along vessel paths + draggable tokens dropped onto department cubicles.
+const params = new URLSearchParams(location.search);
+const N = +(params.get('n') || 600);
+const W = 900, H = 600, HEART = { x: 450, y: 300 };
+const depts = [
+  { id: 'brain',   name: '大腦', x: 380, y: 30,  w: 140, h: 90, locked: 2 },
+  { id: 'stomach', name: '胃',   x: 600, y: 220, w: 130, h: 80 },
+  { id: 'gut',     name: '腸道菌', x: 560, y: 400, w: 140, h: 80 },
+  { id: 'liver',   name: '肝',   x: 170, y: 220, w: 130, h: 80 },
+  { id: 'immune',  name: '免疫', x: 170, y: 400, w: 130, h: 80 },
+  { id: 'muscle',  name: '肌肉', x: 380, y: 490, w: 140, h: 80 },
+];
+const POOL = { x: 760, y: 30, w: 120, h: 160 };
+let tokens = [], particles = [], dragging = null, drawMs = [], bubbleTimer = 0;
+
+function center(d) { return { x: d.x + d.w / 2, y: d.y + d.h / 2 }; }
+function inRect(px, py, r) { return px >= r.x && px <= r.x + r.w && py >= r.y && py <= r.y + r.h; }
+function countIn(id) { return tokens.filter(t => t.dept === id).length; }
+
+function layoutTokens() {
+  const byDept = {};
+  for (const t of tokens) {
+    const k = t.dept || 'pool';
+    const i = (byDept[k] = (byDept[k] || 0) + 1) - 1;
+    const r = t.dept ? depts.find(d => d.id === t.dept) : POOL;
+    t.x = r.x + 14 + (i % 6) * 20; t.y = r.y + r.h - 14 - Math.floor(i / 6) * 20;
+  }
+}
+// Pure interaction logic, shared by real mouse handlers and the self-test.
+function pickToken(px, py) {
+  for (let i = tokens.length - 1; i >= 0; i--) {
+    const t = tokens[i];
+    if (!t.locked && (px - t.x) ** 2 + (py - t.y) ** 2 < 100) return t;
+  }
+  return null;
+}
+function dropToken(t, px, py) {
+  const d = depts.find(d => inRect(px, py, d));
+  t.dept = d ? d.id : null;
+  layoutTokens();
+}
+
+function initState() {
+  tokens = [];
+  for (let i = 0; i < 12; i++) tokens.push({ id: i, dept: i < 2 ? 'brain' : null, locked: i < 2 });
+  layoutTokens();
+  particles = [];
+  for (let i = 0; i < N; i++) particles.push({ d: i % depts.length, t: Math.random(), sp: 0.002 + Math.random() * 0.003, kind: i % 3, slot: Math.floor(i / depts.length) % 6, off: (Math.random() - 0.5) * 16 });
+}
+
+function setup() {
+  createCanvas(W, H);
+  textFont('sans-serif');
+  initState();
+  if (params.get('wrap') !== 'word') textWrap(CHAR);   // default WORD wrap only breaks at spaces; CJK has none
+  if (params.get('selftest')) runSelfTest();
+  if (params.get('demo') || params.get('bench')) {
+    // Spread the 10 free tokens so every vessel shows particles.
+    const plan = ['stomach', 'stomach', 'stomach', 'gut', 'liver', 'liver', 'immune', 'muscle', 'muscle', 'muscle'];
+    tokens.filter(t => !t.locked).forEach((t, i) => { t.dept = plan[i]; });
+    layoutTokens();
+  }
+  if (params.get('bench')) { noLoop(); setTimeout(runBench, 0); }   // redraw() is a no-op until setup() returns
+}
+function runBench() {
+  {
+    // rAF barely ticks in headless virtual time, so time draw() synchronously instead.
+    const K = +params.get('bench');
+    for (let i = 0; i < 20; i++) redraw();
+    drawMs = [];
+    const t0 = performance.now();
+    for (let i = 0; i < K; i++) redraw();
+    const total = performance.now() - t0;
+    const sorted = drawMs.slice().sort((a, b) => a - b);
+    document.getElementById('stats').textContent =
+      `BENCH particles=${N} frames=${K} avgMs=${(total / K).toFixed(2)} p95Ms=${sorted[Math.floor(K * 0.95)].toFixed(2)} => est.maxFps=${(1000 / (total / K)).toFixed(0)}`;
+  }
+}
+
+function vesselPoint(d, t) {
+  // Out-and-back loop heart -> cubicle -> heart, bent through a control point.
+  const c = center(d), u = t < 0.5 ? t * 2 : 2 - t * 2;
+  const cx = (HEART.x + c.x) / 2 + (c.y - HEART.y) * 0.25 * (t < 0.5 ? 1 : -1);
+  const cy = (HEART.y + c.y) / 2 - (c.x - HEART.x) * 0.25 * (t < 0.5 ? 1 : -1);
+  return { x: bezierPoint(HEART.x, cx, cx, c.x, u), y: bezierPoint(HEART.y, cy, cy, c.y, u) };
+}
+
+function drawEmployee(d, load) {
+  const c = center(d);
+  push(); translate(c.x - 30, c.y - 8);
+  fill(255, 224, 189); stroke(60); circle(0, 0, 26);
+  fill(0); noStroke(); circle(-5, -2, 3); circle(5, -2, 3);
+  noFill(); stroke(0);
+  if (load > 0.8) { arc(0, 7, 10, 6, PI, TWO_PI); fill(80, 160, 255); noStroke(); ellipse(11, -8, 5, 8); }
+  else arc(0, 4, 10, 6, 0, PI);
+  pop();
+}
+
+function drawBubble(x, y, txt) {
+  push(); textSize(13);
+  const w = Math.min(180, textWidth(txt) + 16), lines = Math.ceil((textWidth(txt) + 16) / 180), h = 18 * lines + 8;
+  fill(255); stroke(40); rect(x, y - h, w, h, 8); triangle(x + 12, y, x + 24, y, x + 10, y + 10);
+  noStroke(); fill(20); text(txt, x + 8, y - h + 4, w - 12, h);
+  pop();
+}
+
+function draw() {
+  const t0 = performance.now();
+  background(250, 240, 235);
+  // Particle density along each vessel follows the department's token count.
+  noStroke();
+  const pal = [[220, 40, 40], [240, 190, 30], [50, 120, 230]];
+  for (const p of particles) {
+    const d = depts[p.d], share = countIn(d.id);
+    if (p.slot >= share) { p.t = (p.t + p.sp) % 1; continue; }
+    p.t = (p.t + p.sp * (0.5 + share * 0.25)) % 1;
+    const q = vesselPoint(d, p.t);
+    fill(...pal[p.kind]); circle(q.x + p.off * 0.3, q.y + p.off * 0.3, 4);
+  }
+  fill(200, 30, 60); circle(HEART.x, HEART.y, 46); fill(255); textAlign(CENTER, CENTER); textSize(12); text('心臟', HEART.x, HEART.y);
+  textAlign(LEFT, TOP);
+  for (const d of depts) {
+    const n = countIn(d.id), load = d.id === 'stomach' ? 0.9 : 0.4;
+    stroke(80); fill(load > 0.8 && frameCount % 40 < 20 ? color(255, 160, 160) : color(255));
+    rect(d.x, d.y, d.w, d.h, 6);
+    noStroke(); fill(30); textSize(13); text(`${d.name}  代幣 ${n}`, d.x + 6, d.y + 4);
+    drawEmployee(d, load);
+  }
+  stroke(120); fill(235); rect(POOL.x, POOL.y, POOL.w, POOL.h, 6); noStroke(); fill(30); text('未分配', POOL.x + 6, POOL.y + 4);
+  for (const t of tokens) {
+    stroke(t.locked ? 0 : 120); fill(t.locked ? 150 : 210, 30, 40);
+    circle(t === dragging ? mouseX : t.x, t === dragging ? mouseY : t.y, 16);
+  }
+  if ((bubbleTimer = (bubbleTimer + 1) % 300) < 180) drawBubble(600, 210, '宵夜又來？我只是個物流主管，不是垃圾車！');
+  // Marquee
+  fill(30); rect(0, H - 22, W, 22); fill(255); textSize(13);
+  text('公司跑馬燈：肝臟部門今日零抱怨（這不是好消息）', W - (frameCount * 2) % (W + 400), H - 18);
+
+  drawMs.push(performance.now() - t0);
+  if (frameCount % 30 === 0 && !params.get('bench')) {
+    const avg = drawMs.reduce((a, b) => a + b, 0) / drawMs.length;
+    const worst = Math.max(...drawMs);
+    document.getElementById('stats').textContent =
+      `particles=${N} frame=${frameCount} fps=${frameRate().toFixed(1)} drawAvgMs=${avg.toFixed(2)} drawMaxMs=${worst.toFixed(2)} tokens=` +
+      JSON.stringify(Object.fromEntries(depts.map(d => [d.id, countIn(d.id)])));
+    drawMs = [];
+  }
+}
+
+function mousePressed() { dragging = pickToken(mouseX, mouseY); }
+function mouseReleased() { if (dragging) { dropToken(dragging, mouseX, mouseY); dragging = null; } }
+
+function runSelfTest() {
+  const out = [];
+  const ok = (cond, msg) => out.push((cond ? 'PASS ' : 'FAIL ') + msg);
+  const lockedBrain = tokens[0];
+  ok(pickToken(lockedBrain.x, lockedBrain.y) === null, 'locked brain token cannot be picked');
+  const free = tokens.find(t => !t.dept);
+  const picked = pickToken(free.x, free.y);
+  ok(picked === free, 'free token picked from pool');
+  const st = center(depts[1]);
+  dropToken(picked, st.x, st.y);
+  ok(countIn('stomach') === 1, 'dropped onto stomach -> stomach has 1');
+  const again = pickToken(picked.x, picked.y);
+  dropToken(again, 5, 5);
+  ok(countIn('stomach') === 0 && !again.dept, 'dropped on empty area -> back to pool');
+  for (let i = 0; i < 4; i++) { const t = tokens.find(t => !t.dept); dropToken(t, center(depts[5]).x, center(depts[5]).y); }
+  ok(countIn('muscle') === 4 && countIn('brain') === 2, 'muscle 4, brain still 2 locked');
+  document.getElementById('selftest').textContent = out.join('\n');
+}
+</script>
+</body>
+</html>

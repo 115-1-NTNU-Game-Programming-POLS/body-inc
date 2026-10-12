@@ -1,0 +1,112 @@
+﻿
+=== healthy (recommended params) {}
+PASS E1 熬夜派前期領先、數日後被反超、總分低於平衡派 | day2-3 lead=true, overtaken on day 5, total 15.1 vs 77.4
+PASS E2 養生派健康但期末不及格 | passFin 0%, hosp 1%
+PASS E3 平衡派過關 | passMid 93%, passFin 94%, hosp 2%
+PASS E4 考前通宵派(熬到03:00)：考前進度較高但期中分數與總分都低於平衡派 | progress@d5 28.4 vs 22.7, mid 19.3 vs 23.2, total 50.0 vs 77.4
+PASS E4 考前通宵派(真通宵)：考前進度較高但期中分數與總分都低於平衡派 | progress@d5 31.7 vs 22.7, mid 13.4 vs 23.2, total 30.7 vs 77.4
+PASS E5 咖啡因依賴派惡性循環（杯數上升、睡眠債上升、總分低） | cups/day 1,1,1,2,3,3,3, debt@d5 5.0, total 7.1, hosp 100%
+PASS E6 早上咖啡派（同樣 23:00 睡）小幅優於平衡派 | total 86.5 vs 77.4 (11.8%)
+PASS E10 咖啡看時機：15:00 咖啡劣於早上咖啡與不喝 | 15:00 50.5 vs 08:00 86.5 vs none 77.4
+PASS E11 首次送急診落在中段、住院後改正作息可避免倒閉 | 熬夜派 first ER day 5.5, reformed bankrupt 7% (no reform 31%)
+PASS E7 固定作息派在某些學期設定下無法穩定過關 | overall passFin 72% vs 應變派 96%, worst card 排班表 10%
+PASS E8 時間硬缺口：每天運動+社交2h+睡8h 無法穩定過關 | passFin 49%
+PASS E9 少睡的策略都不比平衡派強 | best short-sleeper 考前通宵派(熬到03:00) 50.0 vs 平衡 77.4
+ranking by mid+fin: 應變派 90.1 > 早上咖啡派 86.5 > 平衡派 77.4 > 固定作息派 67.0
+=> 0 of 12 checks FAIL
+
+=== BROKEN: S coefficient 0.07 -> 0.01 {"sCoef":0.01}
+PASS E1 熬夜派前期領先、數日後被反超、總分低於平衡派 | day2-3 lead=true, overtaken on day 7, total 57.7 vs 86.7
+PASS E2 養生派健康但期末不及格 | passFin 0%, hosp 1%
+PASS E3 平衡派過關 | passMid 96%, passFin 99%, hosp 2%
+FAIL E4 考前通宵派(熬到03:00)：考前進度較高但期中分數與總分都低於平衡派 | progress@d5 29.4 vs 23.2, mid 29.8 vs 24.7, total 92.0 vs 86.7
+FAIL E4 考前通宵派(真通宵)：考前進度較高但期中分數與總分都低於平衡派 | progress@d5 33.0 vs 23.2, mid 32.2 vs 24.7, total 88.3 vs 86.7
+FAIL E5 咖啡因依賴派惡性循環（杯數上升、睡眠債上升、總分低） | cups/day 1,1,1,1,1,1,1,1,1, debt@d5 4.0, total 60.1, hosp 100%
+FAIL E6 早上咖啡派（同樣 23:00 睡）小幅優於平衡派 | total 101.4 vs 86.7 (17.0%)
+PASS E10 咖啡看時機：15:00 咖啡劣於早上咖啡與不喝 | 15:00 84.9 vs 08:00 101.4 vs none 86.7
+PASS E11 首次送急診落在中段、住院後改正作息可避免倒閉 | 熬夜派 first ER day 5.5, reformed bankrupt 7% (no reform 31%)
+FAIL E7 固定作息派在某些學期設定下無法穩定過關 | overall passFin 97% vs 應變派 99%, worst card 排班表 92%
+FAIL E8 時間硬缺口：每天運動+社交2h+睡8h 無法穩定過關 | passFin 97%
+FAIL E9 少睡的策略都不比平衡派強 | best short-sleeper 考前通宵派(熬到03:00) 92.0 vs 平衡 86.7
+ranking by mid+fin: 應變派 102.6 > 早上咖啡派 101.4 > 考前通宵派(熬到03:00) 92.0 > 考前通宵派(真通宵) 88.3
+=> 7 of 12 checks FAIL
+
+=== BROKEN: S coefficient 0.01 and no department load from debt {"sCoef":0.01,"debtDemand":0}
+FAIL E1 熬夜派前期領先、數日後被反超、總分低於平衡派 | day2-3 lead=true, overtaken on day never, total 72.4 vs 86.8
+PASS E2 養生派健康但期末不及格 | passFin 0%, hosp 1%
+PASS E3 平衡派過關 | passMid 96%, passFin 100%, hosp 2%
+FAIL E4 考前通宵派(熬到03:00)：考前進度較高但期中分數與總分都低於平衡派 | progress@d5 29.4 vs 23.2, mid 29.8 vs 24.7, total 92.9 vs 86.8
+FAIL E4 考前通宵派(真通宵)：考前進度較高但期中分數與總分都低於平衡派 | progress@d5 33.0 vs 23.2, mid 32.2 vs 24.7, total 94.5 vs 86.8
+FAIL E5 咖啡因依賴派惡性循環（杯數上升、睡眠債上升、總分低） | cups/day 1,1,1,1,1,1,1,1,1, debt@d5 4.0, total 76.7, hosp 25%
+FAIL E6 早上咖啡派（同樣 23:00 睡）小幅優於平衡派 | total 101.9 vs 86.8 (17.5%)
+PASS E10 咖啡看時機：15:00 咖啡劣於早上咖啡與不喝 | 15:00 85.8 vs 08:00 101.9 vs none 86.8
+PASS E11 首次送急診落在中段、住院後改正作息可避免倒閉 | 熬夜派 first ER day 5.6, reformed bankrupt 0% (no reform 1%)
+FAIL E7 固定作息派在某些學期設定下無法穩定過關 | overall passFin 98% vs 應變派 100%, worst card 排班表 96%
+FAIL E8 時間硬缺口：每天運動+社交2h+睡8h 無法穩定過關 | passFin 99%
+FAIL E9 少睡的策略都不比平衡派強 | best short-sleeper 考前通宵派(真通宵) 94.5 vs 平衡 86.8
+ranking by mid+fin: 應變派 103.0 > 早上咖啡派 101.9 > 考前通宵派(真通宵) 94.5 > 考前通宵派(熬到03:00) 92.9
+=> 8 of 12 checks FAIL
+
+=== BROKEN: no exam-day S discount {"examDiscount":false}
+PASS E1 熬夜派前期領先、數日後被反超、總分低於平衡派 | day2-3 lead=true, overtaken on day 5, total 45.1 vs 84.9
+PASS E2 養生派健康但期末不及格 | passFin 0%, hosp 1%
+PASS E3 平衡派過關 | passMid 95%, passFin 99%, hosp 2%
+FAIL E4 考前通宵派(熬到03:00)：考前進度較高但期中分數與總分都低於平衡派 | progress@d5 28.4 vs 22.7, mid 30.3 vs 24.3, total 88.5 vs 84.9
+FAIL E4 考前通宵派(真通宵)：考前進度較高但期中分數與總分都低於平衡派 | progress@d5 31.7 vs 22.7, mid 33.9 vs 24.3, total 84.7 vs 84.9
+PASS E5 咖啡因依賴派惡性循環（杯數上升、睡眠債上升、總分低） | cups/day 1,1,1,2,3,3,3, debt@d5 5.0, total 19.7, hosp 100%
+FAIL E6 早上咖啡派（同樣 23:00 睡）小幅優於平衡派 | total 98.4 vs 84.9 (15.9%)
+PASS E10 咖啡看時機：15:00 咖啡劣於早上咖啡與不喝 | 15:00 77.3 vs 08:00 98.4 vs none 84.9
+PASS E11 首次送急診落在中段、住院後改正作息可避免倒閉 | 熬夜派 first ER day 5.5, reformed bankrupt 7% (no reform 31%)
+FAIL E7 固定作息派在某些學期設定下無法穩定過關 | overall passFin 97% vs 應變派 99%, worst card 排班表 92%
+FAIL E8 時間硬缺口：每天運動+社交2h+睡8h 無法穩定過關 | passFin 97%
+FAIL E9 少睡的策略都不比平衡派強 | best short-sleeper 考前通宵派(熬到03:00) 88.5 vs 平衡 84.9
+ranking by mid+fin: 應變派 100.4 > 早上咖啡派 98.4 > 考前通宵派(熬到03:00) 88.5 > 平衡派 84.9
+=> 6 of 12 checks FAIL
+
+=== BROKEN: caffeine never hurts sleep (k=0) {"cafSleepK":0}
+PASS E1 熬夜派前期領先、數日後被反超、總分低於平衡派 | day2-3 lead=true, overtaken on day 5, total 15.1 vs 77.4
+PASS E2 養生派健康但期末不及格 | passFin 0%, hosp 1%
+PASS E3 平衡派過關 | passMid 93%, passFin 94%, hosp 2%
+PASS E4 考前通宵派(熬到03:00)：考前進度較高但期中分數與總分都低於平衡派 | progress@d5 28.4 vs 22.7, mid 19.3 vs 23.2, total 50.0 vs 77.4
+PASS E4 考前通宵派(真通宵)：考前進度較高但期中分數與總分都低於平衡派 | progress@d5 31.7 vs 22.7, mid 13.4 vs 23.2, total 30.7 vs 77.4
+PASS E5 咖啡因依賴派惡性循環（杯數上升、睡眠債上升、總分低） | cups/day 1,1,1,2,2,3,3,3, debt@d5 4.0, total 18.1, hosp 100%
+FAIL E6 早上咖啡派（同樣 23:00 睡）小幅優於平衡派 | total 90.3 vs 77.4 (16.7%)
+FAIL E10 咖啡看時機：15:00 咖啡劣於早上咖啡與不喝 | 15:00 90.0 vs 08:00 90.3 vs none 77.4
+PASS E11 首次送急診落在中段、住院後改正作息可避免倒閉 | 熬夜派 first ER day 5.5, reformed bankrupt 7% (no reform 31%)
+PASS E7 固定作息派在某些學期設定下無法穩定過關 | overall passFin 72% vs 應變派 97%, worst card 排班表 10%
+PASS E8 時間硬缺口：每天運動+社交2h+睡8h 無法穩定過關 | passFin 49%
+PASS E9 少睡的策略都不比平衡派強 | best short-sleeper 考前通宵派(熬到03:00) 50.0 vs 平衡 77.4
+ranking by mid+fin: 應變派 93.2 > 早上咖啡派 90.3 > 下午咖啡派(15:00) 90.0 > 平衡派 77.4
+=> 2 of 12 checks FAIL
+
+=== DOC-LITERAL: no caffeine dead zone {"cafDeadZone":0}
+PASS E1 熬夜派前期領先、數日後被反超、總分低於平衡派 | day2-3 lead=true, overtaken on day 5, total 15.1 vs 77.4
+PASS E2 養生派健康但期末不及格 | passFin 0%, hosp 1%
+PASS E3 平衡派過關 | passMid 93%, passFin 94%, hosp 2%
+PASS E4 考前通宵派(熬到03:00)：考前進度較高但期中分數與總分都低於平衡派 | progress@d5 28.4 vs 22.7, mid 19.3 vs 23.2, total 50.0 vs 77.4
+PASS E4 考前通宵派(真通宵)：考前進度較高但期中分數與總分都低於平衡派 | progress@d5 31.7 vs 22.7, mid 13.4 vs 23.2, total 30.7 vs 77.4
+PASS E5 咖啡因依賴派惡性循環（杯數上升、睡眠債上升、總分低） | cups/day 1,1,2,3,3,3, debt@d5 8.6, total 6.2, hosp 100%
+FAIL E6 早上咖啡派（同樣 23:00 睡）小幅優於平衡派 | total 75.6 vs 77.4 (-2.2%)
+PASS E10 咖啡看時機：15:00 咖啡劣於早上咖啡與不喝 | 15:00 50.5 vs 08:00 75.6 vs none 77.4
+PASS E11 首次送急診落在中段、住院後改正作息可避免倒閉 | 熬夜派 first ER day 5.5, reformed bankrupt 7% (no reform 31%)
+PASS E7 固定作息派在某些學期設定下無法穩定過關 | overall passFin 35% vs 應變派 89%, worst card 排班表 2%
+PASS E8 時間硬缺口：每天運動+社交2h+睡8h 無法穩定過關 | passFin 49%
+PASS E9 少睡的策略都不比平衡派強 | best short-sleeper 考前通宵派(熬到03:00) 50.0 vs 平衡 77.4
+ranking by mid+fin: 應變派 78.9 > 平衡派 77.4 > 早上咖啡派 75.6 > 全都要派(每天運動+社交2h) 52.9
+=> 1 of 12 checks FAIL
+
+=== DOC-LITERAL: strikes keep backlog + debt kept after hospital {"strikeDropsBacklog":false,"hospitalDebtMult":1}
+PASS E1 熬夜派前期領先、數日後被反超、總分低於平衡派 | day2-3 lead=true, overtaken on day 5, total 7.5 vs 76.7
+PASS E2 養生派健康但期末不及格 | passFin 0%, hosp 2%
+PASS E3 平衡派過關 | passMid 93%, passFin 92%, hosp 4%
+PASS E4 考前通宵派(熬到03:00)：考前進度較高但期中分數與總分都低於平衡派 | progress@d5 28.4 vs 22.7, mid 19.3 vs 23.2, total 49.5 vs 76.7
+PASS E4 考前通宵派(真通宵)：考前進度較高但期中分數與總分都低於平衡派 | progress@d5 31.7 vs 22.7, mid 13.4 vs 23.2, total 26.0 vs 76.7
+PASS E5 咖啡因依賴派惡性循環（杯數上升、睡眠債上升、總分低） | cups/day 1,1,1,2,3,3, debt@d5 5.0, total 6.4, hosp 100%
+PASS E6 早上咖啡派（同樣 23:00 睡）小幅優於平衡派 | total 85.8 vs 76.7 (11.8%)
+PASS E10 咖啡看時機：15:00 咖啡劣於早上咖啡與不喝 | 15:00 49.9 vs 08:00 85.8 vs none 76.7
+FAIL E11 首次送急診落在中段、住院後改正作息可避免倒閉 | 熬夜派 first ER day 5.5, reformed bankrupt 86% (no reform 100%)
+PASS E7 固定作息派在某些學期設定下無法穩定過關 | overall passFin 71% vs 應變派 95%, worst card 排班表 9%
+PASS E8 時間硬缺口：每天運動+社交2h+睡8h 無法穩定過關 | passFin 49%
+PASS E9 少睡的策略都不比平衡派強 | best short-sleeper 考前通宵派(熬到03:00) 49.5 vs 平衡 76.7
+ranking by mid+fin: 應變派 89.5 > 早上咖啡派 85.8 > 平衡派 76.7 > 固定作息派 66.7
+=> 1 of 12 checks FAIL
