@@ -1,5 +1,7 @@
 # 人體股份有限公司（Body Inc.）
 
+<img src="assets/brand/logo-lockup.png" alt="人體股份有限公司 Body Inc. 標誌" width="600">
+
 國立臺灣師範大學「遊戲程式設計」（115-1）第七組的期末專題。玩家扮演大二生小晨身體裡的營運長，調度各器官部門、處理突發事件，讓小晨撐到期末考而不被送進急診。遊戲以 p5.js 開發，以職場諷刺的笑點包裝衛教知識，目標玩家是大學生。
 
 目前處於企劃與原型階段，遊戲本體的程式碼尚未開始撰寫。期中提案用的展示版可以線上試玩：https://115-1-ntnu-game-programming-pols.github.io/body-inc-midterm-demo/ （原始碼在 [body-inc-midterm-demo](https://github.com/115-1-NTNU-Game-Programming-POLS/body-inc-midterm-demo)）。
@@ -15,6 +17,7 @@
 | `slides/proposal/` | 期中提案簡報（10/19）的原始檔 |
 | `prototypes/feasibility/` | 可行性審查時的原型：因果追溯、p5.js 粒子與代幣拖曳、中文斷行測試 |
 | `assets/organs/` | 器官員工插圖（江兆耘繪製），去背後縮為 512px；檔名為「器官-狀態」，狀態有 base、normal、warning、quit（肌肉目前缺 base） |
+| `assets/brand/` | 團隊標誌：方形圖示 `badge-1024.png` 與橫式標誌 `logo-lockup.png`（皆為透明背景）。底稿由 Google Gemini 生成，生成圖的仿中文印文已換成「人體公司」，並調整構圖與去背 |
 
 附錄與設計文件本文不一致時，以本文為準；已知差異列在設計文件的「附錄」一節。
 
@@ -43,7 +46,7 @@ python docs/site/build.py
 
 ## 提案簡報
 
-`slides/proposal/deck.json` 記錄投影片順序，`slides/proposal/slides/*.html` 每張一個檔案，講稿寫在各檔的 `<aside>`。簡報採 Claude Slides 的投影片格式（固定 1920×1080 畫布、全部使用行內樣式），修改後需重新發布才會更新線上版本。
+`slides/proposal/deck.json` 記錄投影片順序，`slides/proposal/slides/*.html` 每張一個檔案，講稿寫在各檔的 `<aside>`。簡報採 Claude Slides 的投影片格式（固定 1920×1080 畫布、全部使用行內樣式），修改後需重新發布才會更新線上版本。投影片中的圖片以 `/_blob/<id>` 參照線上簡報的素材庫，離開線上簡報不會顯示；封面的標誌即 `assets/brand/badge-1024.png` 縮為 640px 後上傳的版本。
 
 ## 組員
 
