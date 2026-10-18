@@ -3,7 +3,7 @@
   "createdOnFiles": {"v": 1, "at": "2026-10-12T08:00:00Z"},
   "lists": "css",
   "title": "人體股份有限公司：期末專題提案",
-  "order": ["cover", "hook", "pitch", "origin", "screen", "loop", "tokens", "chain", "mechanics", "sim", "report", "demo", "scope", "tech", "team", "timeline", "risks", "end", "thanks"],
+  "order": ["cover", "hook", "pitch", "origin", "screen", "loop", "tokens", "chain", "mechanics", "sim", "report", "demo", "scope", "tech", "arch", "team", "timeline", "risks", "end", "thanks"],
   "sections": {
     "s1": {"description": "開場與發想過程", "start": "cover"},
     "s2": {"description": "跟著小晨看懂玩法", "start": "screen"},
