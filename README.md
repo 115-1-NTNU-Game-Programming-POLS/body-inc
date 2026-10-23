@@ -17,7 +17,7 @@
 | `sim/` | 數值模擬程式（Node.js），用來驗證數值是否傳達正確的衛教訊息；代幣與危機模型屬舊設計，需依設計文件第 9.6 節重新模擬 |
 | `slides/proposal/` | 期中提案簡報（10/19）的原始檔 |
 | `prototypes/feasibility/` | 可行性審查時的原型：因果追溯、p5.js 粒子與代幣拖曳、中文斷行測試 |
-| `assets/organs/` | 器官員工插圖（江兆耘繪製），去背後縮為 512px；檔名為「器官-狀態」，狀態有 base、normal、warning、quit（肌肉目前缺 base） |
+| `assets/organs/` | 器官員工插圖（江兆耘以 AI 生成並挑選，見 `art-src/ai/log/organs-legacy.json`），去背後縮為 512px；檔名為「器官-狀態」，狀態有 base、normal、warning、quit（肌肉目前缺 base） |
 | `assets/brand/` | 團隊標誌：方形圖示 `badge-1024.png` 與橫式標誌 `logo-lockup.png`（皆為透明背景）。底稿由 Google Gemini 生成，生成圖的仿中文印文已換成「人體公司」，並調整構圖與去背 |
 
 附錄與設計文件本文不一致時，以本文為準；已知差異列在設計文件的「附錄」一節。

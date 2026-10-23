@@ -1,6 +1,6 @@
 # AI 提示詞範本
 
-本檔是美術指南第 12.3 節要求的固定基底句與版本紀錄，也記錄工具、服務條款與江兆耘的同意狀態。每個素材的完整提示詞由 `tools/art/gen_gemini_prompts.py` 依本檔的基底句組合，輸出到 `art-src/ai/prompts/`；改基底句要改那支腳本並在版本表加一列。依指南，範本變更需江兆耘同意；以下 v1-g 與 tile v1-g 是 PM 在第一批生圖時為配合工具所做的適配，同意狀態見文末。
+本檔是美術指南第 12.3 節要求的固定基底句與版本紀錄，也記錄工具、服務條款與江兆耘的同意狀態。每個素材的完整提示詞由 `tools/art/gen_gemini_prompts.py` 依本檔的基底句組合，輸出到 `art-src/ai/prompts/`；改基底句要改那支腳本並在版本表加一列。依指南，範本變更需江兆耘同意；以下 v1-g 與 tile v1-g 是 PM 在第一批生圖時為配合工具所做的適配，江兆耘已同意，見「江兆耘的同意」一節。
 
 ## 工具
 
@@ -20,12 +20,12 @@ OpenAI：ChatGPT 適用 OpenAI Terms of Use（台灣適用 [openai.com/policies/
 
 指南第 12.2 節規定，江兆耘的立繪上傳到 AI 服務前須取得他本人同意，基底句的變更也需要他同意。依憑證，以下 20 次 Gemini 生成上傳了參考圖，且提示詞指定的參考圖是 `assets/organs/` 中他的立繪：concept-consultant、concept-energy-seller、concept-flyer、illust-ch0-course-selection、illust-ch1-tle-night、illust-ch3-bbq、illust-midterm-exam、illust-prologue-sunglasses-hand、illust-xiaochen-base、portrait-adenosine-base、portrait-brain-sleepy、portrait-brain-surprised、portrait-caffeine-defeated、portrait-caffeine-pitch、portrait-exam-stern、portrait-liver-caught、portrait-liver-memo、portrait-liver-tired、portrait-toast-boss-defeated、portrait-toast-boss-pitch。憑證只記錄輸入張數，不記錄是哪一張圖，實際上傳的是否為他的立繪以操作者的記憶為準。
 
-截至 2026-10-23 尚無同意紀錄。需要向江兆耘取得的同意有兩項：一是事後追認以上 20 次上傳，二是同意 base v1-g 與 tile v1-g 兩個基底句版本。取得後在下表填入日期與方式（例如群組訊息截圖存放位置）。若他不同意，以上 20 張不得進遊戲，改為不附他立繪重新生成，或改用 `assets/brand/badge-1024.png` 當畫風參考。
+需要向江兆耘取得的同意有兩項：一是事後追認以上 20 次上傳，二是同意 base v1-g 與 tile v1-g 兩個基底句版本。江兆耘於 2026-10-23 兩項皆同意，由 PM 黃晨瑋轉達。他同時說明 `assets/organs/` 的器官立繪本身就是他以 AI 生成的，因此這批立繪在授權紀錄中改登為 `ai-generated`，生成紀錄見 `art-src/ai/log/organs-legacy.json`。
 
 | 項目 | 同意與否 | 日期 | 方式 |
 | --- | --- | --- | --- |
-| 追認 20 次上傳立繪 | 待回覆 | | |
-| base v1-g、tile v1-g | 待回覆 | | |
+| 追認 20 次上傳立繪 | 同意 | 2026-10-23 | 江兆耘告知 PM，PM 轉達 |
+| base v1-g、tile v1-g | 同意 | 2026-10-23 | 江兆耘告知 PM，PM 轉達 |
 
 ## 版本
 
@@ -33,8 +33,8 @@ OpenAI：ChatGPT 適用 OpenAI Terms of Use（台灣適用 [openai.com/policies/
 | --- | --- | --- | --- |
 | base v1 | 2026-10-23 | 指南第 12.3 節原文，透明背景 | 指南定稿 |
 | tile v1 | 2026-10-23 | 指南第 12.3 節原文 | 指南定稿 |
-| base v1-g | 2026-10-23 | 同 base v1，但 transparent background 改為 plain solid pure white background (#FFFFFF)，並加上「只生一張圖」的開頭句；去背改由 `tools/art/postprocess.py` 以白底連通區域處理 | 待江兆耘 |
-| tile v1-g | 2026-10-23 | 同 tile v1，加「只生一張圖」的開頭句與每個世界的地板色碼 | 待江兆耘 |
+| base v1-g | 2026-10-23 | 同 base v1，但 transparent background 改為 plain solid pure white background (#FFFFFF)，並加上「只生一張圖」的開頭句；去背改由 `tools/art/postprocess.py` 以白底連通區域處理 | 江兆耘 2026-10-23 |
+| tile v1-g | 2026-10-23 | 同 tile v1，加「只生一張圖」的開頭句與每個世界的地板色碼 | 江兆耘 2026-10-23 |
 
 ## base v1-g
 

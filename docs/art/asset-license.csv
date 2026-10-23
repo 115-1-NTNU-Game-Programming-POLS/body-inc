@@ -1,7 +1,10 @@
 path,title,author,source_url,license,license_url,ai_level,ai_tool,ai_log,modified,added_by,date,credit_text
 public/assets/manifest.json,素材清單合約,黃晨瑋,,team-original,,none,,,,黃晨瑋,2026-10-23,
 public/assets/portraits/portrait-adenosine-base.png,腺苷頭像,AI 底稿；黃晨瑋自動後製,,team-original,,ai-generated,Google Gemini 或 ChatGPT gpt-image（逐項見生成紀錄的 tool 與 c2pa 欄）,art-src/ai/log/{stem}.json,去背、移除裝飾星星、外框校正為墨藍、量化色票、縮至 300 像素,黃晨瑋,2026-10-23,
-public/assets/portraits/portrait-*-[bnqw]*.png,器官員工立繪（四種健康狀態）,江兆耘,,team-original,,none,,,依對話尺寸重新匯出，intestine 改名 gut,黃晨瑋,2026-10-23,江兆耘
+public/assets/portraits/portrait-*-base.png,器官員工立繪（四種健康狀態）,江兆耘（以 AI 生成並挑選）,,team-original,,ai-generated,不明（原檔無 C2PA 紀錄，待江兆耘補）,art-src/ai/log/organs-legacy.json,依對話尺寸重新匯出，intestine 改名 gut,黃晨瑋,2026-10-23,江兆耘
+public/assets/portraits/portrait-*-normal.png,器官員工立繪（四種健康狀態）,江兆耘（以 AI 生成並挑選）,,team-original,,ai-generated,不明（原檔無 C2PA 紀錄，待江兆耘補）,art-src/ai/log/organs-legacy.json,依對話尺寸重新匯出，intestine 改名 gut,黃晨瑋,2026-10-23,江兆耘
+public/assets/portraits/portrait-*-warning.png,器官員工立繪（四種健康狀態）,江兆耘（以 AI 生成並挑選）,,team-original,,ai-generated,不明（原檔無 C2PA 紀錄，待江兆耘補）,art-src/ai/log/organs-legacy.json,依對話尺寸重新匯出，intestine 改名 gut,黃晨瑋,2026-10-23,江兆耘
+public/assets/portraits/portrait-*-quit.png,器官員工立繪（四種健康狀態）,江兆耘（以 AI 生成並挑選）,,team-original,,ai-generated,不明（原檔無 C2PA 紀錄，待江兆耘補）,art-src/ai/log/organs-legacy.json,依對話尺寸重新匯出，intestine 改名 gut,黃晨瑋,2026-10-23,江兆耘
 public/assets/portraits/portrait-*.png,表情延伸與 Boss 頭像,AI 底稿；黃晨瑋自動後製,,team-original,,ai-generated,Google Gemini 或 ChatGPT gpt-image（逐項見生成紀錄的 tool 與 c2pa 欄）,art-src/ai/log/{stem}.json,去背、移除裝飾星星、外框校正為墨藍、量化色票、縮至 300 像素,黃晨瑋,2026-10-23,
 public/assets/illustrations/*.png,小晨與外層插圖,AI 底稿；黃晨瑋自動後製,,team-original,,ai-generated,Google Gemini 或 ChatGPT gpt-image（逐項見生成紀錄的 tool 與 c2pa 欄）,art-src/ai/log/{stem}.json,裁成 8:5 卡片比例、縮至 480 × 300,黃晨瑋,2026-10-23,
 public/assets/props/*.png,世界道具,AI 底稿；黃晨瑋自動後製,,team-original,,ai-generated,Google Gemini 或 ChatGPT gpt-image（逐項見生成紀錄的 tool 與 c2pa 欄）,art-src/ai/log/{stem}.json,去背、最近鄰縮至目標像素、量化到像素色票、1 像素墨藍描邊,黃晨瑋,2026-10-23,

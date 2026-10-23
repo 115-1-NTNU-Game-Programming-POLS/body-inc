@@ -147,6 +147,8 @@ def backfill_provenance():
     n = 0
     for log in sorted(LOG.glob("*.json")):
         d = json.loads(log.read_text(encoding="utf-8"))
+        if not (ROOT / d["selected"]).is_file():  # e.g. organs-legacy covers a glob of pre-batch files
+            continue
         prov = provenance(ROOT / d["selected"])
         d.update(prov)
         log.write_text(json.dumps(d, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
