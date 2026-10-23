@@ -1,0 +1,33 @@
+{
+ "id": "portrait-exam-stern",
+ "title": "期中考卷：嚴肅",
+ "batch": "gemini-batch-1",
+ "tool": "Gemini",
+ "model": null,
+ "date": "2026-10-23",
+ "template": "base v1-g",
+ "prompt": "Generate exactly ONE image. Not a sheet, not a grid, not multiple variations, no panels.\nStyle: flat-color sticker illustration in the same style as the attached reference image: thick dark navy outline (#0C2D5E) about 1% of image width, soft pastel pink, coral and cream palette, one-step same-hue shading, no gradients, no texture, simple face: solid navy round eyes with one white highlight, oval blush, line mouth, cute office-worker mascot.\nComposition: centered, full body visible, plain solid pure white background (#FFFFFF), no floor, no cast shadow, no scenery, wide empty margin around the subject. Aspect ratio 1:1.\nSubject: a mascot that is a single sheet of exam paper standing upright, cream white (#FFFDF7) with faint pale blue ruled lines and an empty name box at the top, thin round navy wire-frame glasses, tiny stick arms, no legs, no necktie, no badge, the face sits in the middle of the paper. Expression: stern examiner, eyebrows drawn as two short straight slanted lines, mouth a flat straight line, glasses catching a tiny white glint, arms crossed.\nAvoid: text, letters, numbers, Chinese characters, fake writing, logos, watermark, signature, realistic anatomy, blood, veins, slime, glossy wet highlights, 3D render, photo, red cross symbol, multiple panels, character sheet, turnaround, blush, grades, check marks, crosses, red ink.",
+ "references": "assets/organs/brain-normal.png（只當畫風參考）",
+ "candidates": null,
+ "selected": "art-src/ai/raw/portraits/portrait-exam-stern.jpg",
+ "selected_sha256": "ebf6b62828118c8543ebcb7b67a206efb442de964e6bc0aeaca8bb83ec47ec39",
+ "source_name": "portrait-exam-stern.jpg",
+ "post": {
+  "select": true,
+  "outline": "auto",
+  "quantize": "auto",
+  "remove-text": "checked",
+  "pixel-cleanup": "n/a",
+  "style-board-check": "sheet"
+ },
+ "hours": null,
+ "status": "auto-processed",
+ "processed": {
+  "outputs": [
+   "art-src/ai/processed/portraits/portrait-exam-stern-1024.png",
+   "public/assets/portraits/portrait-exam-stern.png"
+  ],
+  "sparkles_removed": 3,
+  "png_colors": 256
+ }
+}

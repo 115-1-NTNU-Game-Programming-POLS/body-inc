@@ -1,0 +1,47 @@
+{
+ "frames": {
+  "0": {
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 32,
+    "h": 32
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 32,
+    "h": 32
+   },
+   "sourceSize": {
+    "w": 32,
+    "h": 32
+   },
+   "duration": 100
+  }
+ },
+ "meta": {
+  "app": "body-inc tools/art/make_placeholders.py",
+  "version": "placeholder",
+  "image": "glucose-box.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 34,
+   "h": 34
+  },
+  "scale": "1",
+  "frameTags": [
+   {
+    "name": "glucose-box.idle_down",
+    "from": 0,
+    "to": 0,
+    "direction": "forward",
+    "color": "#000000ff"
+   }
+  ],
+  "layers": [],
+  "slices": []
+ }
+}

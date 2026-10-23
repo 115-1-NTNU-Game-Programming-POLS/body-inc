@@ -1,0 +1,36 @@
+{
+ "id": "prop-welfare-box-open",
+ "title": "福利紙箱（開，空）",
+ "batch": "gemini-batch-1",
+ "tool": "Gemini",
+ "model": null,
+ "date": "2026-10-23",
+ "template": "base v1-g",
+ "prompt": "Generate exactly ONE image. Not a sheet, not a grid, not multiple variations, no panels.\nStyle: flat simple video-game prop illustration, 3/4 top-down view (camera looking down about 45 degrees, front face and top face both visible), big simple shapes with no small details, thick dark navy outline (#0C2D5E), flat fills, at most 6 colors, light from the top-left so the shaded side is bottom-right, shading hue shifted toward navy, no gradients, no texture. It must still read clearly after being downscaled to 32x32 pixel art.\nComposition: the single object centered, plain solid pure white background (#FFFFFF), no floor, no cast shadow, no other objects, wide empty margin. Aspect ratio 1:1.\nSubject: exactly the same cardboard box as the attached image, now opened and empty, flaps folded out, the yellow ribbon lying loose beside it.\nAvoid: text, letters, numbers, Chinese characters, fake writing, logos, watermark, diagonal stripes, hazard stripes, lightning bolt shapes, teal or cyan accents, saturated red, glossy highlights, 3D render, photo, perspective distortion, multiple objects, sheet.",
+ "references": "選定的 prop-welfare-box-closed 成品",
+ "candidates": null,
+ "selected": "art-src/ai/raw/props/prop-welfare-box-open.jpg",
+ "selected_sha256": "864c42eddcf31b682813fd14c661ebb4985e4b53c66968eddbfaee827e3856c8",
+ "source_name": "prop-welfare-box-open.jpg",
+ "post": {
+  "select": false,
+  "outline": false,
+  "quantize": false,
+  "remove-text": false,
+  "pixel-cleanup": false,
+  "style-board-check": false
+ },
+ "hours": null,
+ "status": "not-adopted",
+ "reason": "box skeleton in art-src/drafts/props replaces it (7.4)",
+ "processed": {
+  "outputs": [
+   "art-src/ai/processed/props/prop-welfare-box-open.png"
+  ],
+  "size": [
+   32,
+   32
+  ],
+  "colors": 16
+ }
+}

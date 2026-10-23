@@ -1,0 +1,65 @@
+GIMP Palette
+Name: body-inc
+Columns: 8
+#
+ 12  45  94	ink-navy
+ 31  39  51	stage
+ 42  45  52	text-ink
+ 74  79  87	text-2
+ 95 100 108	note
+154 149 138	disabled-frame
+ 59  63  74	charcoal
+ 44  47  56	charcoal-dark
+138 143 152	stone
+201 204 209	light-grey
+251 248 239	paper
+255 253 247	highlight
+226 233 241	notebook-line
+232 160 155	notebook-margin
+200  55  45	warn-red
+161  42  33	warn-red-dark
+155  35  53	wine
+110  26  39	wine-dark
+176  74 122	acetaldehyde
+238 122 130	heart
+255 200  61	badge-gold
+252 197  81	staff-yellow
+224 154  46	staff-yellow-dark
+255 232 115	hilite-yellow
+255 241 168	sticky-yellow
+ 43  76 140	blue-ink
+ 47 156 149	operator-teal
+ 31 111 106	operator-teal-dark
+234 228 255	drowsy
+106  95 184	drowsy-edge
+232 119  46	orange-lamp
+242 194  48	yellow-lamp
+ 47 107  58	pass-green
+ 63 154  91	aid-green
+255 253 247	shirt
+217 222 232	shirt-dark
+ 46  58  89	pants
+ 30  39  64	pants-dark
+253 227 207	skin
+242 191 166	skin-dark
+ 74  52  40	hair
+ 47  32  25	hair-dark
+ 59  63 140	night-crew
+ 42  45 102	night-crew-dark
+252 182 192	brain
+239 143 162	brain-dark
+239 153 152	liver
+215 122 124	liver-dark
+246 208 207	stomach
+239 167 162	stomach-dark
+254 239 227	immune
+242 201 184	immune-dark
+247 183 166	gut
+232 150 138	gut-dark
+238 154 140	muscle
+217 120 110	muscle-dark
+244 235 221	cup
+139  90  60	cup-sleeve
+107  74  58	cup-lid
+210 168 110	cardboard
+127 163 106	grass

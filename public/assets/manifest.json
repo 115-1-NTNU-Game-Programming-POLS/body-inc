@@ -1,0 +1,64 @@
+{
+  "version": 1,
+  "note": "Draft by PM, art-direction 13.5. Categories beyond the guide's five: player, partner, npc. Tag names get the key prefix at export (operator.walk_down).",
+  "entries": [
+    {"key": "operator", "abbr": "OP", "category": "player", "frame": [32, 48], "anchor": [16, 46], "owner": "jiang", "week": "11/2",
+     "tags": [
+       {"name": "walk_down", "frames": 4}, {"name": "walk_side", "frames": 4}, {"name": "walk_up", "frames": 4},
+       {"name": "attack_down", "frames": 2}, {"name": "attack_side", "frames": 2}, {"name": "attack_up", "frames": 2},
+       {"name": "hurt_down", "frames": 1}, {"name": "hurt_side", "frames": 1}, {"name": "hurt_up", "frames": 1},
+       {"name": "stamp_down", "frames": 2}]},
+    {"key": "suit-base", "abbr": "SUIT", "category": "defeatable", "frame": [32, 48], "anchor": [16, 46], "owner": "jiang", "week": "11/2",
+     "tags": [
+       {"name": "walk_down", "frames": 3}, {"name": "walk_side", "frames": 3}, {"name": "walk_up", "frames": 1},
+       {"name": "windup_down", "frames": 1}, {"name": "windup_side", "frames": 1},
+       {"name": "attack_down", "frames": 1}, {"name": "attack_side", "frames": 1},
+       {"name": "hurt_down", "frames": 1}, {"name": "hurt_side", "frames": 1}]},
+    {"key": "energy-seller", "abbr": "ENRG", "category": "defeatable", "frame": [32, 48], "anchor": [16, 46], "owner": "jiang", "week": "11/9",
+     "tags": [
+       {"name": "walk_down", "frames": 3}, {"name": "walk_side", "frames": 3}, {"name": "walk_up", "frames": 1},
+       {"name": "windup_down", "frames": 1}, {"name": "windup_side", "frames": 1},
+       {"name": "attack_down", "frames": 1}, {"name": "attack_side", "frames": 1},
+       {"name": "hurt_down", "frames": 1}, {"name": "hurt_side", "frames": 1}]},
+    {"key": "cheers", "abbr": "CHRS", "category": "defeatable", "frame": [32, 48], "anchor": [16, 46], "owner": "jiang", "week": "11/16",
+     "tags": [
+       {"name": "walk_down", "frames": 3}, {"name": "walk_side", "frames": 3}, {"name": "walk_up", "frames": 1},
+       {"name": "windup_down", "frames": 1}, {"name": "windup_side", "frames": 1},
+       {"name": "attack_down", "frames": 1}, {"name": "attack_side", "frames": 1},
+       {"name": "hurt_down", "frames": 1}, {"name": "hurt_side", "frames": 1}]},
+    {"key": "consultant", "abbr": "CONS", "category": "defeatable", "frame": [32, 48], "anchor": [16, 46], "owner": "jiang", "week": "11/2",
+     "tags": [{"name": "walk_down", "frames": 3}, {"name": "walk_side", "frames": 3}, {"name": "walk_up", "frames": 1}]},
+    {"key": "flyer", "abbr": "FLYR", "category": "defeatable", "frame": [32, 32], "anchor": [16, 30], "owner": "jiang", "week": "11/2",
+     "tags": [{"name": "walk_down", "frames": 2}, {"name": "attack_down", "frames": 1}, {"name": "hurt_down", "frames": 1}]},
+    {"key": "phone-sprite", "abbr": "PHON", "category": "npc", "frame": [32, 32], "anchor": [16, 30], "owner": "program", "week": "11/9",
+     "tags": [{"name": "face_down", "frames": 2}]},
+    {"key": "adenosine", "abbr": "ADEN", "category": "reforming", "frame": [32, 32], "anchor": [16, 30], "owner": "jiang", "week": "11/9",
+     "tags": [{"name": "float_down", "frames": 2}]},
+    {"key": "adenosine-mini", "abbr": "A", "category": "reforming", "frame": [10, 10], "anchor": [5, 9], "owner": "jiang", "week": "11/9",
+     "tags": [{"name": "stick_down", "frames": 1}]},
+    {"key": "caffeine", "abbr": "CAF", "category": "defeatable", "frame": [64, 64], "anchor": [32, 62], "owner": "jiang", "week": "11/9",
+     "tags": [
+       {"name": "idle_down", "frames": 2}, {"name": "idle_side", "frames": 1},
+       {"name": "throw_down", "frames": 1}, {"name": "throw_side", "frames": 1},
+       {"name": "drink_down", "frames": 1}, {"name": "propose_down", "frames": 1},
+       {"name": "review_down", "frames": 2}, {"name": "surprised_down", "frames": 1}]},
+    {"key": "toast-boss", "abbr": "TOST", "category": "defeatable", "frame": [64, 64], "anchor": [32, 62], "owner": "jiang", "week": "11/16",
+     "tags": [
+       {"name": "idle_down", "frames": 2}, {"name": "wave_down", "frames": 1}, {"name": "breath_down", "frames": 1},
+       {"name": "propose_down", "frames": 1}, {"name": "review_down", "frames": 1}, {"name": "surprised_down", "frames": 1}]},
+    {"key": "exam", "abbr": "EXAM", "category": "npc", "frame": [24, 16], "anchor": [12, 15], "owner": "jiang", "week": "11/16",
+     "tags": [
+       {"name": "stern_down", "frames": 1}, {"name": "quiz_down", "frames": 1}, {"name": "surprised_down", "frames": 1},
+       {"name": "satisfied_down", "frames": 1}, {"name": "frown_down", "frames": 1}, {"name": "closed_down", "frames": 1}]},
+    {"key": "brain", "abbr": "BRN", "category": "partner", "skin": "brain", "frame": [48, 48], "anchor": [24, 46], "owner": "jiang", "week": "11/9",
+     "tags": [{"name": "idle_down", "frames": 1}, {"name": "hop_side", "frames": 1}, {"name": "skill_down", "frames": 1}]},
+    {"key": "liver", "abbr": "LVR", "category": "partner", "skin": "liver", "frame": [48, 48], "anchor": [24, 46], "owner": "jiang", "week": "11/16",
+     "tags": [{"name": "idle_down", "frames": 1}, {"name": "hop_side", "frames": 1}, {"name": "skill_down", "frames": 1}]},
+    {"key": "night-crew", "abbr": "NGHT", "category": "npc", "frame": [32, 48], "anchor": [16, 46], "owner": "jiang", "week": "11/9",
+     "tags": [{"name": "walk_side", "frames": 2}]},
+    {"key": "alcohol-barrel", "abbr": "ALC", "category": "immune", "frame": [32, 32], "anchor": [16, 30], "owner": "member", "week": "11/16",
+     "tags": [{"name": "idle_down", "frames": 1}]},
+    {"key": "glucose-box", "abbr": "GLU", "category": "prop", "frame": [32, 32], "anchor": [16, 30], "owner": "member", "week": "11/2",
+     "tags": [{"name": "idle_down", "frames": 1}]}
+  ]
+}

@@ -1,0 +1,36 @@
+{
+ "id": "prop-neuron-chandelier",
+ "title": "大腦頂樓神經元吊燈（人體地標）",
+ "batch": "gemini-batch-1",
+ "tool": "Gemini",
+ "model": null,
+ "date": "2026-10-23",
+ "template": "base v1-g",
+ "prompt": "Generate exactly ONE image. Not a sheet, not a grid, not multiple variations, no panels.\nStyle: flat simple video-game prop illustration, 3/4 top-down view (camera looking down about 45 degrees, front face and top face both visible), big simple shapes with no small details, thick dark navy outline (#0C2D5E), flat fills, at most 6 colors, light from the top-left so the shaded side is bottom-right, shading hue shifted toward navy, no gradients, no texture. It must still read clearly after being downscaled to 64x64 pixel art.\nComposition: the single object centered, plain solid pure white background (#FFFFFF), no floor, no cast shadow, no other objects, wide empty margin. Aspect ratio 1:1.\nSubject: a modern pendant chandelier shaped like a stylized neuron: a round central lamp with several branching arms ending in small glowing bulbs, in soft pink (#F08A8F) and warm white.\nAvoid: text, letters, numbers, Chinese characters, fake writing, logos, watermark, diagonal stripes, hazard stripes, lightning bolt shapes, teal or cyan accents, saturated red, glossy highlights, 3D render, photo, perspective distortion, multiple objects, sheet, realistic neuron, veins, wet.",
+ "references": null,
+ "candidates": null,
+ "selected": "art-src/ai/raw/props/prop-neuron-chandelier.jpg",
+ "selected_sha256": "4578998c2b4e5084ba6869b60977e8368706d5684be71764eccd17c6f6130226",
+ "source_name": "prop-neuron-chandelier.jpg",
+ "post": {
+  "select": true,
+  "outline": "auto",
+  "quantize": "auto",
+  "remove-text": "checked",
+  "pixel-cleanup": "auto",
+  "style-board-check": "sheet"
+ },
+ "hours": null,
+ "status": "auto-processed",
+ "processed": {
+  "outputs": [
+   "art-src/ai/processed/props/prop-neuron-chandelier.png",
+   "public/assets/props/prop-neuron-chandelier.png"
+  ],
+  "size": [
+   64,
+   64
+  ],
+  "colors": 15
+ }
+}

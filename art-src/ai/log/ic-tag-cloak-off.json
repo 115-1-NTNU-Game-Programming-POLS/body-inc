@@ -1,0 +1,35 @@
+{
+ "id": "ic-tag-cloak-off",
+ "title": "咖啡斗篷：失效（睜眼）",
+ "batch": "gemini-batch-1",
+ "tool": "Gemini",
+ "model": null,
+ "date": "2026-10-23",
+ "template": "base v1-g",
+ "prompt": "Generate exactly ONE image. Not a sheet, not a grid, not multiple variations, no panels.\nStyle: single flat game UI icon, thick dark navy outline (#0C2D5E), flat fills, at most 4 colors, bold simple silhouette that is still readable at 32x32 pixels, slightly hand-drawn ink feel, small solid navy drop shadow offset to the bottom-right.\nComposition: the single symbol centered, plain solid pure white background (#FFFFFF), no frame, no circle badge behind it, wide empty margin. Aspect ratio 1:1.\nSubject: exactly the same cloak as the attached image, but the eye is wide open and the cloak looks loose.\nAvoid: text, letters, numbers, Chinese characters, logos, watermark, saturated red, teal or cyan, lightning bolt shapes, red cross symbol, gradients, 3D, glossy, photo, multiple icons, icon set.",
+ "references": "選定的 ic-tag-cloak-on 成品",
+ "candidates": null,
+ "selected": "art-src/ai/raw/icons/ic-tag-cloak-off.png",
+ "selected_sha256": "a660b2aa25f7a511941af6afa576a48c46fe0cdfdcf9f31de82acff3ce4274c8",
+ "source_name": "ic-tag-cloak-off.png",
+ "post": {
+  "select": true,
+  "outline": "auto",
+  "quantize": "auto",
+  "remove-text": "checked",
+  "pixel-cleanup": "n/a",
+  "style-board-check": "sheet"
+ },
+ "hours": null,
+ "status": "auto-processed",
+ "processed": {
+  "outputs": [
+   "art-src/ai/processed/icons/ic-tag-cloak-off.png",
+   "public/assets/ui/icons/ic-tag-cloak-off.png"
+  ],
+  "size": [
+   64,
+   64
+  ]
+ }
+}

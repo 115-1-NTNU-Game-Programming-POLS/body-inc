@@ -1,0 +1,36 @@
+{
+ "id": "prop-welfare-box-closed",
+ "title": "福利紙箱（關）",
+ "batch": "gemini-batch-1",
+ "tool": "Gemini",
+ "model": null,
+ "date": "2026-10-23",
+ "template": "base v1-g",
+ "prompt": "Generate exactly ONE image. Not a sheet, not a grid, not multiple variations, no panels.\nStyle: flat simple video-game prop illustration, 3/4 top-down view (camera looking down about 45 degrees, front face and top face both visible), big simple shapes with no small details, thick dark navy outline (#0C2D5E), flat fills, at most 6 colors, light from the top-left so the shaded side is bottom-right, shading hue shifted toward navy, no gradients, no texture. It must still read clearly after being downscaled to 32x32 pixel art.\nComposition: the single object centered, plain solid pure white background (#FFFFFF), no floor, no cast shadow, no other objects, wide empty margin. Aspect ratio 1:1.\nSubject: a cardboard box tied with a soft yellow ribbon bow, like a company gift, closed.\nAvoid: text, letters, numbers, Chinese characters, fake writing, logos, watermark, diagonal stripes, hazard stripes, lightning bolt shapes, teal or cyan accents, saturated red, glossy highlights, 3D render, photo, perspective distortion, multiple objects, sheet.",
+ "references": null,
+ "candidates": null,
+ "selected": "art-src/ai/raw/props/prop-welfare-box-closed.jpg",
+ "selected_sha256": "ff4d11defc6017ee3bee150411926e7c7f9d8b8f01a1dfdb47044bab1b4227a4",
+ "source_name": "prop-welfare-box-closed.jpg",
+ "post": {
+  "select": false,
+  "outline": false,
+  "quantize": false,
+  "remove-text": false,
+  "pixel-cleanup": false,
+  "style-board-check": false
+ },
+ "hours": null,
+ "status": "not-adopted",
+ "reason": "box skeleton in art-src/drafts/props replaces it (7.4)",
+ "processed": {
+  "outputs": [
+   "art-src/ai/processed/props/prop-welfare-box-closed.png"
+  ],
+  "size": [
+   32,
+   32
+  ],
+  "colors": 13
+ }
+}

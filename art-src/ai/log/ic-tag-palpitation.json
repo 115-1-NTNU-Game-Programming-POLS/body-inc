@@ -1,0 +1,35 @@
+{
+ "id": "ic-tag-palpitation",
+ "title": "心悸",
+ "batch": "gemini-batch-1",
+ "tool": "Gemini",
+ "model": null,
+ "date": "2026-10-23",
+ "template": "base v1-g",
+ "prompt": "Generate exactly ONE image. Not a sheet, not a grid, not multiple variations, no panels.\nStyle: single flat game UI icon, thick dark navy outline (#0C2D5E), flat fills, at most 4 colors, bold simple silhouette that is still readable at 32x32 pixels, slightly hand-drawn ink feel, small solid navy drop shadow offset to the bottom-right.\nComposition: the single symbol centered, plain solid pure white background (#FFFFFF), no frame, no circle badge behind it, wide empty margin. Aspect ratio 1:1.\nSubject: a coral pink heart (#EE7A82) with two small vibration lines on each side.\nAvoid: text, letters, numbers, Chinese characters, logos, watermark, saturated red, teal or cyan, lightning bolt shapes, red cross symbol, gradients, 3D, glossy, photo, multiple icons, icon set.",
+ "references": null,
+ "candidates": null,
+ "selected": "art-src/ai/raw/icons/ic-tag-palpitation.png",
+ "selected_sha256": "d8d81888c0ef317ae5d348333e50c4ac1c1a1ff8bdc053bee498cc6470221aa4",
+ "source_name": "ic-tag-palpitation.png",
+ "post": {
+  "select": true,
+  "outline": "auto",
+  "quantize": "auto",
+  "remove-text": "checked",
+  "pixel-cleanup": "n/a",
+  "style-board-check": "sheet"
+ },
+ "hours": null,
+ "status": "auto-processed",
+ "processed": {
+  "outputs": [
+   "art-src/ai/processed/icons/ic-tag-palpitation.png",
+   "public/assets/ui/icons/ic-tag-palpitation.png"
+  ],
+  "size": [
+   64,
+   64
+  ]
+ }
+}

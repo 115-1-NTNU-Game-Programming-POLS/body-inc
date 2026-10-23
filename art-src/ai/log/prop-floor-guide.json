@@ -1,0 +1,36 @@
+{
+ "id": "prop-floor-guide",
+ "title": "大廳樓層導覽牌 1 × 2（人體地標）",
+ "batch": "gemini-batch-1",
+ "tool": "Gemini",
+ "model": null,
+ "date": "2026-10-23",
+ "template": "base v1-g",
+ "prompt": "Generate exactly ONE image. Not a sheet, not a grid, not multiple variations, no panels.\nStyle: flat simple video-game prop illustration, 3/4 top-down view (camera looking down about 45 degrees, front face and top face both visible), big simple shapes with no small details, thick dark navy outline (#0C2D5E), flat fills, at most 6 colors, light from the top-left so the shaded side is bottom-right, shading hue shifted toward navy, no gradients, no texture. It must still read clearly after being downscaled to 32x64 pixel art.\nComposition: the single object centered, plain solid pure white background (#FFFFFF), no floor, no cast shadow, no other objects, wide empty margin. Aspect ratio 9:16.\nSubject: a tall freestanding department-store floor guide sign, on it a very simple cute cross-section silhouette of a human body in cream with five small colored dots inside it (pink, coral, light peach, cream, salmon), navy frame.\nAvoid: text, letters, numbers, Chinese characters, fake writing, logos, watermark, diagonal stripes, hazard stripes, lightning bolt shapes, teal or cyan accents, saturated red, glossy highlights, 3D render, photo, perspective distortion, multiple objects, sheet, realistic anatomy, organs drawn in detail.",
+ "references": null,
+ "candidates": null,
+ "selected": "art-src/ai/raw/props/prop-floor-guide.jpg",
+ "selected_sha256": "0b86ec102a6ccc267a1e89a46c6835cff44f7d8b6681ea1b7d8ed80eaba20387",
+ "source_name": "prop-floor-guide.jpg",
+ "post": {
+  "select": true,
+  "outline": "auto",
+  "quantize": "auto",
+  "remove-text": "checked",
+  "pixel-cleanup": "auto",
+  "style-board-check": "sheet"
+ },
+ "hours": null,
+ "status": "auto-processed",
+ "processed": {
+  "outputs": [
+   "art-src/ai/processed/props/prop-floor-guide.png",
+   "public/assets/props/prop-floor-guide.png"
+  ],
+  "size": [
+   32,
+   64
+  ],
+  "colors": 13
+ }
+}

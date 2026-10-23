@@ -1,0 +1,32 @@
+{
+ "id": "illust-ch0-course-selection",
+ "title": "序章：選課系統當機的凌晨一點",
+ "batch": "gemini-batch-1",
+ "tool": "Gemini",
+ "model": null,
+ "date": "2026-10-23",
+ "template": "base v1-g",
+ "prompt": "Generate exactly ONE image. Not a sheet, not a grid, not multiple variations, no panels.\nStyle: flat-color sticker illustration in the same style as the attached reference image: thick dark navy outline (#0C2D5E), flat fills with one-step same-hue shading, no gradients, no texture, chibi proportions (head about one third of body height), simple faces: solid navy round eyes with one white highlight, line mouth.\nComposition: a single illustration filling the whole frame, simple uncluttered background made of large flat color shapes, main subject readable when shrunk to 240x150 pixels. Aspect ratio 3:2.\nSubject: the same student from the attached image (same hair with check-mark cowlick, blue hoodie), sitting at a desk in a small dim dorm room at 1 a.m., hunched in front of a laptop, the screen glows pale blue and shows only a blank loading spinner and empty grey bars, his finger hovering over the refresh key, an empty instant-noodle cup and the red backpack on the floor, a small window showing a night sky.\nAvoid: text, letters, numbers, Chinese characters, fake writing, logos, watermark, signature, realistic anatomy, blood, veins, slime, glossy wet highlights, 3D render, photo, red cross symbol, multiple panels, character sheet, turnaround, real university names, school emblem, readable UI, brand logos.",
+ "references": "選定的 illust-xiaochen-base 成品 + assets/organs/brain-normal.png",
+ "candidates": null,
+ "selected": "art-src/ai/raw/illustrations/illust-ch0-course-selection.jpg",
+ "selected_sha256": "068b93227e4e7a6ed6c30317bf9713ef8f6f05fe8bb910a33b9a04eb8dd8f183",
+ "source_name": "illust-ch0-course-selection.jpg",
+ "post": {
+  "select": true,
+  "outline": "auto",
+  "quantize": "auto",
+  "remove-text": "checked",
+  "pixel-cleanup": "n/a",
+  "style-board-check": "sheet"
+ },
+ "hours": null,
+ "status": "auto-processed",
+ "processed": {
+  "png_colors": 256,
+  "outputs": [
+   "art-src/ai/processed/illustrations/illust-ch0-course-selection-master.png",
+   "public/assets/illustrations/illust-ch0-course-selection.png"
+  ]
+ }
+}

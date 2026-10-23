@@ -1,0 +1,36 @@
+{
+ "id": "prop-bbq-grill",
+ "title": "系烤烤肉架",
+ "batch": "gemini-batch-1",
+ "tool": "Gemini",
+ "model": null,
+ "date": "2026-10-23",
+ "template": "base v1-g",
+ "prompt": "Generate exactly ONE image. Not a sheet, not a grid, not multiple variations, no panels.\nStyle: flat simple video-game prop illustration, 3/4 top-down view (camera looking down about 45 degrees, front face and top face both visible), big simple shapes with no small details, thick dark navy outline (#0C2D5E), flat fills, at most 6 colors, light from the top-left so the shaded side is bottom-right, shading hue shifted toward navy, no gradients, no texture. It must still read clearly after being downscaled to 64x32 pixel art.\nComposition: the single object centered, plain solid pure white background (#FFFFFF), no floor, no cast shadow, no other objects, wide empty margin. Aspect ratio 16:9.\nSubject: a simple outdoor charcoal barbecue grill with a few skewers of vegetables and meat on the grate.\nAvoid: text, letters, numbers, Chinese characters, fake writing, logos, watermark, diagonal stripes, hazard stripes, lightning bolt shapes, teal or cyan accents, saturated red, glossy highlights, 3D render, photo, perspective distortion, multiple objects, sheet, fire flames, smoke clouds.",
+ "references": null,
+ "candidates": null,
+ "selected": "art-src/ai/raw/props/prop-bbq-grill.jpg",
+ "selected_sha256": "71cbe01e90b0189c011132da527f45ca980e7e91add81e8c81a8421e9bd454b4",
+ "source_name": "prop-bbq-grill.jpg",
+ "post": {
+  "select": true,
+  "outline": "auto",
+  "quantize": "auto",
+  "remove-text": "checked",
+  "pixel-cleanup": "auto",
+  "style-board-check": "sheet"
+ },
+ "hours": null,
+ "status": "auto-processed",
+ "processed": {
+  "outputs": [
+   "art-src/ai/processed/props/prop-bbq-grill.png",
+   "public/assets/props/prop-bbq-grill.png"
+  ],
+  "size": [
+   64,
+   32
+  ],
+  "colors": 19
+ }
+}

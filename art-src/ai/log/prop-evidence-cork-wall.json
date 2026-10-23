@@ -1,0 +1,36 @@
+{
+ "id": "prop-evidence-cork-wall",
+ "title": "軟木板牆面組件（可左右無縫）",
+ "batch": "gemini-batch-1",
+ "tool": "Gemini",
+ "model": null,
+ "date": "2026-10-23",
+ "template": "base v1-g",
+ "prompt": "Generate exactly ONE image. Not a sheet, not a grid, not multiple variations, no panels.\nStyle: flat simple video-game wall texture, front view, flat fills, at most 5 colors, no outlines inside the surface, no gradients. The left edge must continue seamlessly into the right edge.\nComposition: the wall surface fills the whole frame. Aspect ratio 1:1.\nSubject: a cork board wall surface in warm tan cork color with subtle flat speckles, a thin wooden trim strip along the bottom edge.\nAvoid: text, letters, numbers, Chinese characters, fake writing, logos, watermark, diagonal stripes, hazard stripes, lightning bolt shapes, teal or cyan accents, saturated red, glossy highlights, 3D render, photo, perspective distortion, multiple objects, sheet, pins, papers.",
+ "references": null,
+ "candidates": null,
+ "selected": "art-src/ai/raw/props/prop-evidence-cork-wall.jpg",
+ "selected_sha256": "cde42fb00efb4f719f599f86b8293199d1669b63e42a5f89a84ce34c811b0291",
+ "source_name": "prop-evidence-cork-wall.jpg",
+ "post": {
+  "select": true,
+  "outline": "auto",
+  "quantize": "auto",
+  "remove-text": "checked",
+  "pixel-cleanup": "auto",
+  "style-board-check": "sheet"
+ },
+ "hours": null,
+ "status": "auto-processed",
+ "processed": {
+  "outputs": [
+   "art-src/ai/processed/props/prop-evidence-cork-wall.png",
+   "public/assets/props/prop-evidence-cork-wall.png"
+  ],
+  "size": [
+   64,
+   64
+  ],
+  "note": "seamless 2 x 2 tile wall face, cork color is a proposal"
+ }
+}

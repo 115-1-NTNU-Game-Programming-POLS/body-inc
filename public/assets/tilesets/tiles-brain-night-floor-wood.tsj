@@ -1,0 +1,14 @@
+{
+ "type": "tileset",
+ "version": "1.10",
+ "name": "tiles-brain-night-floor-wood",
+ "image": "tiles-brain-night-floor-wood-ex.png",
+ "imagewidth": 68,
+ "imageheight": 68,
+ "tilewidth": 32,
+ "tileheight": 32,
+ "margin": 1,
+ "spacing": 2,
+ "columns": 2,
+ "tilecount": 4
+}

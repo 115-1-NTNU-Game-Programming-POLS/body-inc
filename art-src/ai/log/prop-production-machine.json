@@ -1,0 +1,36 @@
+{
+ "id": "prop-production-machine",
+ "title": "產線機台 3 × 2",
+ "batch": "gemini-batch-1",
+ "tool": "Gemini",
+ "model": null,
+ "date": "2026-10-23",
+ "template": "base v1-g",
+ "prompt": "Generate exactly ONE image. Not a sheet, not a grid, not multiple variations, no panels.\nStyle: flat simple video-game prop illustration, 3/4 top-down view (camera looking down about 45 degrees, front face and top face both visible), big simple shapes with no small details, thick dark navy outline (#0C2D5E), flat fills, at most 6 colors, light from the top-left so the shaded side is bottom-right, shading hue shifted toward navy, no gradients, no texture. It must still read clearly after being downscaled to 96x64 pixel art.\nComposition: the single object centered, plain solid pure white background (#FFFFFF), no floor, no cast shadow, no other objects, wide empty margin. Aspect ratio 3:2.\nSubject: a wide old-fashioned chemical factory processing machine in grey-purple metal, a round tachometer gauge on the front with the needle pointing to the middle, a few pipes on top, a small blank rectangular sign plate, a short conveyor input on the left and output on the right.\nAvoid: text, letters, numbers, Chinese characters, fake writing, logos, watermark, diagonal stripes, hazard stripes, lightning bolt shapes, teal or cyan accents, saturated red, glossy highlights, 3D render, photo, perspective distortion, multiple objects, sheet, numbers on the gauge.",
+ "references": null,
+ "candidates": null,
+ "selected": "art-src/ai/raw/props/prop-production-machine.jpg",
+ "selected_sha256": "4a12b5886b11027470681b65a79ce2fb955f4991e685b06ee9cf5ca54c2808e3",
+ "source_name": "prop-production-machine.jpg",
+ "post": {
+  "select": true,
+  "outline": "auto",
+  "quantize": "auto",
+  "remove-text": "checked",
+  "pixel-cleanup": "auto",
+  "style-board-check": "sheet"
+ },
+ "hours": null,
+ "status": "auto-processed",
+ "processed": {
+  "outputs": [
+   "art-src/ai/processed/props/prop-production-machine.png",
+   "public/assets/props/prop-production-machine.png"
+  ],
+  "size": [
+   96,
+   64
+  ],
+  "colors": 18
+ }
+}

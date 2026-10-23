@@ -1,0 +1,11 @@
+path,title,author,source_url,license,license_url,ai_level,ai_tool,ai_log,modified,added_by,date,credit_text
+public/assets/manifest.json,素材清單合約,黃晨瑋,,team-original,,none,,,,黃晨瑋,2026-10-23,
+public/assets/portraits/portrait-adenosine-base.png,腺苷頭像,Gemini 底稿；黃晨瑋自動後製,,team-original,,ai-generated,Gemini（版本未記錄）,art-src/ai/log/{stem}.json,去背、移除裝飾星星、外框校正為墨藍、量化色票、縮至 300 像素,黃晨瑋,2026-10-23,
+public/assets/portraits/portrait-*-[bnqw]*.png,器官員工立繪（四種健康狀態）,江兆耘,,team-original,,none,,,依對話尺寸重新匯出，intestine 改名 gut,黃晨瑋,2026-10-23,江兆耘
+public/assets/portraits/portrait-*.png,表情延伸與 Boss 頭像,Gemini 底稿；黃晨瑋自動後製,,team-original,,ai-generated,Gemini（版本未記錄）,art-src/ai/log/{stem}.json,去背、移除裝飾星星、外框校正為墨藍、量化色票、縮至 300 像素,黃晨瑋,2026-10-23,
+public/assets/illustrations/*.png,小晨與外層插圖,Gemini 底稿；黃晨瑋自動後製,,team-original,,ai-generated,Gemini（版本未記錄）,art-src/ai/log/{stem}.json,裁成 8:5 卡片比例、縮至 480 × 300,黃晨瑋,2026-10-23,
+public/assets/props/*.png,世界道具,Gemini 底稿；黃晨瑋自動後製,,team-original,,ai-generated,Gemini（版本未記錄）,art-src/ai/log/{stem}.json,去背、最近鄰縮至目標像素、量化到像素色票、1 像素墨藍描邊,黃晨瑋,2026-10-23,
+public/assets/ui/icons/*.png,介面圖示,Gemini 底稿；黃晨瑋自動後製,,team-original,,ai-generated,Gemini（版本未記錄）,art-src/ai/log/{stem}.json,去背、外框校正為墨藍、縮至 64 或 104 像素；咖啡斗篷三態的眼睛以程式重畫,黃晨瑋,2026-10-23,
+public/assets/atlases/placeholder/*,佔位圖集,黃晨瑋（程式產生）,,team-original,,none,,,,黃晨瑋,2026-10-23,
+public/assets/atlases/atlas-*,場景圖集（道具、方箱骨架、特效、表情圖示）,Gemini 底稿與黃晨瑋程式繪製,,team-original,,ai-generated,Gemini（版本未記錄）,art-src/ai/log/{frame}.json,AI 道具同 props 列；方箱、特效與表情圖示由程式繪製,黃晨瑋,2026-10-23,
+public/assets/tilesets/*,世界圖塊集,黃晨瑋（程式繪製骨架）；地板為 Gemini 紋理底稿,,team-original,,ai-generated,Gemini（版本未記錄）,art-src/ai/log/tex-*.json,紋理無縫化、量化到世界地板色票；骨架以索引灰階換色,黃晨瑋,2026-10-23,

@@ -1,0 +1,36 @@
+{
+ "id": "prop-alcohol-barrel",
+ "title": "酒精桶（打不動）1 × 1",
+ "batch": "gemini-batch-1",
+ "tool": "Gemini",
+ "model": null,
+ "date": "2026-10-23",
+ "template": "base v1-g",
+ "prompt": "Generate exactly ONE image. Not a sheet, not a grid, not multiple variations, no panels.\nStyle: flat simple video-game prop illustration, 3/4 top-down view (camera looking down about 45 degrees, front face and top face both visible), big simple shapes with no small details, thick dark navy outline (#0C2D5E), flat fills, at most 6 colors, light from the top-left so the shaded side is bottom-right, shading hue shifted toward navy, no gradients, no texture. It must still read clearly after being downscaled to 32x32 pixel art.\nComposition: the single object centered, plain solid pure white background (#FFFFFF), no floor, no cast shadow, no other objects, wide empty margin. Aspect ratio 1:1.\nSubject: a chunky upright cylindrical barrel made of amber glass (#D9A441) with dark metal hoops, a blank white rectangular label on the front, slightly desaturated muted colors, heavy and immovable looking.\nAvoid: text, letters, numbers, Chinese characters, fake writing, logos, watermark, diagonal stripes, hazard stripes, lightning bolt shapes, teal or cyan accents, saturated red, glossy highlights, 3D render, photo, perspective distortion, multiple objects, sheet.",
+ "references": null,
+ "candidates": null,
+ "selected": "art-src/ai/raw/props/prop-alcohol-barrel.jpg",
+ "selected_sha256": "17e2c95ad50b884386de2794f8ec80d5fe994aee33d02e237d6e37903af9e073",
+ "source_name": "prop-alcohol-barrel.jpg",
+ "post": {
+  "select": true,
+  "outline": "auto",
+  "quantize": "auto",
+  "remove-text": "checked",
+  "pixel-cleanup": "auto",
+  "style-board-check": "sheet"
+ },
+ "hours": null,
+ "status": "auto-processed",
+ "processed": {
+  "outputs": [
+   "art-src/ai/processed/props/prop-alcohol-barrel.png",
+   "public/assets/props/prop-alcohol-barrel.png"
+  ],
+  "size": [
+   32,
+   32
+  ],
+  "colors": 18
+ }
+}

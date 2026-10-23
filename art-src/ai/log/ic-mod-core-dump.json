@@ -1,0 +1,35 @@
+{
+ "id": "ic-mod-core-dump",
+ "title": "核心傾印",
+ "batch": "gemini-batch-1",
+ "tool": "Gemini",
+ "model": null,
+ "date": "2026-10-23",
+ "template": "base v1-g",
+ "prompt": "Generate exactly ONE image. Not a sheet, not a grid, not multiple variations, no panels.\nStyle: single flat game UI icon, thick dark navy outline (#0C2D5E), flat fills, at most 4 colors, bold simple silhouette that is still readable at 32x32 pixels, slightly hand-drawn ink feel, small solid navy drop shadow offset to the bottom-right.\nComposition: the single symbol centered, plain solid pure white background (#FFFFFF), no frame, no circle badge behind it, wide empty margin. Aspect ratio 1:1.\nSubject: an overturned file box with papers spilling out.\nAvoid: text, letters, numbers, Chinese characters, logos, watermark, saturated red, teal or cyan, lightning bolt shapes, red cross symbol, gradients, 3D, glossy, photo, multiple icons, icon set.",
+ "references": null,
+ "candidates": null,
+ "selected": "art-src/ai/raw/icons/ic-mod-core-dump.png",
+ "selected_sha256": "c95ae6f861a47f2ce0978e02311c8adf05170ab9f1d2516747be128c0bbeb972",
+ "source_name": "ic-mod-core-dump.png",
+ "post": {
+  "select": true,
+  "outline": "auto",
+  "quantize": "auto",
+  "remove-text": "checked",
+  "pixel-cleanup": "n/a",
+  "style-board-check": "sheet"
+ },
+ "hours": null,
+ "status": "auto-processed",
+ "processed": {
+  "outputs": [
+   "art-src/ai/processed/icons/ic-mod-core-dump.png",
+   "public/assets/ui/icons/ic-mod-core-dump.png"
+  ],
+  "size": [
+   64,
+   64
+  ]
+ }
+}

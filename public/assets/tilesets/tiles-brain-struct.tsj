@@ -1,0 +1,14 @@
+{
+ "type": "tileset",
+ "version": "1.10",
+ "name": "tiles-brain-struct",
+ "image": "tiles-brain-struct-ex.png",
+ "imagewidth": 272,
+ "imageheight": 204,
+ "tilewidth": 32,
+ "tileheight": 32,
+ "margin": 1,
+ "spacing": 2,
+ "columns": 8,
+ "tilecount": 48
+}

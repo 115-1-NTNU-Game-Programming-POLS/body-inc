@@ -1,0 +1,246 @@
+{
+  "ink-navy": {
+    "hex": "#0C2D5E",
+    "name": "墨藍"
+  },
+  "stage": {
+    "hex": "#1F2733",
+    "name": "舞台"
+  },
+  "text-ink": {
+    "hex": "#2A2D34",
+    "name": "文字墨"
+  },
+  "text-2": {
+    "hex": "#4A4F57",
+    "name": "次要文字"
+  },
+  "note": {
+    "hex": "#5F646C",
+    "name": "註解"
+  },
+  "disabled-frame": {
+    "hex": "#9A958A",
+    "name": "停用框"
+  },
+  "charcoal": {
+    "hex": "#3B3F4A",
+    "name": "炭灰"
+  },
+  "charcoal-dark": {
+    "hex": "#2C2F38",
+    "name": "炭灰暗"
+  },
+  "stone": {
+    "hex": "#8A8F98",
+    "name": "石灰"
+  },
+  "light-grey": {
+    "hex": "#C9CCD1",
+    "name": "淺灰"
+  },
+  "paper": {
+    "hex": "#FBF8EF",
+    "name": "紙白"
+  },
+  "highlight": {
+    "hex": "#FFFDF7",
+    "name": "高光白"
+  },
+  "notebook-line": {
+    "hex": "#E2E9F1",
+    "name": "筆記本橫線"
+  },
+  "notebook-margin": {
+    "hex": "#E8A09B",
+    "name": "筆記本邊線"
+  },
+  "warn-red": {
+    "hex": "#C8372D",
+    "name": "正紅"
+  },
+  "warn-red-dark": {
+    "hex": "#A12A21",
+    "name": "紅暗"
+  },
+  "wine": {
+    "hex": "#9B2335",
+    "name": "酒紅"
+  },
+  "wine-dark": {
+    "hex": "#6E1A27",
+    "name": "酒紅暗"
+  },
+  "acetaldehyde": {
+    "hex": "#B04A7A",
+    "name": "乙醛紅紫"
+  },
+  "heart": {
+    "hex": "#EE7A82",
+    "name": "愛心珊瑚粉"
+  },
+  "badge-gold": {
+    "hex": "#FFC83D",
+    "name": "徽章金"
+  },
+  "staff-yellow": {
+    "hex": "#FCC551",
+    "name": "員工黃"
+  },
+  "staff-yellow-dark": {
+    "hex": "#E09A2E",
+    "name": "員工黃暗"
+  },
+  "hilite-yellow": {
+    "hex": "#FFE873",
+    "name": "螢光黃"
+  },
+  "sticky-yellow": {
+    "hex": "#FFF1A8",
+    "name": "便利貼黃"
+  },
+  "blue-ink": {
+    "hex": "#2B4C8C",
+    "name": "藍墨"
+  },
+  "operator-teal": {
+    "hex": "#2F9C95",
+    "name": "營運長青"
+  },
+  "operator-teal-dark": {
+    "hex": "#1F6F6A",
+    "name": "營運長青暗"
+  },
+  "drowsy": {
+    "hex": "#EAE4FF",
+    "name": "睏意紫"
+  },
+  "drowsy-edge": {
+    "hex": "#6A5FB8",
+    "name": "睏意紫邊"
+  },
+  "orange-lamp": {
+    "hex": "#E8772E",
+    "name": "橙燈"
+  },
+  "yellow-lamp": {
+    "hex": "#F2C230",
+    "name": "黃燈"
+  },
+  "pass-green": {
+    "hex": "#2F6B3A",
+    "name": "通過綠"
+  },
+  "aid-green": {
+    "hex": "#3F9A5B",
+    "name": "急救綠"
+  },
+  "shirt": {
+    "hex": "#FFFDF7",
+    "name": "襯衫"
+  },
+  "shirt-dark": {
+    "hex": "#D9DEE8",
+    "name": "襯衫暗"
+  },
+  "pants": {
+    "hex": "#2E3A59",
+    "name": "褲子"
+  },
+  "pants-dark": {
+    "hex": "#1E2740",
+    "name": "褲子暗"
+  },
+  "skin": {
+    "hex": "#FDE3CF",
+    "name": "膚色"
+  },
+  "skin-dark": {
+    "hex": "#F2BFA6",
+    "name": "膚色暗"
+  },
+  "hair": {
+    "hex": "#4A3428",
+    "name": "頭髮"
+  },
+  "hair-dark": {
+    "hex": "#2F2019",
+    "name": "頭髮暗"
+  },
+  "night-crew": {
+    "hex": "#3B3F8C",
+    "name": "夜班制服"
+  },
+  "night-crew-dark": {
+    "hex": "#2A2D66",
+    "name": "夜班制服暗"
+  },
+  "brain": {
+    "hex": "#FCB6C0",
+    "name": "大腦"
+  },
+  "brain-dark": {
+    "hex": "#EF8FA2",
+    "name": "大腦暗"
+  },
+  "liver": {
+    "hex": "#EF9998",
+    "name": "肝"
+  },
+  "liver-dark": {
+    "hex": "#D77A7C",
+    "name": "肝暗"
+  },
+  "stomach": {
+    "hex": "#F6D0CF",
+    "name": "胃"
+  },
+  "stomach-dark": {
+    "hex": "#EFA7A2",
+    "name": "胃暗"
+  },
+  "immune": {
+    "hex": "#FEEFE3",
+    "name": "免疫"
+  },
+  "immune-dark": {
+    "hex": "#F2C9B8",
+    "name": "免疫暗"
+  },
+  "gut": {
+    "hex": "#F7B7A6",
+    "name": "腸道"
+  },
+  "gut-dark": {
+    "hex": "#E8968A",
+    "name": "腸道暗"
+  },
+  "muscle": {
+    "hex": "#EE9A8C",
+    "name": "肌肉"
+  },
+  "muscle-dark": {
+    "hex": "#D9786E",
+    "name": "肌肉暗"
+  },
+  "cup": {
+    "hex": "#F4EBDD",
+    "name": "杯身"
+  },
+  "cup-sleeve": {
+    "hex": "#8B5A3C",
+    "name": "杯套"
+  },
+  "cup-lid": {
+    "hex": "#6B4A3A",
+    "name": "杯蓋"
+  },
+  "cardboard": {
+    "hex": "#D2A86E",
+    "name": "紙箱"
+  },
+  "grass": {
+    "hex": "#7FA36A",
+    "name": "系烤草地"
+  }
+}

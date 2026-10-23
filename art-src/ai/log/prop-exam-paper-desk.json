@@ -1,0 +1,36 @@
+{
+ "id": "prop-exam-paper-desk",
+ "title": "考場：紙筆場桌",
+ "batch": "gemini-batch-1",
+ "tool": "Gemini",
+ "model": null,
+ "date": "2026-10-23",
+ "template": "base v1-g",
+ "prompt": "Generate exactly ONE image. Not a sheet, not a grid, not multiple variations, no panels.\nStyle: flat simple video-game prop illustration, 3/4 top-down view (camera looking down about 45 degrees, front face and top face both visible), big simple shapes with no small details, thick dark navy outline (#0C2D5E), flat fills, at most 6 colors, light from the top-left so the shaded side is bottom-right, shading hue shifted toward navy, no gradients, no texture. It must still read clearly after being downscaled to 32x48 pixel art.\nComposition: the single object centered, plain solid pure white background (#FFFFFF), no floor, no cast shadow, no other objects, wide empty margin. Aspect ratio 2:3.\nSubject: a plain exam-room desk with a blank exam paper, a pencil, an eraser and a small ink pad.\nAvoid: text, letters, numbers, Chinese characters, fake writing, logos, watermark, diagonal stripes, hazard stripes, lightning bolt shapes, teal or cyan accents, saturated red, glossy highlights, 3D render, photo, perspective distortion, multiple objects, sheet.",
+ "references": null,
+ "candidates": null,
+ "selected": "art-src/ai/raw/props/prop-exam-paper-desk.jpg",
+ "selected_sha256": "0adfc7c0c431118c4ebb8fec8d10d3d2f4bf54c6080ee1862928b376be017976",
+ "source_name": "prop-exam-paper-desk.jpg",
+ "post": {
+  "select": true,
+  "outline": "auto",
+  "quantize": "auto",
+  "remove-text": "checked",
+  "pixel-cleanup": "auto",
+  "style-board-check": "sheet"
+ },
+ "hours": null,
+ "status": "auto-processed",
+ "processed": {
+  "outputs": [
+   "art-src/ai/processed/props/prop-exam-paper-desk.png",
+   "public/assets/props/prop-exam-paper-desk.png"
+  ],
+  "size": [
+   32,
+   48
+  ],
+  "colors": 21
+ }
+}

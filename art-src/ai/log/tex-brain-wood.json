@@ -1,0 +1,33 @@
+{
+ "id": "tex-brain-wood",
+ "title": "大腦（日）：木地板",
+ "batch": "gemini-batch-1",
+ "tool": "Gemini",
+ "model": null,
+ "date": "2026-10-23",
+ "template": "tile v1-g",
+ "prompt": "Generate exactly ONE image. Not a sheet, not a grid, not multiple variations, no panels.\nStyle: top-down seamless tileable floor texture, orthographic view looking straight down, flat colors, low contrast, low saturation, no outlines, no text. The left edge must continue the right edge and the top edge must continue the bottom edge. The image is only the floor surface filling the whole frame.\nColors: use only these colors: #D9BE98, #CBAE86, #B89A73.\nSubject: simple wooden plank floor with long horizontal planks, flat colors, very faint grain.\nAvoid: text, letters, numbers, logos, perspective, vanishing point, objects, furniture, people, shadows of objects, lighting gradient, vignette, glossy reflections, photo, 3D render, diagonal stripes. Aspect ratio 1:1.",
+ "references": null,
+ "candidates": null,
+ "selected": "art-src/ai/raw/textures/tex-brain-wood.jpg",
+ "selected_sha256": "6740cfe4b87540f1188ec991e87d485dc12e4c3947e34c7afe292617ee20c535",
+ "source_name": "tex-brain-wood.jpg",
+ "post": {
+  "select": true,
+  "outline": "auto",
+  "quantize": "auto",
+  "remove-text": "checked",
+  "pixel-cleanup": "auto",
+  "style-board-check": "sheet"
+ },
+ "hours": null,
+ "status": "auto-processed",
+ "processed": {
+  "outputs": [
+   "art-src/ai/processed/textures/tiles-brain-floor-wood.png",
+   "art-src/ai/processed/textures/tiles-brain-night-floor-wood.png"
+  ],
+  "period": 64,
+  "note": "2 x 2 tiles; lay floor-0..3 in a 2 x 2 checker"
+ }
+}

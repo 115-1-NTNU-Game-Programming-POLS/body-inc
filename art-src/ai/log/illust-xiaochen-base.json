@@ -1,0 +1,33 @@
+{
+ "id": "illust-xiaochen-base",
+ "title": "小晨：基本造型",
+ "batch": "gemini-batch-1",
+ "tool": "Gemini",
+ "model": null,
+ "date": "2026-10-23",
+ "template": "base v1-g",
+ "prompt": "Generate exactly ONE image. Not a sheet, not a grid, not multiple variations, no panels.\nStyle: flat-color sticker illustration in the same style as the attached reference image: thick dark navy outline (#0C2D5E) about 1% of image width, soft pastel pink, coral and cream palette, one-step same-hue shading, no gradients, no texture, simple face: solid navy round eyes with one white highlight, oval blush, line mouth, cute office-worker mascot.\nComposition: centered, full body visible, plain solid pure white background (#FFFFFF), no floor, no cast shadow, no scenery, wide empty margin around the subject. Aspect ratio 3:4.\nSubject: a chibi Taiwanese third-year computer science university student boy, short dark brown hair with one small check-mark shaped cowlick sticking up on top, faint dark circles under the eyes, blue pullover hoodie, dark jeans, a red backpack, holding a spiral notebook. Standing relaxed, facing the viewer, a slightly tired but kind small smile.\nAvoid: text, letters, numbers, Chinese characters, fake writing, logos, watermark, signature, realistic anatomy, blood, veins, slime, glossy wet highlights, 3D render, photo, red cross symbol, multiple panels, character sheet, turnaround, school logo, brand logo on clothes, laptop logo.",
+ "references": "assets/organs/brain-normal.png（只當畫風參考）",
+ "candidates": null,
+ "selected": "art-src/ai/raw/illustrations/illust-xiaochen-base.jpg",
+ "selected_sha256": "e612e708b3bac8dddf2b533a663098ada70bfcca741499170fb89432a6e5e66f",
+ "source_name": "illust-xiaochen-base.jpg",
+ "post": {
+  "select": true,
+  "outline": "auto",
+  "quantize": "auto",
+  "remove-text": "checked",
+  "pixel-cleanup": "n/a",
+  "style-board-check": "sheet"
+ },
+ "hours": null,
+ "status": "auto-processed",
+ "processed": {
+  "sparkles_removed": 6,
+  "png_colors": 256,
+  "outputs": [
+   "art-src/ai/processed/illustrations/illust-xiaochen-base-master.png",
+   "public/assets/illustrations/illust-xiaochen-base.png"
+  ]
+ }
+}

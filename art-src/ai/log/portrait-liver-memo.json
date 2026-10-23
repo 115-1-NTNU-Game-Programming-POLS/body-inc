@@ -1,0 +1,33 @@
+{
+ "id": "portrait-liver-memo",
+ "title": "肝：舉便利貼「已處理。」",
+ "batch": "gemini-batch-1",
+ "tool": "Gemini",
+ "model": null,
+ "date": "2026-10-23",
+ "template": "base v1-g",
+ "prompt": "Generate exactly ONE image. Not a sheet, not a grid, not multiple variations, no panels.\nStyle: flat-color sticker illustration in the same style as the attached reference image: thick dark navy outline (#0C2D5E) about 1% of image width, soft pastel pink, coral and cream palette, one-step same-hue shading, no gradients, no texture, simple face: solid navy round eyes with one white highlight, oval blush, line mouth, cute office-worker mascot.\nComposition: centered, full body visible, plain solid pure white background (#FFFFFF), no floor, no cast shadow, no scenery, wide empty margin around the subject. Aspect ratio 1:1.\nSubject: Redraw exactly the same liver-shaped mascot from the attached reference image (coral pink body, cream lobe band, yellow necktie, envelope in the pocket), with the same tired half-lidded eyes and dark circles. Remove the coffee cup. He now calmly holds up a blank square yellow sticky note (#FFF1A8) beside his head with one hand, facing the viewer, expression flat and composed.\nAvoid: text, letters, numbers, Chinese characters, fake writing, logos, watermark, signature, realistic anatomy, blood, veins, slime, glossy wet highlights, 3D render, photo, red cross symbol, multiple panels, character sheet, turnaround, coffee cup, mug.",
+ "references": "assets/organs/liver-base.png (上傳前須取得江兆耘同意，§12.2)",
+ "candidates": null,
+ "selected": "art-src/ai/raw/portraits/portrait-liver-memo.jpg",
+ "selected_sha256": "1d39e5b634006165885df3823d096864cb8c6a1739e6f1372a428cb4764c0bca",
+ "source_name": "portrait-liver-memo.jpg",
+ "post": {
+  "select": true,
+  "outline": "auto",
+  "quantize": "auto",
+  "remove-text": "checked",
+  "pixel-cleanup": "n/a",
+  "style-board-check": "sheet"
+ },
+ "hours": null,
+ "status": "auto-processed",
+ "processed": {
+  "outputs": [
+   "art-src/ai/processed/portraits/portrait-liver-memo-1024.png",
+   "public/assets/portraits/portrait-liver-memo.png"
+  ],
+  "sparkles_removed": 0,
+  "png_colors": 256
+ }
+}

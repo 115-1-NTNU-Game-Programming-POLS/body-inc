@@ -1,0 +1,32 @@
+{
+ "id": "illust-prologue-sunglasses-hand",
+ "title": "序章過場：凌晨兩點，墨鏡手簽合約",
+ "batch": "gemini-batch-1",
+ "tool": "Gemini",
+ "model": null,
+ "date": "2026-10-23",
+ "template": "base v1-g",
+ "prompt": "Generate exactly ONE image. Not a sheet, not a grid, not multiple variations, no panels.\nStyle: flat-color sticker illustration in the same style as the attached reference image: thick dark navy outline (#0C2D5E), flat fills with one-step same-hue shading, no gradients, no texture, chibi proportions (head about one third of body height), simple faces: solid navy round eyes with one white highlight, line mouth.\nComposition: a single illustration filling the whole frame, simple uncluttered background made of large flat color shapes, main subject readable when shrunk to 240x150 pixels. Aspect ratio 1:1.\nSubject: a close-up of a dark office desk at 2 a.m. lit by a single desk lamp: a hand in a dark sleeve signing a contract with a fountain pen, the contract shows only blank lines and an empty signature box, a pair of black sunglasses lying on the desk beside it, the owner of the hand is not visible, slightly mysterious but still cute and flat.\nAvoid: text, letters, numbers, Chinese characters, fake writing, logos, watermark, signature, realistic anatomy, blood, veins, slime, glossy wet highlights, 3D render, photo, red cross symbol, multiple panels, character sheet, turnaround, face, body, readable writing, signature letters, blood, weapon.",
+ "references": "assets/organs/brain-normal.png（只當畫風參考）",
+ "candidates": null,
+ "selected": "art-src/ai/raw/illustrations/illust-prologue-sunglasses-hand.jpg",
+ "selected_sha256": "f5113e894bafe1bac7964cfeae781effea26a1f7a2d216a60ae76756c839552f",
+ "source_name": "illust-prologue-sunglasses-hand.jpg",
+ "post": {
+  "select": true,
+  "outline": "auto",
+  "quantize": "auto",
+  "remove-text": "checked",
+  "pixel-cleanup": "n/a",
+  "style-board-check": "sheet"
+ },
+ "hours": null,
+ "status": "auto-processed",
+ "processed": {
+  "png_colors": 256,
+  "outputs": [
+   "art-src/ai/processed/illustrations/illust-prologue-sunglasses-hand-master.png",
+   "public/assets/illustrations/illust-prologue-sunglasses-hand.png"
+  ]
+ }
+}

@@ -1,0 +1,36 @@
+{
+ "id": "prop-temp-desk",
+ "title": "暫存桌 3 × 1（6 個文件放置點）",
+ "batch": "gemini-batch-1",
+ "tool": "Gemini",
+ "model": null,
+ "date": "2026-10-23",
+ "template": "base v1-g",
+ "prompt": "Generate exactly ONE image. Not a sheet, not a grid, not multiple variations, no panels.\nStyle: flat simple video-game prop illustration, 3/4 top-down view (camera looking down about 45 degrees, front face and top face both visible), big simple shapes with no small details, thick dark navy outline (#0C2D5E), flat fills, at most 6 colors, light from the top-left so the shaded side is bottom-right, shading hue shifted toward navy, no gradients, no texture. It must still read clearly after being downscaled to 96x48 pixel art.\nComposition: the single object centered, plain solid pure white background (#FFFFFF), no floor, no cast shadow, no other objects, wide empty margin. Aspect ratio 16:9.\nSubject: a long low office desk, with six evenly spaced empty paper trays on its top surface, plain wood and grey metal legs.\nAvoid: text, letters, numbers, Chinese characters, fake writing, logos, watermark, diagonal stripes, hazard stripes, lightning bolt shapes, teal or cyan accents, saturated red, glossy highlights, 3D render, photo, perspective distortion, multiple objects, sheet.",
+ "references": null,
+ "candidates": null,
+ "selected": "art-src/ai/raw/props/prop-temp-desk.jpg",
+ "selected_sha256": "8af0d5de40c13742eb5e0d98a0cbeff76ba9767f47c5b22a3c6348df4224e5de",
+ "source_name": "prop-temp-desk.jpg",
+ "post": {
+  "select": true,
+  "outline": "auto",
+  "quantize": "auto",
+  "remove-text": "checked",
+  "pixel-cleanup": "auto",
+  "style-board-check": "sheet"
+ },
+ "hours": null,
+ "status": "auto-processed",
+ "processed": {
+  "outputs": [
+   "art-src/ai/processed/props/prop-temp-desk.png",
+   "public/assets/props/prop-temp-desk.png"
+  ],
+  "size": [
+   96,
+   48
+  ],
+  "colors": 19
+ }
+}

@@ -1,0 +1,32 @@
+{
+ "id": "illust-ch3-rescue",
+ "title": "第三章：叫不醒的阿凱（救援插圖，需王晨嬡審姿勢）",
+ "batch": "gemini-batch-1",
+ "tool": "Gemini",
+ "model": null,
+ "date": "2026-10-23",
+ "template": "base v1-g",
+ "prompt": "Generate exactly ONE image. Not a sheet, not a grid, not multiple variations, no panels.\nStyle: flat-color illustration with a dark navy outline (#0C2D5E), flat fills, one-step shading, desaturated cool palette (muted blues, grey-greens, soft greys), NO blush, no chibi exaggeration, more natural body proportions, quiet and sincere mood.\nComposition: a single illustration filling the whole frame, simple uncluttered background made of large flat color shapes, main subject readable when shrunk to 240x150 pixels. Aspect ratio 3:2.\nSubject: a calm, serious, realistic-proportioned scene at night at the quiet edge of a grass field: a young man (Akai, short black hair, grey T-shirt) lying on his side in the first-aid recovery position: body on its side, the upper leg bent with the knee resting on the ground in front to stop him rolling, head tilted slightly back to keep the airway open, the upper hand placed under his cheek. The student from the attached image (blue hoodie, check-mark cowlick) crouches close beside him holding a phone to his ear, calling for help, worried but steady. Soft street-lamp light.\nAvoid: text, letters, numbers, Chinese characters, fake writing, logos, watermark, signature, realistic anatomy, blood, veins, slime, glossy wet highlights, 3D render, photo, red cross symbol, multiple panels, character sheet, turnaround, blush, comedic expressions, sweat drops, vomit, bottles, cans, alcohol, ambulance lights flashing, dramatic glow, tears.",
+ "references": "選定的 illust-xiaochen-base 成品（只當人物參考）",
+ "candidates": null,
+ "selected": "art-src/ai/raw/illustrations/illust-ch3-rescue.jpg",
+ "selected_sha256": "2402e24ea4689dcc74858e52361c6be9b88e3be3172e7e2620cac891051e86e1",
+ "source_name": "illust-ch3-rescue.jpg",
+ "post": {
+  "select": true,
+  "outline": "auto",
+  "quantize": "auto",
+  "remove-text": "checked",
+  "pixel-cleanup": "n/a",
+  "style-board-check": "sheet"
+ },
+ "hours": null,
+ "status": "held",
+ "reason": "waits for the recovery-position review by Wang Chen-ai (6.5)",
+ "processed": {
+  "outputs": [
+   "art-src/ai/processed/illustrations/illust-ch3-rescue-master.png",
+   "art-src/ai/processed/illustrations/illust-ch3-rescue-display.png"
+  ]
+ }
+}

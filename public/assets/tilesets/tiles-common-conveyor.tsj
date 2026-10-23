@@ -1,0 +1,14 @@
+{
+ "type": "tileset",
+ "version": "1.10",
+ "name": "tiles-common-conveyor",
+ "image": "tiles-common-conveyor-ex.png",
+ "imagewidth": 136,
+ "imageheight": 408,
+ "tilewidth": 32,
+ "tileheight": 32,
+ "margin": 1,
+ "spacing": 2,
+ "columns": 4,
+ "tilecount": 48
+}

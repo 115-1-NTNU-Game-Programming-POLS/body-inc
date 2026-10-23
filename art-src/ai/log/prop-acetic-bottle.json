@@ -1,0 +1,36 @@
+{
+ "id": "prop-acetic-bottle",
+ "title": "乙酸瓶（背景）",
+ "batch": "gemini-batch-1",
+ "tool": "Gemini",
+ "model": null,
+ "date": "2026-10-23",
+ "template": "base v1-g",
+ "prompt": "Generate exactly ONE image. Not a sheet, not a grid, not multiple variations, no panels.\nStyle: flat simple video-game prop illustration, 3/4 top-down view (camera looking down about 45 degrees, front face and top face both visible), big simple shapes with no small details, thick dark navy outline (#0C2D5E), flat fills, at most 6 colors, light from the top-left so the shaded side is bottom-right, shading hue shifted toward navy, no gradients, no texture. It must still read clearly after being downscaled to 16x32 pixel art.\nComposition: the single object centered, plain solid pure white background (#FFFFFF), no floor, no cast shadow, no other objects, wide empty margin. Aspect ratio 9:16.\nSubject: a tall slim laboratory bottle in teal (#4FA3A5) with a narrow neck and a blank label.\nAvoid: text, letters, numbers, Chinese characters, fake writing, logos, watermark, diagonal stripes, hazard stripes, lightning bolt shapes, teal or cyan accents, saturated red, glossy highlights, 3D render, photo, perspective distortion, multiple objects, sheet.",
+ "references": null,
+ "candidates": null,
+ "selected": "art-src/ai/raw/props/prop-acetic-bottle.jpg",
+ "selected_sha256": "21e343ba24f539e96d6036ac749d7f055ca13bd3949cbd57ad6d7e0cd8f28aa9",
+ "source_name": "prop-acetic-bottle.jpg",
+ "post": {
+  "select": true,
+  "outline": "auto",
+  "quantize": "auto",
+  "remove-text": "checked",
+  "pixel-cleanup": "auto",
+  "style-board-check": "sheet"
+ },
+ "hours": null,
+ "status": "auto-processed",
+ "processed": {
+  "outputs": [
+   "art-src/ai/processed/props/prop-acetic-bottle.png",
+   "public/assets/props/prop-acetic-bottle.png"
+  ],
+  "size": [
+   16,
+   32
+  ],
+  "colors": 10
+ }
+}

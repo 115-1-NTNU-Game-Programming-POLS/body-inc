@@ -1,0 +1,137 @@
+{
+ "tiles-lobby-struct": {
+  "image": "assets/tilesets/tiles-lobby-struct-ex.png",
+  "tileWidth": 32,
+  "tileHeight": 32,
+  "margin": 1,
+  "spacing": 2,
+  "columns": 8,
+  "tileCount": 48
+ },
+ "tiles-exam-struct": {
+  "image": "assets/tilesets/tiles-exam-struct-ex.png",
+  "tileWidth": 32,
+  "tileHeight": 32,
+  "margin": 1,
+  "spacing": 2,
+  "columns": 8,
+  "tileCount": 48
+ },
+ "tiles-warehouse-struct": {
+  "image": "assets/tilesets/tiles-warehouse-struct-ex.png",
+  "tileWidth": 32,
+  "tileHeight": 32,
+  "margin": 1,
+  "spacing": 2,
+  "columns": 8,
+  "tileCount": 48
+ },
+ "tiles-brain-struct": {
+  "image": "assets/tilesets/tiles-brain-struct-ex.png",
+  "tileWidth": 32,
+  "tileHeight": 32,
+  "margin": 1,
+  "spacing": 2,
+  "columns": 8,
+  "tileCount": 48
+ },
+ "tiles-brain-night-struct": {
+  "image": "assets/tilesets/tiles-brain-night-struct-ex.png",
+  "tileWidth": 32,
+  "tileHeight": 32,
+  "margin": 1,
+  "spacing": 2,
+  "columns": 8,
+  "tileCount": 48
+ },
+ "tiles-liver-struct": {
+  "image": "assets/tilesets/tiles-liver-struct-ex.png",
+  "tileWidth": 32,
+  "tileHeight": 32,
+  "margin": 1,
+  "spacing": 2,
+  "columns": 8,
+  "tileCount": 48
+ },
+ "tiles-brain-floor-wood": {
+  "image": "assets/tilesets/tiles-brain-floor-wood-ex.png",
+  "tileWidth": 32,
+  "tileHeight": 32,
+  "margin": 1,
+  "spacing": 2,
+  "columns": 2,
+  "tileCount": 4
+ },
+ "tiles-brain-night-floor-wood": {
+  "image": "assets/tilesets/tiles-brain-night-floor-wood-ex.png",
+  "tileWidth": 32,
+  "tileHeight": 32,
+  "margin": 1,
+  "spacing": 2,
+  "columns": 2,
+  "tileCount": 4
+ },
+ "tiles-liver-floor-concrete": {
+  "image": "assets/tilesets/tiles-liver-floor-concrete-ex.png",
+  "tileWidth": 32,
+  "tileHeight": 32,
+  "margin": 1,
+  "spacing": 2,
+  "columns": 2,
+  "tileCount": 4
+ },
+ "tiles-bbq-floor-grass": {
+  "image": "assets/tilesets/tiles-bbq-floor-grass-ex.png",
+  "tileWidth": 32,
+  "tileHeight": 32,
+  "margin": 1,
+  "spacing": 2,
+  "columns": 2,
+  "tileCount": 4
+ },
+ "tiles-lobby-floor-marble": {
+  "image": "assets/tilesets/tiles-lobby-floor-marble-ex.png",
+  "tileWidth": 32,
+  "tileHeight": 32,
+  "margin": 1,
+  "spacing": 2,
+  "columns": 4,
+  "tileCount": 8
+ },
+ "tiles-exam-floor": {
+  "image": "assets/tilesets/tiles-exam-floor-ex.png",
+  "tileWidth": 32,
+  "tileHeight": 32,
+  "margin": 1,
+  "spacing": 2,
+  "columns": 4,
+  "tileCount": 4
+ },
+ "tiles-liver-floor-hex": {
+  "image": "assets/tilesets/tiles-liver-floor-hex-ex.png",
+  "tileWidth": 32,
+  "tileHeight": 32,
+  "margin": 1,
+  "spacing": 2,
+  "columns": 2,
+  "tileCount": 2
+ },
+ "tiles-warehouse-safety-line": {
+  "image": "assets/tilesets/tiles-warehouse-safety-line-ex.png",
+  "tileWidth": 32,
+  "tileHeight": 32,
+  "margin": 1,
+  "spacing": 2,
+  "columns": 6,
+  "tileCount": 6
+ },
+ "tiles-common-conveyor": {
+  "image": "assets/tilesets/tiles-common-conveyor-ex.png",
+  "tileWidth": 32,
+  "tileHeight": 32,
+  "margin": 1,
+  "spacing": 2,
+  "columns": 4,
+  "tileCount": 48
+ }
+}

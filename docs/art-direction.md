@@ -440,7 +440,7 @@ HUD 只放在四角，疊在牆上而不是地板上。換算為畫面像素：�
 | 世界 | 主題與材質 | 人體地標 | 承載玩法或知識的道具（一律自製） |
 | --- | --- | --- | --- |
 | 大廳 | 百貨公司一樓加企業大廳；米色大理石大方格（64 像素一格、兩色交錯，不畫石紋）；功能區以地毯色塊分區 | 樓層導覽牌（直立 1 × 2，Q 版人體剖面，各器官一個色點） | 打卡機與茶水間；五部電梯（2 格寬、門框以器官色區分，燈加「施工中」紙條）；肝的便利貼板 |
-| 肝醣倉庫 | 水泥地加黃色安全實線（唯一高彩度地面元素，引導推箱）；藍色鋼架 1 × 2 | 貨架排成樹狀分支（肝醣的分支結構） | 可推葡萄糖箱（白底藍標「C₆H₁₂O₆」、白色 L 形角標）；血糖調度口與指針表（指針由程式畫）；傳單堆（集團封條） |
+| 肝醣倉庫 | 水泥地加黃色安全實線（唯一高彩度地面元素，引導推箱）；藍色鋼架 1 × 2 | 貨架排成樹狀分支（肝醣的分支結構） | 可推葡萄糖箱（黃色箱身 `#F2D27A` 加白色標籤，標籤上的「C₆H₁₂O₆」由程式寫；白色 L 形角標。箱身不用白色，否則白色角標會看不見）；血糖調度口與指針表（指針由程式畫）；傳單堆（集團封條） |
 | 大腦（日） | 過度光鮮的新創辦公室；藍灰地毯帶淡色腦迴紋、木質腰板、玻璃隔間；勵志標語由程式寫字 | 頂樓的神經元吊燈 | 咖啡機 1 × 2（螢幕亮綠冒蒸氣或掛「暫停營業」，兩台外型相同）；時鐘通風口 2 × 2（圓形掛鐘下半部是百葉，冒 `#A99BC2` 煙）；暫存桌 3 × 1（6 個文件放置點）；就寢門（雙開木門、月亮形門楣、殘留量表嵌槽、全開半開關閉三態以門扇角度區分）；午睡沙發 2 × 1 |
 | 大腦（夜） | 換色腳本產生夜間圖塊，另手繪 6 件光源道具（檯燈、螢幕、緊急出口燈、窗外夜景帶、清潔車、販賣機光）；光暈由程式以加法混合的圓形 sprite 疊在 `above` 之上 | 同上 | 玩法物件維持日間配色並加外緣光 |
 | 期中考場 | 重用大腦骨架，換冷白考場色票；2 × 1 大房間，北牆整面黑板（字由程式寫），兩側考試座位留 3 格寬中央走道 | 白板上的大腦形便利貼牆 | 上機場與紙筆場以兩個變體圖層切換（電腦桌與投影幕、紙本與印台）；秒針墨色 |
@@ -776,6 +776,10 @@ art-src/
   palette/worlds.json         各世界 8 色對應表（換色腳本讀取）
   portraits/README.md         分層原檔放雲端硬碟，此檔列連結與版本
   ai/reference/  ai/prompt-template.md  ai/log/
+  ai/prompts/                 每批的逐張提示詞（由 tools/art/gen_gemini_prompts.py 產生）
+  ai/raw/<類別>/<id>.*        每個 id 選定的一張原圖，未後製（tools/art/import_ai_batch.py 匯入）
+  ai/processed/  ai/review/   自動後製的母檔與第 12.4 節第 6 步的審查圖，皆可重建，不進 Git
+  drafts/                     程式繪製的草稿（骨架圖塊、方箱、特效），執行順序見 tools/art/README.md
 public/assets/
   atlases/  portraits/  tilesets/  maps/<world>/  ui/  audio/
   manifest.json
@@ -788,7 +792,9 @@ tools/art/                    匯出、擠出、量化、換色、色覺與授�
 
 ### 13.4 Aseprite 匯出與圖集
 
-Aseprite 以命令列批次匯出，參數為 `--sheet-pack`、`--format json-hash`、`--shape-padding 2`；角色不裁切，讓每格錨點一致，道具可加 `--trim`。依場景分組打包：`atlas-common`（營運長、文具、印章、愛心、紙屑、通用圖示、顧問集團共用）、`atlas-brain`、`atlas-liver`、`atlas-exam`；紙墨層另打包 `ui` 圖集。每張圖集不超過 2048 × 2048，預期 1024 × 1024 以內。Phaser 以 `this.load.aseprite(key, png, json)` 載入，再以 `this.anims.createFromAseprite(key)` 依標籤建立動畫。
+Aseprite 以命令列批次匯出，參數為 `--sheet-pack`、`--format json-hash`、`--shape-padding 2`、`--filename-format "{frame}"`；角色不裁切，讓每格錨點一致，道具可加 `--trim`。Phaser 以 `this.load.aseprite(key, png, json)` 載入，再以 `this.anims.createFromAseprite(key)` 依標籤建立動畫。
+
+`createFromAseprite` 以影格索引的字串（`"0"`、`"1"`……）在 JSON 中查找影格（Phaser 3.80 原始碼 `AnimationManager.js` 中的 `i.toString()`），因此兩條限制必須遵守：檔名格式只能是 `{frame}`，否則找不到任何影格；有動畫的角色每個 `.aseprite` 各自匯出一組 PNG 與 JSON（鍵名等於角色 id，例如 `operator.png`、`operator.json`），不得把多個角色打包進同一張圖集，因為各檔的影格索引都從 0 起算，合併後會互相覆蓋。沒有動畫的素材（道具、文具、紙屑、通用圖示）不受此限，依場景分組打包為 `atlas-common`、`atlas-brain`、`atlas-liver`、`atlas-exam` 與紙墨層的 `ui` 圖集，以 `this.load.atlas` 載入、以檔名取用。每張圖集不超過 2048 × 2048，預期 1024 × 1024 以內。
 
 ### 13.5 素材清單合約與佔位圖
 

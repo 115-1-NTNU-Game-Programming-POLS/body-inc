@@ -1,0 +1,47 @@
+{
+ "frames": {
+  "0": {
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 10,
+    "h": 10
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 10,
+    "h": 10
+   },
+   "sourceSize": {
+    "w": 10,
+    "h": 10
+   },
+   "duration": 100
+  }
+ },
+ "meta": {
+  "app": "body-inc tools/art/make_placeholders.py",
+  "version": "placeholder",
+  "image": "adenosine-mini.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 12,
+   "h": 12
+  },
+  "scale": "1",
+  "frameTags": [
+   {
+    "name": "adenosine-mini.stick_down",
+    "from": 0,
+    "to": 0,
+    "direction": "forward",
+    "color": "#000000ff"
+   }
+  ],
+  "layers": [],
+  "slices": []
+ }
+}

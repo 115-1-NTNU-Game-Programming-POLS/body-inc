@@ -1,0 +1,25 @@
+{
+ "id": "concept-caffeine-sprite",
+ "title": "卡費因（像素 Boss 用的頭部簡化方向）",
+ "batch": "gemini-batch-1",
+ "tool": "Gemini",
+ "model": null,
+ "date": "2026-10-23",
+ "template": "base v1-g",
+ "prompt": "Generate exactly ONE image. Not a sheet, not a grid, not multiple variations, no panels.\nStyle: flat-color sticker illustration in the same style as the attached reference image: thick dark navy outline (#0C2D5E) about 1% of image width, soft pastel pink, coral and cream palette, one-step same-hue shading, no gradients, no texture, simple face: solid navy round eyes with one white highlight, oval blush, line mouth, cute office-worker mascot.\nComposition: centered, full body visible, plain solid pure white background (#FFFFFF), no floor, no cast shadow, no scenery, wide empty margin around the subject. Aspect ratio 1:1.\nSubject: a simplified, very chunky chibi version of the coffee-cup-headed character from the attached image, designed to be redrawn as 64x64 pixel art: head about half of total height, only big shapes, the sleeve stripes reduced to two thick bands, loyalty card as a simple rectangle with a 2x5 dot grid, keep the same outfit as the attached image: wearing a charcoal grey business suit (#3B3F4A), a wine-red necktie (#9B2335), and a small plain golden-yellow lightning-bolt pin (#FFC83D) on the chest, front view standing.\nAvoid: text, letters, numbers, Chinese characters, fake writing, logos, watermark, signature, realistic anatomy, blood, veins, slime, glossy wet highlights, 3D render, photo, red cross symbol, multiple panels, character sheet, turnaround, small details, beige suit, light-colored suit.",
+ "references": "選定的 portrait-caffeine-pitch 成品",
+ "candidates": null,
+ "selected": "art-src/ai/raw/concepts/concept-caffeine-sprite.png",
+ "selected_sha256": "6315c01426bdd0b1544a960eb7a2ef6896c3cf94b812a148b3f7c6362fa70bea",
+ "source_name": "concept-caffeine-sprite.png",
+ "post": {
+  "select": true,
+  "outline": false,
+  "quantize": false,
+  "remove-text": false,
+  "pixel-cleanup": false,
+  "style-board-check": false
+ },
+ "hours": null,
+ "status": "raw"
+}

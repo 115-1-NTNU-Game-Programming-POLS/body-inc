@@ -1,0 +1,176 @@
+{
+  "roles": [
+    "wall-top-dark",
+    "wall-top-light",
+    "wall-face",
+    "wall-face-shade",
+    "skirting",
+    "floor-main",
+    "floor-alt",
+    "floor-shade"
+  ],
+  "indexGreys": [
+    "#202020",
+    "#404040",
+    "#E0E0E0",
+    "#C0C0C0",
+    "#606060",
+    "#D0D0D0",
+    "#B0B0B0",
+    "#909090"
+  ],
+  "worlds": {
+    "lobby": {
+      "colors": {
+        "wall-top-dark": "#3D4A66",
+        "wall-top-light": "#5A6888",
+        "wall-face": "#EFE6D6",
+        "wall-face-shade": "#D9CDB8",
+        "skirting": "#8C7B63",
+        "floor-main": "#EDE4D3",
+        "floor-alt": "#DCCFB8",
+        "floor-shade": "#C2B49B"
+      },
+      "accents": {
+        "elevator-light": "#F2C14E",
+        "guide-blue": "#2B4C8C",
+        "plant": "#5E8C61"
+      }
+    },
+    "warehouse": {
+      "colors": {
+        "wall-top-dark": "#3B4250",
+        "wall-top-light": "#566070",
+        "wall-face": "#D8D3C8",
+        "wall-face-shade": "#BDB6A8",
+        "skirting": "#6E6A60",
+        "floor-main": "#CFC9BC",
+        "floor-alt": "#C2BBAC",
+        "floor-shade": "#A69F90"
+      },
+      "accents": {
+        "glucose-box": "#F2D27A",
+        "safety-line": "#E8C14A",
+        "rack-blue": "#4F6A8F"
+      }
+    },
+    "brain": {
+      "colors": {
+        "wall-top-dark": "#3A3F63",
+        "wall-top-light": "#565C88",
+        "wall-face": "#F3E9DA",
+        "wall-face-shade": "#DCCDB8",
+        "skirting": "#9B7A5C",
+        "floor-main": "#AFC0D3",
+        "floor-alt": "#D9BE98",
+        "floor-shade": "#8EA0B6"
+      },
+      "accents": {
+        "brain-pink": "#F08A8F",
+        "coffee": "#7A5238",
+        "vent-smoke": "#A99BC2"
+      }
+    },
+    "brain-night": {
+      "colors": {
+        "wall-top-dark": "#1C2140",
+        "wall-top-light": "#2B3260",
+        "wall-face": "#5F6690",
+        "wall-face-shade": "#4A5078",
+        "skirting": "#3A3354",
+        "floor-main": "#4E5E86",
+        "floor-alt": "#6E6478",
+        "floor-shade": "#3B4870"
+      },
+      "accents": {
+        "lamp": "#FFD98A",
+        "screen": "#8FD3FF",
+        "exit": "#7FD18B"
+      }
+    },
+    "exam": {
+      "colors": {
+        "wall-top-dark": "#3A3F63",
+        "wall-top-light": "#565C88",
+        "wall-face": "#EEF0F2",
+        "wall-face-shade": "#D3D8DE",
+        "skirting": "#7D8794",
+        "floor-main": "#CDD6DF",
+        "floor-alt": "#E4E8EC",
+        "floor-shade": "#AEB8C4"
+      },
+      "accents": {
+        "paper": "#FFFDF7",
+        "blackboard": "#3F5E52",
+        "second-hand": "#2A2D34"
+      }
+    },
+    "liver": {
+      "colors": {
+        "wall-top-dark": "#3E3446",
+        "wall-top-light": "#5C4C5E",
+        "wall-face": "#D9C7C2",
+        "wall-face-shade": "#BFA8A3",
+        "skirting": "#6B5560",
+        "floor-main": "#B9B4B8",
+        "floor-alt": "#CFC6BE",
+        "floor-shade": "#958F96"
+      },
+      "accents": {
+        "alcohol-amber": "#D9A441",
+        "acetaldehyde": "#B04A7A",
+        "acetic": "#4FA3A5",
+        "pipe": "#7D6A8C"
+      }
+    },
+    "stomach": {
+      "colors": {
+        "wall-top-dark": "#4A3A36",
+        "wall-top-light": "#6A554E",
+        "wall-face": "#F2DCC8",
+        "wall-face-shade": "#DCC0A8",
+        "skirting": "#8A6650",
+        "floor-main": "#E9D6C3",
+        "floor-alt": "#F3E4D2",
+        "floor-shade": "#CDB59E"
+      },
+      "accents": {
+        "logistics": "#E8955A",
+        "cold": "#9CC7DE"
+      }
+    },
+    "immune": {
+      "colors": {
+        "wall-top-dark": "#22364A",
+        "wall-top-light": "#35506A",
+        "wall-face": "#DCE6EA",
+        "wall-face-shade": "#C1CFD6",
+        "skirting": "#4B6478",
+        "floor-main": "#C8D4D9",
+        "floor-alt": "#DDE5E8",
+        "floor-shade": "#A9B8C0"
+      },
+      "accents": {
+        "guard-blue": "#2F6B9A",
+        "pollen": "#C9D96B"
+      }
+    },
+    "gut": {
+      "colors": {
+        "wall-top-dark": "#2F3D33",
+        "wall-top-light": "#46594A",
+        "wall-face": "#D8DCC4",
+        "wall-face-shade": "#BCC2A6",
+        "skirting": "#6A6E52",
+        "floor-main": "#C6CDB0",
+        "floor-alt": "#D9D1B4",
+        "floor-shade": "#A6AE90"
+      },
+      "accents": {
+        "flora": "#6FAF73",
+        "fiber": "#E5D3A1",
+        "water": "#7FB4C9"
+      }
+    }
+  }
+}
