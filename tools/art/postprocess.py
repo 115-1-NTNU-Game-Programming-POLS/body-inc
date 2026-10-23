@@ -45,8 +45,9 @@ NOT_ADOPTED = {
     "prop-night-window": "drawn as a slanted perspective strip that shrinks to a sliver at 128 x 32; "
                          "art-src/drafts/props/window-night-band.png is drawn in code instead",
 }
-HOLD = {"illust-ch3-rescue": "fails the recovery-position self-check (legs straight, head on the lower arm); "
-                             "regenerate with the v2 prompt, then Wang Chen-ai reviews (6.5)"}
+HOLD = {"illust-ch3-rescue": "v2 passes the self-check (side-lying, upper knee on the ground, upper hand under "
+                             "the cheek; head tilt is mild); waits for the recovery-position review by "
+                             "Wang Chen-ai (6.5)"}
 
 # Step 4 outcome after looking at every raw image: ids with generated writing left in.
 TEXT_LEFT = {}
