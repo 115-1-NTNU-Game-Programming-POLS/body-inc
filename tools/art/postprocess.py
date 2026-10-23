@@ -45,9 +45,7 @@ NOT_ADOPTED = {
     "prop-night-window": "drawn as a slanted perspective strip that shrinks to a sliver at 128 x 32; "
                          "art-src/drafts/props/window-night-band.png is drawn in code instead",
 }
-HOLD = {"illust-ch3-rescue": "v2 passes the self-check (side-lying, upper knee on the ground, upper hand under "
-                             "the cheek; head tilt is mild); waits for the recovery-position review by "
-                             "Wang Chen-ai (6.5)"}
+HOLD = {}  # id -> reason; held images stay out of public/assets until their review passes
 
 # Step 4 outcome after looking at every raw image: ids with generated writing left in.
 TEXT_LEFT = {}
@@ -243,6 +241,7 @@ def do_illustration(aid):
         disp.save(out / f"{aid}-display.png", optimize=True)
         outputs.append(f"art-src/ai/processed/illustrations/{aid}-display.png")
     else:
+        (out / f"{aid}-display.png").unlink(missing_ok=True)  # left over from while it was held
         info["png_colors"] = save_small(disp, PUB / "illustrations" / f"{aid}.png")
         outputs.append(f"public/assets/illustrations/{aid}.png")
     info["outputs"] = outputs
@@ -518,6 +517,8 @@ def update_log(aid, info):
         log["status"] = "held" if aid in HOLD else "auto-processed"
         if aid in HOLD:
             log["reason"] = HOLD[aid]
+        else:
+            log.pop("reason", None)
     log["processed"] = info
     p.write_text(json.dumps(log, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
 
