@@ -54,8 +54,9 @@ export function step(state: GameState, input: TickInput): StepResult {
   const op = state.operator;
   const v = approach({ x: op.vx, y: op.vy }, desiredVelocity(input.move, op.slows));
   const moved = moveAndCollide(state.room.grid, OPERATOR_BODY, op.x, op.y, v.x, v.y);
-  if (moved.blockedX && op.vx !== 0) events.push({ type: 'bumpWall', axis: 'x' });
-  if (moved.blockedY && op.vy !== 0) events.push({ type: 'bumpWall', axis: 'y' });
+  // Attempted velocity, not last tick's: a blocked move zeroes the stored velocity.
+  if (moved.blockedX && v.x !== 0) events.push({ type: 'bumpWall', axis: 'x' });
+  if (moved.blockedY && v.y !== 0) events.push({ type: 'bumpWall', axis: 'y' });
   const operator: OperatorState = {
     ...op,
     x: moved.x,

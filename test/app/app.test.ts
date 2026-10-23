@@ -47,9 +47,10 @@ describe('fixed-step loop', () => {
 
   it('drops catch-up beyond 5 ticks per frame after a stall', () => {
     const loop = new FixedStepLoop(createGame(room, 1));
-    loop.advance(10_000);
+    const alpha = loop.advance(10_000);
     expect(loop.state.tick).toBe(5);
+    expect(alpha).toBe(0);
     loop.advance(0);
-    expect(loop.state.tick).toBe(6);
+    expect(loop.state.tick).toBe(5);
   });
 });

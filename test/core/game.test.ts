@@ -59,6 +59,17 @@ describe('deterministic rules', () => {
     expect(worst).toBe(0);
   });
 
+  it('pushing into a wall from a standstill still reports a bump every tick', () => {
+    const start = createGame(room, 1);
+    const flush: GameState = { ...start, operator: { ...start.operator, x: 32 + OPERATOR_BODY.halfW, y: 160 } };
+    const left: TickInput = { move: { x: -1, y: 0 } };
+    const first = step(flush, left);
+    const second = step(first.state, left);
+    expect(first.events).toContainEqual({ type: 'bumpWall', axis: 'x' });
+    expect(second.events).toContainEqual({ type: 'bumpWall', axis: 'x' });
+    expect(step(second.state, { move: { x: 1, y: 0 } }).events).toEqual([]);
+  });
+
   it('the random walk actually moves the operator around', () => {
     const xs = new Set<number>();
     play(7, 2000, (s) => xs.add(Math.round(s.operator.x / 32)));

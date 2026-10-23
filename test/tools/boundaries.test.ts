@@ -19,6 +19,8 @@ describe('core boundary check', () => {
     ['node-import', 'imports package "node:fs"'],
     ['math-random', 'Math.random'],
     ['date-now', 'Date.now'],
+    ['string-comment', 'Math.random'],
+    ['js-file', 'Math.random'],
   ])('fails on %s', (name, message) => {
     const v = findViolations(`${F}/${name}/core`);
     expect(v.length).toBe(1);

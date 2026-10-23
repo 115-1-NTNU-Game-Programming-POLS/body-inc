@@ -18,14 +18,37 @@ const FORBIDDEN_CALLS: ReadonlyArray<[RegExp, string]> = [
 
 const IMPORT_RE = /(?:import|export)\s+(?:type\s+)?(?:[^'"]*?\sfrom\s+)?['"]([^'"]+)['"]|import\s*\(\s*['"]([^'"]+)['"]\s*\)/g;
 
-function stripComments(src: string): string {
-  return src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:'"])\/\/.*$/gm, '$1');
+/** Removes comments while leaving string and template literals intact ('src/*' is not a comment). */
+export function stripComments(src: string): string {
+  let out = '';
+  let i = 0;
+  while (i < src.length) {
+    const c = src[i]!;
+    const next = src[i + 1];
+    if (c === '/' && next === '/') {
+      while (i < src.length && src[i] !== '\n') i++;
+    } else if (c === '/' && next === '*') {
+      const end = src.indexOf('*/', i + 2);
+      i = end < 0 ? src.length : end + 2;
+      out += ' ';
+    } else if (c === '"' || c === "'" || c === '`') {
+      const start = i++;
+      while (i < src.length && src[i] !== c) i += src[i] === '\\' ? 2 : 1;
+      out += src.slice(start, ++i);
+    } else {
+      out += c;
+      i++;
+    }
+  }
+  return out;
 }
+
+const SOURCE = /\.(?:[cm]?ts|[cm]?js)$/;
 
 function walk(dir: string): string[] {
   return readdirSync(dir).flatMap((name) => {
     const p = join(dir, name);
-    return statSync(p).isDirectory() ? walk(p) : p.endsWith('.ts') ? [p] : [];
+    return statSync(p).isDirectory() ? walk(p) : SOURCE.test(p) ? [p] : [];
   });
 }
 

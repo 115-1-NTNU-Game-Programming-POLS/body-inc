@@ -140,7 +140,10 @@ def main():
         missing = check(manifest)
         for m in missing:
             print("missing tag:", m)
-        sys.exit(1 if missing else 0)
+        stale = index_problems(manifest)
+        for s in stale:
+            print("atlas index:", s)
+        sys.exit(1 if missing or stale else 0)
     OUT.mkdir(parents=True, exist_ok=True)
     for e in manifest["entries"]:
         sheet, data = build(e)
@@ -150,12 +153,31 @@ def main():
     write_index(manifest)
 
 
+REAL_DIR = ROOT / "public" / "assets" / "atlases"
+
+
+def expected_index(manifest):
+    """The game cannot list public/ at runtime, so it reads which atlas to load per key from
+    atlases/index.json. A real export in atlases/<key>.json wins over its placeholder."""
+    return {e["key"]: (f"assets/atlases/{e['key']}" if (REAL_DIR / f"{e['key']}.json").exists()
+                       else f"assets/atlases/placeholder/{e['key']}") for e in manifest["entries"]}
+
+
+def index_problems(manifest):
+    """A real atlas added without rerunning this script would otherwise ship the placeholder."""
+    path = REAL_DIR / "index.json"
+    if not path.exists():
+        return ["index.json missing; run python tools/art/make_placeholders.py"]
+    have = json.loads(path.read_text(encoding="utf-8"))
+    want = expected_index(manifest)
+    return [f"{k}: index says {have.get(k)!r}, expected {v!r}; rerun make_placeholders.py"
+            for k, v in want.items() if have.get(k) != v] + \
+           [f"{k}: in index but not in the manifest" for k in have if k not in want]
+
+
 def write_index(manifest):
-    """The game cannot list public/ at runtime, so it reads which atlas to load per key from here.
-    A real export in atlases/<key>.json wins over its placeholder; rerun after adding real art."""
-    real_dir = ROOT / "public" / "assets" / "atlases"
-    index = {e["key"]: (f"assets/atlases/{e['key']}" if (real_dir / f"{e['key']}.json").exists()
-                        else f"assets/atlases/placeholder/{e['key']}") for e in manifest["entries"]}
+    index = expected_index(manifest)
+    real_dir = REAL_DIR
     (real_dir / "index.json").write_text(json.dumps(index, indent=1) + "\n", encoding="utf-8")
     real = sum(1 for v in index.values() if "placeholder" not in v)
     print(f"atlas index: {real} real, {len(index) - real} placeholder -> {real_dir / 'index.json'}")

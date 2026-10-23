@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { OPERATOR_BODY, TILE, type OperatorState, type SolidGrid } from '../../core/index.ts';
+import { OPERATOR_BODY, TILE, type SolidGrid } from '../../core/index.ts';
 
 /** F1 debug view of what core collides with, drawn from core data rather than sprite bounds. */
 export class CollisionOverlay {
@@ -25,7 +25,8 @@ export class CollisionOverlay {
     this.body.setVisible(this.visible);
   }
 
-  render(op: Readonly<OperatorState>): void {
-    if (this.visible) this.body.setPosition(op.x, op.y);
+  /** Same interpolated position as the sprite, so the box never runs a tick ahead of it. */
+  render(x: number, y: number): void {
+    if (this.visible) this.body.setPosition(x, y);
   }
 }

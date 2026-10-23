@@ -35,7 +35,7 @@ export class FixedStepLoop {
       this.acc -= TICK_MS;
       ticks++;
     }
-    if (ticks === MAX_TICKS_PER_FRAME) this.acc = Math.min(this.acc, TICK_MS);
+    if (ticks === MAX_TICKS_PER_FRAME) this.acc = 0;
     return this.acc / TICK_MS;
   }
 }

@@ -17,9 +17,8 @@ export class OperatorView {
     this.sprite.setOrigin(entry.anchor[0] / entry.frame[0], entry.anchor[1] / entry.frame[1]);
   }
 
-  render(prev: Readonly<OperatorState>, cur: Readonly<OperatorState>, alpha: number): void {
-    const x = prev.x + (cur.x - prev.x) * alpha;
-    const y = prev.y + (cur.y - prev.y) * alpha;
+  /** x, y are the interpolated feet position; cur supplies facing and velocity. */
+  render(cur: Readonly<OperatorState>, x: number, y: number): void {
     this.sprite.setPosition(x, y).setDepth(y).setFlipX(cur.facing === 'left');
     const anim = tagKey(this.key, `walk_${DIR_TAG[cur.facing]}`);
     if (cur.vx !== 0 || cur.vy !== 0) {
