@@ -2,18 +2,18 @@
 
 <img src="assets/brand/logo-lockup.png" alt="人體股份有限公司 Body Inc. 標誌" width="600">
 
-國立臺灣師範大學「遊戲程式設計」（115-1）第七組的期末專題。玩家扮演大二生小晨身體裡的營運長，調度各器官部門、處理突發事件，讓小晨撐到期末考而不被送進急診。遊戲以 p5.js 開發，以職場諷刺的笑點包裝衛教知識，目標玩家是大學生。
+國立臺灣師範大學「遊戲程式設計」（115-1）第七組的期末專題。玩家扮演資工系大二生小晨身體裡的營運長，走進各器官的世界探索、解謎並以文具進行輕戰鬥，對抗名為「速效顧問集團」的壞習慣，讓小晨撐到期末考。每個器官世界的核心機制就是該器官的生理知識，以職場諷刺的笑點包裝衛教，目標玩家是大學生。遊戲以 Phaser 3 開發，地圖以 Tiled 編輯。
 
-目前處於企劃與原型階段，遊戲本體的程式碼尚未開始撰寫。期中提案用的展示版可以線上試玩：https://115-1-ntnu-game-programming-pols.github.io/body-inc-midterm-demo/ （原始碼在 [body-inc-midterm-demo](https://github.com/115-1-NTNU-Game-Programming-POLS/body-inc-midterm-demo)）。
+2026-10-23 起，設計由管理模擬（拖曳血球代幣調度部門）轉為俯視角探索冒險，設計文件已改為第二版；`sim/`、`docs/specs/` 的內容與期中展示版屬於舊設計，哪些部分仍可沿用見設計文件第 17 節。目前處於企劃與原型階段，遊戲本體的程式碼尚未開始撰寫。期中提案用的展示版可以線上試玩：https://115-1-ntnu-game-programming-pols.github.io/body-inc-midterm-demo/ （原始碼在 [body-inc-midterm-demo](https://github.com/115-1-NTNU-Game-Programming-POLS/body-inc-midterm-demo)）。
 
 ## 資料夾內容
 
 | 路徑 | 內容 |
 | --- | --- |
 | `docs/design-doc.md` | 遊戲設計文件（正本） |
-| `docs/specs/` | 設計文件的三份附錄：內容規格、玩家體驗流程與文案規格、衛教查證表 |
+| `docs/specs/` | 設計文件的三份附錄：內容規格、玩家體驗流程與文案規格（兩者屬舊設計，部分可沿用）、衛教查證表（仍有效） |
 | `docs/site/` | 把設計文件與附錄轉成網頁閱讀版的腳本與模板 |
-| `sim/` | 數值模擬程式（Node.js），用來驗證數值是否傳達正確的衛教訊息 |
+| `sim/` | 數值模擬程式（Node.js），用來驗證數值是否傳達正確的衛教訊息；代幣與危機模型屬舊設計，需依設計文件第 9.6 節重新模擬 |
 | `slides/proposal/` | 期中提案簡報（10/19）的原始檔 |
 | `prototypes/feasibility/` | 可行性審查時的原型：因果追溯、p5.js 粒子與代幣拖曳、中文斷行測試 |
 | `assets/organs/` | 器官員工插圖（江兆耘繪製），去背後縮為 512px；檔名為「器官-狀態」，狀態有 base、normal、warning、quit（肌肉目前缺 base） |
