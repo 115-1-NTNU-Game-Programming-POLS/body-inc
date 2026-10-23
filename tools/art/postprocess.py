@@ -42,8 +42,11 @@ NOT_ADOPTED = {
     "prop-core-dump-box": "box skeleton in art-src/drafts/props replaces it (7.4)",
     "prop-welfare-box-closed": "box skeleton in art-src/drafts/props replaces it (7.4)",
     "prop-welfare-box-open": "box skeleton in art-src/drafts/props replaces it (7.4)",
+    "prop-night-window": "drawn as a slanted perspective strip that shrinks to a sliver at 128 x 32; "
+                         "art-src/drafts/props/window-night-band.png is drawn in code instead",
 }
-HOLD = {"illust-ch3-rescue": "waits for the recovery-position review by Wang Chen-ai (6.5)"}
+HOLD = {"illust-ch3-rescue": "fails the recovery-position self-check (legs straight, head on the lower arm); "
+                             "regenerate with the v2 prompt, then Wang Chen-ai reviews (6.5)"}
 
 # Step 4 outcome after looking at every raw image: ids with generated writing left in.
 TEXT_LEFT = {}
@@ -184,10 +187,23 @@ def sticker(aid, band=4, sparkles=True):
     return crop_alpha(to_image(rgb, alpha)), dropped
 
 
+def retrace(img, frac=0.006):
+    """Even out the outer outline: every edge of the silhouette gets at least frac of the
+    image width in ink navy (12.4 step 2). Thicker generated strokes are left as drawn.
+    frac stays below the 1 % target: a band of 2 x 1 % would fill thin parts such as the
+    flag pole or a tie tip with navy completely."""
+    a = np.asarray(img).astype(float)
+    mask = a[..., 3] > 127
+    width = max(2, round(img.width * frac))
+    band = mask & (ndimage.distance_transform_edt(mask) <= width)
+    a[band, :3] = NAVY
+    return Image.fromarray(a.round().astype(np.uint8), "RGBA")
+
+
 def do_portrait(aid):
     img, dropped = sticker(aid)
     s = 1024 / max(img.size)
-    master = resize(img, (round(img.width * s), round(img.height * s)))
+    master = retrace(resize(img, (round(img.width * s), round(img.height * s))))
     PROC.joinpath("portraits").mkdir(parents=True, exist_ok=True)
     master.save(PROC / "portraits" / f"{aid}-1024.png", optimize=True)
     h = 300
@@ -232,6 +248,30 @@ def do_illustration(aid):
     return info
 
 
+def cleanup(rgb, alpha):
+    """Pixel cleanup the way it is done by hand: drop lone pixels, fill pinholes, and replace
+    single-pixel color specks with the color most of their four neighbours share."""
+    alpha = alpha.copy()
+    n8 = ndimage.convolve(alpha.astype(int), np.ones((3, 3), int), mode="constant") - alpha
+    alpha[alpha & (n8 == 0)] = False  # lone opaque pixel
+    pin = ~alpha & (n8 >= 7)
+    alpha |= pin
+    h, w = alpha.shape
+    out = rgb.copy()
+    for y in range(h):
+        for x in range(w):
+            if not alpha[y, x]:
+                continue
+            neigh = [tuple(rgb[yy, xx]) for yy, xx in ((y - 1, x), (y + 1, x), (y, x - 1), (y, x + 1))
+                     if 0 <= yy < h and 0 <= xx < w and alpha[yy, xx]]
+            me = tuple(rgb[y, x])
+            if pin[y, x] or (len(neigh) == 4 and me not in neigh):
+                vals, counts = np.unique(np.array(neigh), axis=0, return_counts=True) if neigh else (None, None)
+                if neigh and (pin[y, x] or counts.max() >= 3):
+                    out[y, x] = vals[counts.argmax()]
+    return out, alpha
+
+
 def pixelize(img, w, h, anchor_bottom=True, max_colors=16):
     """Fit, box-downscale, hard alpha, quantize to the pixel palette, 1 px inner navy outline."""
     img = crop_alpha(img, 128)
@@ -246,6 +286,7 @@ def pixelize(img, w, h, anchor_bottom=True, max_colors=16):
     pal = np.array(q.getpalette()[: max_colors * 3], float).reshape(-1, 3)
     _, idx = PIX_TREE.query(pal)
     rgb = PIX_PAL[idx][np.asarray(q)]
+    rgb, alpha = cleanup(rgb, alpha)
     edge = alpha & ~ndimage.binary_erosion(alpha, border_value=0)
     rgb[edge] = NAVY
     out = np.zeros((h, w, 4), np.uint8)
@@ -289,8 +330,10 @@ def do_prop(aid):
         px = immune_band(px)
     px.save(out / f"{aid}.png")
     outputs = [f"art-src/ai/processed/props/{aid}.png"]
-    if aid not in NOT_ADOPTED:
-        dest = PUB / "props" / f"{aid}.png"
+    dest = PUB / "props" / f"{aid}.png"
+    if aid in NOT_ADOPTED:
+        dest.unlink(missing_ok=True)  # it may have been published before it was rejected
+    else:
         dest.parent.mkdir(parents=True, exist_ok=True)
         px.save(dest, optimize=True)
         outputs.append(f"public/assets/props/{aid}.png")
@@ -315,6 +358,8 @@ def tone_index(a, levels=3):
 
 def do_cork(aid):
     a = load(raw_path(aid))
+    h, w = a.shape[:2]
+    a = a[h // 5:h - h // 5, w // 5:w - w // 5]  # the raw has a wooden frame that the wrap blend dragged inward
     tile = np.asarray(Image.fromarray(seamless(a).astype(np.uint8)).resize((64, 64), Image.BOX)).astype(float)
     tile = ndimage.gaussian_filter(tile, (1.5, 1.5, 0), mode="wrap")
     base = hex_rgb("#C8955A")

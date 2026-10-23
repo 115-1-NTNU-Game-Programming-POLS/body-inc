@@ -20,7 +20,7 @@ MAX_W = 1024
 
 GROUP_RULES = [  # first match wins; frame name prefix -> group
     ("brain", ("prop-coffee-machine", "prop-clock-vent", "prop-bed-door", "prop-temp-desk", "prop-nap-sofa",
-               "prop-neuron-chandelier", "prop-night-")),
+               "prop-neuron-chandelier", "prop-night-", "window-night-band")),
     ("liver", ("prop-alcohol-barrel", "prop-production-machine", "prop-steel-shelf", "prop-acetic-bottle",
                "prop-hex-control-board", "prop-doc-mountain", "prop-resign-drawer", "box-acetaldehyde")),
     ("exam", ("prop-exam-",)),

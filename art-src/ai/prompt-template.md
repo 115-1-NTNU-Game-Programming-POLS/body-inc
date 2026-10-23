@@ -1,10 +1,31 @@
 # AI 提示詞範本
 
-本檔是美術指南第 12.3 節要求的固定基底句與版本紀錄。每個素材的完整提示詞由 `tools/art/gen_gemini_prompts.py` 依本檔的基底句組合，輸出到 `art-src/ai/prompts/`；改基底句要改那支腳本並在下表加一列。依指南，範本變更需江兆耘同意；以下 v1-g 與 tile v1-g 是 PM 在第一批生圖時為配合工具所做的適配，尚待江兆耘確認。
+本檔是美術指南第 12.3 節要求的固定基底句與版本紀錄，也記錄工具、服務條款與江兆耘的同意狀態。每個素材的完整提示詞由 `tools/art/gen_gemini_prompts.py` 依本檔的基底句組合，輸出到 `art-src/ai/prompts/`；改基底句要改那支腳本並在版本表加一列。依指南，範本變更需江兆耘同意；以下 v1-g 與 tile v1-g 是 PM 在第一批生圖時為配合工具所做的適配，同意狀態見文末。
 
 ## 工具
 
-第一批（2026-10-23）使用 Google Gemini 的影像生成，模型版本當時未記錄，下一批起請在生成紀錄的 `model` 欄位填入介面顯示的模型名稱。指南第 12.2 節要求的工具實測（以參考圖控制風格、輸出解析度與去背品質、服務條款）尚未做完：本批實際觀察到的是可以接受參考圖、輸出約 1024 至 2528 像素、不能輸出透明背景。服務條款是否允許把輸出用於公開展示的課程作品，需在 Google 的生成式 AI 使用政策與 Gemini 服務條款中確認後，把條款網址記在這裡。
+第一批（2026-10-23）實際用了兩個工具，以每張原圖內嵌的 C2PA 內容憑證（工具簽署的出處紀錄）判定，不靠人工回憶：76 張由 Google Gemini 產生（憑證簽署者 Google LLC，產生器為 Google C2PA Core Generator Library，並標示已加上 SynthID 隱形浮水印），34 張由 ChatGPT 產生（憑證寫明 ChatGPT 的 `gpt-image`，經 OpenAI Media Service API）。ChatGPT 的 34 張是全部 1254 像素的 PNG：狀態、修飾器、行事曆、時段、福利關鍵字圖示，重生的 7 張，以及報告桌。兩家的憑證都沒有寫出具體模型版本，生成紀錄的 `model` 欄位據實寫「不在憑證中」。匯入腳本會自動讀取憑證，之後不需人工填寫工具欄。
+
+指南第 12.2 節要求選定工具後鎖定到 12/7。本批混用兩個工具，產出的畫風在審查圖上看不出明顯落差，但之後同一類素材請固定用同一個工具，例如圖示固定 ChatGPT、頭像與道具固定 Gemini，避免同類素材風格漂移。
+
+## 服務條款（2026-10-23 查證）
+
+Google：Gemini 適用 Google 服務條款（[policies.google.com/terms](https://policies.google.com/terms)，2026-07-30 生效版）。原本的 Generative AI Additional Terms 已於 2024-05-22 併入該條款而停止適用（[policies.google.com/terms/generative-ai](https://policies.google.com/terms/generative-ai)）。條款寫明 Google 不主張使用者以服務產生之內容的所有權（"Google won't claim ownership over that content"）；與本專案相關的禁止事項是讓他人誤以為生成式 AI 內容是人類創作，以及用生成內容開發機器學習模型。
+
+OpenAI：ChatGPT 適用 OpenAI Terms of Use（台灣適用 [openai.com/policies/row-terms-of-use](https://openai.com/policies/row-terms-of-use/)）。條款規定輸出歸使用者所有，OpenAI 將其對輸出的權利轉讓給使用者，條件是遵守條款；禁止把輸出表示為人類創作。查證時該頁拒絕直接讀取，以上內容取自 openai.com 網域的搜尋摘錄，日後應有人以瀏覽器開啟原頁核對一次。
+
+結論：兩家條款都允許把產出用在公開展示的課程作品，共同的義務是揭露 AI 使用，也就是指南第 12.6 節的授權紀錄與製作群名單揭露行，本專案已經在做。另需注意，純 AI 產出在多數法域可能不受著作權保護，這不影響課程使用，但他人複製時團隊可能無法主張權利。
+
+## 江兆耘的同意
+
+指南第 12.2 節規定，江兆耘的立繪上傳到 AI 服務前須取得他本人同意，基底句的變更也需要他同意。依憑證，以下 20 次 Gemini 生成上傳了參考圖，且提示詞指定的參考圖是 `assets/organs/` 中他的立繪：concept-consultant、concept-energy-seller、concept-flyer、illust-ch0-course-selection、illust-ch1-tle-night、illust-ch3-bbq、illust-midterm-exam、illust-prologue-sunglasses-hand、illust-xiaochen-base、portrait-adenosine-base、portrait-brain-sleepy、portrait-brain-surprised、portrait-caffeine-defeated、portrait-caffeine-pitch、portrait-exam-stern、portrait-liver-caught、portrait-liver-memo、portrait-liver-tired、portrait-toast-boss-defeated、portrait-toast-boss-pitch。憑證只記錄輸入張數，不記錄是哪一張圖，實際上傳的是否為他的立繪以操作者的記憶為準。
+
+截至 2026-10-23 尚無同意紀錄。需要向江兆耘取得的同意有兩項：一是事後追認以上 20 次上傳，二是同意 base v1-g 與 tile v1-g 兩個基底句版本。取得後在下表填入日期與方式（例如群組訊息截圖存放位置）。若他不同意，以上 20 張不得進遊戲，改為不附他立繪重新生成，或改用 `assets/brand/badge-1024.png` 當畫風參考。
+
+| 項目 | 同意與否 | 日期 | 方式 |
+| --- | --- | --- | --- |
+| 追認 20 次上傳立繪 | 待回覆 | | |
+| base v1-g、tile v1-g | 待回覆 | | |
 
 ## 版本
 

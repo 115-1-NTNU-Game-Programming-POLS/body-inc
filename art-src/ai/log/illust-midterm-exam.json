@@ -2,8 +2,8 @@
  "id": "illust-midterm-exam",
  "title": "期中考：上機考與紙筆考（推薦版，可選）",
  "batch": "gemini-batch-1",
- "tool": "Gemini",
- "model": null,
+ "tool": "Google Gemini",
+ "model": "Google Generative AI (model name not in manifest)",
  "date": "2026-10-23",
  "template": "base v1-g",
  "prompt": "Generate exactly ONE image. Not a sheet, not a grid, not multiple variations, no panels.\nStyle: flat-color sticker illustration in the same style as the attached reference image: thick dark navy outline (#0C2D5E), flat fills with one-step same-hue shading, no gradients, no texture, chibi proportions (head about one third of body height), simple faces: solid navy round eyes with one white highlight, line mouth.\nComposition: a single illustration filling the whole frame, simple uncluttered background made of large flat color shapes, main subject readable when shrunk to 240x150 pixels. Aspect ratio 3:2.\nSubject: the same student from the attached image (same hair with check-mark cowlick, blue hoodie), sitting in an exam room with rows of desks, on his desk a blank paper exam sheet and a pencil, focused and nervous, a wall clock above the blackboard, other students drawn as simple back-view silhouettes.\nAvoid: text, letters, numbers, Chinese characters, fake writing, logos, watermark, signature, realistic anatomy, blood, veins, slime, glossy wet highlights, 3D render, photo, red cross symbol, multiple panels, character sheet, turnaround, readable writing on the blackboard, real university names.",
@@ -28,5 +28,11 @@
    "art-src/ai/processed/illustrations/illust-midterm-exam-master.png",
    "public/assets/illustrations/illust-midterm-exam.png"
   ]
+ },
+ "c2pa": {
+  "generator": "Google C2PA Core Generator Library 1003583797",
+  "signed_by": "Google LLC",
+  "synthid": true,
+  "input_images": 3
  }
 }

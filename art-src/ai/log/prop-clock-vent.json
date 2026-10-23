@@ -2,8 +2,8 @@
  "id": "prop-clock-vent",
  "title": "時鐘通風口 2 × 2（牆掛）",
  "batch": "gemini-batch-1",
- "tool": "Gemini",
- "model": null,
+ "tool": "Google Gemini",
+ "model": "Google Generative AI (model name not in manifest)",
  "date": "2026-10-23",
  "template": "base v1-g",
  "prompt": "Generate exactly ONE image. Not a sheet, not a grid, not multiple variations, no panels.\nStyle: flat simple video-game prop illustration, 3/4 top-down view (camera looking down about 45 degrees, front face and top face both visible), big simple shapes with no small details, thick dark navy outline (#0C2D5E), flat fills, at most 6 colors, light from the top-left so the shaded side is bottom-right, shading hue shifted toward navy, no gradients, no texture. It must still read clearly after being downscaled to 64x64 pixel art.\nComposition: the single object centered, plain solid pure white background (#FFFFFF), no floor, no cast shadow, no other objects, wide empty margin. Aspect ratio 1:1.\nSubject: a wall-mounted round office clock whose lower half is a louvered air vent with horizontal slats, a thin wisp of lavender-grey smoke (#A99BC2) drifting out of the vent, clock face with plain tick marks and two hands, front view of a wall object.\nAvoid: text, letters, numbers, Chinese characters, fake writing, logos, watermark, diagonal stripes, hazard stripes, lightning bolt shapes, teal or cyan accents, saturated red, glossy highlights, 3D render, photo, perspective distortion, multiple objects, sheet, numbers on the clock.",
@@ -32,5 +32,11 @@
    64
   ],
   "colors": 16
+ },
+ "c2pa": {
+  "generator": "Google C2PA Core Generator Library 1003583797",
+  "signed_by": "Google LLC",
+  "synthid": true,
+  "input_images": 0
  }
 }

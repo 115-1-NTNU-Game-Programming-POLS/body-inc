@@ -265,14 +265,14 @@ Avoid: text, letters, numbers, Chinese characters, fake writing, logos, watermar
 ### `illust-ch3-rescue` 第三章：叫不醒的阿凱（救援插圖，需王晨嬡審姿勢）
 
 - 附圖：選定的 illust-xiaochen-base 成品（只當人物參考）
-- 備註：這張本身就是衛教內容：側躺姿勢必須由王晨嬡對照查證表第 2 條審過才定稿。
+- 備註：這張本身就是衛教內容：側躺姿勢必須由王晨嬡對照查證表第 2 條審過才定稿。第一版兩腿伸直、頭枕在下方手臂上，不合格；這是第二版 prompt。生成後先自查四點：側臥、上方腿彎曲膝蓋著地、頭略後仰、上方手背墊在臉頰下。
 
 ```text
 Generate exactly ONE image. Not a sheet, not a grid, not multiple variations, no panels.
 Style: flat-color illustration with a dark navy outline (#0C2D5E), flat fills, one-step shading, desaturated cool palette (muted blues, grey-greens, soft greys), NO blush, no chibi exaggeration, more natural body proportions, quiet and sincere mood.
 Composition: a single illustration filling the whole frame, simple uncluttered background made of large flat color shapes, main subject readable when shrunk to 240x150 pixels. Aspect ratio 3:2.
-Subject: a calm, serious, realistic-proportioned scene at night at the quiet edge of a grass field: a young man (Akai, short black hair, grey T-shirt) lying on his side in the first-aid recovery position: body on its side, the upper leg bent with the knee resting on the ground in front to stop him rolling, head tilted slightly back to keep the airway open, the upper hand placed under his cheek. The student from the attached image (blue hoodie, check-mark cowlick) crouches close beside him holding a phone to his ear, calling for help, worried but steady. Soft street-lamp light.
-Avoid: text, letters, numbers, Chinese characters, fake writing, logos, watermark, signature, realistic anatomy, blood, veins, slime, glossy wet highlights, 3D render, photo, red cross symbol, multiple panels, character sheet, turnaround, blush, comedic expressions, sweat drops, vomit, bottles, cans, alcohol, ambulance lights flashing, dramatic glow, tears.
+Subject: a calm, serious, realistic-proportioned scene at night at the quiet edge of a grass field, seen from a slightly high angle in front of the lying man so that all four of his limbs are clearly visible. A young man (Akai, short black hair, grey T-shirt) is in the first-aid recovery position, drawn limb by limb exactly like this: he lies on his LEFT side facing the viewer; his LEFT arm (the lower one) lies straight out on the grass at a right angle to his body, palm up; the back of his RIGHT hand (the upper one) is tucked under his right cheek, so his head rests on that hand and not on the grass; his RIGHT leg (the upper one) is bent at the hip and at the knee to about 90 degrees, with the right knee touching the grass in front of his body like a kickstand; his LEFT leg (the lower one) stays straight; his head is tilted slightly back with the chin lifted and the mouth pointing down toward the grass. The student from the attached image (blue hoodie, check-mark cowlick) kneels close beside him, behind his back, holding a phone to his ear, calling for help, worried but steady. Soft street-lamp light.
+Avoid: text, letters, numbers, Chinese characters, fake writing, logos, watermark, signature, realistic anatomy, blood, veins, slime, glossy wet highlights, 3D render, photo, red cross symbol, multiple panels, character sheet, turnaround, blush, comedic expressions, sweat drops, vomit, bottles, cans, alcohol, ambulance lights flashing, dramatic glow, tears, both legs straight, legs together, head resting on the lower arm, lying on the back, lying face down.
 ```
 
 ### `illust-prologue-sunglasses-hand` 序章過場：凌晨兩點，墨鏡手簽合約

@@ -5,11 +5,13 @@ selected image per id comes in; rejected candidates stay out of the repo.
 
     python tools/art/import_ai_batch.py <download dir> [--date YYYY-MM-DD]
     python tools/art/import_ai_batch.py --sheets-only
+    python tools/art/import_ai_batch.py --provenance   # refill tool/model/c2pa of existing logs
 
 Existing logs are never overwritten, so hand-filled fields survive a re-import.
 """
 import hashlib
 import json
+import re
 import shutil
 import sys
 from datetime import date, datetime
@@ -39,13 +41,38 @@ def sha256(p):
     return hashlib.sha256(p.read_bytes()).hexdigest()
 
 
+def provenance(path):
+    """Read the generator out of the C2PA manifest the tool embedded in the file.
+
+    The manifest is CBOR inside JUMBF boxes; the few fields needed here appear as plain
+    strings, so a byte search is enough and needs no extra dependency.
+    """
+    b = Path(path).read_bytes()
+    if b"c2pa" not in b:
+        return {"tool": None, "model": None, "c2pa": None}
+    inputs = len(set(re.findall(rb"Input ingredient (\d+)", b)))
+    if b"ChatGPT" in b:
+        stamp = re.search(rb"(20\d\d-\d\d-\d\dT[\d:.]+Z)msoftwareAgent", b)
+        return {"tool": "ChatGPT", "model": "gpt-image (OpenAI Media Service API, version not in manifest)",
+                "c2pa": {"generator": "ChatGPT gpt-image", "signed_by": "OpenAI via Trufo C2PA CA",
+                         "created": stamp.group(1).decode() if stamp else None, "input_images": inputs}}
+    if b"Google" in b:
+        lib = re.search(rb"Google C2PA Core Generator Library.version.(\d+)", b)
+        return {"tool": "Google Gemini", "model": "Google Generative AI (model name not in manifest)",
+                "c2pa": {"generator": "Google C2PA Core Generator Library " + (lib.group(1).decode() if lib else "?"),
+                         "signed_by": "Google LLC", "synthid": b"SynthID" in b, "input_images": inputs}}
+    return {"tool": "unknown", "model": None, "c2pa": {"input_images": inputs}}
+
+
 def stub_log(aid, sec, title, attach, prompt, dest, src, day):
+    prov = provenance(src)
     return {
         "id": aid,
         "title": title,
         "batch": "gemini-batch-1",
-        "tool": "Gemini",
-        "model": None,
+        "tool": prov["tool"],
+        "model": prov["model"],
+        "c2pa": prov["c2pa"],
         "date": day,
         "template": "tile v1-g" if sec.startswith("H") else "base v1-g",
         "prompt": prompt,
@@ -115,8 +142,23 @@ def contact_sheets(thumb=240, cols=6):
     print(f"contact sheets -> {SHEETS}")
 
 
+def backfill_provenance():
+    """Fill tool, model and c2pa of existing logs from the raw files; other fields stay."""
+    n = 0
+    for log in sorted(LOG.glob("*.json")):
+        d = json.loads(log.read_text(encoding="utf-8"))
+        prov = provenance(ROOT / d["selected"])
+        d.update(prov)
+        log.write_text(json.dumps(d, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+        n += 1
+    print(f"provenance updated in {n} logs")
+
+
 def main():
     args = sys.argv[1:]
+    if "--provenance" in args:
+        backfill_provenance()
+        return
     if "--sheets-only" not in args:
         if not args or args[0].startswith("--"):
             sys.exit(__doc__)

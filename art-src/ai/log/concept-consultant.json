@@ -2,8 +2,8 @@
  "id": "concept-consultant",
  "title": "序章速效顧問",
  "batch": "gemini-batch-1",
- "tool": "Gemini",
- "model": null,
+ "tool": "Google Gemini",
+ "model": "Google Generative AI (model name not in manifest)",
  "date": "2026-10-23",
  "template": "base v1-g",
  "prompt": "Generate exactly ONE image. Not a sheet, not a grid, not multiple variations, no panels.\nStyle: flat-color sticker illustration in the same style as the attached reference image: thick dark navy outline (#0C2D5E) about 1% of image width, soft pastel pink, coral and cream palette, one-step same-hue shading, no gradients, no texture, simple face: solid navy round eyes with one white highlight, oval blush, line mouth, cute office-worker mascot.\nComposition: centered, full body visible, plain solid pure white background (#FFFFFF), no floor, no cast shadow, no scenery, wide empty margin around the subject. Aspect ratio 1:1.\nSubject: a chibi slick business consultant with a normal human head, glossy slicked-back hair, squinting eyes in a fake friendly smile, wearing a charcoal grey business suit (#3B3F4A), a wine-red necktie (#9B2335), and a small plain golden-yellow lightning-bolt pin (#FFC83D) on the chest, holding a dark contract folder under one arm, the other hand offering a handshake, front view standing.\nAvoid: text, letters, numbers, Chinese characters, fake writing, logos, watermark, signature, realistic anatomy, blood, veins, slime, glossy wet highlights, 3D render, photo, red cross symbol, multiple panels, character sheet, turnaround, sunglasses.",
@@ -21,5 +21,11 @@
   "style-board-check": false
  },
  "hours": null,
- "status": "raw"
+ "status": "raw",
+ "c2pa": {
+  "generator": "Google C2PA Core Generator Library 1003583797",
+  "signed_by": "Google LLC",
+  "synthid": true,
+  "input_images": 2
+ }
 }

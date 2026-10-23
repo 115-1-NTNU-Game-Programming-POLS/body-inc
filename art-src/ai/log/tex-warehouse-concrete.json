@@ -2,8 +2,8 @@
  "id": "tex-warehouse-concrete",
  "title": "肝醣倉庫：水泥地",
  "batch": "gemini-batch-1",
- "tool": "Gemini",
- "model": null,
+ "tool": "Google Gemini",
+ "model": "Google Generative AI (model name not in manifest)",
  "date": "2026-10-23",
  "template": "tile v1-g",
  "prompt": "Generate exactly ONE image. Not a sheet, not a grid, not multiple variations, no panels.\nStyle: top-down seamless tileable floor texture, orthographic view looking straight down, flat colors, low contrast, low saturation, no outlines, no text. The left edge must continue the right edge and the top edge must continue the bottom edge. The image is only the floor surface filling the whole frame.\nColors: use only these colors: #CFC9BC, #C2BBAC, #A69F90.\nSubject: smooth warehouse concrete floor with very faint flat blotches.\nAvoid: text, letters, numbers, logos, perspective, vanishing point, objects, furniture, people, shadows of objects, lighting gradient, vignette, glossy reflections, photo, 3D render, diagonal stripes. Aspect ratio 1:1.",
@@ -28,5 +28,11 @@
   ],
   "period": 64,
   "note": "2 x 2 tiles; lay floor-0..3 in a 2 x 2 checker"
+ },
+ "c2pa": {
+  "generator": "Google C2PA Core Generator Library 1003583797",
+  "signed_by": "Google LLC",
+  "synthid": true,
+  "input_images": 0
  }
 }

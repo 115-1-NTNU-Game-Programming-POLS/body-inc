@@ -2,8 +2,8 @@
  "id": "prop-bed-door-open",
  "title": "就寢門：全開",
  "batch": "gemini-batch-1",
- "tool": "Gemini",
- "model": null,
+ "tool": "Google Gemini",
+ "model": "Google Generative AI (model name not in manifest)",
  "date": "2026-10-23",
  "template": "base v1-g",
  "prompt": "Generate exactly ONE image. Not a sheet, not a grid, not multiple variations, no panels.\nStyle: flat simple video-game prop illustration, 3/4 top-down view (camera looking down about 45 degrees, front face and top face both visible), big simple shapes with no small details, thick dark navy outline (#0C2D5E), flat fills, at most 6 colors, light from the top-left so the shaded side is bottom-right, shading hue shifted toward navy, no gradients, no texture. It must still read clearly after being downscaled to 64x96 pixel art.\nComposition: the single object centered, plain solid pure white background (#FFFFFF), no floor, no cast shadow, no other objects, wide empty margin. Aspect ratio 2:3.\nSubject: exactly the same double wooden doors with the crescent-moon lintel and gauge slot as the attached image, but both doors fully open against the walls, a calm dark-blue night room with a bed visible inside.\nAvoid: text, letters, numbers, Chinese characters, fake writing, logos, watermark, diagonal stripes, hazard stripes, lightning bolt shapes, teal or cyan accents, saturated red, glossy highlights, 3D render, photo, perspective distortion, multiple objects, sheet.",
@@ -32,5 +32,11 @@
    96
   ],
   "colors": 18
+ },
+ "c2pa": {
+  "generator": "Google C2PA Core Generator Library 1003583797",
+  "signed_by": "Google LLC",
+  "synthid": true,
+  "input_images": 1
  }
 }

@@ -2,8 +2,8 @@
  "id": "prop-evidence-cork-wall",
  "title": "軟木板牆面組件（可左右無縫）",
  "batch": "gemini-batch-1",
- "tool": "Gemini",
- "model": null,
+ "tool": "Google Gemini",
+ "model": "Google Generative AI (model name not in manifest)",
  "date": "2026-10-23",
  "template": "base v1-g",
  "prompt": "Generate exactly ONE image. Not a sheet, not a grid, not multiple variations, no panels.\nStyle: flat simple video-game wall texture, front view, flat fills, at most 5 colors, no outlines inside the surface, no gradients. The left edge must continue seamlessly into the right edge.\nComposition: the wall surface fills the whole frame. Aspect ratio 1:1.\nSubject: a cork board wall surface in warm tan cork color with subtle flat speckles, a thin wooden trim strip along the bottom edge.\nAvoid: text, letters, numbers, Chinese characters, fake writing, logos, watermark, diagonal stripes, hazard stripes, lightning bolt shapes, teal or cyan accents, saturated red, glossy highlights, 3D render, photo, perspective distortion, multiple objects, sheet, pins, papers.",
@@ -32,5 +32,11 @@
    64
   ],
   "note": "seamless 2 x 2 tile wall face, cork color is a proposal"
+ },
+ "c2pa": {
+  "generator": "Google C2PA Core Generator Library 1003583797",
+  "signed_by": "Google LLC",
+  "synthid": true,
+  "input_images": 0
  }
 }

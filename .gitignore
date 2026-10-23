@@ -7,12 +7,6 @@ docs/site/dist/
 prototypes/feasibility/chrome-prof/
 prototypes/feasibility/dom.txt
 
-# Art review sheets and contact sheets (rebuild with tools/art/review_sheets.py,
-# preview_rooms.py and import_ai_batch.py --sheets-only)
-art-src/ai/review/
-art-src/ai/raw/_contact/
-# Auto-processed masters (rebuild with tools/art/postprocess.py from art-src/ai/raw/)
-art-src/ai/processed/
 __pycache__/
 
 .DS_Store

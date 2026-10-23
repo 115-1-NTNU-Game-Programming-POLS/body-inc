@@ -2,8 +2,8 @@
  "id": "illust-ch1-tle-night",
  "title": "第一章：晚上八點、一大杯咖啡、TLE",
  "batch": "gemini-batch-1",
- "tool": "Gemini",
- "model": null,
+ "tool": "Google Gemini",
+ "model": "Google Generative AI (model name not in manifest)",
  "date": "2026-10-23",
  "template": "base v1-g",
  "prompt": "Generate exactly ONE image. Not a sheet, not a grid, not multiple variations, no panels.\nStyle: flat-color sticker illustration in the same style as the attached reference image: thick dark navy outline (#0C2D5E), flat fills with one-step same-hue shading, no gradients, no texture, chibi proportions (head about one third of body height), simple faces: solid navy round eyes with one white highlight, line mouth.\nComposition: a single illustration filling the whole frame, simple uncluttered background made of large flat color shapes, main subject readable when shrunk to 240x150 pixels. Aspect ratio 3:2.\nSubject: the same student from the attached image (same hair with check-mark cowlick, blue hoodie), in a university computer lab in the evening, holding a very large takeaway coffee cup, staring at a laptop whose screen shows rows of short grey bars with one row highlighted in orange to suggest a failed test case, a frustrated pout, other empty desks and monitors in the background.\nAvoid: text, letters, numbers, Chinese characters, fake writing, logos, watermark, signature, realistic anatomy, blood, veins, slime, glossy wet highlights, 3D render, photo, red cross symbol, multiple panels, character sheet, turnaround, real university names, readable code, readable UI, brand logos, red.",
@@ -28,5 +28,11 @@
    "art-src/ai/processed/illustrations/illust-ch1-tle-night-master.png",
    "public/assets/illustrations/illust-ch1-tle-night.png"
   ]
+ },
+ "c2pa": {
+  "generator": "Google C2PA Core Generator Library 1003583797",
+  "signed_by": "Google LLC",
+  "synthid": true,
+  "input_images": 2
  }
 }

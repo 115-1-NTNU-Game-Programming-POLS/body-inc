@@ -19,7 +19,7 @@ ROOMS = {
     "brain": [("prop-clock-vent", 2, 1), ("prop-wall-board-frame", 15, 1), ("prop-coffee-machine-on", 3, 4),
               ("prop-coffee-machine-closed", 5, 4), ("prop-nap-sofa", 14, 8), ("prop-temp-desk", 8, 7),
               ("prop-punch-clock", 16, 4), ("prop-tea-station", 17, 4)],
-    "brain-night": [("prop-night-window", 2, 1), ("prop-night-desk-lamp", 4, 6), ("prop-night-monitor", 6, 6),
+    "brain-night": [("window-night-band", 2, 1), ("prop-night-desk-lamp", 4, 6), ("prop-night-monitor", 6, 6),
                     ("prop-night-vending", 16, 4), ("prop-night-cleaning-cart", 12, 8),
                     ("prop-night-exit-sign", 15, 2)],
     "liver": [("prop-hex-control-board", 2, 1), ("prop-production-machine", 8, 5), ("prop-alcohol-barrel", 4, 8),
@@ -41,7 +41,10 @@ def main():
         ts = Image.open(PUB / "tilesets" / f"tiles-{world}-struct.png").convert("RGBA")
         room = sample_room(ts, names)
         for pid, tx, ty in sorted(props, key=lambda p: p[2]):
-            im = Image.open(PUB / "props" / f"{pid}.png").convert("RGBA")
+            src = PUB / "props" / f"{pid}.png"
+            if not src.exists():  # program-drawn props live in the drafts
+                src = ROOT / "art-src" / "drafts" / "props" / f"{pid}.png"
+            im = Image.open(src).convert("RGBA")
             x = tx * T + (T - im.width) // 2 if im.width < T else tx * T
             y = ty * T if ty <= 2 else (ty + 1) * T - im.height  # floor props stand on their tile
             room.alpha_composite(im, (x, max(0, y)))

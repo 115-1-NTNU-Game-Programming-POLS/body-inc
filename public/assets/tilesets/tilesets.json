@@ -80,6 +80,15 @@
   "columns": 2,
   "tileCount": 4
  },
+ "tiles-liver-floor-grate": {
+  "image": "assets/tilesets/tiles-liver-floor-grate-ex.png",
+  "tileWidth": 32,
+  "tileHeight": 32,
+  "margin": 1,
+  "spacing": 2,
+  "columns": 2,
+  "tileCount": 4
+ },
  "tiles-bbq-floor-grass": {
   "image": "assets/tilesets/tiles-bbq-floor-grass-ex.png",
   "tileWidth": 32,

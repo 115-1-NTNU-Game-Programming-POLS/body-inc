@@ -399,13 +399,15 @@ def hex_tiles():
     centers = [(8, 4), (24, 4), (0, 20), (16, 20), (32, 20)]
 
     def cell(x, y):
+        # identity is the hex center modulo the 32 px period, so a hex cut by the tile edge
+        # keeps one id on both sides and no grout line appears along the seam
         best, bi = 1e9, 0
-        for i, (cx, cy) in enumerate(centers):
+        for cx, cy in centers:
             for oy in (-32, 0, 32):
                 for ox in (-32, 0, 32):
                     d = (x + 0.5 - cx - ox) ** 2 + ((y + 0.5 - cy - oy) * 1.15) ** 2
                     if d < best:
-                        best, bi = d, (round((cx + ox) / 16), round((cy + oy - 4) / 16))
+                        best, bi = d, (cx % 32, cy % 32)
         return bi
 
     ids = [[cell(x, y) for x in range(T)] for y in range(T)]
@@ -416,7 +418,7 @@ def hex_tiles():
             for x in range(T):
                 c = ids[y][x]
                 edge = ids[y][(x + 1) % T] != c or ids[(y + 1) % T][x] != c
-                col = grout if edge else (fill_b if (v == 1 and c == (1, 0)) else fill_a)
+                col = grout if edge else (fill_b if (v == 1 and c == (16, 20)) else fill_a)
                 put(t, x, y, (*col, 255))
         tiles.append(t)
     return grid(tiles, 2, T, T)
@@ -486,7 +488,7 @@ def conveyor_sheet():
 
 # ---------------------------------------------------------------- box skeleton (art-direction 4, 7.4)
 
-CARDBOARD = (0xD2, 0xA8, 0x6E)  # draft only, not yet in body-inc.gpl
+CARDBOARD = C["cardboard"]
 
 
 def box(base, corners=False, deco=None):
@@ -570,6 +572,46 @@ def immune_barrel():
     return f
 
 
+def window_night_band():
+    """128 x 32 night window strip for the brain-night north wall (art-direction 7.4, light-source prop).
+
+    Flat front view: window frame, night sky, a skyline with a few lit windows and a moon.
+    The generated version was a slanted perspective strip that shrank to a sliver.
+    """
+    W, H = 128, 32
+    cols = WORLDS["brain-night"][0]
+    frame, frame_d = hex_rgb(cols[1]), hex_rgb(cols[0])
+    sky, sky_d = hex_rgb(cols[5]), hex_rgb(cols[7])
+    lamp = hex_rgb(WORLDS["brain-night"][1]["lamp"])
+    f = canvas(W, H)
+    rect(f, 0, 0, W - 1, H - 1, (*frame, 255))
+    rect(f, 0, H - 3, W - 1, H - 1, (*frame_d, 255))  # sill shade, light from the top left
+    for x0 in (3, 44, 85):  # three panes
+        rect(f, x0, 3, x0 + 39, H - 5, (*sky, 255))
+        rect(f, x0, 3, x0 + 39, 4, (*sky_d, 255))
+    rng = np.random.default_rng(3)
+    x = 3
+    while x < W - 3:  # skyline
+        bw, bh = int(rng.integers(6, 12)), int(rng.integers(6, 15))
+        for xx in range(x, min(x + bw, W - 3)):
+            for yy in range(H - 5 - bh, H - 4):
+                if f.getpixel((xx, yy))[:3] == sky:
+                    put(f, xx, yy, (*sky_d, 255))
+        for wy in range(H - 3 - bh, H - 6, 3):
+            for wx in range(x + 1, min(x + bw - 1, W - 4), 3):
+                if rng.random() < 0.3 and f.getpixel((wx, wy))[:3] == sky_d:
+                    put(f, wx, wy, (*lamp, 255))
+        x += bw + 1
+    for dy in range(4):  # moon in the right pane
+        for dx in range(4):
+            if (dx - 1.5) ** 2 + (dy - 1.5) ** 2 <= 4:
+                put(f, 112 + dx, 7 + dy, rgba("highlight"))
+    for x0 in (43, 84):  # mullions
+        rect(f, x0, 3, x0, H - 5, (*frame, 255))
+    outline(f, NAVY)
+    return f
+
+
 # ---------------------------------------------------------------- template sheet
 
 def template_sheet(tileset, names):
@@ -627,6 +669,7 @@ def main():
         "props/box-core-dump.png": box(CARDBOARD, False, deco_label),
         "props/box-welfare.png": box(CARDBOARD, False, deco_ribbon),
         "props/barrel-alcohol-immune.png": immune_barrel(),
+        "props/window-night-band.png": window_night_band(),
     }
     for rel, img in boxes.items():
         save(img, rel)

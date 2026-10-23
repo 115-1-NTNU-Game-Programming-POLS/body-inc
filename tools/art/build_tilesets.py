@@ -26,13 +26,16 @@ TEX = ROOT / "art-src" / "ai" / "processed" / "textures"
 OUT = ROOT / "public" / "assets" / "tilesets"
 T, MARGIN, SPACING, COLS = 32, 1, 2, 8
 
-# world -> processed floor texture used for slots 0-3 (None keeps the flat skeleton floor)
-FLOOR = {"lobby": None, "exam": None, "warehouse": "tiles-warehouse-floor",
-         "brain": "tiles-brain-floor", "brain-night": "tiles-brain-night-floor", "liver": "tiles-liver-floor"}
+# world -> 64 x 64 floor image whose four quadrants fill slots 0-3 (None keeps the flat skeleton floor).
+# The liver uses the program-drawn hex tiles: the AI grate read as noise at 2x and is kept as a second floor.
+FLOOR = {"lobby": None, "exam": None, "warehouse": TEX / "tiles-warehouse-floor.png",
+         "brain": TEX / "tiles-brain-floor.png", "brain-night": TEX / "tiles-brain-night-floor.png",
+         "liver": "hex"}
 EXTRA = {  # published name -> source
     "tiles-brain-floor-wood": TEX / "tiles-brain-floor-wood.png",
     "tiles-brain-night-floor-wood": TEX / "tiles-brain-night-floor-wood.png",
     "tiles-liver-floor-concrete": TEX / "tiles-liver-floor-concrete.png",
+    "tiles-liver-floor-grate": TEX / "tiles-liver-floor.png",
     "tiles-bbq-floor-grass": TEX / "tiles-bbq-floor-grass.png",
     "tiles-lobby-floor-marble": DRAFT / "tiles-lobby-floor-marble.png",
     "tiles-exam-floor": DRAFT / "tiles-exam-floor.png",
@@ -60,8 +63,13 @@ def shadow(tile, sides, shade):
 
 def world_sheet(world):
     sheet = recolor(Image.open(ROOT / "art-src/drafts/tiles/tiles-greybox-struct.png").convert("RGBA"), world)
+    if FLOOR[world] == "hex":
+        hexes = Image.open(DRAFT / "tiles-liver-floor-hex.png").convert("RGBA")
+        plain, marked = hexes.crop((0, 0, T, T)), hexes.crop((T, 0, 2 * T, T))
+        q = [plain, plain, plain, marked]  # hex tiles have a 32 px period, any order tiles
+    elif FLOOR[world]:
+        q = quadrants(Image.open(FLOOR[world]).convert("RGBA"))
     if FLOOR[world]:
-        q = quadrants(Image.open(TEX / f"{FLOOR[world]}.png").convert("RGBA"))
         shade = hex_rgb(WORLDS[world][0][7])
         for i in range(4):
             sheet.paste(q[i], (i * T, 0))

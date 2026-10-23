@@ -2,8 +2,8 @@
  "id": "ic-mod-core-dump",
  "title": "核心傾印",
  "batch": "gemini-batch-1",
- "tool": "Gemini",
- "model": null,
+ "tool": "ChatGPT",
+ "model": "gpt-image (OpenAI Media Service API, version not in manifest)",
  "date": "2026-10-23",
  "template": "base v1-g",
  "prompt": "Generate exactly ONE image. Not a sheet, not a grid, not multiple variations, no panels.\nStyle: single flat game UI icon, thick dark navy outline (#0C2D5E), flat fills, at most 4 colors, bold simple silhouette that is still readable at 32x32 pixels, slightly hand-drawn ink feel, small solid navy drop shadow offset to the bottom-right.\nComposition: the single symbol centered, plain solid pure white background (#FFFFFF), no frame, no circle badge behind it, wide empty margin. Aspect ratio 1:1.\nSubject: an overturned file box with papers spilling out.\nAvoid: text, letters, numbers, Chinese characters, logos, watermark, saturated red, teal or cyan, lightning bolt shapes, red cross symbol, gradients, 3D, glossy, photo, multiple icons, icon set.",
@@ -31,5 +31,11 @@
    64,
    64
   ]
+ },
+ "c2pa": {
+  "generator": "ChatGPT gpt-image",
+  "signed_by": "OpenAI via Trufo C2PA CA",
+  "created": "2026-10-23T07:37:31.053262017Z",
+  "input_images": 0
  }
 }

@@ -2,8 +2,8 @@
  "id": "concept-cheers",
  "title": "乾杯小弟",
  "batch": "gemini-batch-1",
- "tool": "Gemini",
- "model": null,
+ "tool": "ChatGPT",
+ "model": "gpt-image (OpenAI Media Service API, version not in manifest)",
  "date": "2026-10-23",
  "template": "base v1-g",
  "prompt": "Generate exactly ONE image. Not a sheet, not a grid, not multiple variations, no panels.\nStyle: flat-color sticker illustration in the same style as the attached reference image: thick dark navy outline (#0C2D5E) about 1% of image width, soft pastel pink, coral and cream palette, one-step same-hue shading, no gradients, no texture, simple face: solid navy round eyes with one white highlight, oval blush, line mouth, cute office-worker mascot.\nComposition: centered, full body visible, plain solid pure white background (#FFFFFF), no floor, no cast shadow, no scenery, wide empty margin around the subject. Aspect ratio 1:1.\nSubject: a small chibi party-hype enemy mascot whose head is a clear glass beer mug filled with pale amber beer and a ring of white foam on top (the kind of glass people clink when they shout cheers), the face is on the glass, wearing a charcoal grey business suit (#3B3F4A), a wine-red necktie (#9B2335), and a small plain golden-yellow lightning-bolt pin (#FFC83D) on the chest, a blank armband on the upper arm, holding up a small blank triangular pennant flag, cheerful shouting expression, front view standing.\nAvoid: text, letters, numbers, Chinese characters, fake writing, logos, watermark, signature, realistic anatomy, blood, veins, slime, glossy wet highlights, 3D render, photo, red cross symbol, multiple panels, character sheet, turnaround, bread, toast bread, blush, red face, drunk expression, bottles.",
@@ -21,5 +21,11 @@
   "style-board-check": false
  },
  "hours": null,
- "status": "raw"
+ "status": "raw",
+ "c2pa": {
+  "generator": "ChatGPT gpt-image",
+  "signed_by": "OpenAI via Trufo C2PA CA",
+  "created": "2026-10-23T07:59:17.579104887Z",
+  "input_images": 0
+ }
 }

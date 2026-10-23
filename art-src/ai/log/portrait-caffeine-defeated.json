@@ -2,8 +2,8 @@
  "id": "portrait-caffeine-defeated",
  "title": "續杯經理 卡費因：斷電／被駁回",
  "batch": "gemini-batch-1",
- "tool": "Gemini",
- "model": null,
+ "tool": "Google Gemini",
+ "model": "Google Generative AI (model name not in manifest)",
  "date": "2026-10-23",
  "template": "base v1-g",
  "prompt": "Generate exactly ONE image. Not a sheet, not a grid, not multiple variations, no panels.\nStyle: flat-color sticker illustration in the same style as the attached reference image: thick dark navy outline (#0C2D5E) about 1% of image width, soft pastel pink, coral and cream palette, one-step same-hue shading, no gradients, no texture, simple face: solid navy round eyes with one white highlight, oval blush, line mouth, cute office-worker mascot.\nComposition: centered, whole character visible, plain solid pure white background (#FFFFFF), no floor, no cast shadow, no scenery, wide empty margin around the subject. Aspect ratio 1:1.\nSubject: Redraw exactly the same coffee-cup-headed character from the first attached image (same cup, sleeve, lid, sticker, suit, tie, pin and loyalty card). New state: powered down, sitting slumped on the floor, eyes drawn as two flat lines, mouth a small wavy line, the loyalty card now has every circle filled with a stamp, three empty paper cups stacked beside him, a few pale lavender cotton-ball shapes (#EAE4FF) piled on his shoulders.\nAvoid: text, letters, numbers, Chinese characters, fake writing, logos, watermark, signature, realistic anatomy, blood, veins, slime, glossy wet highlights, 3D render, photo, red cross symbol, multiple panels, character sheet, turnaround.",
@@ -29,5 +29,11 @@
   ],
   "sparkles_removed": 1,
   "png_colors": 256
+ },
+ "c2pa": {
+  "generator": "Google C2PA Core Generator Library 1003583797",
+  "signed_by": "Google LLC",
+  "synthid": true,
+  "input_images": 2
  }
 }

@@ -778,7 +778,7 @@ art-src/
   ai/reference/  ai/prompt-template.md  ai/log/
   ai/prompts/                 每批的逐張提示詞（由 tools/art/gen_gemini_prompts.py 產生）
   ai/raw/<類別>/<id>.*        每個 id 選定的一張原圖，未後製（tools/art/import_ai_batch.py 匯入）
-  ai/processed/  ai/review/   自動後製的母檔與第 12.4 節第 6 步的審查圖，皆可重建，不進 Git
+  ai/processed/  ai/review/   自動後製的母檔與第 12.4 節第 6 步的審查圖，皆可重建，仍進 Git 供組員直接檢視
   drafts/                     程式繪製的草稿（骨架圖塊、方箱、特效），執行順序見 tools/art/README.md
 public/assets/
   atlases/  portraits/  tilesets/  maps/<world>/  ui/  audio/
