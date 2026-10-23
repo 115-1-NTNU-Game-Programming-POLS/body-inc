@@ -1,0 +1,78 @@
+# Body Inc. Construction Plan
+
+Status: proposal for team review, 2026-10-23. This plan builds the architecture in `docs/architecture.md` on the schedule in design doc 14.2 (`docs/design-doc.md`). Owners follow design doc 15 and remain suggestions until the team confirms them. Every milestone ends in checks that can fail; a milestone is met only when its checks pass on `main` in CI, not when the work "looks done".
+
+## 1. Principles for the build
+
+The build proceeds from the boundary outward. The first week produces the empty skeleton with its guard rails (boundary check, content schema, map check, CI, deploy) before any feature, because retrofitting a boundary after features exist is the expensive direction. Features are then built as vertical slices: each one lands its core rules with Node tests, its adapter, and its view in the same pull request, so the boundary is exercised by every feature instead of being designed once and ignored.
+
+Placeholder art is used from day one. The placeholder atlases generated from `public/assets/manifest.json` already follow the visual semantics of art direction 13.5 (badge for defeatable, dashed purple for reforming, grey hatching for immune), so the 11/8 alpha can test whether new players read the badge rule before the final sprites exist. Real art replaces placeholders by overwriting files; no code change is expected or allowed for an art swap.
+
+## 2. Week 0 and 1: skeleton and guard rails (10/24 to 11/1)
+
+This phase corresponds to "Phaser skeleton, Tiled pipeline and checks; combat feel prototype" in design doc 14.2. Work packages are listed in merge order; later packages depend on earlier ones.
+
+| # | Work package | Owner | Done when |
+| --- | --- | --- | --- |
+| S1 | Project scaffold: Vite, TypeScript strict, Vitest, one pinned Phaser 3.x version, `src/core`, `src/app`, `src/view`, `content/`, `test/`; `tsconfig.core.json` without DOM types; `npm run dev`, `build`, `test`, `check`, `typecheck` | 黃晨瑋 | `npm run build` produces `dist/` that runs from a sub-path (relative asset URLs); a `window` reference added to a core file fails `typecheck` |
+| S2 | CI and deploy: GitHub Actions runs `test` and `check` on every pull request and deploys `main` to GitHub Pages | 黃晨瑋 | a pull request with a failing test is blocked; the Pages URL serves the title scene |
+| S3 | `tools/check-boundaries.ts` (rules in architecture 9) | 黃晨瑋 | fixture files that import Phaser into core, use `Math.random` in core, and import `src/view` from core each fail the check |
+| S4 | Content schema, generated content types, and `tools/check-content.ts`; move `sim/params.js` values to `content/params.json`; `sim/` reads the JSON | 王欣媛 | a card with an unknown field fails; `sim` output is byte-identical before and after the move |
+| S5 | Core foundations: seeded RNG streams, rule clock, tag dictionary loader, `when` condition parser and evaluator, causal log with mandatory source and timestamp | 王晨嬡 | unit tests cover every operator in design doc 13.3; an entry without a source throws; the dictionary rejects an undefined tag |
+| S6 | Room model and map pipeline: Tiled project file with the custom classes of design doc 13.3, Tiled JSON to room model in `core/rooms`, `tools/check-maps.ts` sharing the same parser; the room model includes the solid-tile grid core collision uses | 黃晨瑋 | a deliberately broken map (wrong socket position, unknown tag, immune enemy without a reachable solution) fails with readable Chinese messages |
+| S7 | App loop: fixed 60 Hz stepping, command queue, event bus, selectors, game-speed multiplier, frozen snapshots in development | 黃晨瑋 | a replay test feeds a recorded command log and asserts the same state hash in Node twice |
+| S8 | Asset registry from the manifest, Aseprite atlas loading with `createFromAseprite`, tileset loading from `tilesets.json` | 黃晨瑋 | boot fails with a named error when a manifest tag is missing from an atlas; a placeholder operator walks in all three directions |
+| S8b | Core collision: boxes, circles, tile grid, per-axis movement resolution, hitbox and hurtbox overlap; debug overlay in view that draws core boxes | 楊成宇, 黃晨瑋 | tests: a body moving diagonally into a corner stops flush without tunnelling at max dodge speed; a 2.5-tile dodge never passes through a one-tile wall; overlap results do not depend on entity order |
+| S9 | Combat feel prototype: movement, dodge, stapler light attack, taking a hit, using core frame data (design doc 5.3) and core collision; feedback table for flash, shake, particles | 楊成宇 | core tests assert startup at most 6 frames, i-frames 2 to 11, input buffer 0.35 s, slow cap 15%; a non-action-game teammate plays it and the notes are filed |
+| S10 | CJK text: character-based wrapping with line-start punctuation rules, font-load gate before text objects are created | 王晨嬡 | a test string set from the dialogue style guide wraps without overflow at the dialogue box width; no text renders in a fallback font on a cold load |
+| S11 | Save skeleton: versioned schema, migration hook, `localStorage` adapter with failure handling | 黃晨瑋 | loading a save with an older version runs the migration; a blocked storage write shows a message instead of crashing |
+
+Exit check for 11/1: all of the above pass in CI; the operator moves, dodges, attacks a placeholder suit enemy and a placeholder adenosine in a greybox room built from the published tilesets, and the immune bounce and the grey "nothing to reject" stamp appear through domain events; the same short fight replays to an identical state hash in Node. The art lead's pixel trial timing (art direction 15) is recorded so the art branch decision can be made the same day.
+
+## 3. Week 2: prologue and brain greybox (11/2 to 11/8)
+
+| # | Work package | Owner | Done when |
+| --- | --- | --- | --- |
+| P1 | Outer layer v1: card play, chapter-start cards, one mid-chapter event, tags emitted with sources; card table view drawn in paper and ink | 王晨嬡 | tests show every chapter-start card combination produces a playable chapter state; worst case difficulty is logged |
+| P2 | Variant layers: rooms switch `variant:` layers from tags at room entry | 黃晨瑋 | the brain corridor shows two extra vents at `sleep_debt>=2` and not below, in a test and in the browser |
+| P3 | Stamp gauge and enemy categories: gauge sources, P multiplier, void stamp on immune and reforming targets, adenosine stacks and forced nap | 楊成宇 | core tests for each gauge source and for the forced-nap clock advance; the stamp never removes an immune target |
+| P4 | Enemy archetypes as core state machines (salesman, flyer) and the caffeine boss v1 with three-tier telegraph events | 楊成宇 | every boss move is avoidable by dodge in a scripted test (dodge at telegraph end leaves hearts unchanged) |
+| P5 | Dialogue: CSV import, condition and effect evaluation in core, portrait and box view | 王晨嬡 | dialogue ids referenced by maps all exist (map check); a line with `fact` set to pending fails the release check |
+| P6 | Close-out report layout from the causal log | 王晨嬡 | the batch check finds no missing template for the prologue and brain chapter strategies |
+| P7 | Rooms: prologue (about 6) and brain (about 14) from Tiled templates | 黃苡晴, 劉哲瑋 | all rooms pass the map check; each room's estimated pass time is filled |
+
+**Alpha gate, 11/8.** The prologue through the caffeine boss is playable start to finish on the Pages build with placeholder or final art. If not, the cut order in design doc 14.2 applies and the decision on chapter 2 is recorded.
+
+## 4. Weeks 3 and 4: liver, exam, semester prototype (11/9 to 11/22)
+
+| # | Work package | Owner | Done when |
+| --- | --- | --- | --- |
+| L1 | Liver chapter rules: fixed-speed conveyor, alcohol barrels as immune objects, acetaldehyde push boxes, refusal parry, rescue sequence that cannot fail | 楊成宇, 王晨嬡 | a test confirms no command sequence makes the rescue fail; alcohol is never a combat buff (no buff source of type alcohol exists in data) |
+| L2 | Exam: shared scoring in `core/exam` used by story and semester | 王欣媛 | story and semester call the same function; score uses S as in design doc 9.3 |
+| L3 | Semester prototype: elevator, brain and liver floors, load and lights, night settlement, liver never lights | 王欣媛, 黃晨瑋 | a semester runs headless in `sim/` with the new core; the liver light is off in every simulated state |
+| L4 | Art swap: final atlases and portraits replace placeholders | 江兆耘 | the placeholder check lists no remaining placeholders for chapter 1 characters; no source file under `src/` changed in the swap pull request |
+| L5 | First external playtest with the observation sheet for the five sleep-debt channels (design doc 16.2) | 黃苡晴 | forced-leave rates and the questionnaire are recorded |
+
+Gate, 11/22: character art freeze; the liver chapter and the exam room are playable; `sim/` runs the semester prototype on the shared core.
+
+## 5. Week 5: content and re-simulation (11/23 to 11/29)
+
+Perks (about 10), tutorial semester script, demo saves with fixed seeds, evidence wall, and the re-simulation of design doc 9.6 on the shared core. The replay test is extended with each demo save, so a later change that alters a demo's outcome fails CI before the presentation. Gate, 11/29: all placeholders replaced; the evidence wall is playable.
+
+## 6. Week 6: balance and freeze (11/30 to 12/6)
+
+Bug fixing, second external playtest, copy freeze on 12/1, rehearsal including the projector check of art direction 10. Only fixes land after 12/1; any pull request after that date that touches `content/strings/` must be a typo or fact-check correction.
+
+## 7. Rules for every pull request
+
+A pull request is mergeable when `npm run typecheck`, `npm run test`, and `npm run check` pass, the change keeps rules in core and presentation in view (the boundary check enforces the mechanical part, review enforces the rest), new rules have Node tests, and new checks come with a fixture that proves they can fail. Content-only pull requests from non-programmers need only the schema and map checks. Each module owner in architecture 10 reviews changes to their module.
+
+## 8. Risks specific to the build
+
+**The boundary slows the first week.** Writing commands, events, and selectors before the first sprite moves is slower than putting logic in a scene. The payoff is that combat feel can be tuned by numbers in core tests and that the simulation and the game share one model; the cost is bounded to S3 and S7.
+
+**Core collision takes longer than a week.** Writing collision in core (architecture 5) adds about a week to the first two weeks and lands on the combat owner during the feel prototype. S8b is therefore paired work and kept deliberately small (no slopes, no rotation, no continuous collision beyond per-axis stepping). If S8b is not passing by 10/29, the dodge distance is split into sub-steps no longer than half a tile per tick rather than adding a general solver.
+
+**TypeScript slows the non-programmers.** Content authors never touch `.ts` files: dialogue is CSV, rooms are Tiled maps, data is JSON validated by schema, so the language choice affects only the four programmers.
+
+**The old simulation diverges from the game.** Until L3, `sim/` still runs the old model. It must not be used to justify new numbers after S4; balance decisions after 11/1 use the shared core only.
