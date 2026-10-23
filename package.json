@@ -1,0 +1,26 @@
+{
+  "name": "body-inc",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc -p tsconfig.core.json && tsc -p tsconfig.json",
+    "test": "vitest run",
+    "check": "node tools/check-boundaries.ts",
+    "verify": "npm run typecheck && npm run test && npm run check && npm run build"
+  },
+  "dependencies": {
+    "phaser": "3.90.0"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.5",
+    "typescript": "5.9.3",
+    "vite": "8.3.4",
+    "vitest": "5.0.3"
+  }
+}

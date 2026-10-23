@@ -10,7 +10,7 @@
 | --- | --- | --- |
 | 1 | `python tools/art/palette.py` | `art-src/palette/` 的全域色票、像素色票與世界色票 |
 | 2 | `python tools/art/draw_drafts.py` | `art-src/drafts/` 的程式草稿（骨架圖塊、方箱、特效、表情圖示） |
-| 3 | `python tools/art/make_placeholders.py` | `public/assets/atlases/placeholder/` 的角色佔位圖集 |
+| 3 | `python tools/art/make_placeholders.py` | `public/assets/atlases/placeholder/` 的角色佔位圖集，與遊戲讀取的圖集索引 `public/assets/atlases/index.json`（有正式圖集的鍵指向正式圖） |
 | 4 | `python tools/art/postprocess.py` | AI 原圖的自動後製：`public/assets/` 的頭像、插圖、道具、圖示，與 `art-src/ai/processed/` 的母檔和地板紋理 |
 | 5 | `python tools/art/export_portraits.py` | 既有器官立繪的對話尺寸版 |
 | 6 | `python tools/art/build_tilesets.py` | `public/assets/tilesets/` 的世界圖塊集、擠出版、Tiled 圖塊集與 `tilesets.json` |

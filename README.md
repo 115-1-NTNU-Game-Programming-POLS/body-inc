@@ -4,7 +4,7 @@
 
 國立臺灣師範大學「遊戲程式設計」（115-1）第七組的期末專題。玩家扮演資工系大二生小晨身體裡的營運長，走進各器官的世界探索、解謎並以文具進行輕戰鬥，對抗名為「速效顧問集團」的壞習慣，讓小晨撐到期末考。每個器官世界的核心機制就是該器官的生理知識，以職場諷刺的笑點包裝衛教，目標玩家是大學生。遊戲以 Phaser 3 開發，地圖以 Tiled 編輯。
 
-2026-10-23 起，設計由管理模擬（拖曳血球代幣調度部門）轉為俯視角探索冒險，設計文件已改為第二版；`sim/`、`docs/specs/` 的內容與期中展示版屬於舊設計，哪些部分仍可沿用見設計文件第 17 節。目前處於企劃與原型階段，遊戲本體的程式碼尚未開始撰寫。期中提案用的展示版可以線上試玩：https://115-1-ntnu-game-programming-pols.github.io/body-inc-midterm-demo/ （原始碼在 [body-inc-midterm-demo](https://github.com/115-1-NTNU-Game-Programming-POLS/body-inc-midterm-demo)）。
+2026-10-23 起，設計由管理模擬（拖曳血球代幣調度部門）轉為俯視角探索冒險，設計文件已改為第二版；`sim/`、`docs/specs/` 的內容與期中展示版屬於舊設計，哪些部分仍可沿用見設計文件第 17 節。遊戲本體的程式骨架已建立（見下方「遊戲程式」），架構見 `docs/architecture.md`、施工規劃見 `docs/build-plan.md`。期中提案用的展示版可以線上試玩：https://115-1-ntnu-game-programming-pols.github.io/body-inc-midterm-demo/ （原始碼在 [body-inc-midterm-demo](https://github.com/115-1-NTNU-Game-Programming-POLS/body-inc-midterm-demo)）。
 
 ## 資料夾內容
 
@@ -21,6 +21,21 @@
 | `assets/brand/` | 團隊標誌：方形圖示 `badge-1024.png` 與橫式標誌 `logo-lockup.png`（皆為透明背景）。底稿由 Google Gemini 生成，生成圖的仿中文印文已換成「人體公司」，並調整構圖與去背 |
 
 附錄與設計文件本文不一致時，以本文為準；已知差異列在設計文件的「附錄」一節。
+
+## 遊戲程式
+
+需要 Node.js 22.18 以上（直接執行 `.ts` 工具腳本）。在專案根目錄執行：
+
+```
+npm install
+npm run dev          # 開發伺服器，WASD 移動、F1 顯示碰撞框
+npm run verify       # 型別檢查、測試、邊界檢查、建置，提交前必跑
+node tools/maps/make-greybox.ts   # 重新產生灰盒測試房間
+```
+
+程式分成規則層 `src/core/`（純 TypeScript，可在 Node 執行，不得引用 Phaser 或瀏覽器）、轉接層 `src/app/` 與畫面層 `src/view/`，規則見 `docs/architecture.md`。違反分層的程式碼會讓 `npm run typecheck` 或 `npm run check` 失敗。合併到 `main` 時，GitHub Actions 會跑同一套檢查與美術檢查，通過後部署到 GitHub Pages。
+
+角色圖集由 `public/assets/atlases/index.json` 決定載入正式圖或佔位圖；加入正式圖集 `public/assets/atlases/<key>.json` 後須重跑 `python tools/art/make_placeholders.py` 更新索引。
 
 ## 數值模擬
 

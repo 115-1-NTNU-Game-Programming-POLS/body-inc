@@ -1,0 +1,10 @@
+{
+  // Core must run without a browser or Phaser: no DOM lib and no ambient types, so a stray
+  // window/document/Phaser reference is a compile error (docs/architecture.md section 9).
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2022"],
+    "types": []
+  },
+  "include": ["src/core/**/*.ts"]
+}

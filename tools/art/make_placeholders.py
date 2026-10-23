@@ -147,6 +147,18 @@ def main():
         sheet.save(OUT / f"{e['key']}.png")
         (OUT / f"{e['key']}.json").write_text(json.dumps(data, indent=1) + "\n", encoding="utf-8")
     print(f"{len(manifest['entries'])} placeholder sheets -> {OUT}")
+    write_index(manifest)
+
+
+def write_index(manifest):
+    """The game cannot list public/ at runtime, so it reads which atlas to load per key from here.
+    A real export in atlases/<key>.json wins over its placeholder; rerun after adding real art."""
+    real_dir = ROOT / "public" / "assets" / "atlases"
+    index = {e["key"]: (f"assets/atlases/{e['key']}" if (real_dir / f"{e['key']}.json").exists()
+                        else f"assets/atlases/placeholder/{e['key']}") for e in manifest["entries"]}
+    (real_dir / "index.json").write_text(json.dumps(index, indent=1) + "\n", encoding="utf-8")
+    real = sum(1 for v in index.values() if "placeholder" not in v)
+    print(f"atlas index: {real} real, {len(index) - real} placeholder -> {real_dir / 'index.json'}")
 
 
 if __name__ == "__main__":
