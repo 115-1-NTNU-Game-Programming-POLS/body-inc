@@ -1,3 +1,6 @@
+import type { EnemiesFile, Enemy } from '../content/generated.ts';
+import { schemaProblems } from '../content/read.ts';
+import { schemaProblemText } from '../content/schema.ts';
 import { OBJECT_CLASSES } from '../rooms/classes.ts';
 
 /**
@@ -5,19 +8,12 @@ import { OBJECT_CLASSES } from '../rooms/classes.ts';
  * the data, never a large health pool, so no upgrade or assist can route around it (5.1).
  * A solution may name the object class that carries it in a map (sleep needs a Bed); solutions
  * that are partner skills or player verbs (guards, refuse) need no object.
+ * The field shapes come from content/schema/enemies.schema.json; this file checks references.
  */
-export type Category = 'defeatable' | 'reforming' | 'immune';
+export type Category = Enemy['category'];
 /** The five shared archetypes of design doc 5.3; reskinned per chapter. */
-export type Archetype = 'salesman' | 'flyer' | 'manager' | 'convener' | 'contractor';
-
-export interface EnemyDef {
-  readonly id: string;
-  readonly category: Category;
-  readonly solution?: string;
-  readonly archetype?: Archetype;
-  /** Performance quota: hits to close the case; only defeatable enemies have it. */
-  readonly performance?: number;
-}
+export type Archetype = NonNullable<Enemy['archetype']>;
+export type EnemyDef = Enemy;
 
 export interface SolutionDef {
   readonly id: string;
@@ -37,54 +33,31 @@ export class EnemyTableError extends Error {
   }
 }
 
-const CATEGORIES: readonly string[] = ['defeatable', 'reforming', 'immune'];
-const ARCHETYPES: readonly string[] = ['salesman', 'flyer', 'manager', 'convener', 'contractor'];
-type Raw = Record<string, unknown>;
-const isObj = (v: unknown): v is Raw => typeof v === 'object' && v !== null && !Array.isArray(v);
-
 export function loadEnemyTable(raw: unknown): EnemyTable {
-  if (!isObj(raw) || raw['version'] !== 1 || !isObj(raw['solutions']) || !Array.isArray(raw['enemies'])) {
-    throw new EnemyTableError(['expected { "version": 1, "solutions": {...}, "enemies": [...] }']);
-  }
+  const shape = schemaProblems('enemies', raw);
+  if (shape.length > 0) throw new EnemyTableError(shape.map(schemaProblemText));
+  const file = raw as EnemiesFile;
+
   const problems: string[] = [];
   const solutions = new Map<string, SolutionDef>();
-  for (const [id, s] of Object.entries(raw['solutions'])) {
-    if (!isObj(s)) { problems.push(`solution "${id}": not an object`); continue; }
-    const { object, ...rest } = s;
-    for (const k of Object.keys(rest)) problems.push(`solution "${id}": unknown field "${k}"`);
-    if (object !== undefined && (typeof object !== 'string' || !(object in OBJECT_CLASSES))) {
-      problems.push(`solution "${id}": object must be a Tiled class, got ${JSON.stringify(object)}`);
+  for (const [id, s] of Object.entries(file.solutions)) {
+    if (s.object !== undefined && !(s.object in OBJECT_CLASSES)) {
+      problems.push(`solution "${id}": object must be a Tiled class, got ${JSON.stringify(s.object)}`);
       continue;
     }
-    solutions.set(id, object === undefined ? { id } : { id, object });
+    solutions.set(id, s.object === undefined ? { id } : { id, object: s.object });
   }
   const enemies = new Map<string, EnemyDef>();
-  raw['enemies'].forEach((e, i) => {
-    if (!isObj(e)) return void problems.push(`enemies[${i}]: not an object`);
-    const { id, category, solution, archetype, performance, ...rest } = e;
-    const where = typeof id === 'string' ? `enemy "${id}"` : `enemies[${i}]`;
-    for (const k of Object.keys(rest)) problems.push(`${where}: unknown field "${k}"`);
-    if (typeof id !== 'string' || !/^[a-z][a-z0-9_]*$/.test(id)) return void problems.push(`${where}: id must be lower_snake_case`);
-    if (typeof category !== 'string' || !CATEGORIES.includes(category)) return void problems.push(`${where}: category must be ${CATEGORIES.join(', ')}`);
-    if (category === 'defeatable' && solution !== undefined) problems.push(`${where}: a defeatable enemy has no solution`);
-    if (category !== 'defeatable' && (typeof solution !== 'string' || !solutions.has(solution))) {
-      problems.push(`${where}: a ${category} enemy needs a solution from the solutions table`);
+  for (const e of file.enemies) {
+    const where = `enemy "${e.id}"`;
+    if (e.category === 'defeatable' && e.solution !== undefined) problems.push(`${where}: a defeatable enemy has no solution`);
+    if (e.category !== 'defeatable' && (e.solution === undefined || !solutions.has(e.solution))) {
+      problems.push(`${where}: a ${e.category} enemy needs a solution from the solutions table`);
     }
-    if (archetype !== undefined && (typeof archetype !== 'string' || !ARCHETYPES.includes(archetype))) {
-      problems.push(`${where}: archetype must be ${ARCHETYPES.join(', ')}`);
-    }
-    if (performance !== undefined && (category !== 'defeatable' || typeof performance !== 'number' || !Number.isInteger(performance) || performance < 1)) {
-      problems.push(`${where}: performance is a positive integer, and only defeatable enemies have one`);
-    }
-    if (enemies.has(id)) problems.push(`${where}: defined twice`);
-    enemies.set(id, {
-      id,
-      category: category as Category,
-      ...(typeof solution === 'string' ? { solution } : {}),
-      ...(typeof archetype === 'string' ? { archetype: archetype as Archetype } : {}),
-      ...(typeof performance === 'number' ? { performance } : {}),
-    });
-  });
+    if (e.performance !== undefined && e.category !== 'defeatable') problems.push(`${where}: only defeatable enemies have a performance`);
+    if (enemies.has(e.id)) problems.push(`${where}: defined twice`);
+    enemies.set(e.id, e);
+  }
   if (problems.length > 0) throw new EnemyTableError(problems);
   return { enemies, solutions };
 }

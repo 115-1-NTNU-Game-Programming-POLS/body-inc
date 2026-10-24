@@ -43,9 +43,9 @@ describe('tag dictionary', () => {
   });
 
   it('rejects unknown fields, duplicates, bad types and a missing hours span', () => {
-    expect(broken((r) => (r.tags[0].colour = 'red'))).toEqual(['tag "sleep_debt": unknown field "colour"']);
+    expect(broken((r) => (r.tags[0].colour = 'red'))).toEqual(['tags[0].colour: unknown field "colour"']);
     expect(broken((r) => r.tags.push({ ...r.tags[0] }))).toEqual(['tag "sleep_debt": defined twice']);
-    expect(broken((r) => (r.tags[0].type = 'int'))[0]).toContain('type must be');
+    expect(broken((r) => (r.tags[0].type = 'int'))).toEqual(['tags[0].type: enum "number", "boolean", got "int"']);
     expect(broken((r) => delete r.tags.find((t: { name: string }) => t.name === 'sugar_fatigue').hours)[0]).toContain('hours is required');
   });
 });

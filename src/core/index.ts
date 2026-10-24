@@ -16,3 +16,6 @@ export { boxAt, centeredBox, overlaps, type Box } from './collision/boxes.ts';
 export { ENEMY_BODY, ENEMY_HURT, enemyHurtbox, isHittable, strikeBox } from './combat/actors.ts';
 export { MOVE } from './combat/movement.ts';
 export { inDodgeIframes, isInvincible } from './combat/operator.ts';
+export * from './content/generated.ts';
+export * from './content/read.ts';
+export * from './content/schema.ts';

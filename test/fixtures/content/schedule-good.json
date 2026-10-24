@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "cards": [
+    {
+      "id": "exercise",
+      "name": "運動",
+      "slots": ["afternoon", "evening"],
+      "hours": 2,
+      "perHour": { "stress": -8, "hydration": -8 },
+      "once": {},
+      "sleepRules": [
+        { "ifHoursBeforeBedAtLeast": 4, "sleepEfficiency": 1.05 },
+        { "ifHoursBeforeBedLessThan": 2, "sleepEfficiency": 0.95 }
+      ],
+      "flavor": "業務部難得出外勤，回來整個人都亮了。",
+      "unlockedBy": null,
+      "handbook": "exercise"
+    },
+    {
+      "id": "self_study",
+      "name": "自習讀書",
+      "slots": ["morning", "afternoon", "evening"],
+      "hours": [2, 3],
+      "perHour": { "study": 1, "stress": 3 },
+      "flavor": "董事長說這季目標翻倍，人力預算不變。"
+    }
+  ]
+}

@@ -39,6 +39,10 @@ node tools/maps/make-greybox.ts   # 重新產生灰盒測試房間
 
 用 Tiled 開啟專案根目錄的 `body-inc.tiled-project`，物件類別（Spawn、NPC、Door 等）與地圖屬性會以下拉選單出現。地圖放在 `public/assets/maps/<章節>/*.tmj`，同一個資料夾視為同一章。狀態變體做成名稱以 `variant:` 開頭的圖層，類別選 Variant 並填 `when` 條件式。條件式只能用 `content/tags.json` 中的標籤與 `mod.` 開頭的修飾器。提交前執行 `node tools/check-maps.ts`，錯誤會以中文列出檔名與物件編號。新增敵人種類（`content/enemies.json`）後要重跑 `node tools/maps/make-tiled-project.ts` 更新下拉選單。
 
+### 編輯內容資料
+
+`content/` 下的每個 JSON 檔都由 `content/schema/` 中對應的 schema 檢查，對應關係登記在 `tools/check-content.ts` 的 `RULES`。提交前執行 `node tools/check-content.ts`，會以中文列出檔名、欄位位置與問題，例如拼錯或多出的欄位。修改 schema 後要重跑 `node tools/content/make-content-types.ts`，重新產生程式使用的型別 `src/core/content/generated.ts`。
+
 角色圖集由 `public/assets/atlases/index.json` 決定載入正式圖或佔位圖；加入正式圖集 `public/assets/atlases/<key>.json` 後須重跑 `python tools/art/make_placeholders.py` 更新索引。
 
 ## 數值模擬
@@ -52,7 +56,7 @@ node run.js 500 --extra --cards   # 各策略與各學期設定卡的詳細結�
 node discriminate.js 500          # 鑑別力測試
 ```
 
-所有參數集中在 `sim/params.js`，每項標註來自設計文件（DOC）或暫時假設（ASSUME）。調整數值後請重跑 `check.js` 與 `accept.js`，兩者都必須通過。最近一次的輸出存在 `sim/*_out.txt`。
+所有參數集中在 `content/params.json`，模擬與遊戲讀同一份檔案；每項參數在 `notes` 中標註來自設計文件（DOC）或暫時假設（ASSUME）。新增或改名參數時，要一併更新 `notes` 與 `content/schema/params.schema.json`，否則 `node tools/check-content.ts` 會失敗。調整數值後請重跑 `check.js` 與 `accept.js`，兩者都必須通過。最近一次的輸出存在 `sim/*_out.txt`。
 
 ## 網頁閱讀版
 

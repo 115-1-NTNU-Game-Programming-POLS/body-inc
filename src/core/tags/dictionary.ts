@@ -1,4 +1,7 @@
-import { checkCondition, ConditionError, NAME, parseCondition, type Condition, type NameKind } from './condition.ts';
+import type { Tag, TagsFile } from '../content/generated.ts';
+import { schemaProblems } from '../content/read.ts';
+import { schemaProblemText } from '../content/schema.ts';
+import { checkCondition, ConditionError, parseCondition, type Condition, type NameKind } from './condition.ts';
 
 /**
  * The state tag dictionary (design doc 13.4): the shared interface between story mode,
@@ -9,8 +12,8 @@ import { checkCondition, ConditionError, NAME, parseCondition, type Condition, t
  * `untilWake` until the next wake-up; `nextDay` through the logical day after the one it was set.
  * Wake-ups count instead of clock hours because wake times differ between days.
  */
-export type TagType = 'number' | 'boolean';
-export type SourceKind = 'card' | 'event' | 'chapter' | 'rule';
+export type TagType = Tag['type'];
+export type SourceKind = Tag['sources'][number];
 
 export type TagDuration =
   | { readonly kind: 'persistent' }
@@ -46,72 +49,46 @@ export class DictionaryError extends Error {
   }
 }
 
-const TYPES: readonly string[] = ['number', 'boolean'];
-const SOURCES: readonly string[] = ['card', 'event', 'chapter', 'rule'];
-const DURATIONS: readonly string[] = ['persistent', 'hours', 'untilWake', 'nextDay'];
-
-type Raw = Record<string, unknown>;
-const isObj = (v: unknown): v is Raw => typeof v === 'object' && v !== null && !Array.isArray(v);
-const strings = (v: unknown): v is string[] => Array.isArray(v) && v.every((s) => typeof s === 'string');
-
-function readTag(raw: unknown, i: number, problems: string[]): TagDef | undefined {
-  const at = `tags[${i}]`;
-  if (!isObj(raw)) return void problems.push(`${at}: not an object`);
-  const { name, type, sources, duration, hours, facts, unit, ...rest } = raw;
-  const where = typeof name === 'string' ? `tag "${name}"` : at;
+function readTag(t: Tag, problems: string[]): TagDef | undefined {
+  const where = `tag "${t.name}"`;
   const before = problems.length;
-  for (const k of Object.keys(rest)) problems.push(`${where}: unknown field "${k}"`);
-  if (typeof name !== 'string' || !NAME.test(name) || name.includes('.')) problems.push(`${where}: name must be lower_snake_case`);
-  if (typeof type !== 'string' || !TYPES.includes(type)) problems.push(`${where}: type must be number or boolean`);
-  if (unit !== undefined && (typeof unit !== 'string' || type !== 'number')) problems.push(`${where}: unit is only for number tags`);
-  if (!strings(sources) || sources.length === 0 || !sources.every((s) => SOURCES.includes(s))) {
-    problems.push(`${where}: sources must be a non-empty list of ${SOURCES.join(', ')}`);
-  }
-  if (typeof duration !== 'string' || !DURATIONS.includes(duration)) problems.push(`${where}: duration must be one of ${DURATIONS.join(', ')}`);
-  if ((duration === 'hours') !== (hours !== undefined)) problems.push(`${where}: hours is required with duration "hours" and only then`);
-  if (hours !== undefined && (typeof hours !== 'number' || !(hours > 0))) problems.push(`${where}: hours must be positive`);
-  if (!strings(facts)) problems.push(`${where}: facts must be a list of strings`);
+  if (t.unit !== undefined && t.type !== 'number') problems.push(`${where}: unit is only for number tags`);
+  if ((t.duration === 'hours') !== (t.hours !== undefined)) problems.push(`${where}: hours is required with duration "hours" and only then`);
   if (problems.length > before) return undefined;
   return {
-    name: name as string,
-    type: type as TagType,
-    sources: sources as SourceKind[],
-    duration: duration === 'hours' ? { kind: 'hours', hours: hours as number } : { kind: duration as 'persistent' | 'untilWake' | 'nextDay' },
-    facts: facts as string[],
+    name: t.name,
+    type: t.type,
+    sources: t.sources,
+    duration: t.duration === 'hours' ? { kind: 'hours', hours: t.hours! } : { kind: t.duration },
+    facts: t.facts,
   };
 }
 
+/** Field shapes come from content/schema/tags.schema.json; this checks what a schema cannot. */
 export function loadDictionary(raw: unknown): TagDictionary {
+  const shape = schemaProblems('tags', raw);
+  if (shape.length > 0) throw new DictionaryError(shape.map(schemaProblemText));
+  const file = raw as TagsFile;
+
   const problems: string[] = [];
-  if (!isObj(raw) || raw['version'] !== 1 || !Array.isArray(raw['tags']) || !Array.isArray(raw['modifiers'])) {
-    throw new DictionaryError(['expected { "version": 1, "tags": [...], "modifiers": [...] }']);
-  }
   const tags = new Map<string, TagDef>();
   // Names of tags that failed to load, so modifiers using them do not add a second, misleading problem.
   const rejected = new Set<string>();
-  raw['tags'].forEach((r, i) => {
-    const t = readTag(r, i, problems);
+  for (const r of file.tags) {
+    const t = readTag(r, problems);
     if (!t) {
-      if (isObj(r) && typeof r['name'] === 'string') rejected.add(r['name']);
-      return;
+      rejected.add(r.name);
+      continue;
     }
     if (tags.has(t.name)) problems.push(`tag "${t.name}": defined twice`);
     tags.set(t.name, t);
-  });
+  }
 
   // Aliases are checked against tags only, so an alias can never refer to another alias (no cycles).
   const tagKind = (n: string): NameKind => tags.get(n)?.type;
   const aliases = new Map<string, AliasDef>();
-  raw['modifiers'].forEach((r, i) => {
-    if (!isObj(r)) return void problems.push(`modifiers[${i}]: not an object`);
-    const { name, when, facts, ...rest } = r;
-    const where = typeof name === 'string' ? `modifier "${name}"` : `modifiers[${i}]`;
-    for (const k of Object.keys(rest)) problems.push(`${where}: unknown field "${k}"`);
-    if (typeof name !== 'string' || !name.startsWith('mod.') || !NAME.test(name)) {
-      return void problems.push(`${where}: name must look like mod.lower_snake_case`);
-    }
-    if (!strings(facts)) problems.push(`${where}: facts must be a list of strings`);
-    if (typeof when !== 'string') return void problems.push(`${where}: when must be a condition string`);
+  for (const { name, when, facts } of file.modifiers) {
+    const where = `modifier "${name}"`;
     try {
       const condition = parseCondition(when);
       const bad = checkCondition(condition, tagKind);
@@ -119,12 +96,12 @@ export function loadDictionary(raw: unknown): TagDictionary {
         if (!(p.code === 'unknown-tag' && p.name !== undefined && rejected.has(p.name))) problems.push(`${where}: ${p.code} "${p.term}"`);
       }
       if (aliases.has(name)) problems.push(`${where}: defined twice`);
-      if (bad.length === 0) aliases.set(name, { name, condition, facts: strings(facts) ? facts : [] });
+      if (bad.length === 0) aliases.set(name, { name, condition, facts });
     } catch (e) {
       if (!(e instanceof ConditionError)) throw e;
       problems.push(`${where}: ${e.problem.code} "${e.problem.term}"`);
     }
-  });
+  }
 
   if (problems.length > 0) throw new DictionaryError(problems);
   return { tags, aliases };

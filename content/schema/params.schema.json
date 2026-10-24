@@ -1,0 +1,694 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ParamsFile",
+  "description": "Balance parameters shared by sim/ and the game (architecture section 7). Every parameter is listed, so a misspelled or renamed one fails the check. notes must name exactly the parameters in defaults (checked in tools/check-content.ts).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "about",
+    "defaults",
+    "difficulty",
+    "semesterCards",
+    "notes"
+  ],
+  "properties": {
+    "version": {
+      "const": 1
+    },
+    "about": {
+      "type": "string"
+    },
+    "defaults": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "days",
+        "midDay",
+        "finDay",
+        "weekend",
+        "examHours",
+        "wake",
+        "bed",
+        "bedMin",
+        "bedMax",
+        "meals",
+        "classes",
+        "classesEarly",
+        "commute",
+        "jobDays",
+        "job",
+        "clubDays",
+        "clubHours",
+        "sleepNeed",
+        "repayRatio",
+        "sCoef",
+        "sFloor",
+        "examDiscount",
+        "cup",
+        "halfLife",
+        "boostMin",
+        "boost",
+        "boostTolerant",
+        "cafSleepK",
+        "cafDeadZone",
+        "tolDays",
+        "tolCups",
+        "withdrawal",
+        "energyDrink",
+        "tolResetDays",
+        "brainTokenBonus",
+        "borrowTokens",
+        "borrowSleep",
+        "deptTokens",
+        "baseDemand",
+        "debtDemand",
+        "backlogRes",
+        "moveRes",
+        "sleepRecover",
+        "complainAt",
+        "strikeAt",
+        "strikeEnd",
+        "strikeDropsBacklog",
+        "sprainP",
+        "crises",
+        "erStrikeHours",
+        "hospitalRes",
+        "hospitalStress",
+        "hospitalDebtMult",
+        "coldImmune",
+        "feverImmune",
+        "chronicImmuneEff",
+        "alcoholLiver",
+        "gastroGut",
+        "stress0",
+        "social0",
+        "stressPerHour",
+        "stressSleep",
+        "chronicAt",
+        "chronicDays",
+        "chronicOff",
+        "lowSocial",
+        "lowSocialStress",
+        "socialPerHour",
+        "socialDecay",
+        "chronicSleep",
+        "alcoholSleep",
+        "snackSleep",
+        "nightShiftSleep",
+        "slump",
+        "slumpHours",
+        "feverStudy",
+        "coldStudy",
+        "gastroStudy",
+        "exerciseSleepBonus",
+        "infBase",
+        "chronicInf",
+        "debtInf",
+        "debtInfAt",
+        "vaccineInf",
+        "campusExposure",
+        "restBed",
+        "restEff",
+        "feverIfEffBelow",
+        "passMid",
+        "passFin",
+        "difficulty",
+        "labHours",
+        "shiftHours",
+        "nightShiftHours",
+        "showcaseHours",
+        "makeupHours",
+        "makeupWake",
+        "makeupCount",
+        "makeupAnnounceP",
+        "typhoonP",
+        "partyCount",
+        "partyUntil",
+        "partySleep",
+        "officeHourOptions",
+        "officeBonus",
+        "officeMinPacePerDay",
+        "studyGroupHours",
+        "studyGroupMult",
+        "lateGroupHours",
+        "lateGroupMult",
+        "walkHours",
+        "pastExamBonus",
+        "wakeCap",
+        "examWake"
+      ],
+      "properties": {
+        "days": {
+          "type": "number"
+        },
+        "midDay": {
+          "type": "number"
+        },
+        "finDay": {
+          "type": "number"
+        },
+        "weekend": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        },
+        "examHours": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        },
+        "wake": {
+          "type": "number"
+        },
+        "bed": {
+          "type": "number"
+        },
+        "bedMin": {
+          "type": "number"
+        },
+        "bedMax": {
+          "type": "number"
+        },
+        "meals": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        },
+        "classes": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        },
+        "classesEarly": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        },
+        "commute": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        },
+        "jobDays": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        },
+        "job": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        },
+        "clubDays": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        },
+        "clubHours": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        },
+        "sleepNeed": {
+          "type": "number"
+        },
+        "repayRatio": {
+          "type": "number"
+        },
+        "sCoef": {
+          "type": "number"
+        },
+        "sFloor": {
+          "type": "number"
+        },
+        "examDiscount": {
+          "type": "boolean"
+        },
+        "cup": {
+          "type": "number"
+        },
+        "halfLife": {
+          "type": "number"
+        },
+        "boostMin": {
+          "type": "number"
+        },
+        "boost": {
+          "type": "number"
+        },
+        "boostTolerant": {
+          "type": "number"
+        },
+        "cafSleepK": {
+          "type": "number"
+        },
+        "cafDeadZone": {
+          "type": "number"
+        },
+        "tolDays": {
+          "type": "number"
+        },
+        "tolCups": {
+          "type": "number"
+        },
+        "withdrawal": {
+          "type": "number"
+        },
+        "energyDrink": {
+          "type": "number"
+        },
+        "tolResetDays": {
+          "type": "number"
+        },
+        "brainTokenBonus": {
+          "type": "number"
+        },
+        "borrowTokens": {
+          "type": "number"
+        },
+        "borrowSleep": {
+          "type": "number"
+        },
+        "deptTokens": {
+          "type": "number"
+        },
+        "baseDemand": {
+          "type": "number"
+        },
+        "debtDemand": {
+          "type": "number"
+        },
+        "backlogRes": {
+          "type": "number"
+        },
+        "moveRes": {
+          "type": "number"
+        },
+        "sleepRecover": {
+          "type": "number"
+        },
+        "complainAt": {
+          "type": "number"
+        },
+        "strikeAt": {
+          "type": "number"
+        },
+        "strikeEnd": {
+          "type": "number"
+        },
+        "strikeDropsBacklog": {
+          "type": "boolean"
+        },
+        "sprainP": {
+          "type": "number"
+        },
+        "crises": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        },
+        "erStrikeHours": {
+          "type": "number"
+        },
+        "hospitalRes": {
+          "type": "number"
+        },
+        "hospitalStress": {
+          "type": "number"
+        },
+        "hospitalDebtMult": {
+          "type": "number"
+        },
+        "coldImmune": {
+          "type": "number"
+        },
+        "feverImmune": {
+          "type": "number"
+        },
+        "chronicImmuneEff": {
+          "type": "number"
+        },
+        "alcoholLiver": {
+          "type": "number"
+        },
+        "gastroGut": {
+          "type": "number"
+        },
+        "stress0": {
+          "type": "number"
+        },
+        "social0": {
+          "type": "number"
+        },
+        "stressPerHour": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "study",
+            "class",
+            "exam",
+            "work",
+            "exercise",
+            "social",
+            "leisure",
+            "meal",
+            "commute",
+            "hospital",
+            "office",
+            "studygroup",
+            "lategroup",
+            "walk"
+          ],
+          "properties": {
+            "study": {
+              "type": "number"
+            },
+            "class": {
+              "type": "number"
+            },
+            "exam": {
+              "type": "number"
+            },
+            "work": {
+              "type": "number"
+            },
+            "exercise": {
+              "type": "number"
+            },
+            "social": {
+              "type": "number"
+            },
+            "leisure": {
+              "type": "number"
+            },
+            "meal": {
+              "type": "number"
+            },
+            "commute": {
+              "type": "number"
+            },
+            "hospital": {
+              "type": "number"
+            },
+            "office": {
+              "type": "number"
+            },
+            "studygroup": {
+              "type": "number"
+            },
+            "lategroup": {
+              "type": "number"
+            },
+            "walk": {
+              "type": "number"
+            }
+          }
+        },
+        "stressSleep": {
+          "type": "number"
+        },
+        "chronicAt": {
+          "type": "number"
+        },
+        "chronicDays": {
+          "type": "number"
+        },
+        "chronicOff": {
+          "type": "number"
+        },
+        "lowSocial": {
+          "type": "number"
+        },
+        "lowSocialStress": {
+          "type": "number"
+        },
+        "socialPerHour": {
+          "type": "number"
+        },
+        "socialDecay": {
+          "type": "number"
+        },
+        "chronicSleep": {
+          "type": "number"
+        },
+        "alcoholSleep": {
+          "type": "number"
+        },
+        "snackSleep": {
+          "type": "number"
+        },
+        "nightShiftSleep": {
+          "type": "number"
+        },
+        "slump": {
+          "type": "number"
+        },
+        "slumpHours": {
+          "type": "number"
+        },
+        "feverStudy": {
+          "type": "number"
+        },
+        "coldStudy": {
+          "type": "number"
+        },
+        "gastroStudy": {
+          "type": "number"
+        },
+        "exerciseSleepBonus": {
+          "type": "number"
+        },
+        "infBase": {
+          "type": "number"
+        },
+        "chronicInf": {
+          "type": "number"
+        },
+        "debtInf": {
+          "type": "number"
+        },
+        "debtInfAt": {
+          "type": "number"
+        },
+        "vaccineInf": {
+          "type": "number"
+        },
+        "campusExposure": {
+          "type": "number"
+        },
+        "restBed": {
+          "type": "number"
+        },
+        "restEff": {
+          "type": "number"
+        },
+        "feverIfEffBelow": {
+          "type": "number"
+        },
+        "passMid": {
+          "type": "number"
+        },
+        "passFin": {
+          "type": "number"
+        },
+        "difficulty": {
+          "type": "number"
+        },
+        "labHours": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        },
+        "shiftHours": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        },
+        "nightShiftHours": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        },
+        "showcaseHours": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        },
+        "makeupHours": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        },
+        "makeupWake": {
+          "type": "number"
+        },
+        "makeupCount": {
+          "type": "number"
+        },
+        "makeupAnnounceP": {
+          "type": "number"
+        },
+        "typhoonP": {
+          "type": "number"
+        },
+        "partyCount": {
+          "type": "number"
+        },
+        "partyUntil": {
+          "type": "number"
+        },
+        "partySleep": {
+          "type": "number"
+        },
+        "officeHourOptions": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        },
+        "officeBonus": {
+          "type": "number"
+        },
+        "officeMinPacePerDay": {
+          "type": "number"
+        },
+        "studyGroupHours": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        },
+        "studyGroupMult": {
+          "type": "number"
+        },
+        "lateGroupHours": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        },
+        "lateGroupMult": {
+          "type": "number"
+        },
+        "walkHours": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        },
+        "pastExamBonus": {
+          "type": "number"
+        },
+        "wakeCap": {
+          "type": "number"
+        },
+        "examWake": {
+          "type": "number"
+        }
+      }
+    },
+    "difficulty": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/Difficulty"
+      }
+    },
+    "semesterCards": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "regular",
+        "disruptive"
+      ],
+      "properties": {
+        "regular": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "disruptive": {
+          "description": "Cards that shift the daily timetable; drawn by the difficulty ladder.",
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "notes": {
+      "description": "Provenance of each parameter (DOC, ASSUME, PROPOSED FIX, DESIGN FIX).",
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    }
+  },
+  "$defs": {
+    "Difficulty": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "finMult",
+        "minDisrupt",
+        "oppRemove",
+        "exposureMult",
+        "startDebt"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "finMult": {
+          "description": "Final-exam pass threshold multiplier.",
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "minDisrupt": {
+          "description": "Minimum number of disruptive semester cards.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "oppRemove": {
+          "description": "Opportunity events removed.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "exposureMult": {
+          "description": "Infection exposure multiplier.",
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "startDebt": {
+          "description": "Sleep debt at the start, in hours.",
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    }
+  }
+}

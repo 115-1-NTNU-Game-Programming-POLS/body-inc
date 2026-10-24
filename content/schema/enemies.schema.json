@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "EnemiesFile",
+  "description": "Enemy categories and solutions (design doc 5.5). Cross-checks (solution references, which fields each category may have, Tiled object classes) are in core/combat/enemies.ts.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "solutions", "enemies"],
+  "properties": {
+    "version": { "const": 1 },
+    "solutions": { "type": "object", "additionalProperties": { "$ref": "#/$defs/Solution" } },
+    "enemies": { "type": "array", "items": { "$ref": "#/$defs/Enemy" } }
+  },
+  "$defs": {
+    "Solution": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "object": { "description": "Tiled object class that carries this solution in a map, e.g. Bed for sleep.", "type": "string" }
+      }
+    },
+    "Enemy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "category"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+        "category": { "enum": ["defeatable", "reforming", "immune"] },
+        "solution": { "description": "Key into solutions; required for reforming and immune enemies, absent for defeatable ones.", "type": "string" },
+        "archetype": { "description": "One of the five shared behaviours of design doc 5.3.", "enum": ["salesman", "flyer", "manager", "convener", "contractor"] },
+        "performance": { "description": "Hits to close the case; defeatable enemies only.", "type": "integer", "minimum": 1 }
+      }
+    }
+  }
+}

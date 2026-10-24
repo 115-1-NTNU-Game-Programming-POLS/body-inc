@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "FeedbackFile",
+  "description": "Domain event type to presentation (architecture section 4). Cross-checks (known event types, preset and string references) are in app/feedback.ts.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "presets", "events"],
+  "properties": {
+    "version": { "const": 1 },
+    "presets": { "type": "object", "additionalProperties": { "$ref": "#/$defs/ParticlePreset" } },
+    "events": { "type": "object", "additionalProperties": { "$ref": "#/$defs/Feedback" } }
+  },
+  "$defs": {
+    "ParticlePreset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["texture", "speed", "life"],
+      "properties": {
+        "texture": { "type": "string", "minLength": 1 },
+        "speed": { "description": "[min, max] in world pixels per second.", "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "number", "minimum": 0 } },
+        "life": { "description": "Seconds.", "type": "number", "exclusiveMinimum": 0 }
+      }
+    },
+    "Feedback": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "flashTarget": { "description": "Ticks of white flash on the enemy.", "type": "integer", "minimum": 1 },
+        "flashOperator": { "description": "Ticks of white flash on the operator.", "type": "integer", "minimum": 1 },
+        "shake": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["px", "seconds"],
+          "properties": {
+            "px": { "type": "number", "exclusiveMinimum": 0 },
+            "seconds": { "type": "number", "exclusiveMinimum": 0 }
+          }
+        },
+        "particles": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["preset", "count"],
+            "properties": {
+              "preset": { "type": "string" },
+              "count": { "type": "integer", "minimum": 1 }
+            }
+          }
+        },
+        "bounce": { "type": "boolean" },
+        "closeOut": { "type": "boolean" },
+        "note": { "description": "Key into content/strings; \"{field}\" is filled from the event.", "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

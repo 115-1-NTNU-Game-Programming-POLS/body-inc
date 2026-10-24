@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ScheduleCardsFile",
+  "description": "Schedule cards (docs/specs/content-spec.md section 1). Draft: the department demand fields of the spec belong to the removed token model (design doc status table) and are left out; the outer-layer work package settles the rest.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "cards"],
+  "properties": {
+    "version": { "const": 1 },
+    "cards": { "type": "array", "items": { "$ref": "#/$defs/ScheduleCard" } }
+  },
+  "$defs": {
+    "Metrics": {
+      "description": "Changes to company metrics. study is academic progress, multiplied by study efficiency.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "study": { "type": "number" },
+        "stress": { "type": "number" },
+        "social": { "type": "number" },
+        "hydration": { "type": "number" }
+      }
+    },
+    "SleepRule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sleepEfficiency"],
+      "properties": {
+        "ifHoursBeforeBedAtLeast": { "type": "number", "minimum": 0 },
+        "ifHoursBeforeBedLessThan": { "type": "number", "exclusiveMinimum": 0 },
+        "sleepEfficiency": { "description": "Factor in that night's sleep efficiency product.", "type": "number", "exclusiveMinimum": 0 }
+      }
+    },
+    "ScheduleCard": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "slots", "hours", "flavor"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+        "name": { "type": "string", "minLength": 1 },
+        "slots": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "enum": ["morning", "afternoon", "evening", "lateNight"] } },
+        "hours": {
+          "description": "Fixed length, or the lengths the player may choose from.",
+          "anyOf": [
+            { "type": "number", "exclusiveMinimum": 0 },
+            { "type": "array", "minItems": 2, "uniqueItems": true, "items": { "type": "number", "exclusiveMinimum": 0 } }
+          ]
+        },
+        "perHour": { "$ref": "#/$defs/Metrics" },
+        "once": { "description": "Applied once when the card ends.", "$ref": "#/$defs/Metrics" },
+        "sleepRules": { "type": "array", "items": { "$ref": "#/$defs/SleepRule" } },
+        "flavor": { "type": "string", "minLength": 1 },
+        "unlockedBy": { "description": "Handbook page id that unlocks the card, or null when always available.", "type": ["string", "null"] },
+        "handbook": { "description": "Handbook page id the card links to.", "type": "string" }
+      }
+    }
+  }
+}

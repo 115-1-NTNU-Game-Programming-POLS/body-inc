@@ -1,37 +1,13 @@
-import type { DomainEvent, EnemyTable } from '../core/index.ts';
+import type { DomainEvent, EnemyTable, FeedbackFile, StringsFile } from '../core/index.ts';
 
 /**
  * content/feedback.json: domain event type to presentation (architecture section 4). The art
  * and audio owners tune it without touching rules. A note is a key into content/strings;
  * "{field}" in a note key is filled from the event, e.g. "solution.{solution}".
+ * Shapes come from content/schema; this file checks the references a schema cannot.
  */
-export interface ParticlePreset {
-  readonly texture: string;
-  /** [min, max] in world pixels per second. */
-  readonly speed: readonly number[];
-  readonly life: number;
-}
-
-export interface Feedback {
-  readonly flashTarget?: number;
-  readonly flashOperator?: number;
-  readonly shake?: { readonly px: number; readonly seconds: number };
-  readonly particles?: readonly { readonly preset: string; readonly count: number }[];
-  readonly bounce?: boolean;
-  readonly closeOut?: boolean;
-  readonly note?: string;
-}
-
-export interface FeedbackTable {
-  readonly version: 1;
-  readonly presets: Readonly<Record<string, ParticlePreset>>;
-  readonly events: Readonly<Partial<Record<DomainEvent['type'], Feedback>>>;
-}
-
-export interface StringTable {
-  readonly version: 1;
-  readonly strings: Readonly<Record<string, { readonly text: string; readonly fact: string }>>;
-}
+export type FeedbackTable = FeedbackFile;
+export type StringTable = StringsFile;
 
 /** A Record keyed by the union, so adding an event to core without listing it here fails to compile. */
 const ALL_EVENTS: Record<DomainEvent['type'], true> = {

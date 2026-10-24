@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "StringsFile",
+  "description": "Player-facing text for one language, keyed by string id.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "strings"],
+  "properties": {
+    "version": { "const": 1 },
+    "strings": { "type": "object", "additionalProperties": { "$ref": "#/$defs/StringEntry" } }
+  },
+  "$defs": {
+    "StringEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["text", "fact"],
+      "properties": {
+        "text": { "type": "string", "minLength": 1 },
+        "fact": { "description": "Fact-check table entry backing the text, or \"\" when it states no fact.", "type": "string", "pattern": "^(|\\d+|pending:\\d+|general)$" }
+      }
+    }
+  }
+}

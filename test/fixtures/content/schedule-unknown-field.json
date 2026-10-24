@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "cards": [
+    {
+      "id": "exercise",
+      "name": "運動",
+      "slots": ["afternoon", "evening"],
+      "hours": 2,
+      "perHour": { "stress": -8, "hydration": -8 },
+      "deptDemand": { "muscle": 4 },
+      "flavor": "業務部難得出外勤，回來整個人都亮了。"
+    }
+  ]
+}
