@@ -33,8 +33,13 @@ export class HudScene extends Phaser.Scene {
 
   create(): void {
     this.hearts = this.add.graphics();
-    this.controls = addText(this, 12, 46, str('hud.controls'), { role: 'print', weight: 700, size: 16, color: '#e8edf5' });
-    this.clock = addText(this, 12, 70, '', { role: 'print', weight: 400, size: 16, color: '#e8edf5' });
+    // The HUD sits over the north wall (art direction 7.2), so light text needs its own plate to
+    // stay readable over pale walls and wall props.
+    const plate = { backgroundColor: 'rgba(12, 45, 94, 0.82)', padding: { x: 6, y: 2 } } as const;
+    this.controls = addText(this, 12, 44, str('hud.controls'), { role: 'print', weight: 700, size: 16, color: '#e8edf5', ...plate });
+    this.clock = addText(this, 12, this.controls.y + this.controls.displayHeight + 2, '', {
+      role: 'print', weight: 400, size: 16, color: '#e8edf5', ...plate,
+    });
     this.saveNotices((this.registry.get('save-issues') as readonly SaveIssue[] | undefined) ?? []);
     const onNote = (n: WorldNote) => this.note(n);
     this.game.events.on('world-note', onNote);
