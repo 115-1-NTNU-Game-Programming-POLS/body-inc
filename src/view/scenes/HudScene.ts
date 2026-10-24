@@ -1,7 +1,15 @@
 import Phaser from 'phaser';
 import type { FixedStepLoop } from '../../app/loop.ts';
 import { selectHearts, selectTick, TICK_HZ } from '../../core/index.ts';
+import { STRINGS } from '../../app/content.ts';
+import { addText, updateText } from '../text/fonts.ts';
 import type { WorldNote } from './WorldScene.ts';
+
+const str = (key: string): string => {
+  const s = STRINGS.strings[key];
+  if (!s) throw new Error(`content/strings has no "${key}"`);
+  return s.text;
+};
 
 /** 7 x 6 heart, drawn at 4 px per cell; '#' is filled. */
 const HEART = ['.##.##.', '#######', '#######', '.#####.', '..###..', '...#...'];
@@ -12,9 +20,11 @@ const NOTE_SECONDS = 2.5;
 
 /** Overlay at scale 1, separate from World so hit-stop and camera zoom never affect UI. */
 export class HudScene extends Phaser.Scene {
-  private label!: Phaser.GameObjects.Text;
+  private controls!: Phaser.GameObjects.Text;
+  private clock!: Phaser.GameObjects.Text;
   private hearts!: Phaser.GameObjects.Graphics;
   private shownHalves = -1;
+  private shownSeconds = '';
 
   constructor() {
     super('Hud');
@@ -22,7 +32,8 @@ export class HudScene extends Phaser.Scene {
 
   create(): void {
     this.hearts = this.add.graphics();
-    this.label = this.add.text(12, 46, '', { fontFamily: 'sans-serif', fontSize: '14px', color: '#e8edf5' });
+    this.controls = addText(this, 12, 46, str('hud.controls'), { role: 'print', weight: 700, size: 16, color: '#e8edf5' });
+    this.clock = addText(this, 12, 70, '', { role: 'print', weight: 400, size: 16, color: '#e8edf5' });
     const onNote = (n: WorldNote) => this.note(n);
     this.game.events.on('world-note', onNote);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.game.events.off('world-note', onNote));
@@ -33,9 +44,9 @@ export class HudScene extends Phaser.Scene {
     const cam = this.scene.get('World').cameras.main;
     const sx = (n.worldX - cam.worldView.x) * cam.zoom;
     const sy = (n.worldY - cam.worldView.y) * cam.zoom;
-    const text = this.add.text(sx, sy, n.text, {
-      fontFamily: '"LXGW WenKai TC", "Noto Sans TC", sans-serif', fontSize: '20px', color: '#2b2b2b',
-      backgroundColor: '#d9d6cf', padding: { x: 8, y: 4 },
+    // Handwritten role: notes are the operator's sticky memos (art direction 8.2).
+    const text = addText(this, sx, sy, n.text, {
+      role: 'hand', weight: 400, size: 22, color: '#2b2b2b', backgroundColor: '#d9d6cf', padding: { x: 8, y: 4 },
     }).setOrigin(0.5, 1);
     this.tweens.add({ targets: text, alpha: 0, delay: (NOTE_SECONDS - 0.4) * 1000, duration: 400, onComplete: () => text.destroy() });
   }
@@ -64,7 +75,10 @@ export class HudScene extends Phaser.Scene {
       this.shownHalves = halves;
       this.drawHearts(halves, maxHalves);
     }
-    const t = selectTick(loop.state);
-    this.label.setText(`WASD 移動　J／左鍵 釘書機（按住連射）　空白／K 閃身　F1 碰撞框　rule time ${(t / TICK_HZ).toFixed(1)} s`);
+    const seconds = (selectTick(loop.state) / TICK_HZ).toFixed(1);
+    if (seconds !== this.shownSeconds) {
+      this.shownSeconds = seconds;
+      updateText(this.clock, str('hud.rule_time').replace('{seconds}', seconds));
+    }
   }
 }

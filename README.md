@@ -35,6 +35,8 @@ node tools/maps/make-greybox.ts   # 重新產生灰盒測試房間
 
 程式分成規則層 `src/core/`（純 TypeScript，可在 Node 執行，不得引用 Phaser 或瀏覽器）、轉接層 `src/app/` 與畫面層 `src/view/`，規則見 `docs/architecture.md`。違反分層的程式碼會讓 `npm run typecheck` 或 `npm run check` 失敗。合併到 `main` 時，GitHub Actions 會跑同一套檢查與美術檢查，通過後部署到 GitHub Pages。
 
+畫面上的文字一律用 `src/view/text/fonts.ts` 的 `addText` 建立，中文字串放在 `content/strings/zh-TW.json`。Boot 會等字型載入完遊戲可能用到的每個字才開始；開發版遇到字表外的字或字型還沒載完就建立文字，會直接報錯。要模擬網路慢的冷啟動，在網址加上 `?fontDelay=4000`。
+
 ### 編輯地圖
 
 用 Tiled 開啟專案根目錄的 `body-inc.tiled-project`，物件類別（Spawn、NPC、Door 等）與地圖屬性會以下拉選單出現。地圖放在 `public/assets/maps/<章節>/*.tmj`，同一個資料夾視為同一章。狀態變體做成名稱以 `variant:` 開頭的圖層，類別選 Variant 並填 `when` 條件式。條件式只能用 `content/tags.json` 中的標籤與 `mod.` 開頭的修飾器。提交前執行 `node tools/check-maps.ts`，錯誤會以中文列出檔名與物件編號。新增敵人種類（`content/enemies.json`）後要重跑 `node tools/maps/make-tiled-project.ts` 更新下拉選單。

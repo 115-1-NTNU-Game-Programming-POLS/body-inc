@@ -4,6 +4,8 @@
     "stamp.case_closed": { "text": "結案", "fact": "" },
     "perfect_dodge": { "text": "準時下班", "fact": "" },
     "solution.conveyor": { "text": "非本部門權限：請送產線", "fact": "22" },
-    "solution.guards": { "text": "非本部門權限：請找保全", "fact": "" }
+    "solution.guards": { "text": "非本部門權限：請找保全", "fact": "" },
+    "hud.controls": { "text": "WASD 移動　J／左鍵 釘書機（按住連射）　空白／K 閃身　F1 碰撞框", "fact": "" },
+    "hud.rule_time": { "text": "規則時間 {seconds} 秒", "fact": "" }
   }
 }

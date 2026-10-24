@@ -1,0 +1,65 @@
+{
+    "samples":  [
+                    {
+                        "text":  "人體股份有限公司誠徵營運長。工作內容：讓宿主撐到期末考。工時：責任制（24 小時）。待遇：以葡萄糖支付，面議。",
+                        "source":  "design doc: opening job ad"
+                    },
+                    {
+                        "text":  "「38 度？那不是剛好比較溫暖嗎？」",
+                        "source":  "design doc: boss"
+                    },
+                    {
+                        "text":  "保全：「協理，那是我們在打仗。」",
+                        "source":  "design doc: boss"
+                    },
+                    {
+                        "text":  "「你今天辛苦了，你值得。」「你很累是真的啊。」",
+                        "source":  "design doc: boss"
+                    },
+                    {
+                        "text":  "「我們的願景是……那個……」",
+                        "source":  "design doc: partner"
+                    },
+                    {
+                        "text":  "敬酒不勸酒；說不要就是不要；現場備有無酒精飲料；未滿 18 歲禁止供酒；喝酒前先吃東西。",
+                        "source":  "design doc: contract"
+                    },
+                    {
+                        "text":  "生病時請假在家休息，避免傳染；退燒滿 24 小時再返校；發燒時依手冊判斷就醫時機。",
+                        "source":  "design doc: contract"
+                    },
+                    {
+                        "text":  "口服電解質液比運動飲料合適；如果喝了就吐、整天幾乎沒尿，就要去醫院。",
+                        "source":  "design doc: partner"
+                    },
+                    {
+                        "text":  "夜班清潔隊：「睡著了才算 commit。」",
+                        "source":  "design doc: cleaning crew"
+                    },
+                    {
+                        "text":  "「是你們先找我的喔」",
+                        "source":  "design doc: breach"
+                    },
+                    {
+                        "text":  "手冊〈情緒低落與求助〉末尾附上學校諮商中心與 1925 安心專線（24 小時免付費）。",
+                        "source":  "composed from the design doc help page note (handbook name, numbers)"
+                    },
+                    {
+                        "text":  "最終版檔名是「期末報告_最終版_改3_真的最終.pptx」，在我電腦可以跑。",
+                        "source":  "composed from the design doc humour terms (long file name)"
+                    },
+                    {
+                        "text":  "成人每天建議在 300 毫克以下；咖啡因的半衰期約 3 至 4 個小時，午餐前喝的咖啡到睡前大約已代謝七、八成。",
+                        "source":  "content-spec: caffeine"
+                    },
+                    {
+                        "text":  "OJ 判決 Wrong Answer，hotfix 之後變成 Time Limit Exceeded；merge conflict 還沒解完。",
+                        "source":  "composed from the design doc humour terms (mixed Latin)"
+                    },
+                    {
+                        "text":  "營運長即日起正式任用，學期模式開放。",
+                        "source":  "design doc: ending"
+                    }
+                ],
+    "about":  "Dialogue lines from the design doc for line-breaking tests (build plan S10). Numbers and units are joined by U+00A0 as data files must do (art direction 8.2)."
+}

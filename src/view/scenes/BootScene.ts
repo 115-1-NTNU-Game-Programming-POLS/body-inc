@@ -1,5 +1,8 @@
 import Phaser from 'phaser';
 import { atlasProblems, atlasUrls, type AsepriteJson, type AtlasIndex, type Manifest } from '../../app/assets.ts';
+import { STRINGS } from '../../app/content.ts';
+import { glyphCorpus } from '../text/corpus.ts';
+import { addSystemText, loadFonts, type FontGateResult } from '../text/fonts.ts';
 
 export const GREYBOX_MAP = 'greybox-room';
 
@@ -13,12 +16,15 @@ interface TilesetMeta {
  */
 export class BootScene extends Phaser.Scene {
   private readonly failed: string[] = [];
+  private fonts!: Promise<FontGateResult>;
 
   constructor() {
     super('Boot');
   }
 
   preload(): void {
+    // Fonts load in parallel with the assets; no scene that draws text starts before both finish.
+    this.fonts = loadFonts(glyphCorpus(STRINGS));
     this.load.on(Phaser.Loader.Events.FILE_LOAD_ERROR, (file: Phaser.Loader.File) => {
       this.failed.push(`failed to load ${file.url}`);
     });
@@ -61,12 +67,16 @@ export class BootScene extends Phaser.Scene {
     }
     if (this.failed.length > 0) return this.fail();
     for (const e of manifest.entries) this.anims.createFromAseprite(e.key);
-    this.scene.start('World');
-    this.scene.launch('Hud');
+    void this.fonts.then(({ problems }) => {
+      this.failed.push(...problems);
+      if (this.failed.length > 0) return this.fail();
+      this.scene.start('World');
+      this.scene.launch('Hud');
+    });
   }
 
   private fail(): void {
     const lines = this.failed.length ? this.failed : ['a required boot file did not load'];
-    this.add.text(16, 16, ['Asset problems:', ...lines].join('\n'), { color: '#ffb4a8', fontSize: '16px' });
+    addSystemText(this, 16, 16, ['Boot problems:', ...lines].join('\n'), '#ffb4a8');
   }
 }
