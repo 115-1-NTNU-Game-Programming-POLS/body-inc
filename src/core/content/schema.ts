@@ -74,7 +74,7 @@ const matchesType = (v: unknown, t: SchemaType): boolean => {
   return actual === t || (t === 'number' && actual === 'integer');
 };
 
-const isRecord = (v: unknown): v is Record<string, unknown> => typeOf(v) === 'object';
+export const isRecord = (v: unknown): v is Record<string, unknown> => typeOf(v) === 'object';
 
 function resolveRef(root: Schema, ref: string): Schema {
   const m = /^#\/\$defs\/(.+)$/.exec(ref);

@@ -35,20 +35,23 @@ export class HudScene extends Phaser.Scene {
     this.hearts = this.add.graphics();
     this.controls = addText(this, 12, 46, str('hud.controls'), { role: 'print', weight: 700, size: 16, color: '#e8edf5' });
     this.clock = addText(this, 12, 70, '', { role: 'print', weight: 400, size: 16, color: '#e8edf5' });
-this.saveNotices((this.registry.get('save-issues') as readonly SaveIssue[] | undefined) ?? []);
+    this.saveNotices((this.registry.get('save-issues') as readonly SaveIssue[] | undefined) ?? []);
     const onNote = (n: WorldNote) => this.note(n);
     this.game.events.on('world-note', onNote);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.game.events.off('world-note', onNote));
   }
 
-/** One line per distinct message, bottom left, kept on screen: lost progress must not go unnoticed. */
+  /** One line per distinct message, bottom left, kept on screen: lost progress must not go unnoticed. */
   private saveNotices(issues: readonly SaveIssue[]): void {
     const keys = [...new Set(issues.map(issueMessage).filter((k): k is string => k !== undefined))];
-    keys.forEach((key, i) => {
-      addText(this, 12, this.scale.height - 12 - (keys.length - 1 - i) * 26, str(key), {
+    // Stacked upward from the bottom by measured height, so wrapped or scaled text never overlaps.
+    let bottom = this.scale.height - 12;
+    for (const key of keys.reverse()) {
+      const text = addText(this, 12, bottom, str(key), {
         role: 'print', weight: 700, size: 16, color: '#2b2b2b', backgroundColor: '#f2c94c', padding: { x: 8, y: 3 },
       }).setOrigin(0, 1);
-    });
+      bottom -= text.displayHeight + 4;
+    }
   }
 
   /** Gray memo above the object (art direction 9.2), converted from world to screen once. */

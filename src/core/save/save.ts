@@ -1,4 +1,4 @@
-import { validate, type Schema } from '../content/schema.ts';
+import { isRecord, validate, type Schema } from '../content/schema.ts';
 
 /**
  * Versioned save slots (design doc 13.5, ux-spec section 8). Core only turns stored text into
@@ -40,8 +40,6 @@ export function checkSlotDef<T>(def: SlotDef<T>): void {
   const problems = validate(def.schema, def.defaults());
   if (problems.length > 0) throw new SaveDefinitionError(`${def.name}: defaults do not match the schema`);
 }
-
-const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 
 export function decode<T>(def: SlotDef<T>, text: string | null): Decoded<T> {
   if (text === null) return { kind: 'empty', data: def.defaults() };

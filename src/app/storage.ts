@@ -13,8 +13,11 @@ export interface KeyValueStore {
 }
 
 export const KEY_PREFIX = 'hbc.v1.';
-/** Where unreadable save text is kept before defaults replace it, so it can still be recovered. */
-export const CORRUPT_KEY = `${KEY_PREFIX}corrupt`;
+/**
+ * Where a slot's unreadable text is kept before defaults replace it, so it can still be
+ * recovered. One key per slot: a shared key would let one corruption erase another's backup.
+ */
+export const corruptKey = (slot: string): string => `${KEY_PREFIX}corrupt.${slot}`;
 
 export type SaveIssue =
   | { readonly kind: 'unavailable' }
@@ -30,14 +33,19 @@ export function issueMessage(issue: SaveIssue): string | undefined {
     case 'unavailable': return 'save.unavailable';
     case 'read-failed': return 'save.unavailable';
     case 'write-failed': return issue.reason === 'quota' ? 'save.write_quota' : 'save.write_blocked';
-    case 'corrupt': return 'save.corrupt';
+    case 'corrupt': return issue.backedUp ? 'save.corrupt' : 'save.corrupt_kept';
     case 'newer': return 'save.newer';
     case 'migrated': return undefined;
   }
 }
 
-const isQuota = (e: unknown): boolean =>
-  e instanceof DOMException && (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED');
+// Duck-typed: the exception may come from another realm, and older WebKit reports a full store
+// only through the legacy codes 22 (QUOTA_EXCEEDED_ERR) and 1014 (Firefox).
+const isQuota = (e: unknown): boolean => {
+  if (typeof e !== 'object' || e === null) return false;
+  const { name, code } = e as { name?: unknown; code?: unknown };
+  return name === 'QuotaExceededError' || name === 'NS_ERROR_DOM_QUOTA_REACHED' || code === 22 || code === 1014;
+};
 
 export interface Loaded<T> {
   readonly data: T;
@@ -48,7 +56,10 @@ export interface Loaded<T> {
 
 export class SaveStore {
   private readonly store: KeyValueStore | null;
-  /** Slots holding a newer build's save; writing them would destroy it. */
+  /**
+   * Slots whose stored text was not safely read or kept aside: a newer build's save, a read
+   * that failed, or corrupt text whose backup failed. Writing them would destroy that text.
+   */
   private readonly locked = new Set<string>();
 
   constructor(store: KeyValueStore | null) {
@@ -62,6 +73,7 @@ export class SaveStore {
     try {
       text = this.store.getItem(key);
     } catch {
+      this.locked.add(def.name);
       return { data: def.defaults(), issues: [{ kind: 'read-failed', slot: def.name }], needsWrite: false };
     }
     const d = decode(def, text);
@@ -74,8 +86,9 @@ export class SaveStore {
         return { data: d.data, issues: [{ kind: 'newer', slot: def.name, version: d.from }], needsWrite: false };
       case 'corrupt':
       case 'invalid': {
-        const backedUp = this.write(CORRUPT_KEY, JSON.stringify({ slot: def.name, text })) === undefined;
-        return { data: d.data, issues: [{ kind: 'corrupt', slot: def.name, backedUp }], needsWrite: true };
+        const backedUp = this.write(corruptKey(def.name), text ?? '') === undefined;
+        if (!backedUp) this.locked.add(def.name);
+        return { data: d.data, issues: [{ kind: 'corrupt', slot: def.name, backedUp }], needsWrite: backedUp };
       }
     }
   }

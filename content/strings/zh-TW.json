@@ -11,6 +11,7 @@
     "save.write_blocked": { "text": "存檔失敗：瀏覽器不允許儲存，這次的進度不會保留。", "fact": "" },
     "save.write_quota": { "text": "存檔失敗：瀏覽器的儲存空間已滿。", "fact": "" },
     "save.corrupt": { "text": "存檔損毀，已備份並改用預設值。", "fact": "" },
+    "save.corrupt_kept": { "text": "存檔損毀且無法備份；本次改用預設值，原存檔保留不覆寫。", "fact": "" },
     "save.newer": { "text": "這份存檔來自較新的版本，本版本不會覆寫它。", "fact": "" }
   }
 }

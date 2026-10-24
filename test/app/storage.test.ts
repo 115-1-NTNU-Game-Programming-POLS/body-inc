@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CORRUPT_KEY, issueMessage, SaveStore, type KeyValueStore } from '../../src/app/storage.ts';
+import { corruptKey, issueMessage, SaveStore, type KeyValueStore } from '../../src/app/storage.ts';
 import { encode, SETTINGS } from '../../src/core/index.ts';
 import { STRINGS } from '../../src/app/content.ts';
 
@@ -55,14 +55,49 @@ describe('SaveStore', () => {
     mem.items.set(KEY, '{broken');
     const loaded = new SaveStore(mem).load(SETTINGS);
     expect(loaded).toEqual({ data: SETTINGS.defaults(), issues: [{ kind: 'corrupt', slot: 'settings', backedUp: true }], needsWrite: true });
-    expect(JSON.parse(mem.items.get(CORRUPT_KEY)!)).toEqual({ slot: 'settings', text: '{broken' });
+    expect(mem.items.get(corruptKey('settings'))).toBe('{broken');
   });
 
-  it('says so when the corrupt backup itself cannot be written', () => {
+  it('keeps corrupt text in place when its backup cannot be written', () => {
     const mem = new MemoryStore();
     mem.items.set(KEY, '{broken');
-    mem.failWrites = new DOMException('no', 'SecurityError');
-    expect(new SaveStore(mem).load(SETTINGS).issues).toEqual([{ kind: 'corrupt', slot: 'settings', backedUp: false }]);
+    mem.failWrites = new DOMException('no', 'QuotaExceededError');
+    const saves = new SaveStore(mem);
+    expect(saves.load(SETTINGS)).toEqual({ data: SETTINGS.defaults(), issues: [{ kind: 'corrupt', slot: 'settings', backedUp: false }], needsWrite: false });
+    // The write that freed space must still not replace the only copy.
+    mem.failWrites = null;
+    expect(saves.save(SETTINGS, SETTINGS.defaults())).toEqual([]);
+    expect(mem.items.get(KEY)).toBe('{broken');
+  });
+
+  it('keeps the corrupt backup of each slot separate', () => {
+    const mem = new MemoryStore();
+    const other = { ...SETTINGS, name: 'other' };
+    mem.items.set(KEY, '{a');
+    mem.items.set('hbc.v1.other', '{b');
+    const saves = new SaveStore(mem);
+    saves.load(SETTINGS);
+    saves.load(other);
+    expect([mem.items.get(corruptKey('settings')), mem.items.get(corruptKey('other'))]).toEqual(['{a', '{b']);
+  });
+
+  it('does not overwrite a slot it failed to read', () => {
+    const mem = new MemoryStore();
+    mem.items.set(KEY, encode(SETTINGS, { textScale: 1.25, gameSpeed: 0.8 }));
+    mem.failReads = true;
+    const saves = new SaveStore(mem);
+    saves.load(SETTINGS);
+    expect(saves.save(SETTINGS, SETTINGS.defaults())).toEqual([]);
+    expect(JSON.parse(mem.items.get(KEY)!).data).toEqual({ textScale: 1.25, gameSpeed: 0.8 });
+  });
+
+  it('recognises a full store by legacy code or from another realm', () => {
+    const mem = new MemoryStore();
+    const saves = new SaveStore(mem);
+    for (const err of [{ name: 'Error', code: 22 }, { name: 'NS_ERROR_DOM_QUOTA_REACHED', code: 1014 }, { name: 'QuotaExceededError' }]) {
+      mem.failWrites = err as DOMException;
+      expect(saves.save(SETTINGS, SETTINGS.defaults())[0], JSON.stringify(err)).toMatchObject({ reason: 'quota' });
+    }
   });
 
   it('never overwrites a save from a newer build', () => {
@@ -87,9 +122,10 @@ describe('SaveStore', () => {
   it('every visible issue has a string', () => {
     const kinds = [
       { kind: 'unavailable' }, { kind: 'read-failed', slot: 's' }, { kind: 'write-failed', slot: 's', reason: 'quota' },
-      { kind: 'write-failed', slot: 's', reason: 'blocked' }, { kind: 'corrupt', slot: 's', backedUp: true }, { kind: 'newer', slot: 's', version: 2 },
+      { kind: 'write-failed', slot: 's', reason: 'blocked' }, { kind: 'corrupt', slot: 's', backedUp: true }, { kind: 'corrupt', slot: 's', backedUp: false }, { kind: 'newer', slot: 's', version: 2 },
     ] as const;
-    for (const issue of kinds) expect(STRINGS.strings[issueMessage(issue)!], issue.kind).toBeDefined();
+    for (const issue of kinds) expect(STRINGS.strings[issueMessage(issue)!], JSON.stringify(issue)).toBeDefined();
+    expect(new Set(kinds.map(issueMessage)).size).toBe(kinds.length - 1); // read-failed shares unavailable's text
     expect(issueMessage({ kind: 'migrated', slot: 's', from: 1, to: 2 })).toBeUndefined();
   });
 });
