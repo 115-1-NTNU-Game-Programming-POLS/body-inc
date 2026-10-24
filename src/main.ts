@@ -4,7 +4,7 @@ import { HudScene } from './view/scenes/HudScene.ts';
 import { WorldScene } from './view/scenes/WorldScene.ts';
 
 // 1280 x 768 canvas; the world camera zooms 2x so a 640 x 384 room fills it (design doc 13.1).
-new Phaser.Game({
+const game = new Phaser.Game({
   type: Phaser.AUTO,
   parent: 'game',
   width: 1280,
@@ -15,3 +15,6 @@ new Phaser.Game({
   scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
   scene: [BootScene, WorldScene, HudScene],
 });
+
+// Dev builds only: lets the browser console and automated checks inspect scenes and frame rate.
+if (import.meta.env.DEV) (window as unknown as { __game: Phaser.Game }).__game = game;

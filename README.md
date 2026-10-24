@@ -28,7 +28,7 @@
 
 ```
 npm install
-npm run dev          # 開發伺服器，WASD 移動、F1 顯示碰撞框
+npm run dev          # 開發伺服器，WASD 移動、J 或左鍵釘書機（按住連射）、空白或 K 閃身、F1 顯示碰撞框
 npm run verify       # 型別檢查、測試、邊界與地圖檢查、建置，提交前必跑
 node tools/maps/make-greybox.ts   # 重新產生灰盒測試房間
 ```

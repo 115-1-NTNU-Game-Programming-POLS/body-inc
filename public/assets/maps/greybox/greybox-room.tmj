@@ -10,7 +10,7 @@
  "tilewidth": 32,
  "tileheight": 32,
  "nextlayerid": 4,
- "nextobjectid": 5,
+ "nextobjectid": 10,
  "class": "Room",
  "properties": [
   {
@@ -27,6 +27,11 @@
    "name": "estSeconds",
    "type": "int",
    "value": 30
+  },
+  {
+   "name": "tutorialFor",
+   "type": "string",
+   "value": "adenosine,alcohol_barrel"
   }
  ],
  "layers": [
@@ -632,6 +637,95 @@
        "value": "key"
       }
      ]
+    },
+    {
+     "id": 5,
+     "name": "salesman",
+     "type": "Spawn",
+     "x": 480,
+     "y": 200,
+     "width": 0,
+     "height": 0,
+     "rotation": 0,
+     "visible": true,
+     "point": true,
+     "properties": [
+      {
+       "name": "enemyType",
+       "type": "string",
+       "propertytype": "EnemyType",
+       "value": "salesman"
+      },
+      {
+       "name": "respawnSeconds",
+       "type": "float",
+       "value": 3
+      }
+     ]
+    },
+    {
+     "id": 6,
+     "name": "adenosine",
+     "type": "Spawn",
+     "x": 160,
+     "y": 180,
+     "width": 0,
+     "height": 0,
+     "rotation": 0,
+     "visible": true,
+     "point": true,
+     "properties": [
+      {
+       "name": "enemyType",
+       "type": "string",
+       "propertytype": "EnemyType",
+       "value": "adenosine"
+      }
+     ]
+    },
+    {
+     "id": 7,
+     "name": "alcohol_barrel",
+     "type": "Spawn",
+     "x": 520,
+     "y": 300,
+     "width": 0,
+     "height": 0,
+     "rotation": 0,
+     "visible": true,
+     "point": true,
+     "properties": [
+      {
+       "name": "enemyType",
+       "type": "string",
+       "propertytype": "EnemyType",
+       "value": "alcohol_barrel"
+      }
+     ]
+    },
+    {
+     "id": 8,
+     "name": "nap",
+     "type": "Bed",
+     "x": 64,
+     "y": 300,
+     "width": 64,
+     "height": 32,
+     "rotation": 0,
+     "visible": true,
+     "properties": []
+    },
+    {
+     "id": 9,
+     "name": "line",
+     "type": "Conveyor",
+     "x": 384,
+     "y": 320,
+     "width": 96,
+     "height": 32,
+     "rotation": 0,
+     "visible": true,
+     "properties": []
     }
    ]
   }

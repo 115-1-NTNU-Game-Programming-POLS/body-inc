@@ -1,14 +1,23 @@
 import Phaser from 'phaser';
 import { tagKey, type ManifestEntry } from '../../app/assets.ts';
-import type { OperatorState } from '../../core/index.ts';
+import { DODGE, STAPLER, type OperatorState } from '../../core/index.ts';
 
 /** Side frames are drawn facing right; left mirrors the side tag. */
 const DIR_TAG = { down: 'down', up: 'up', left: 'side', right: 'side' } as const;
+/** Invulnerability blink: alpha 0.5 and 1.0 alternate every 0.1 s (art direction 9.2). */
+const BLINK_TICKS = 6;
 
+/**
+ * Picks the operator's pose from the snapshot (art direction 5.3). Dodge reuses walk frame 2
+ * squashed to 0.85 with afterimages on the invincible frames; there is no dodge tag yet.
+ */
 export class OperatorView {
   private readonly scene: Phaser.Scene;
   private readonly sprite: Phaser.GameObjects.Sprite;
   private readonly key: string;
+  private flashUntil = 0;
+  private lastFireTick = -1e9;
+  private lastGhostTick = -1;
 
   constructor(scene: Phaser.Scene, entry: ManifestEntry) {
     this.scene = scene;
@@ -17,16 +26,60 @@ export class OperatorView {
     this.sprite.setOrigin(entry.anchor[0] / entry.frame[0], entry.anchor[1] / entry.frame[1]);
   }
 
-  /** x, y are the interpolated feet position; cur supplies facing and velocity. */
-  render(cur: Readonly<OperatorState>, x: number, y: number): void {
-    this.sprite.setPosition(x, y).setDepth(y).setFlipX(cur.facing === 'left');
-    const anim = tagKey(this.key, `walk_${DIR_TAG[cur.facing]}`);
-    if (cur.vx !== 0 || cur.vy !== 0) {
-      this.sprite.play(anim, true);
-      return;
-    }
+  flash(ticks: number, now: number): void {
+    this.flashUntil = now + ticks;
+  }
+
+  fired(now: number): void {
+    this.lastFireTick = now;
+  }
+
+  private still(tag: string, index = 0): void {
     this.sprite.anims.stop();
-    const first = this.scene.anims.get(anim)?.frames[0];
-    if (first) this.sprite.setFrame(first.textureFrame);
+    const frame = this.scene.anims.get(tagKey(this.key, tag))?.frames[index];
+    if (frame) this.sprite.setFrame(frame.textureFrame);
+  }
+
+  /** x, y are the interpolated feet position; cur supplies the action and velocity. */
+  render(cur: Readonly<OperatorState>, x: number, y: number, tick: number): void {
+    const dir = DIR_TAG[cur.facing];
+    const a = cur.action;
+    this.sprite.setPosition(Math.round(x), Math.round(y)).setDepth(y).setFlipX(cur.facing === 'left').setScale(1);
+
+    if (a.kind === 'dodge') {
+      this.still(`walk_${dir}`, 1);
+      this.sprite.setScale(1, 0.85).setAlpha(1);
+      if (a.frame >= DODGE.iframeFirst && a.frame <= DODGE.iframeLast && (a.frame - DODGE.iframeFirst) % 3 === 0 && tick !== this.lastGhostTick) {
+        this.lastGhostTick = tick;
+        this.afterimage();
+      }
+    } else if (a.kind === 'hurt') {
+      this.still(`hurt_${dir}`);
+    } else if (tick - this.lastFireTick < STAPLER.intervalTicks) {
+      // Push 5 frames, recoil 5: one cycle per staple.
+      this.still(`attack_${dir}`, tick - this.lastFireTick < 5 ? 1 : 0);
+    } else if (cur.vx !== 0 || cur.vy !== 0) {
+      this.sprite.play(tagKey(this.key, `walk_${dir}`), true);
+    } else {
+      this.still(`walk_${dir}`);
+    }
+
+    const invuln = a.kind !== 'dodge' && tick < cur.invulnUntil;
+    this.sprite.setAlpha(invuln && Math.floor(tick / BLINK_TICKS) % 2 === 0 ? 0.5 : 1);
+    if (tick < this.flashUntil) this.sprite.setTintFill(0xffffff);
+    else this.sprite.clearTint();
+  }
+
+  /** Teal afterimage at 0.5 opacity fading out (art direction 5.3). */
+  private afterimage(): void {
+    const s = this.sprite;
+    const ghost = this.scene.add.sprite(s.x, s.y, s.texture.key, s.frame.name)
+      .setOrigin(s.originX, s.originY).setFlipX(s.flipX).setScale(s.scaleX, s.scaleY)
+      .setDepth(s.depth - 1).setAlpha(0.5).setTintFill(0x2a9d8f);
+    this.scene.tweens.add({ targets: ghost, alpha: 0, duration: 200, onComplete: () => ghost.destroy() });
+  }
+
+  get position(): { x: number; y: number } {
+    return { x: this.sprite.x, y: this.sprite.y };
   }
 }

@@ -8,9 +8,9 @@
     "refuse": {}
   },
   "enemies": [
-    { "id": "salesman", "category": "defeatable" },
-    { "id": "flyer", "category": "defeatable" },
-    { "id": "energy_seller", "category": "defeatable" },
+    { "id": "salesman", "category": "defeatable", "archetype": "salesman", "performance": 4 },
+    { "id": "flyer", "category": "defeatable", "archetype": "flyer", "performance": 3 },
+    { "id": "energy_seller", "category": "defeatable", "archetype": "salesman", "performance": 4 },
     { "id": "cheers", "category": "defeatable" },
     { "id": "deadline_imp", "category": "defeatable" },
     { "id": "adenosine", "category": "reforming", "solution": "sleep" },

@@ -1,0 +1,66 @@
+import Phaser from 'phaser';
+import { noteText, type FeedbackTable, type StringTable } from '../../app/feedback.ts';
+import type { DomainEvent } from '../../core/index.ts';
+import type { EnemyView } from '../actors/EnemyView.ts';
+import type { OperatorView } from '../actors/OperatorView.ts';
+
+export interface FeedbackTargets {
+  enemy(id: number): EnemyView | undefined;
+  readonly operator: OperatorView;
+  /** Shows a note at a world position; the Hud draws it at full resolution. */
+  note(text: string, worldX: number, worldY: number): void;
+}
+
+/**
+ * Turns domain events into presentation through content/feedback.json. It only reads events;
+ * nothing here can change an outcome. Particle randomness is cosmetic and never touches core RNG.
+ */
+export class FeedbackPlayer {
+  private readonly scene: Phaser.Scene;
+  private readonly table: FeedbackTable;
+  private readonly strings: StringTable;
+  private readonly targets: FeedbackTargets;
+  private readonly emitters = new Map<string, Phaser.GameObjects.Particles.ParticleEmitter>();
+
+  constructor(scene: Phaser.Scene, table: FeedbackTable, strings: StringTable, targets: FeedbackTargets) {
+    this.scene = scene;
+    this.table = table;
+    this.strings = strings;
+    this.targets = targets;
+  }
+
+  private emitter(preset: string): Phaser.GameObjects.Particles.ParticleEmitter | undefined {
+    const p = this.table.presets[preset];
+    if (!p) return undefined;
+    let e = this.emitters.get(preset);
+    if (!e) {
+      e = this.scene.add.particles(0, 0, p.texture, {
+        speed: { min: p.speed[0]!, max: p.speed[1]! }, angle: { min: 0, max: 360 },
+        lifespan: p.life * 1000, alpha: { start: 1, end: 0 }, emitting: false, maxAliveParticles: 200,
+      }).setDepth(1e5);
+      this.emitters.set(preset, e);
+    }
+    return e;
+  }
+
+  play(event: DomainEvent, tick: number): void {
+    const fb = this.table.events[event.type];
+    if (!fb) return;
+    const enemy = 'target' in event ? this.targets.enemy(event.target) : undefined;
+    const at = enemy ? { x: enemy.sprite.x, y: enemy.sprite.y - 12 } : { x: this.targets.operator.position.x, y: this.targets.operator.position.y - 20 };
+
+    if (fb.flashTarget && enemy) enemy.flash(fb.flashTarget, tick);
+    if (fb.flashOperator) this.targets.operator.flash(fb.flashOperator, tick);
+    if (fb.bounce) enemy?.bounce();
+    if (fb.closeOut) enemy?.closeOut();
+    if (fb.shake) {
+      const cam = this.scene.cameras.main;
+      cam.shake(fb.shake.seconds * 1000, fb.shake.px / cam.width);
+    }
+    for (const p of fb.particles ?? []) this.emitter(p.preset)?.explode(p.count, at.x, at.y);
+    if (fb.note) {
+      const text = noteText(fb.note, event, this.strings);
+      if (text) this.targets.note(text, at.x, at.y - 16);
+    }
+  }
+}

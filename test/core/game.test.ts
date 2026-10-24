@@ -1,4 +1,4 @@
-import { TAGS } from '../../src/app/content.ts';
+import { ENEMIES, TAGS } from '../../src/app/content.ts';
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { bodyOverlapsSolid } from '../../src/core/collision/grid.ts';
@@ -10,18 +10,27 @@ import { nextInt, seedRng } from '../../src/core/rng.ts';
 const MAP = JSON.parse(readFileSync('public/assets/maps/greybox/greybox-room.tmj', 'utf8')) as TiledMap;
 const room = parseRoom('greybox-room', MAP, TAGS);
 
-/** Seeded random walk: a different stick direction every 20 ticks. */
+/**
+ * Seeded random fight: a new stick direction every 20 ticks, fire held half the time, and a
+ * dodge pressed now and then, so replays and wall checks cover dodges, knockback and staples.
+ */
 function play(seed: number, ticks: number, onTick?: (s: GameState) => void): GameState {
-  let s = createGame(room, 1);
+  let s = createGame(room, 1, ENEMIES);
   let r = seedRng(seed);
-  let input: TickInput = { move: { x: 0, y: 0 } };
+  let move = { x: 0, y: 0 };
+  let attack = false;
   for (let t = 0; t < ticks; t++) {
+    let dodge = 0;
     if (t % 20 === 0) {
-      let dx: number, dy: number;
+      let dx: number, dy: number, a: number;
       [dx, r] = nextInt(r, 3);
       [dy, r] = nextInt(r, 3);
-      input = { move: { x: dx - 1, y: dy - 1 } };
+      [a, r] = nextInt(r, 2);
+      move = { x: dx - 1, y: dy - 1 };
+      attack = a === 1;
     }
+    if (t % 7 === 0) [dodge, r] = nextInt(r, 4);
+    const input: TickInput = { move, attack, attackPressed: attack && t % 20 === 0, dodgePressed: dodge === 0 && t % 7 === 0 };
     s = step(s, input).state;
     onTick?.(s);
   }
@@ -61,7 +70,7 @@ describe('deterministic rules', () => {
   });
 
   it('pushing into a wall from a standstill still reports a bump every tick', () => {
-    const start = createGame(room, 1);
+    const start = createGame(room, 1, ENEMIES);
     const flush: GameState = { ...start, operator: { ...start.operator, x: 32 + OPERATOR_BODY.halfW, y: 160 } };
     const left: TickInput = { move: { x: -1, y: 0 } };
     const first = step(flush, left);
@@ -69,6 +78,16 @@ describe('deterministic rules', () => {
     expect(first.events).toContainEqual({ type: 'bumpWall', axis: 'x' });
     expect(second.events).toContainEqual({ type: 'bumpWall', axis: 'x' });
     expect(step(second.state, { move: { x: 1, y: 0 } }).events).toEqual([]);
+  });
+
+  it('the random fight exercises dodges, hits taken and staples', () => {
+    let dodged = false; let hurt = false; let shot = false;
+    play(7, 5000, (s) => {
+      if (s.operator.action.kind === 'dodge') dodged = true;
+      if (s.operator.action.kind === 'hurt') hurt = true;
+      if (s.projectiles.length > 0) shot = true;
+    });
+    expect([dodged, hurt, shot]).toEqual([true, true, true]);
   });
 
   it('the random walk actually moves the operator around', () => {

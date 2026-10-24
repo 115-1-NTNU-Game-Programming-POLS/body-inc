@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "presets": {
+    "paper": { "texture": "fx-paper", "speed": [60, 120], "life": 0.3 },
+    "ink": { "texture": "fx-ink", "speed": [60, 120], "life": 0.3 },
+    "fuzz": { "texture": "fx-fuzz", "speed": [10, 30], "life": 0.6 },
+    "sweat": { "texture": "fx-sweat", "speed": [30, 40], "life": 0.4 }
+  },
+  "events": {
+    "hit": { "flashTarget": 2, "particles": [{ "preset": "paper", "count": 5 }, { "preset": "ink", "count": 3 }] },
+    "caseClosed": { "closeOut": true, "particles": [{ "preset": "paper", "count": 12 }], "note": "stamp.case_closed" },
+    "dispersed": { "particles": [{ "preset": "fuzz", "count": 8 }] },
+    "immuneBounce": { "bounce": true, "note": "solution.{solution}" },
+    "heartLost": { "flashOperator": 2, "shake": { "px": 4, "seconds": 0.12 }, "particles": [{ "preset": "sweat", "count": 1 }] },
+    "perfectDodge": { "note": "perfect_dodge" }
+  }
+}
