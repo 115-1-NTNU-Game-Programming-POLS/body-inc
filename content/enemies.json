@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "solutions": {
+    "sleep": { "object": "Bed" },
+    "conveyor": { "object": "Conveyor" },
+    "guards": {},
+    "territory": {},
+    "refuse": {}
+  },
+  "enemies": [
+    { "id": "salesman", "category": "defeatable" },
+    { "id": "flyer", "category": "defeatable" },
+    { "id": "energy_seller", "category": "defeatable" },
+    { "id": "cheers", "category": "defeatable" },
+    { "id": "deadline_imp", "category": "defeatable" },
+    { "id": "adenosine", "category": "reforming", "solution": "sleep" },
+    { "id": "opportunist_bacteria", "category": "reforming", "solution": "territory" },
+    { "id": "alcohol_barrel", "category": "immune", "solution": "conveyor" },
+    { "id": "cold_virus", "category": "immune", "solution": "guards" }
+  ]
+}

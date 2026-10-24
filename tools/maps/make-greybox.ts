@@ -10,6 +10,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseRoom, playerStart, type TiledMap } from '../../src/core/rooms/tiled.ts';
+import { loadDictionary } from '../../src/core/tags/dictionary.ts';
 import { seedRng, nextFloat } from '../../src/core/rng.ts';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -77,19 +78,30 @@ const layer = (id: number, name: string, data: number[]) => ({
   id, name, type: 'tilelayer', x: 0, y: 0, width: W, height: H, opacity: 1, visible: true, data,
 });
 
+const door = (id: number, socket: string, lock: string, x: number, y: number, width: number, height: number) => ({
+  id, name: `door-${socket.toLowerCase()}`, type: 'Door', x, y, width, height, rotation: 0, visible: true,
+  properties: [{ name: 'socket', type: 'string', propertytype: 'Socket', value: socket }, { name: 'lock', type: 'string', propertytype: 'Lock', value: lock }],
+});
+
 const map = {
   type: 'map', version: '1.10', tiledversion: '1.11.0', orientation: 'orthogonal', renderorder: 'right-down',
-  infinite: false, width: W, height: H, tilewidth: 32, tileheight: 32, nextlayerid: 4, nextobjectid: 2,
+  infinite: false, width: W, height: H, tilewidth: 32, tileheight: 32, nextlayerid: 4, nextobjectid: 5, class: 'Room',
   properties: [
     { name: 'organ', type: 'string', value: world },
     { name: 'role', type: 'string', value: 'combat' },
+    { name: 'estSeconds', type: 'int', value: 30 },
   ],
   layers: [
     layer(1, 'floor', floor),
     layer(2, 'walls', walls),
     {
       id: 3, name: 'objects', type: 'objectgroup', x: 0, y: 0, opacity: 1, visible: true, draworder: 'topdown',
-      objects: [{ id: 1, name: 'start', type: 'PlayerStart', x: 320, y: 256, width: 0, height: 0, rotation: 0, visible: true, point: true }],
+      objects: [
+        { id: 1, name: 'start', type: 'PlayerStart', x: 320, y: 256, width: 0, height: 0, rotation: 0, visible: true, point: true },
+        door(2, 'N', 'key', 9 * 32, 0, 64, 96),
+        door(3, 'S', 'none', 9 * 32, 11 * 32, 64, 32),
+        door(4, 'W', 'key', 0, 6 * 32, 32, 64),
+      ],
     },
   ],
   tilesets: [{
@@ -99,7 +111,8 @@ const map = {
   }],
 };
 
-const room = parseRoom('greybox-room', map as unknown as TiledMap);
+const dict = loadDictionary(JSON.parse(readFileSync(join(ROOT, 'content', 'tags.json'), 'utf8')));
+const room = parseRoom('greybox-room', map as unknown as TiledMap, dict);
 playerStart(room);
 const out = join(ROOT, 'public', 'assets', 'maps', 'greybox', 'greybox-room.tmj');
 mkdirSync(dirname(out), { recursive: true });

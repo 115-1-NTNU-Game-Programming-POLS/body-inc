@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { FixedStepLoop } from '../../app/loop.ts';
 import { KeyboardInput } from '../../app/input.ts';
 import type { Manifest } from '../../app/assets.ts';
+import { TAGS } from '../../app/content.ts';
 import { createGame, parseRoom, selectOperator, TILE, type TiledMap } from '../../core/index.ts';
 import { GREYBOX_MAP } from './BootScene.ts';
 import { OperatorView } from '../actors/OperatorView.ts';
@@ -22,7 +23,7 @@ export class WorldScene extends Phaser.Scene {
     const mapData = this.cache.tilemap.get(GREYBOX_MAP).data as TiledMap & {
       tilesets: readonly { name: string; margin: number; spacing: number }[];
     };
-    const room = parseRoom(GREYBOX_MAP, mapData);
+    const room = parseRoom(GREYBOX_MAP, mapData, TAGS);
     this.loop = new FixedStepLoop(createGame(room, 1));
     this.registry.set('loop', this.loop);
 

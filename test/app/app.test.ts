@@ -1,3 +1,4 @@
+import { TAGS } from '../../src/app/content.ts';
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { atlasProblems, atlasUrls, type AsepriteJson, type Manifest } from '../../src/app/assets.ts';
@@ -33,7 +34,7 @@ describe('asset contract', () => {
 });
 
 describe('fixed-step loop', () => {
-  const room = parseRoom('g', JSON.parse(readFileSync('public/assets/maps/greybox/greybox-room.tmj', 'utf8')) as TiledMap);
+  const room = parseRoom('g', JSON.parse(readFileSync('public/assets/maps/greybox/greybox-room.tmj', 'utf8')) as TiledMap, TAGS);
 
   it('turns elapsed time into whole ticks and scales by game speed', () => {
     const loop = new FixedStepLoop(createGame(room, 1));

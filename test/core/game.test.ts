@@ -1,3 +1,4 @@
+import { TAGS } from '../../src/app/content.ts';
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { bodyOverlapsSolid } from '../../src/core/collision/grid.ts';
@@ -7,7 +8,7 @@ import {
 import { nextInt, seedRng } from '../../src/core/rng.ts';
 
 const MAP = JSON.parse(readFileSync('public/assets/maps/greybox/greybox-room.tmj', 'utf8')) as TiledMap;
-const room = parseRoom('greybox-room', MAP);
+const room = parseRoom('greybox-room', MAP, TAGS);
 
 /** Seeded random walk: a different stick direction every 20 ticks. */
 function play(seed: number, ticks: number, onTick?: (s: GameState) => void): GameState {
@@ -38,7 +39,7 @@ describe('greybox room', () => {
 
   it('rejects a map without a walls layer', () => {
     const broken = { ...MAP, layers: MAP.layers.filter((l) => l.name !== 'walls') };
-    expect(() => parseRoom('broken', broken)).toThrow(RoomFormatError);
+    expect(() => parseRoom('broken', broken, TAGS)).toThrow(RoomFormatError);
   });
 });
 

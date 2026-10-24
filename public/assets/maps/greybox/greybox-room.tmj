@@ -10,7 +10,8 @@
  "tilewidth": 32,
  "tileheight": 32,
  "nextlayerid": 4,
- "nextobjectid": 2,
+ "nextobjectid": 5,
+ "class": "Room",
  "properties": [
   {
    "name": "organ",
@@ -21,6 +22,11 @@
    "name": "role",
    "type": "string",
    "value": "combat"
+  },
+  {
+   "name": "estSeconds",
+   "type": "int",
+   "value": 30
   }
  ],
  "layers": [
@@ -551,6 +557,81 @@
      "rotation": 0,
      "visible": true,
      "point": true
+    },
+    {
+     "id": 2,
+     "name": "door-n",
+     "type": "Door",
+     "x": 288,
+     "y": 0,
+     "width": 64,
+     "height": 96,
+     "rotation": 0,
+     "visible": true,
+     "properties": [
+      {
+       "name": "socket",
+       "type": "string",
+       "propertytype": "Socket",
+       "value": "N"
+      },
+      {
+       "name": "lock",
+       "type": "string",
+       "propertytype": "Lock",
+       "value": "key"
+      }
+     ]
+    },
+    {
+     "id": 3,
+     "name": "door-s",
+     "type": "Door",
+     "x": 288,
+     "y": 352,
+     "width": 64,
+     "height": 32,
+     "rotation": 0,
+     "visible": true,
+     "properties": [
+      {
+       "name": "socket",
+       "type": "string",
+       "propertytype": "Socket",
+       "value": "S"
+      },
+      {
+       "name": "lock",
+       "type": "string",
+       "propertytype": "Lock",
+       "value": "none"
+      }
+     ]
+    },
+    {
+     "id": 4,
+     "name": "door-w",
+     "type": "Door",
+     "x": 0,
+     "y": 192,
+     "width": 32,
+     "height": 64,
+     "rotation": 0,
+     "visible": true,
+     "properties": [
+      {
+       "name": "socket",
+       "type": "string",
+       "propertytype": "Socket",
+       "value": "W"
+      },
+      {
+       "name": "lock",
+       "type": "string",
+       "propertytype": "Lock",
+       "value": "key"
+      }
+     ]
     }
    ]
   }

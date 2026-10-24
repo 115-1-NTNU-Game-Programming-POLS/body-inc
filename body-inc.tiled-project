@@ -1,0 +1,520 @@
+{
+  "automappingRulesFile": "",
+  "commands": [],
+  "compatibilityVersion": 1100,
+  "extensionsPath": "extensions",
+  "folders": [
+    "public/assets/maps"
+  ],
+  "properties": [],
+  "propertyTypes": [
+    {
+      "id": 1,
+      "name": "EnemyType",
+      "type": "enum",
+      "storageType": "string",
+      "values": [
+        "salesman",
+        "flyer",
+        "energy_seller",
+        "cheers",
+        "deadline_imp",
+        "adenosine",
+        "opportunist_bacteria",
+        "alcohol_barrel",
+        "cold_virus"
+      ],
+      "valuesAsFlags": false
+    },
+    {
+      "id": 2,
+      "name": "Organ",
+      "type": "enum",
+      "storageType": "string",
+      "values": [
+        "lobby",
+        "brain",
+        "stomach",
+        "liver",
+        "immune",
+        "gut",
+        "exam"
+      ],
+      "valuesAsFlags": false
+    },
+    {
+      "id": 3,
+      "name": "Role",
+      "type": "enum",
+      "storageType": "string",
+      "values": [
+        "combat",
+        "puzzle",
+        "rest",
+        "treasure",
+        "transit",
+        "core"
+      ],
+      "valuesAsFlags": false
+    },
+    {
+      "id": 4,
+      "name": "Facing",
+      "type": "enum",
+      "storageType": "string",
+      "values": [
+        "down",
+        "up",
+        "left",
+        "right"
+      ],
+      "valuesAsFlags": false
+    },
+    {
+      "id": 5,
+      "name": "TriggerEvent",
+      "type": "enum",
+      "storageType": "string",
+      "values": [
+        "dialogue",
+        "card",
+        "cutscene",
+        "checkpoint",
+        "clock_advance"
+      ],
+      "valuesAsFlags": false
+    },
+    {
+      "id": 6,
+      "name": "Socket",
+      "type": "enum",
+      "storageType": "string",
+      "values": [
+        "N",
+        "E",
+        "S",
+        "W"
+      ],
+      "valuesAsFlags": false
+    },
+    {
+      "id": 7,
+      "name": "Lock",
+      "type": "enum",
+      "storageType": "string",
+      "values": [
+        "none",
+        "key",
+        "switch",
+        "clock",
+        "resource"
+      ],
+      "valuesAsFlags": false
+    },
+    {
+      "id": 8,
+      "name": "SwitchMode",
+      "type": "enum",
+      "storageType": "string",
+      "values": [
+        "toggle",
+        "hold"
+      ],
+      "valuesAsFlags": false
+    },
+    {
+      "id": 9,
+      "name": "Direction",
+      "type": "enum",
+      "storageType": "string",
+      "values": [
+        "N",
+        "E",
+        "S",
+        "W"
+      ],
+      "valuesAsFlags": false
+    },
+    {
+      "id": 10,
+      "name": "ConveyorSpeed",
+      "type": "enum",
+      "storageType": "string",
+      "values": [
+        "slow",
+        "normal",
+        "fast"
+      ],
+      "valuesAsFlags": false
+    },
+    {
+      "id": 11,
+      "name": "HazardType",
+      "type": "enum",
+      "storageType": "string",
+      "values": [
+        "red_fog",
+        "water",
+        "syrup"
+      ],
+      "valuesAsFlags": false
+    },
+    {
+      "id": 12,
+      "name": "ItemType",
+      "type": "enum",
+      "storageType": "string",
+      "values": [
+        "handbook",
+        "coffee",
+        "meal",
+        "ors",
+        "file",
+        "thanks_card"
+      ],
+      "valuesAsFlags": false
+    },
+    {
+      "id": 13,
+      "name": "BedType",
+      "type": "enum",
+      "storageType": "string",
+      "values": [
+        "nap",
+        "sleep"
+      ],
+      "valuesAsFlags": false
+    },
+    {
+      "id": 14,
+      "name": "Room",
+      "type": "class",
+      "useAs": [
+        "map"
+      ],
+      "color": "#ff808080",
+      "drawFill": true,
+      "members": [
+        {
+          "name": "organ",
+          "type": "string",
+          "propertyType": "Organ",
+          "value": ""
+        },
+        {
+          "name": "role",
+          "type": "string",
+          "propertyType": "Role",
+          "value": ""
+        },
+        {
+          "name": "difficulty",
+          "type": "int",
+          "value": 1
+        },
+        {
+          "name": "needs",
+          "type": "string",
+          "value": ""
+        },
+        {
+          "name": "estSeconds",
+          "type": "int",
+          "value": 0
+        },
+        {
+          "name": "needsClock",
+          "type": "bool",
+          "value": false
+        },
+        {
+          "name": "storyOnly",
+          "type": "bool",
+          "value": false
+        },
+        {
+          "name": "tutorialFor",
+          "type": "string",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "id": 15,
+      "name": "Variant",
+      "type": "class",
+      "useAs": [
+        "layer"
+      ],
+      "color": "#ffa070d0",
+      "drawFill": true,
+      "members": [
+        {
+          "name": "when",
+          "type": "string",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "id": 16,
+      "name": "PlayerStart",
+      "type": "class",
+      "useAs": [
+        "object"
+      ],
+      "color": "#ff3080c0",
+      "drawFill": true,
+      "members": []
+    },
+    {
+      "id": 17,
+      "name": "Spawn",
+      "type": "class",
+      "useAs": [
+        "object"
+      ],
+      "color": "#ff3080c0",
+      "drawFill": true,
+      "members": [
+        {
+          "name": "enemyType",
+          "type": "string",
+          "propertyType": "EnemyType",
+          "value": ""
+        },
+        {
+          "name": "count",
+          "type": "int",
+          "value": 1
+        },
+        {
+          "name": "respawnSeconds",
+          "type": "float",
+          "value": 0
+        },
+        {
+          "name": "when",
+          "type": "string",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "id": 18,
+      "name": "NPC",
+      "type": "class",
+      "useAs": [
+        "object"
+      ],
+      "color": "#ff3080c0",
+      "drawFill": true,
+      "members": [
+        {
+          "name": "npcId",
+          "type": "string",
+          "value": ""
+        },
+        {
+          "name": "dialogueId",
+          "type": "string",
+          "value": ""
+        },
+        {
+          "name": "portrait",
+          "type": "string",
+          "value": ""
+        },
+        {
+          "name": "facing",
+          "type": "string",
+          "propertyType": "Facing",
+          "value": "down"
+        }
+      ]
+    },
+    {
+      "id": 19,
+      "name": "Trigger",
+      "type": "class",
+      "useAs": [
+        "object"
+      ],
+      "color": "#ff3080c0",
+      "drawFill": true,
+      "members": [
+        {
+          "name": "event",
+          "type": "string",
+          "propertyType": "TriggerEvent",
+          "value": "dialogue"
+        },
+        {
+          "name": "eventId",
+          "type": "string",
+          "value": ""
+        },
+        {
+          "name": "once",
+          "type": "bool",
+          "value": true
+        },
+        {
+          "name": "when",
+          "type": "string",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "id": 20,
+      "name": "Door",
+      "type": "class",
+      "useAs": [
+        "object"
+      ],
+      "color": "#ff3080c0",
+      "drawFill": true,
+      "members": [
+        {
+          "name": "socket",
+          "type": "string",
+          "propertyType": "Socket",
+          "value": "N"
+        },
+        {
+          "name": "lock",
+          "type": "string",
+          "propertyType": "Lock",
+          "value": "none"
+        },
+        {
+          "name": "lockParam",
+          "type": "string",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "id": 21,
+      "name": "Switch",
+      "type": "class",
+      "useAs": [
+        "object"
+      ],
+      "color": "#ff3080c0",
+      "drawFill": true,
+      "members": [
+        {
+          "name": "target",
+          "type": "object",
+          "value": 0
+        },
+        {
+          "name": "mode",
+          "type": "string",
+          "propertyType": "SwitchMode",
+          "value": "toggle"
+        }
+      ]
+    },
+    {
+      "id": 22,
+      "name": "Conveyor",
+      "type": "class",
+      "useAs": [
+        "object"
+      ],
+      "color": "#ff3080c0",
+      "drawFill": true,
+      "members": [
+        {
+          "name": "direction",
+          "type": "string",
+          "propertyType": "Direction",
+          "value": "E"
+        },
+        {
+          "name": "speed",
+          "type": "string",
+          "propertyType": "ConveyorSpeed",
+          "value": "normal"
+        }
+      ]
+    },
+    {
+      "id": 23,
+      "name": "Hazard",
+      "type": "class",
+      "useAs": [
+        "object"
+      ],
+      "color": "#ff3080c0",
+      "drawFill": true,
+      "members": [
+        {
+          "name": "hazardType",
+          "type": "string",
+          "propertyType": "HazardType",
+          "value": "red_fog"
+        },
+        {
+          "name": "when",
+          "type": "string",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "id": 24,
+      "name": "Pickup",
+      "type": "class",
+      "useAs": [
+        "object"
+      ],
+      "color": "#ff3080c0",
+      "drawFill": true,
+      "members": [
+        {
+          "name": "itemType",
+          "type": "string",
+          "propertyType": "ItemType",
+          "value": "handbook"
+        },
+        {
+          "name": "itemId",
+          "type": "string",
+          "value": ""
+        },
+        {
+          "name": "when",
+          "type": "string",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "id": 25,
+      "name": "Bed",
+      "type": "class",
+      "useAs": [
+        "object"
+      ],
+      "color": "#ff3080c0",
+      "drawFill": true,
+      "members": [
+        {
+          "name": "bedType",
+          "type": "string",
+          "propertyType": "BedType",
+          "value": "nap"
+        },
+        {
+          "name": "requires",
+          "type": "string",
+          "value": ""
+        }
+      ]
+    }
+  ]
+}
