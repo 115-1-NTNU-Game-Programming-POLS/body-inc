@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { tagKey, type ManifestEntry } from '../../app/assets.ts';
-import { DODGE, STAPLER, type OperatorState } from '../../core/index.ts';
+import { DODGE, inDodgeIframes, STAPLER, type OperatorState } from '../../core/index.ts';
 
 /** Side frames are drawn facing right; left mirrors the side tag. */
 const DIR_TAG = { down: 'down', up: 'up', left: 'side', right: 'side' } as const;
@@ -49,7 +49,7 @@ export class OperatorView {
     if (a.kind === 'dodge') {
       this.still(`walk_${dir}`, 1);
       this.sprite.setScale(1, 0.85).setAlpha(1);
-      if (a.frame >= DODGE.iframeFirst && a.frame <= DODGE.iframeLast && (a.frame - DODGE.iframeFirst) % 3 === 0 && tick !== this.lastGhostTick) {
+      if (inDodgeIframes(a) && (a.frame - DODGE.iframeFirst) % 3 === 0 && tick !== this.lastGhostTick) {
         this.lastGhostTick = tick;
         this.afterimage();
       }

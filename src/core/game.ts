@@ -5,7 +5,7 @@ import type { EnemyTable } from './combat/enemies.ts';
 import { BASE_HALVES, DODGE, ENEMY_HIT_FREEZE, HURT, STAPLER } from './combat/frames.ts';
 import type { Vec } from './combat/movement.ts';
 import {
-  bufferInput, hurtOperator, isInvincible, newOperator, OPERATOR_HURT, stepOperator, unit,
+  bufferInput, hurtOperator, inDodgeIframes, isInvincible, newOperator, OPERATOR_HURT, stepOperator, unit,
   type OperatorState, type TickInput,
 } from './combat/operator.ts';
 import { seedStreams, type RngStreams } from './rng.ts';
@@ -67,15 +67,16 @@ export class GameSetupError extends Error {}
 const COPY_SPACING = 20;
 const STAPLE_HALF = 2;
 const STAPLE_LIFE = Math.ceil(STAPLER.rangePx / STAPLER.speed);
-const NO_ENEMIES: EnemyTable = { enemies: new Map(), solutions: new Map() };
 
 /**
  * Enemies come from base-layer Spawn objects without a `when`; tag-driven spawns and variant
- * layers are switched in at room entry once P2 lands.
+ * layers are switched in at room entry once P2 lands. Ids come from the shared counter, taken
+ * in object id order, so no Spawn count can make two enemies share an id.
  */
-function spawnEnemies(room: RoomModel, table: EnemyTable): EnemyState[] {
+function spawnEnemies(room: RoomModel, table: EnemyTable, firstId: number): { enemies: EnemyState[]; nextId: number } {
   const out: EnemyState[] = [];
-  for (const o of room.objects) {
+  let nextId = firstId;
+  for (const o of [...room.objects].sort((a, b) => a.id - b.id)) {
     if (o.kind !== 'Spawn' || o.variant !== undefined || o.conditions['when']) continue;
     const type = String(o.props['enemyType']);
     const def = table.enemies.get(type);
@@ -88,7 +89,7 @@ function spawnEnemies(room: RoomModel, table: EnemyTable): EnemyState[] {
       const x = o.x + (i - (count - 1) / 2) * COPY_SPACING;
       const hp = def.performance ?? 0;
       out.push({
-        id: o.id * 16 + i, type, category: def.category,
+        id: nextId++, type, category: def.category,
         ...(def.archetype ? { archetype: def.archetype } : {}),
         ...(def.solution ? { solution: def.solution } : {}),
         x, y: o.y, homeX: x, homeY: o.y, hp, maxHp: hp, phase: 'idle', phaseTicks: 0, frozen: 0,
@@ -97,19 +98,21 @@ function spawnEnemies(room: RoomModel, table: EnemyTable): EnemyState[] {
       });
     }
   }
-  return out.sort((a, b) => a.id - b.id);
+  return { enemies: out, nextId };
 }
 
-export function createGame(room: RoomModel, seed: number, table: EnemyTable = NO_ENEMIES): GameState {
+/** The enemy table is required: rooms with Spawns cannot start without it. */
+export function createGame(room: RoomModel, seed: number, table: EnemyTable): GameState {
   const start = playerStart(room);
+  const spawned = spawnEnemies(room, table, 1);
   return {
     tick: 0,
     rng: seedStreams(seed),
     room,
     operator: newOperator(start.x, start.y, BASE_HALVES),
-    enemies: spawnEnemies(room, table),
+    enemies: spawned.enemies,
     projectiles: [],
-    nextId: 1,
+    nextId: spawned.nextId,
     freeze: 0,
   };
 }
@@ -214,7 +217,7 @@ export function step(state: GameState, input: TickInput): StepResult {
   for (const e of [...enemies.values()]) {
     if (e.phase !== 'strike' || e.strikeSpent || e.frozen > 0 || !overlaps(strikeBox(e), hurt)) continue;
     const a = op.action;
-    if (a.kind === 'dodge' && a.frame >= DODGE.iframeFirst && a.frame <= DODGE.iframeLast) {
+    if (inDodgeIframes(a)) {
       enemies.set(e.id, { ...e, strikeSpent: true });
       if (a.frame <= DODGE.perfectLast && !a.perfect) {
         op = { ...op, action: { ...a, perfect: true } };
@@ -226,16 +229,18 @@ export function step(state: GameState, input: TickInput): StepResult {
     enemies.set(e.id, { ...e, strikeSpent: true });
     op = hurtOperator(op, 1, { x: e.x, y: e.y }, now);
     freeze = HURT.freezeTicks;
-    events.push({ type: 'heartLost', halves: 1, cause: e.type }, { type: 'freeze', frames: freeze });
+    events.push({ type: 'heartLost', halves: 1, cause: e.type });
   }
 
-  let next: GameState = {
+  const next: GameState = {
     ...state, tick: now + 1, operator: op, enemies: [...enemies.values()], projectiles: flying, nextId, freeze,
   };
+  // A forced leave clears the freeze, so the freeze event is only emitted when it will happen.
   if (op.halves <= 0) {
     events.push({ type: 'forcedLeave' });
-    next = forcedLeave(next);
+    return { state: forcedLeave(next), events };
   }
+  if (freeze > 0) events.push({ type: 'freeze', frames: freeze });
   return { state: next, events };
 }
 

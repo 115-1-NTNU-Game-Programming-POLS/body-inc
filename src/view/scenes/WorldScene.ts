@@ -4,7 +4,7 @@ import { ENEMIES, FEEDBACK, STRINGS, TAGS } from '../../app/content.ts';
 import { KeyboardInput } from '../../app/input.ts';
 import { FixedStepLoop } from '../../app/loop.ts';
 import {
-  createGame, parseRoom, selectEnemies, selectOperator, selectProjectiles, TILE, type DomainEvent, type EnemyState, type TiledMap,
+  createGame, parseRoom, selectEnemies, selectOperator, selectProjectiles, TILE, type DomainEvent, type EnemyState, type GameState, type TiledMap,
 } from '../../core/index.ts';
 import { EnemyView, SKINS } from '../actors/EnemyView.ts';
 import { OperatorView } from '../actors/OperatorView.ts';
@@ -87,8 +87,9 @@ export class WorldScene extends Phaser.Scene {
 
   override update(time: number, delta: number): void {
     const alpha = this.loop.advance(delta, () => this.input_.sample());
-    const prevState = this.loop.previous;
     const state = this.loop.state;
+    // A forced leave teleports everyone back to the start, so draw the new snapshot as is.
+    const prevState = this.pending.some((e) => e.type === 'forcedLeave') ? state : this.loop.previous;
     const tick = state.tick;
 
     const prev = selectOperator(prevState);
@@ -101,14 +102,14 @@ export class WorldScene extends Phaser.Scene {
     const before = new Map<number, Readonly<EnemyState>>(selectEnemies(prevState).map((e) => [e.id, e]));
     for (const e of selectEnemies(state)) this.enemyViews.get(e.id)?.render(before.get(e.id), e, alpha, tick, time);
 
-    this.renderStaples(alpha);
+    this.renderStaples(prevState, alpha);
     this.overlay.render(state);
     for (const e of this.pending.splice(0)) this.feedback.play(e, tick);
   }
 
   /** Staples are drawn 12 px above their ground position, rotated along their flight. */
-  private renderStaples(alpha: number): void {
-    const before = new Map(selectProjectiles(this.loop.previous).map((p) => [p.id, p]));
+  private renderStaples(prevState: GameState, alpha: number): void {
+    const before = new Map(selectProjectiles(prevState).map((p) => [p.id, p]));
     const alive = new Set<number>();
     for (const p of selectProjectiles(this.loop.state)) {
       alive.add(p.id);

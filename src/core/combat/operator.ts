@@ -17,7 +17,8 @@ export interface TickInput {
 export const NO_INPUT: TickInput = { move: { x: 0, y: 0 } };
 
 /**
- * Dodge frames 1-13 move, 14-19 are recovery. Hurt frames 1-12 are knockback, after the freeze\n * (frame 0 means not started). rame is the frame executed on the latest tick (frames.ts).
+ * Dodge frames 1-13 move, 14-19 are recovery. Hurt frames 1-12 are knockback, after the freeze
+ * (frame 0 means not started). `frame` is the frame executed on the latest tick (frames.ts).
  */
 export type OperatorAction =
   | { readonly kind: 'free' }
@@ -82,10 +83,13 @@ export function bufferInput(op: OperatorState, input: TickInput, now: number): O
   };
 }
 
+/** The single definition of dodge i-frames; hit tests, perfect dodges and the view all use it. */
+export function inDodgeIframes(a: OperatorAction): a is Extract<OperatorAction, { kind: 'dodge' }> {
+  return a.kind === 'dodge' && a.frame >= DODGE.iframeFirst && a.frame <= DODGE.iframeLast;
+}
+
 export function isInvincible(op: OperatorState, now: number): boolean {
-  const a = op.action;
-  if (a.kind === 'dodge' && a.frame >= DODGE.iframeFirst && a.frame <= DODGE.iframeLast) return true;
-  return now < op.invulnUntil;
+  return inDodgeIframes(op.action) || now < op.invulnUntil;
 }
 
 export interface OperatorStep {

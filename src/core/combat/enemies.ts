@@ -15,7 +15,7 @@ export interface EnemyDef {
   readonly category: Category;
   readonly solution?: string;
   readonly archetype?: Archetype;
-  /** 業績: hits to close the case; only defeatable enemies have it. */
+  /** Performance quota: hits to close the case; only defeatable enemies have it. */
   readonly performance?: number;
 }
 

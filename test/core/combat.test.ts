@@ -8,7 +8,7 @@ import {
 const TABLE = loadEnemyTable(JSON.parse(readFileSync('content/enemies.json', 'utf8')));
 
 /** Open 20 x 12 room with a one-tile border; PlayerStart at (160, 192). */
-function room(spawns: { type: string; x: number; y: number; respawnSeconds?: number }[] = []): RoomModel {
+function room(spawns: { type: string; x: number; y: number; respawnSeconds?: number; count?: number }[] = []): RoomModel {
   const cols = 20;
   const rows = 12;
   const solid = Array.from({ length: cols * rows }, (_, i) => {
@@ -22,7 +22,7 @@ function room(spawns: { type: string; x: number; y: number; respawnSeconds?: num
       { id: 1, kind: 'PlayerStart', x: 160, y: 192, width: 0, height: 0, props: {}, conditions: {} },
       ...spawns.map((s, i) => ({
         id: 10 + i, kind: 'Spawn', x: s.x, y: s.y, width: 0, height: 0, conditions: {},
-        props: { enemyType: s.type, count: 1, respawnSeconds: s.respawnSeconds ?? 0, when: '' },
+        props: { enemyType: s.type, count: s.count ?? 1, respawnSeconds: s.respawnSeconds ?? 0, when: '' },
       })),
     ],
   };
@@ -48,27 +48,27 @@ const firstTick = (r: Run, type: DomainEvent['type']) => r.events.findIndex((es)
 
 describe('stapler (design doc 5.3, 6.1)', () => {
   it('the first staple exists within 6 frames of the press (frame 3)', () => {
-    const r = run(createGame(room(), 1), 6, (t) => press({ attackPressed: t === 0 }));
+    const r = run(createGame(room(), 1, TABLE), 6, (t) => press({ attackPressed: t === 0 }));
     const frame = firstTick(r, 'fire') + 1;
     expect(frame).toBe(STAPLER.startupFrame);
     expect(frame).toBeLessThanOrEqual(6);
   });
 
   it('holding fires every 10 frames; releasing stops the volley', () => {
-    const r = run(createGame(room(), 1), 60, (t) => press({ attack: t < 25, attackPressed: t === 0 }));
+    const r = run(createGame(room(), 1, TABLE), 60, (t) => press({ attack: t < 25, attackPressed: t === 0 }));
     const shots = r.events.flatMap((es, t) => (es.some((e) => e.type === 'fire') ? [t] : []));
     expect(shots).toEqual([2, 12, 22]);
   });
 
   it('a press during the interval is buffered and fires as soon as the stapler is ready', () => {
-    const r = run(createGame(room(), 1), 20, (t) => press({ attackPressed: t === 0 || t === 4 }));
+    const r = run(createGame(room(), 1, TABLE), 20, (t) => press({ attackPressed: t === 0 || t === 4 }));
     const shots = r.events.flatMap((es, t) => (es.some((e) => e.type === 'fire') ? [t] : []));
     expect(shots).toEqual([2, 12]);
   });
 
   it('holding fire moves at 70%, applied after the 15% slow cap', () => {
     const speed = (slows: number[], attack: boolean) => {
-      const g = createGame(room(), 1);
+      const g = createGame(room(), 1, TABLE);
       const s = { ...g, operator: { ...g.operator, slows } };
       const r = run(s, 20, () => press({ move: { x: 1, y: 0 }, attack }));
       return Math.hypot(r.state.operator.vx, r.state.operator.vy);
@@ -79,10 +79,10 @@ describe('stapler (design doc 5.3, 6.1)', () => {
   });
 
   it('staples fly 14 tiles per second and vanish at 7 tiles', () => {
-    const r = run(createGame(room(), 1), 3, (t) => press({ attackPressed: t === 0, move: { x: 1, y: 0 } }));
+    const r = run(createGame(room(), 1, TABLE), 3, (t) => press({ attackPressed: t === 0, move: { x: 1, y: 0 } }));
     expect(Math.hypot(r.state.projectiles[0]!.vx, r.state.projectiles[0]!.vy) * 60 / TILE).toBeCloseTo(14, 10);
     // Fired right from x=160: the east wall is 448 px away, so only the range can end it.
-    const g = createGame(room(), 1);
+    const g = createGame(room(), 1, TABLE);
     const aimed = { ...g, operator: { ...g.operator, aim: { x: 1, y: 0 } } };
     const r30 = run(aimed, 2 + 30, (t) => press({ attackPressed: t === 0 }));
     expect(r30.state.projectiles).toHaveLength(1);
@@ -102,17 +102,17 @@ describe('stapler (design doc 5.3, 6.1)', () => {
 });
 
 describe('dodge (design doc 5.3)', () => {
-  const dodgeRun = (ticks: number) => run(createGame(room(), 1), ticks, (t) => press({ dodgePressed: t === 0, move: { x: 1, y: 0 } }));
+  const dodgeRun = (ticks: number) => run(createGame(room(), 1, TABLE), ticks, (t) => press({ dodgePressed: t === 0, move: { x: 1, y: 0 } }));
 
   it('covers 2.5 tiles in 13 frames', () => {
-    const start = createGame(room(), 1).operator.x;
+    const start = createGame(room(), 1, TABLE).operator.x;
     expect(dodgeRun(13).state.operator.x - start).toBeCloseTo(2.5 * TILE, 6);
     expect(dodgeRun(19).state.operator.x - start).toBeCloseTo(2.5 * TILE, 6);
   });
 
   it('is invincible on frames 2 to 11 and on no other frame', () => {
     const inv: number[] = [];
-    let s = createGame(room(), 1);
+    let s = createGame(room(), 1, TABLE);
     for (let frame = 1; frame <= 19; frame++) {
       s = step(s, press({ dodgePressed: frame === 1, move: { x: 1, y: 0 } })).state;
       if (isInvincible(s.operator, s.tick - 1)) inv.push(frame);
@@ -123,7 +123,7 @@ describe('dodge (design doc 5.3)', () => {
   it('a press during recovery or cooldown is buffered for 0.35 s, not dropped', () => {
     const ready = DODGE.ticks + DODGE.recoveryTicks + DODGE.cooldownTicks;
     const dodgesWith = (pressAt: number) => {
-      const r = run(createGame(room(), 1), ready + 5, (t) => press({ dodgePressed: t === 0 || t === pressAt }));
+      const r = run(createGame(room(), 1, TABLE), ready + 5, (t) => press({ dodgePressed: t === 0 || t === pressAt }));
       return types(r).filter((x) => x === 'dodge').length;
     };
     expect(BUFFER_TICKS).toBe(21);
@@ -132,7 +132,7 @@ describe('dodge (design doc 5.3)', () => {
   });
 
   it('cancels a staple that is still in startup', () => {
-    const r = run(createGame(room(), 1), 6, (t) => press({ attackPressed: t === 0, dodgePressed: t === 1 }));
+    const r = run(createGame(room(), 1, TABLE), 6, (t) => press({ attackPressed: t === 0, dodgePressed: t === 1 }));
     expect(types(r)).toEqual(['dodge']);
   });
 });
@@ -192,6 +192,24 @@ describe('taking a hit (design doc 5.3)', () => {
     expect(types(r)).toContain('forcedLeave');
     expect(r.state.operator).toMatchObject({ halves: 12, x: 160, y: 192 });
   });
+
+  it('the hit that causes a forced leave announces no freeze, because none happens', () => {
+    const g = duel();
+    const r = run({ ...g, operator: { ...g.operator, halves: 1 } }, 60);
+    const leave = firstTick(r, 'forcedLeave');
+    expect(r.events[leave]!.map((e) => e.type)).not.toContain('freeze');
+    expect(types(r)).not.toContain('freeze');
+  });
+});
+
+describe('spawning', () => {
+  it('every enemy gets its own id however many copies a Spawn has', () => {
+    const g = createGame(room([{ type: 'salesman', x: 300, y: 100, count: 17 }, { type: 'salesman', x: 300, y: 250 }]), 1, TABLE);
+    const ids = g.enemies.map((e) => e.id);
+    expect(ids).toHaveLength(18);
+    expect(new Set(ids).size).toBe(18);
+    expect(g.nextId).toBeGreaterThan(Math.max(...ids));
+  });
 });
 
 describe('enemy categories (design doc 5.5)', () => {
@@ -216,7 +234,7 @@ describe('enemy categories (design doc 5.5)', () => {
 
   it('an alcohol barrel bounces the staple with its solution and never freezes or takes damage', () => {
     const r = shootAt('alcohol_barrel', 30);
-    expect(r.events.flat()).toContainEqual({ type: 'immuneBounce', target: 160, enemy: 'alcohol_barrel', solution: 'conveyor' });
+    expect(r.events.flat()).toContainEqual({ type: 'immuneBounce', target: 1, enemy: 'alcohol_barrel', solution: 'conveyor' });
     expect(types(r)).not.toContain('freeze');
     expect(r.state.enemies[0]!.frozen).toBe(0);
   });

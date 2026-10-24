@@ -15,4 +15,4 @@ export * from './combat/enemies.ts';
 export { boxAt, centeredBox, overlaps, type Box } from './collision/boxes.ts';
 export { ENEMY_BODY, ENEMY_HURT, enemyHurtbox, isHittable, strikeBox } from './combat/actors.ts';
 export { MOVE } from './combat/movement.ts';
-export { isInvincible } from './combat/operator.ts';
+export { inDodgeIframes, isInvincible } from './combat/operator.ts';

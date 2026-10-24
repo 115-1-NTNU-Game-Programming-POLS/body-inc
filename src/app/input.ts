@@ -29,7 +29,10 @@ export class KeyboardInput {
   private readonly onKeyDown = (e: Event) => {
     const k = e as KeyboardEvent;
     if (this.isBound(k.code)) k.preventDefault();
-    if (!k.repeat) this.down(k.code);
+    // A repeat is not a new press, but it still marks the key held: after a blur cleared
+    // `held`, repeats are the only sign that a key is still down.
+    if (k.repeat) this.held.add(k.code);
+    else this.down(k.code);
   };
   private readonly onKeyUp = (e: Event) => this.held.delete((e as KeyboardEvent).code);
   private readonly onMouseDown = (e: Event) => this.down(`Mouse${(e as MouseEvent).button}`);

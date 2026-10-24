@@ -16,6 +16,8 @@ export const SKINS: Readonly<Record<string, string>> = {
 /** Ticks of the tier-1 telegraph that show a white flash: 0.00-0.08 s and 0.25-0.33 s. */
 const FLASH_WINDOWS: ReadonlyArray<readonly [number, number]> = [[0, 5], [15, 20]];
 
+const isHidden = (e: Readonly<EnemyState>): boolean => e.phase === 'closed' || e.phase === 'dispersed';
+
 export class EnemyView {
   readonly sprite: Phaser.GameObjects.Sprite;
   private readonly bubble: Phaser.GameObjects.Image;
@@ -43,10 +45,11 @@ export class EnemyView {
   }
 
   render(prev: Readonly<EnemyState> | undefined, cur: Readonly<EnemyState>, alpha: number, tick: number, ms: number): void {
-    const p = prev ?? cur;
+    const hidden = isHidden(cur);
+    // Reappearing (respawn at home, reform) is a jump, not a move: interpolating would slide it.
+    const p = prev && !(isHidden(prev) && !hidden) ? prev : cur;
     const x = p.x + (cur.x - p.x) * alpha;
     const y = p.y + (cur.y - p.y) * alpha;
-    const hidden = cur.phase === 'closed' || cur.phase === 'dispersed';
     this.sprite.setVisible(!hidden);
     this.ring.setVisible(cur.phase === 'dispersed');
     if (cur.phase === 'dispersed') {
@@ -85,7 +88,12 @@ export class EnemyView {
 
   /** Soft bounce for immune objects: no hit-stop, only a squash (art direction 9.2). */
   bounce(): void {
-    this.sprite.scene.tweens.add({ targets: this.sprite, scaleX: 0.92, scaleY: 0.92, duration: 100, yoyo: true });
+    // Held fire bounces every 167 ms but the squash lasts 200 ms; restart from scale 1 so
+    // overlapping tweens cannot leave the sprite shrunk.
+    const tweens = this.sprite.scene.tweens;
+    tweens.killTweensOf(this.sprite);
+    this.sprite.setScale(1);
+    tweens.add({ targets: this.sprite, scaleX: 0.92, scaleY: 0.92, duration: 100, yoyo: true });
   }
 
   /** Case closed: a 0.4 s spin and shrink on a copy, so the rule state can drop the enemy at once. */

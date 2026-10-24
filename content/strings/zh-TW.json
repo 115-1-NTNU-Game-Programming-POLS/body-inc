@@ -3,6 +3,7 @@
   "strings": {
     "stamp.case_closed": { "text": "結案", "fact": "" },
     "perfect_dodge": { "text": "準時下班", "fact": "" },
-    "solution.conveyor": { "text": "非本部門權限：請送產線", "fact": "22" }
+    "solution.conveyor": { "text": "非本部門權限：請送產線", "fact": "22" },
+    "solution.guards": { "text": "非本部門權限：請找保全", "fact": "" }
   }
 }
