@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { atlasProblems, atlasUrls, type AsepriteJson, type AtlasIndex, type Manifest } from '../../app/assets.ts';
 import { STRINGS, TAGS } from '../../app/content.ts';
-import { DEFAULT_ROOM, roomFromQuery, tagsFromQuery } from '../../app/session.ts';
+import { DEFAULT_ROOM, gaugeFromQuery, roomFromQuery, tagsFromQuery } from '../../app/session.ts';
 import { browserStore, SaveStore, type SaveIssue } from '../../app/storage.ts';
 import { EMPTY_TAGS, listProps, SETTINGS, type TagState, type TiledMapFile } from '../../core/index.ts';
 import { glyphCorpus } from '../text/corpus.ts';
@@ -25,6 +25,7 @@ export class BootScene extends Phaser.Scene {
   private fonts!: Promise<FontGateResult>;
   private roomPath = DEFAULT_ROOM;
   private tags: TagState = EMPTY_TAGS;
+  private gauge: number | undefined;
 
   constructor() {
     super('Boot');
@@ -40,6 +41,7 @@ export class BootScene extends Phaser.Scene {
     try {
       this.roomPath = roomFromQuery(query);
       this.tags = tagsFromQuery(query, TAGS);
+      this.gauge = gaugeFromQuery(query);
     } catch (err) {
       this.failed.push(String(err));
     }
@@ -99,6 +101,7 @@ export class BootScene extends Phaser.Scene {
       this.loadSaves();
       this.registry.set('room-path', this.roomPath);
       this.registry.set('entry-tags', this.tags);
+      this.registry.set('entry-gauge', this.gauge);
       this.scene.start('World');
       this.scene.launch('Hud');
     });

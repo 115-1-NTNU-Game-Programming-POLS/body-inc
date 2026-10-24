@@ -1,5 +1,6 @@
 import enemiesJson from '../../content/enemies.json';
 import feedbackJson from '../../content/feedback.json';
+import paramsJson from '../../content/params.json';
 import stringsJson from '../../content/strings/zh-TW.json';
 import tagsJson from '../../content/tags.json';
 import { loadDictionary, loadEnemyTable, readContent, type EnemyTable, type TagDictionary } from '../core/index.ts';
@@ -10,6 +11,7 @@ export const TAGS: TagDictionary = loadDictionary(tagsJson);
 export const ENEMIES: EnemyTable = loadEnemyTable(enemiesJson);
 export const FEEDBACK: FeedbackTable = readContent('feedback', feedbackJson);
 export const STRINGS: StringTable = readContent('strings', stringsJson);
+export const PARAMS = readContent('params', paramsJson).defaults;
 
 const problems = feedbackProblems(FEEDBACK, STRINGS, noteFields(ENEMIES));
 if (problems.length > 0) throw new Error(`content/feedback.json:\n  ${problems.join('\n  ')}`);

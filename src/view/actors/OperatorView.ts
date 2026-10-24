@@ -1,6 +1,13 @@
 import Phaser from 'phaser';
 import { tagKey, type ManifestEntry } from '../../app/assets.ts';
-import { DODGE, inDodgeIframes, STAPLER, type OperatorState } from '../../core/index.ts';
+import { DODGE, inDodgeIframes, STAMP_LAND, STAPLER, type OperatorState } from '../../core/index.ts';
+
+/**
+ * Where clinging stacks ride, in latch order: back, left shoulder, top of the head (art
+ * direction 5.6), as offsets from the feet with a depth offset so the back one sits behind.
+ * The back one peeks out past the body edge; centred it was hidden and two stacks read as one.
+ */
+const STACK_ANCHORS: ReadonlyArray<readonly [number, number, number]> = [[12, -20, -1], [-8, -30, 1], [0, -46, 1]];
 
 /** Side frames are drawn facing right; left mirrors the side tag. */
 const DIR_TAG = { down: 'down', up: 'up', left: 'side', right: 'side' } as const;
@@ -15,15 +22,27 @@ export class OperatorView {
   private readonly scene: Phaser.Scene;
   private readonly sprite: Phaser.GameObjects.Sprite;
   private readonly key: string;
+  private readonly stacks: Phaser.GameObjects.Sprite[];
   private flashUntil = 0;
   private lastFireTick = -1e9;
   private lastGhostTick = -1;
 
-  constructor(scene: Phaser.Scene, entry: ManifestEntry) {
+  constructor(scene: Phaser.Scene, entry: ManifestEntry, mini: ManifestEntry) {
     this.scene = scene;
     this.key = entry.key;
     this.sprite = scene.add.sprite(0, 0, entry.key, '0');
     this.sprite.setOrigin(entry.anchor[0] / entry.frame[0], entry.anchor[1] / entry.frame[1]);
+    this.stacks = STACK_ANCHORS.map(() => scene.add.sprite(0, 0, mini.key, '0')
+      .setOrigin(mini.anchor[0] / mini.frame[0], mini.anchor[1] / mini.frame[1]).setVisible(false));
+  }
+
+  /** Draws one mini per clinging stack; the core state decides how many there are. */
+  renderStacks(count: number): void {
+    const s = this.sprite;
+    this.stacks.forEach((mini, i) => {
+      const [dx, dy, depth] = STACK_ANCHORS[i]!;
+      mini.setVisible(i < count).setPosition(s.x + dx, s.y + dy).setDepth(s.depth + depth);
+    });
   }
 
   flash(ticks: number, now: number): void {
@@ -46,7 +65,11 @@ export class OperatorView {
     const a = cur.action;
     this.sprite.setPosition(Math.round(x), Math.round(y)).setDepth(y).setFlipX(cur.facing === 'left').setScale(1);
 
-    if (a.kind === 'dodge') {
+    if (a.kind === 'stamp') {
+      // Frame 0 is the raised stamp, frame 1 the press on the landing frame.
+      this.still('stamp_down', a.frame >= STAMP_LAND ? 1 : 0);
+      this.sprite.setFlipX(false);
+    } else if (a.kind === 'dodge') {
       this.still(`walk_${dir}`, 1);
       this.sprite.setScale(1, 0.85).setAlpha(1);
       if (inDodgeIframes(a) && (a.frame - DODGE.iframeFirst) % 3 === 0 && tick !== this.lastGhostTick) {

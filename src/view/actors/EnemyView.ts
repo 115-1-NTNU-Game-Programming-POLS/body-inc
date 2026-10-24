@@ -16,7 +16,8 @@ export const SKINS: Readonly<Record<string, string>> = {
 /** Ticks of the tier-1 telegraph that show a white flash: 0.00-0.08 s and 0.25-0.33 s. */
 const FLASH_WINDOWS: ReadonlyArray<readonly [number, number]> = [[0, 5], [15, 20]];
 
-const isHidden = (e: Readonly<EnemyState>): boolean => e.phase === 'closed' || e.phase === 'dispersed';
+/** An attached enemy is drawn as a mini on the operator by OperatorView instead. */
+const isHidden = (e: Readonly<EnemyState>): boolean => e.phase === 'closed' || e.phase === 'dispersed' || e.phase === 'attached';
 
 export class EnemyView {
   readonly sprite: Phaser.GameObjects.Sprite;

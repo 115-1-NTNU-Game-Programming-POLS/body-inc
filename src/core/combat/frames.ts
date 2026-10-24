@@ -50,6 +50,37 @@ export const BASE_HALVES = 12;
 /** Reforming enemies come back after 6 s (design doc 5.5). */
 export const REFORM_TICKS = 6 * TICK_HZ;
 
+/** Rejection stamp (design doc 5.4). The startup is invincible; the gauge empties on the press. */
+export const STAMP = {
+  gaugeMax: 100,
+  startupTicks: Math.round(0.35 * TICK_HZ),
+  radiusPx: 3.5 * TILE,
+  damage: 25,
+  hitFreeze: 10,
+} as const;
+
+/**
+ * Gauge charge per source before the P multiplier (design doc 5.4). Other stationery (+1.5) and
+ * folder parries (+15) join when those tools exist. An immune bounce is not a hit and charges nothing.
+ */
+export const GAUGE = {
+  staple: 0.8,
+  perfectDodge: 10,
+} as const;
+
+/**
+ * Clinging (design doc 5.5, chapter 1): 5% slow per stack, three stacks is the 15% cap and
+ * triggers a forced nap that advances the rule clock one hour. Drift speed and sensing range
+ * are not in the design doc and are placeholders for playtesting.
+ */
+export const CLING = {
+  slowPerStack: 0.05,
+  maxStacks: 3,
+  napMinutes: 60,
+  driftSpeed: tilesPerSecond(1),
+  senseRangePx: 5 * TILE,
+} as const;
+
 /** Salesman archetype prototype (design doc 5.3 tier-1 telegraph is 0.5 s). */
 export const SALESMAN = {
   speed: tilesPerSecond(1.5),

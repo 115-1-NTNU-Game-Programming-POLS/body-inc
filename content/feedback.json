@@ -12,6 +12,10 @@
     "dispersed": { "particles": [{ "preset": "fuzz", "count": 8 }] },
     "immuneBounce": { "bounce": true, "note": "solution.{solution}" },
     "heartLost": { "flashOperator": 2, "shake": { "px": 4, "seconds": 0.12 }, "particles": [{ "preset": "sweat", "count": 1 }] },
-    "perfectDodge": { "note": "perfect_dodge" }
+    "perfectDodge": { "note": "perfect_dodge" },
+    "stampLanded": { "shake": { "px": 6, "seconds": 0.15 }, "particles": [{ "preset": "ink", "count": 10 }], "note": "stamp.rejected" },
+    "stampVoid": { "bounce": true, "note": "stamp_void.{solution}" },
+    "clung": { "particles": [{ "preset": "fuzz", "count": 4 }] },
+    "forcedNap": { "note": "forced_nap" }
   }
 }

@@ -28,7 +28,7 @@
 
 ```
 npm install
-npm run dev          # 開發伺服器，WASD 移動、J 或左鍵釘書機（按住連射）、空白或 K 閃身、F1 顯示碰撞框
+npm run dev          # 開發伺服器，WASD 移動、J 或左鍵釘書機（按住連射）、空白或 K 閃身、R 或中鍵駁回印章、F1 顯示碰撞框
 npm run verify       # 型別檢查、測試、邊界與地圖檢查、建置，提交前必跑
 node tools/maps/make-greybox.ts         # 重新產生灰盒測試房間
 node tools/maps/make-brain-corridor.ts  # 重新產生灰盒大腦走廊（狀態變體範例）
@@ -40,7 +40,7 @@ node tools/maps/make-brain-corridor.ts  # 重新產生灰盒大腦走廊（狀�
 
 存檔透過 `src/app/storage.ts` 讀寫 `localStorage`（鍵名 `hbc.v1.*`），任何失敗都只在畫面左下角顯示提示，不會讓遊戲停下。存檔格式改版時，要在 `src/core/save/slots.ts` 調高版本並補上遷移函式，否則測試會失敗。開發版可在網址加上 `?storage=blocked` 或 `?storage=full` 模擬寫入失敗。
 
-開發版可用網址選房間與進房時的狀態標籤，例如 `?room=greybox/brain-corridor&tags=sleep_debt:2,breakfast`：`room` 是 `public/assets/maps/` 下的「資料夾/檔名」，`tags` 的數值標籤寫成 `名稱:數值`、布林標籤只寫名稱。在外層卡牌（P1）完成前，這是看狀態變體的唯一方式；正式版忽略這兩個參數。
+開發版可用網址選房間與進房時的狀態標籤，例如 `?room=greybox/brain-corridor&tags=sleep_debt:2,breakfast`：`room` 是 `public/assets/maps/` 下的「資料夾/檔名」，`tags` 的數值標籤寫成 `名稱:數值`、布林標籤只寫名稱。在外層卡牌（P1）完成前，這是看狀態變體的唯一方式。`sleep_debt` 也決定董事長精神係數 P，進而影響駁回量表的充能速度。加上 `gauge=100` 會以滿格的駁回量表開始，不必先打中 125 發釘書針就能試印章。正式版忽略這些參數。
 
 ### 編輯地圖
 

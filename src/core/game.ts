@@ -2,12 +2,13 @@ import { boxAt, centeredBox, overlaps } from './collision/boxes.ts';
 import { isSolid } from './collision/grid.ts';
 import { enemyHurtbox, isHittable, stepEnemy, strikeBox, type EnemyState } from './combat/actors.ts';
 import type { EnemyTable } from './combat/enemies.ts';
-import { BASE_HALVES, DODGE, ENEMY_HIT_FREEZE, HURT, STAPLER } from './combat/frames.ts';
+import { BASE_HALVES, CLING, DODGE, ENEMY_HIT_FREEZE, GAUGE, HURT, STAMP, STAPLER } from './combat/frames.ts';
 import type { Vec } from './combat/movement.ts';
 import {
-  bufferInput, hurtOperator, inDodgeIframes, isInvincible, newOperator, OPERATOR_HURT, stepOperator, unit,
+  bufferInput, gaugeFull, hurtOperator, inDodgeIframes, isInvincible, newOperator, OPERATOR_BODY, OPERATOR_HURT, stepOperator, unit,
   type OperatorState, type TickInput,
 } from './combat/operator.ts';
+import { advance, startClock, type RuleClock } from './clock.ts';
 import { seedStreams, type RngStreams } from './rng.ts';
 import type { EnteredRoom } from './rooms/entry.ts';
 import { playerStart } from './rooms/tiled.ts';
@@ -28,6 +29,10 @@ export interface Projectile {
 export interface GameState {
   readonly tick: number;
   readonly rng: RngStreams;
+  /** Outer-layer clock; combat moves it only through rules such as the forced nap. */
+  readonly clock: RuleClock;
+  /** Chairman's spirit P, fixed at room entry from the tags (design doc 5.4). */
+  readonly p: number;
   readonly room: EnteredRoom;
   readonly operator: OperatorState;
   readonly enemies: readonly EnemyState[];
@@ -55,7 +60,13 @@ export type DomainEvent =
   | { readonly type: 'immuneBounce'; readonly target: number; readonly enemy: string; readonly solution: string }
   | { readonly type: 'heartLost'; readonly halves: number; readonly cause: string }
   | { readonly type: 'freeze'; readonly frames: number }
-  | { readonly type: 'forcedLeave' };
+  | { readonly type: 'forcedLeave' }
+  | { readonly type: 'gaugeFull' }
+  | { readonly type: 'stampRaised' }
+  | { readonly type: 'stampLanded'; readonly x: number; readonly y: number; readonly radius: number }
+  | { readonly type: 'stampVoid'; readonly target: number; readonly enemy: string; readonly solution: string }
+  | { readonly type: 'clung'; readonly target: number; readonly enemy: string; readonly stacks: number }
+  | { readonly type: 'forcedNap'; readonly minutes: number };
 
 export interface StepResult {
   readonly state: GameState;
@@ -96,24 +107,39 @@ function spawnEnemies(room: EnteredRoom, table: EnemyTable, firstId: number): { 
         x, y: o.y, homeX: x, homeY: o.y, hp, maxHp: hp, phase: 'idle', phaseTicks: 0, frozen: 0,
         strikeDir: { x: 0, y: 1 }, strikeSpent: false,
         respawnTicks: Math.round(Number(o.props['respawnSeconds']) * TICK_HZ),
+        clings: def.clings === true,
       });
     }
   }
   return { enemies: out, nextId };
 }
 
+export interface GameOptions {
+  /** From sleepFactor and chairmanSpirit on the entry tags; 1 means fully rested. */
+  readonly p?: number;
+  readonly clock?: RuleClock;
+  /** Starting gauge, e.g. 50 from the early-sleep bonus card (design doc 8.8). */
+  readonly gauge?: number;
+}
+
 /**
  * The enemy table is required: rooms with Spawns cannot start without it. The room must have
  * gone through enterRoom, so a caller cannot forget the tags and silently get the base room.
  */
-export function createGame(room: EnteredRoom, seed: number, table: EnemyTable): GameState {
+export function createGame(room: EnteredRoom, seed: number, table: EnemyTable, options: GameOptions = {}): GameState {
+  const p = options.p ?? 1;
+  const gauge = options.gauge ?? 0;
+  if (!(p > 0 && p <= 1)) throw new GameSetupError(`P must be in (0, 1], got ${p}`);
+  if (!(gauge >= 0 && gauge <= STAMP.gaugeMax)) throw new GameSetupError(`gauge must be 0 to ${STAMP.gaugeMax}, got ${gauge}`);
   const start = playerStart(room);
   const spawned = spawnEnemies(room, table, 1);
   return {
     tick: 0,
     rng: seedStreams(seed),
+    clock: options.clock ?? startClock(1, 8),
+    p,
     room,
-    operator: newOperator(start.x, start.y, BASE_HALVES),
+    operator: newOperator(start.x, start.y, BASE_HALVES, gauge),
     enemies: spawned.enemies,
     projectiles: [],
     nextId: spawned.nextId,
@@ -142,16 +168,37 @@ function aimFrom(op: OperatorState, origin: Vec, enemies: readonly EnemyState[])
   return unit({ x: c.x - origin.x, y: c.y - origin.y });
 }
 
-/** Back to the last checkpoint: room enemies reset, nothing is taken away (design doc 5.6). */
+/**
+ * Back to the last checkpoint: room enemies reset, nothing is taken away (design doc 5.6). The
+ * gauge stays, and so do clinging stacks: only sleep clears adenosine, not a retry.
+ */
 function forcedLeave(state: GameState): GameState {
   const start = playerStart(state.room);
+  const enemies = state.enemies.map((e) => (e.phase === 'attached'
+    ? e
+    : { ...e, x: e.homeX, y: e.homeY, hp: e.maxHp, phase: 'idle' as const, phaseTicks: 0, frozen: 0 }));
   return {
     ...state,
-    operator: newOperator(start.x, start.y, state.operator.maxHalves),
-    enemies: state.enemies.map((e) => ({ ...e, x: e.homeX, y: e.homeY, hp: e.maxHp, phase: 'idle' as const, phaseTicks: 0, frozen: 0 })),
+    operator: withStacks(newOperator(start.x, start.y, state.operator.maxHalves, state.operator.gauge), enemies),
+    enemies,
     projectiles: [],
     freeze: 0,
   };
+}
+
+const stackCount = (enemies: Iterable<EnemyState>): number => [...enemies].filter((e) => e.phase === 'attached').length;
+
+function withStacks(op: OperatorState, enemies: Iterable<EnemyState>): OperatorState {
+  const stacks = stackCount(enemies);
+  return op.stacks === stacks ? op : { ...op, stacks };
+}
+
+/** Adds charge times P; rounded so that 125 staples at P = 1 fill the gauge exactly. */
+function charge(op: OperatorState, amount: number, p: number, events: DomainEvent[]): OperatorState {
+  if (gaugeFull(op)) return op;
+  const gauge = Math.min(STAMP.gaugeMax, Math.round((op.gauge + amount * p) * 1e6) / 1e6);
+  if (gauge >= STAMP.gaugeMax) events.push({ type: 'gaugeFull' });
+  return { ...op, gauge };
 }
 
 export function step(state: GameState, input: TickInput): StepResult {
@@ -168,6 +215,7 @@ export function step(state: GameState, input: TickInput): StepResult {
   if (s.blockedX) events.push({ type: 'bumpWall', axis: 'x' });
   if (s.blockedY) events.push({ type: 'bumpWall', axis: 'y' });
   if (s.dodged) events.push({ type: 'dodge' });
+  if (s.stampRaised) events.push({ type: 'stampRaised' });
 
   // Ids only ever grow, and every loop below runs in id order, so results never depend on
   // where an entity sits in its array.
@@ -189,6 +237,27 @@ export function step(state: GameState, input: TickInput): StepResult {
     if (r.respawned) events.push({ type: 'respawned', target: e.id, enemy: e.type });
   }
 
+  // The stamp covers every hittable enemy whose feet are within the radius of the operator's.
+  // Only defeatable ones take damage; on the rest it is void, and the gauge is gone either way.
+  if (s.stampLanded) {
+    events.push({ type: 'stampLanded', x: op.x, y: op.y, radius: STAMP.radiusPx });
+    for (const e of [...enemies.values()]) {
+      if (!isHittable(e) || Math.hypot(e.x - op.x, e.y - op.y) > STAMP.radiusPx) continue;
+      if (e.category !== 'defeatable') {
+        events.push({ type: 'stampVoid', target: e.id, enemy: e.type, solution: e.solution ?? '' });
+        continue;
+      }
+      const hp = e.hp - STAMP.damage;
+      if (hp <= 0) {
+        enemies.set(e.id, { ...e, hp: 0, phase: 'closed', phaseTicks: 0, frozen: 0 });
+        events.push({ type: 'caseClosed', target: e.id, enemy: e.type });
+      } else {
+        enemies.set(e.id, { ...e, hp, frozen: STAMP.hitFreeze });
+        events.push({ type: 'hit', target: e.id, enemy: e.type, hpLeft: hp });
+      }
+    }
+  }
+
   // Staples: move, stop at walls, hit the lowest-id hittable enemy they overlap.
   const flying: Projectile[] = [];
   for (const p0 of projectiles.sort((a, b) => a.id - b.id)) {
@@ -203,7 +272,9 @@ export function step(state: GameState, input: TickInput): StepResult {
     } else if (target.category === 'reforming') {
       enemies.set(target.id, { ...target, phase: 'dispersed', phaseTicks: 0, frozen: 0 });
       events.push({ type: 'dispersed', target: target.id, enemy: target.type });
+      op = charge(op, GAUGE.staple, state.p, events);
     } else {
+      op = charge(op, GAUGE.staple, state.p, events);
       const hp = target.hp - STAPLER.damage;
       if (hp <= 0) {
         enemies.set(target.id, { ...target, hp: 0, phase: 'closed', phaseTicks: 0, frozen: 0 });
@@ -226,6 +297,7 @@ export function step(state: GameState, input: TickInput): StepResult {
       if (a.frame <= DODGE.perfectLast && !a.perfect) {
         op = { ...op, action: { ...a, perfect: true } };
         events.push({ type: 'perfectDodge', source: e.id });
+        op = charge(op, GAUGE.perfectDodge, state.p, events);
       }
       continue;
     }
@@ -236,8 +308,31 @@ export function step(state: GameState, input: TickInput): StepResult {
     events.push({ type: 'heartLost', halves: 1, cause: e.type });
   }
 
+  // Clinging: at most one enemy latches on per tick, and never through i-frames, so a dodge
+  // through a crowd is still the answer. Reaching the cap is a forced nap (design doc 5.5); in
+  // an exam fight it fails the current question instead, which arrives with the exam fight.
+  let clock = state.clock;
+  if (!isInvincible(op, now)) {
+    const body = boxAt(OPERATOR_BODY, op.x, op.y);
+    const clinger = [...enemies.values()].find((e) => e.clings && e.phase === 'idle' && e.frozen === 0 && overlaps(enemyHurtbox(e), body));
+    if (clinger) {
+      enemies.set(clinger.id, { ...clinger, phase: 'attached', phaseTicks: 0 });
+      const stacks = stackCount(enemies.values());
+      events.push({ type: 'clung', target: clinger.id, enemy: clinger.type, stacks });
+      if (stacks >= CLING.maxStacks) {
+        // The stacks go home and reform there: the nap clears the stacks, not the adenosine.
+        for (const e of [...enemies.values()]) {
+          if (e.phase === 'attached') enemies.set(e.id, { ...e, phase: 'dispersed', phaseTicks: 0, x: e.homeX, y: e.homeY });
+        }
+        clock = advance(clock, CLING.napMinutes);
+        events.push({ type: 'forcedNap', minutes: CLING.napMinutes });
+      }
+    }
+  }
+  op = withStacks(op, enemies.values());
+
   const next: GameState = {
-    ...state, tick: now + 1, operator: op, enemies: [...enemies.values()], projectiles: flying, nextId, freeze,
+    ...state, tick: now + 1, clock, operator: op, enemies: [...enemies.values()], projectiles: flying, nextId, freeze,
   };
   // A forced leave clears the freeze, so the freeze event is only emitted when it will happen.
   if (op.halves <= 0) {
@@ -256,3 +351,9 @@ export const selectHearts = (s: GameState): { readonly halves: number; readonly 
 export const selectTick = (s: GameState): number => s.tick;
 export const selectActiveVariants = (s: GameState): readonly string[] => s.room.active;
 export const selectFrozen = (s: GameState): boolean => s.freeze > 0;
+export const selectGauge = (s: GameState): { readonly value: number; readonly max: number } =>
+  ({ value: s.operator.gauge, max: STAMP.gaugeMax });
+export const selectClock = (s: GameState): RuleClock => s.clock;
+/** Clinging enemies in the order they latched on, for drawing them on the operator. */
+export const selectStacks = (s: GameState): readonly Readonly<EnemyState>[] =>
+  s.enemies.filter((e) => e.phase === 'attached');

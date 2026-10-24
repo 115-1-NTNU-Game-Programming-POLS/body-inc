@@ -1,10 +1,10 @@
 import Phaser from 'phaser';
 import type { Manifest } from '../../app/assets.ts';
-import { ENEMIES, FEEDBACK, STRINGS, TAGS } from '../../app/content.ts';
+import { ENEMIES, FEEDBACK, PARAMS, STRINGS, TAGS } from '../../app/content.ts';
 import { KeyboardInput } from '../../app/input.ts';
 import { FixedStepLoop } from '../../app/loop.ts';
 import {
-  createGame, enterRoom, listProps, parseRoom, visibleProps, selectEnemies, selectOperator, selectProjectiles, TILE,
+  createGame, enterRoom, listProps, parseRoom, visibleProps, selectEnemies, selectOperator, selectProjectiles, selectStacks, spiritAtEntry, TILE,
   type DomainEvent, type EnemyState, type EnteredRoom, type GameState, type TagState, type TiledMapFile,
 } from '../../core/index.ts';
 import { EnemyView, SKINS } from '../actors/EnemyView.ts';
@@ -38,8 +38,12 @@ export class WorldScene extends Phaser.Scene {
   create(): void {
     const mapData = this.cache.tilemap.get(ROOM_MAP).data as TiledMapFile;
     const path = this.registry.get('room-path') as string;
-    const room = enterRoom(parseRoom(path, mapData, TAGS), this.registry.get('entry-tags') as TagState, TAGS);
-    this.loop = new FixedStepLoop(createGame(room, 1, ENEMIES));
+    const tags = this.registry.get('entry-tags') as TagState;
+    const room = enterRoom(parseRoom(path, mapData, TAGS), tags, TAGS);
+    const gauge = this.registry.get('entry-gauge') as number | undefined;
+    this.loop = new FixedStepLoop(createGame(room, 1, ENEMIES, {
+      p: spiritAtEntry(tags, TAGS, PARAMS), ...(gauge !== undefined ? { gauge } : {}),
+    }));
     this.registry.set('loop', this.loop);
     makeFxTextures(this);
 
@@ -59,7 +63,7 @@ export class WorldScene extends Phaser.Scene {
       if (!e) throw new Error(`manifest has no ${key} entry`);
       return e;
     };
-    this.operator = new OperatorView(this, entry('operator'));
+    this.operator = new OperatorView(this, entry('operator'), entry('adenosine-mini'));
     for (const e of this.loop.state.enemies) {
       const skin = SKINS[e.type];
       if (!skin) throw new Error(`no skin for enemy type ${e.type}; add it to SKINS in EnemyView.ts`);
@@ -99,13 +103,24 @@ export class WorldScene extends Phaser.Scene {
     const y = prev.y + (cur.y - prev.y) * alpha;
     for (const e of this.pending) if (e.type === 'fire') this.operator.fired(tick);
     this.operator.render(cur, x, y, tick);
+    this.operator.renderStacks(selectStacks(state).length);
 
     const before = new Map<number, Readonly<EnemyState>>(selectEnemies(prevState).map((e) => [e.id, e]));
     for (const e of selectEnemies(state)) this.enemyViews.get(e.id)?.render(before.get(e.id), e, alpha, tick, time);
 
     this.renderStaples(prevState, alpha);
     this.overlay.render(state);
-    for (const e of this.pending.splice(0)) this.feedback.play(e, tick);
+    for (const e of this.pending.splice(0)) {
+      if (e.type === 'stampLanded') this.stampRing(e.x, e.y, e.radius);
+      this.feedback.play(e, tick);
+    }
+  }
+
+  /** The area the stamp covered, from the event itself so the ring matches the rule radius. */
+  private stampRing(x: number, y: number, radius: number): void {
+    const g = this.add.graphics().setDepth(1e5);
+    g.lineStyle(2, 0xc8372d, 1).strokeCircle(x, y, radius);
+    this.tweens.add({ targets: g, alpha: 0, duration: 300, onComplete: () => g.destroy() });
   }
 
   /**

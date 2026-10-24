@@ -51,6 +51,20 @@ describe('keyboard input adapter', () => {
     expect(input.sample()).toMatchObject({ attack: true, attackPressed: false });
   });
 
+  it('R and the middle button stamp; a bound middle click cancels the browser autoscroll, an unbound one does not', () => {
+    const target = new EventTarget();
+    const input = new KeyboardInput(target);
+    target.dispatchEvent(key('keydown', 'KeyR'));
+    expect(input.sample()).toMatchObject({ stampPressed: true });
+    const middle = Object.assign(new Event('mousedown', { cancelable: true }), { button: 1 });
+    target.dispatchEvent(middle);
+    expect(middle.defaultPrevented).toBe(true);
+    expect(input.sample()).toMatchObject({ stampPressed: true });
+    const right = Object.assign(new Event('mousedown', { cancelable: true }), { button: 2 });
+    target.dispatchEvent(right);
+    expect(right.defaultPrevented).toBe(false);
+  });
+
   it('the left mouse button attacks; losing focus releases everything', () => {
     const target = new EventTarget();
     const input = new KeyboardInput(target);
@@ -65,7 +79,8 @@ describe('feedback table', () => {
   const FIELDS = noteFields(TABLE);
 
   it('the real table names only known events, presets and strings', () => {
-    expect(FIELDS.solution).toEqual(['conveyor', 'guards']);
+    expect(FIELDS.immuneBounce?.['solution']).toEqual(['conveyor', 'guards']);
+    expect(FIELDS.stampVoid?.['solution']).toEqual(['conveyor', 'guards', 'sleep', 'territory']);
     expect(feedbackProblems(FEEDBACK, STRINGS, FIELDS)).toEqual([]);
   });
 
@@ -76,6 +91,14 @@ describe('feedback table', () => {
     ]);
     expect(feedbackProblems(FEEDBACK, STRINGS, {})).toEqual([
       'immuneBounce: note "solution.{solution}" uses unknown placeholder "{solution}"',
+      'stampVoid: note "stamp_void.{solution}" uses unknown placeholder "{solution}"',
+    ]);
+  });
+
+  it('the void stamp needs an explanation for reforming solutions that a bounce never shows', () => {
+    const { ['stamp_void.sleep']: _, ...rest } = STRINGS.strings;
+    expect(feedbackProblems(FEEDBACK, { ...STRINGS, strings: rest }, FIELDS)).toEqual([
+      'stampVoid: note "stamp_void.sleep" is not in content/strings',
     ]);
   });
 

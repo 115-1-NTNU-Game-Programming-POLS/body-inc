@@ -1,7 +1,7 @@
 import { boxAt, centeredBox, type Box } from '../collision/boxes.ts';
 import { moveAndCollide, type Body, type SolidGrid } from '../collision/grid.ts';
 import type { Archetype, Category } from './enemies.ts';
-import { REFORM_TICKS, SALESMAN } from './frames.ts';
+import { CLING, REFORM_TICKS, SALESMAN } from './frames.ts';
 import type { Vec } from './movement.ts';
 
 /**
@@ -10,9 +10,10 @@ import type { Vec } from './movement.ts';
  * and other archetypes stand still until P4.
  *
  * Phases: idle, windup (telegraph), strike (hitbox live), recover; dispersed is a reforming
- * enemy waiting to reform; closed is a defeatable enemy whose case is closed.
+ * enemy waiting to reform; closed is a defeatable enemy whose case is closed; attached is a
+ * clinging enemy riding on the operator as one slow stack.
  */
-export type EnemyPhase = 'idle' | 'windup' | 'strike' | 'recover' | 'dispersed' | 'closed';
+export type EnemyPhase = 'idle' | 'windup' | 'strike' | 'recover' | 'dispersed' | 'closed' | 'attached';
 
 export interface EnemyState {
   readonly id: number;
@@ -36,12 +37,13 @@ export interface EnemyState {
   readonly strikeSpent: boolean;
   /** Ticks after a case closes before the enemy comes back; 0 means never. */
   readonly respawnTicks: number;
+  readonly clings: boolean;
 }
 
 export const ENEMY_BODY: Body = { halfW: 7, height: 10 };
 export const ENEMY_HURT: Body = { halfW: 9, height: 16 };
 
-export const isHittable = (e: EnemyState): boolean => e.phase !== 'dispersed' && e.phase !== 'closed';
+export const isHittable = (e: EnemyState): boolean => e.phase !== 'dispersed' && e.phase !== 'closed' && e.phase !== 'attached';
 
 export const enemyHurtbox = (e: EnemyState): Box => boxAt(ENEMY_HURT, e.x, e.y);
 
@@ -80,8 +82,19 @@ export function stepEnemy(grid: SolidGrid, e0: EnemyState, target: Vec): EnemySt
         return out(to(e, 'idle', { x: e.homeX, y: e.homeY, hp: e.maxHp }), { respawned: true });
       }
       return out(e);
+    case 'attached':
+      return out(e);
     default:
       break;
+  }
+  if (e.clings) {
+    // Contact and the stack it adds are resolved in game.ts, which knows the operator's i-frames.
+    const dx = target.x - e.x;
+    const dy = target.y - e.y;
+    const d = Math.hypot(dx, dy);
+    if (d === 0 || d > CLING.senseRangePx) return out(e);
+    const m = moveAndCollide(grid, ENEMY_BODY, e.x, e.y, (dx / d) * CLING.driftSpeed, (dy / d) * CLING.driftSpeed);
+    return out({ ...e, x: m.x, y: m.y });
   }
   if (e.archetype !== 'salesman') return out(e);
 

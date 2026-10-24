@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { TAGS } from '../../src/app/content.ts';
-import { DEFAULT_ROOM, QueryError, roomFromQuery, tagsFromQuery } from '../../src/app/session.ts';
+import { DEFAULT_ROOM, gaugeFromQuery, QueryError, roomFromQuery, tagsFromQuery } from '../../src/app/session.ts';
 import { amount, flag, parseCondition, holds } from '../../src/core/index.ts';
 
 describe('room from the URL', () => {
@@ -10,6 +10,15 @@ describe('room from the URL', () => {
     for (const bad of ['../secret', 'greybox', 'a/b/c', 'Greybox/x', 'greybox/x.tmj']) {
       expect(() => roomFromQuery(`?room=${encodeURIComponent(bad)}`), bad).toThrow(QueryError);
     }
+  });
+});
+
+describe('gauge from the URL', () => {
+  it('is absent by default, takes 0 to 100 and rejects anything else', () => {
+    expect(gaugeFromQuery('')).toBeUndefined();
+    expect(gaugeFromQuery('?gauge=100')).toBe(100);
+    expect(gaugeFromQuery('?gauge=0')).toBe(0);
+    for (const bad of ['', 'full', '-1', '101', 'NaN']) expect(() => gaugeFromQuery(`?gauge=${bad}`), bad).toThrow(QueryError);
   });
 });
 

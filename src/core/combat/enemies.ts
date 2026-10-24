@@ -55,6 +55,7 @@ export function loadEnemyTable(raw: unknown): EnemyTable {
       problems.push(`${where}: a ${e.category} enemy needs a solution from the solutions table`);
     }
     if (e.performance !== undefined && e.category !== 'defeatable') problems.push(`${where}: only defeatable enemies have a performance`);
+    if (e.clings === true && e.category !== 'reforming') problems.push(`${where}: only reforming enemies cling`);
     if (enemies.has(e.id)) problems.push(`${where}: defined twice`);
     enemies.set(e.id, e);
   }

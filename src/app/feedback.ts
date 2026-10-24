@@ -13,6 +13,7 @@ export type StringTable = StringsFile;
 const ALL_EVENTS: Record<DomainEvent['type'], true> = {
   bumpWall: true, fire: true, dodge: true, perfectDodge: true, telegraph: true, hit: true, caseClosed: true,
   dispersed: true, reformed: true, respawned: true, immuneBounce: true, heartLost: true, freeze: true, forcedLeave: true,
+  gaugeFull: true, stampRaised: true, stampLanded: true, stampVoid: true, clung: true, forcedNap: true,
 };
 /** Every event type core can emit; a feedback key outside this list is a typo. */
 export const EVENT_TYPES = Object.keys(ALL_EVENTS) as DomainEvent['type'][];
@@ -29,13 +30,14 @@ function noteKeys(note: string, fields: Readonly<Record<string, readonly string[
   return { keys, unknown };
 }
 
+/** Per event type, the values each note placeholder can take. */
+export type NoteFields = Readonly<Partial<Record<DomainEvent['type'], Readonly<Record<string, readonly string[]>>>>>;
+
 /**
- * `fields` lists the values each note placeholder can take (e.g. every immune enemy's
- * solution), so a templated note is checked as strictly as a plain one.
+ * `fields` lists, per event, the values each note placeholder can take (e.g. every immune
+ * enemy's solution), so a templated note is checked as strictly as a plain one.
  */
-export function feedbackProblems(
-  table: FeedbackTable, strings: StringTable, fields: Readonly<Record<string, readonly string[]>>,
-): string[] {
+export function feedbackProblems(table: FeedbackTable, strings: StringTable, fields: NoteFields): string[] {
   const out: string[] = [];
   for (const [name, p] of Object.entries(table.presets)) {
     if (p.speed.length !== 2 || p.speed[0]! > p.speed[1]!) out.push(`preset "${name}": speed must be [min, max]`);
@@ -44,7 +46,7 @@ export function feedbackProblems(
     if (!(EVENT_TYPES as readonly string[]).includes(type)) out.push(`feedback for unknown event "${type}"`);
     for (const p of fb?.particles ?? []) if (!table.presets[p.preset]) out.push(`${type}: unknown particle preset "${p.preset}"`);
     if (!fb?.note) continue;
-    const { keys, unknown } = noteKeys(fb.note, fields);
+    const { keys, unknown } = noteKeys(fb.note, fields[type as DomainEvent['type']] ?? {});
     for (const f of unknown) out.push(`${type}: note "${fb.note}" uses unknown placeholder "{${f}}"`);
     if (unknown.length > 0) continue;
     for (const k of keys) if (!strings.strings[k]) out.push(`${type}: note "${k}" is not in content/strings`);
@@ -52,10 +54,18 @@ export function feedbackProblems(
   return out;
 }
 
-/** Placeholder values for the notes in content/feedback.json, taken from the enemy table. */
-export function noteFields(table: EnemyTable): Record<string, readonly string[]> {
-  const immune = [...table.enemies.values()].filter((e) => e.category === 'immune' && e.solution !== undefined);
-  return { solution: [...new Set(immune.map((e) => e.solution!))].sort() };
+/**
+ * Placeholder values for the notes in content/feedback.json, taken from the enemy table: a
+ * staple bounces only off immune enemies, while the stamp is void on reforming ones too.
+ */
+export function noteFields(table: EnemyTable): NoteFields {
+  const solutions = (keep: (category: string) => boolean) => [...new Set(
+    [...table.enemies.values()].filter((e) => keep(e.category) && e.solution !== undefined).map((e) => e.solution!),
+  )].sort();
+  return {
+    immuneBounce: { solution: solutions((c) => c === 'immune') },
+    stampVoid: { solution: solutions((c) => c !== 'defeatable') },
+  };
 }
 
 /** Fills "{field}" placeholders from the event; undefined when the string table lacks the key. */

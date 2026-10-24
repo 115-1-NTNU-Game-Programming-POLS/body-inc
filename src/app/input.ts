@@ -1,6 +1,6 @@
 import type { TickInput } from '../core/index.ts';
 
-export type Action = 'up' | 'down' | 'left' | 'right' | 'attack' | 'dodge';
+export type Action = 'up' | 'down' | 'left' | 'right' | 'attack' | 'dodge' | 'stamp';
 
 /** Default bindings (design doc 5.2). Stored per player later; core only ever sees TickInput. */
 export const DEFAULT_BINDINGS: Readonly<Record<Action, readonly string[]>> = {
@@ -10,6 +10,7 @@ export const DEFAULT_BINDINGS: Readonly<Record<Action, readonly string[]>> = {
   right: ['KeyD', 'ArrowRight'],
   attack: ['KeyJ', 'Mouse0'],
   dodge: ['Space', 'KeyK'],
+  stamp: ['KeyR', 'Mouse1'],
 };
 
 /**
@@ -35,7 +36,12 @@ export class KeyboardInput {
     else this.down(k.code);
   };
   private readonly onKeyUp = (e: Event) => this.held.delete((e as KeyboardEvent).code);
-  private readonly onMouseDown = (e: Event) => this.down(`Mouse${(e as MouseEvent).button}`);
+  private readonly onMouseDown = (e: Event) => {
+    const code = `Mouse${(e as MouseEvent).button}`;
+    // A bound middle button would otherwise also start the browser's autoscroll.
+    if (this.isBound(code)) e.preventDefault();
+    this.down(code);
+  };
   private readonly onMouseUp = (e: Event) => this.held.delete(`Mouse${(e as MouseEvent).button}`);
   private readonly onBlur = () => this.held.clear();
 
@@ -70,6 +76,7 @@ export class KeyboardInput {
       attack: this.isHeld('attack'),
       attackPressed: this.wasPressed('attack'),
       dodgePressed: this.wasPressed('dodge'),
+      stampPressed: this.wasPressed('stamp'),
     };
     this.pressedSince.clear();
     return input;

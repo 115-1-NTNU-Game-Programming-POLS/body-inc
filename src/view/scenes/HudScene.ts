@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import type { FixedStepLoop } from '../../app/loop.ts';
-import { selectHearts, selectTick, TICK_HZ } from '../../core/index.ts';
+import { MINUTES_PER_DAY, selectClock, selectGauge, selectHearts, selectTick, TICK_HZ } from '../../core/index.ts';
 import { STRINGS } from '../../app/content.ts';
 import { issueMessage, type SaveIssue } from '../../app/storage.ts';
 import { addText, updateText } from '../text/fonts.ts';
@@ -18,14 +18,25 @@ const CELL = 4;
 const HEART_COLOR = 0xf08a80;
 const EMPTY_COLOR = 0x3b4660;
 const NOTE_SECONDS = 2.5;
+/** Rejection gauge (art direction 8.3): a 200 x 16 ink pad in the one HUD red, ticked at 50%. */
+const GAUGE_X = 12;
+const GAUGE_Y = 44;
+const GAUGE_W = 200;
+const GAUGE_H = 16;
+const INK = 0x0c2d5e;
+const STAMP_RED = 0xc8372d;
+/** When full the pad pulses once every 2 s (art direction 8.3). */
+const FULL_PULSE_MS = 2000;
 
 /** Overlay at scale 1, separate from World so hit-stop and camera zoom never affect UI. */
 export class HudScene extends Phaser.Scene {
   private controls!: Phaser.GameObjects.Text;
   private clock!: Phaser.GameObjects.Text;
   private hearts!: Phaser.GameObjects.Graphics;
+  private gauge!: Phaser.GameObjects.Graphics;
   private shownHalves = -1;
-  private shownSeconds = '';
+  private shownGauge = '';
+  private shownTime = '';
 
   constructor() {
     super('Hud');
@@ -33,10 +44,11 @@ export class HudScene extends Phaser.Scene {
 
   create(): void {
     this.hearts = this.add.graphics();
+    this.gauge = this.add.graphics();
     // The HUD sits over the north wall (art direction 7.2), so light text needs its own plate to
     // stay readable over pale walls and wall props.
     const plate = { backgroundColor: 'rgba(12, 45, 94, 0.82)', padding: { x: 6, y: 2 } } as const;
-    this.controls = addText(this, 12, 44, str('hud.controls'), { role: 'print', weight: 700, size: 16, color: '#e8edf5', ...plate });
+    this.controls = addText(this, 12, GAUGE_Y + GAUGE_H + 12, str('hud.controls'), { role: 'print', weight: 700, size: 16, color: '#e8edf5', ...plate });
     this.clock = addText(this, 12, this.controls.y + this.controls.displayHeight + 2, '', {
       role: 'print', weight: 400, size: 16, color: '#e8edf5', ...plate,
     });
@@ -87,7 +99,14 @@ export class HudScene extends Phaser.Scene {
     }
   }
 
-  override update(): void {
+  private drawGauge(value: number, max: number, lit: boolean): void {
+    const g = this.gauge.clear();
+    g.fillStyle(INK, 0.82).fillRect(GAUGE_X, GAUGE_Y, GAUGE_W + 4, GAUGE_H + 4);
+    g.fillStyle(lit ? 0xffffff : STAMP_RED).fillRect(GAUGE_X + 2, GAUGE_Y + 2, Math.round((GAUGE_W * value) / max), GAUGE_H);
+    g.fillStyle(0xe8edf5).fillRect(GAUGE_X + 2 + GAUGE_W / 2, GAUGE_Y + 2, 1, GAUGE_H);
+  }
+
+  override update(time: number): void {
     const loop = this.registry.get('loop') as FixedStepLoop | undefined;
     if (!loop) return;
     const { halves, maxHalves } = selectHearts(loop.state);
@@ -95,10 +114,21 @@ export class HudScene extends Phaser.Scene {
       this.shownHalves = halves;
       this.drawHearts(halves, maxHalves);
     }
+    const { value, max } = selectGauge(loop.state);
+    const lit = value >= max && time % FULL_PULSE_MS < 120;
+    const gaugeKey = `${value}/${lit}`;
+    if (gaugeKey !== this.shownGauge) {
+      this.shownGauge = gaugeKey;
+      this.drawGauge(value, max, lit);
+    }
     const seconds = (selectTick(loop.state) / TICK_HZ).toFixed(1);
-    if (seconds !== this.shownSeconds) {
-      this.shownSeconds = seconds;
-      updateText(this.clock, str('hud.rule_time').replace('{seconds}', seconds));
+    const clock = selectClock(loop.state);
+    const minute = clock.minute % MINUTES_PER_DAY;
+    const hhmm = `${String(Math.floor(minute / 60)).padStart(2, '0')}:${String(minute % 60).padStart(2, '0')}`;
+    const shown = `${seconds} ${hhmm}`;
+    if (shown !== this.shownTime) {
+      this.shownTime = shown;
+      updateText(this.clock, str('hud.rule_time').replace('{seconds}', seconds).replace('{clock}', hhmm));
     }
   }
 }

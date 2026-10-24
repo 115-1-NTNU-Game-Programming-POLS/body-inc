@@ -4,7 +4,7 @@ import { EMPTY_LOG, EMPTY_TAGS, record, setAmount, setFlag, type TagDictionary, 
  * Which room the game opens and the tags it is entered with. Until the outer layer (build plan
  * P1) produces tags from cards, dev builds take both from the URL so variants can be seen:
  *
- *   ?room=greybox/brain-corridor&tags=sleep_debt:2,breakfast
+ *   ?room=greybox/brain-corridor&tags=sleep_debt:2,breakfast&gauge=100
  *
  * Production ignores the URL and opens the default room with no tags.
  */
@@ -19,6 +19,18 @@ export function roomFromQuery(search: string): string {
   if (v === null) return DEFAULT_ROOM;
   if (!ROOM_PATH.test(v)) throw new QueryError(`?room=${v}: expected <folder>/<map>, e.g. greybox/brain-corridor`);
   return v;
+}
+
+/**
+ * `?gauge=100` starts with that much rejection gauge, so the stamp can be tried without first
+ * landing 125 staples. Undefined when absent.
+ */
+export function gaugeFromQuery(search: string): number | undefined {
+  const v = new URLSearchParams(search).get('gauge');
+  if (v === null) return undefined;
+  const n = Number(v);
+  if (v.trim() === '' || !Number.isFinite(n) || n < 0 || n > 100) throw new QueryError(`?gauge=${v}: expected a number from 0 to 100`);
+  return n;
 }
 
 /** `name:value` sets a number tag, a bare `name` turns a boolean tag on; all share one dev source. */

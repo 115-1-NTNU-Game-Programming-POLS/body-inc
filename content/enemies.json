@@ -13,7 +13,7 @@
     { "id": "energy_seller", "category": "defeatable", "archetype": "salesman", "performance": 4 },
     { "id": "cheers", "category": "defeatable" },
     { "id": "deadline_imp", "category": "defeatable" },
-    { "id": "adenosine", "category": "reforming", "solution": "sleep" },
+    { "id": "adenosine", "category": "reforming", "solution": "sleep", "clings": true },
     { "id": "opportunist_bacteria", "category": "reforming", "solution": "territory" },
     { "id": "alcohol_barrel", "category": "immune", "solution": "conveyor" },
     { "id": "cold_virus", "category": "immune", "solution": "guards" }

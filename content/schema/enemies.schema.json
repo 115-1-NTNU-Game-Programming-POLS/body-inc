@@ -27,7 +27,8 @@
         "category": { "enum": ["defeatable", "reforming", "immune"] },
         "solution": { "description": "Key into solutions; required for reforming and immune enemies, absent for defeatable ones.", "type": "string" },
         "archetype": { "description": "One of the five shared behaviours of design doc 5.3.", "enum": ["salesman", "flyer", "manager", "convener", "contractor"] },
-        "performance": { "description": "Hits to close the case; defeatable enemies only.", "type": "integer", "minimum": 1 }
+        "performance": { "description": "Hits to close the case; defeatable enemies only.", "type": "integer", "minimum": 1 },
+        "clings": { "description": "Drifts toward the operator and clings on contact, one slow stack each (design doc 5.5); reforming enemies only.", "type": "boolean" }
       }
     }
   }

@@ -209,7 +209,7 @@ describe('content readers', () => {
   });
 
   it('loads the real content', () => {
-    expect(loadMapContent().enemies.enemies.get('adenosine')).toEqual({ id: 'adenosine', category: 'reforming', solution: 'sleep' });
+    expect(loadMapContent().enemies.enemies.get('adenosine')).toEqual({ id: 'adenosine', category: 'reforming', solution: 'sleep', clings: true });
   });
 });
 

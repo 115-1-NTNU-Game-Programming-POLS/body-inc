@@ -1,5 +1,5 @@
 import { moveAndCollide, type Body, type SolidGrid } from '../collision/grid.ts';
-import { BUFFER_TICKS, DODGE, HURT, STAPLER } from './frames.ts';
+import { BUFFER_TICKS, CLING, DODGE, HURT, STAMP, STAPLER } from './frames.ts';
 import { approach, desiredVelocity, facingFor, type Facing, type Vec } from './movement.ts';
 
 /**
@@ -12,18 +12,21 @@ export interface TickInput {
   readonly attack?: boolean;
   readonly attackPressed?: boolean;
   readonly dodgePressed?: boolean;
+  readonly stampPressed?: boolean;
 }
 
 export const NO_INPUT: TickInput = { move: { x: 0, y: 0 } };
 
 /**
  * Dodge frames 1-13 move, 14-19 are recovery. Hurt frames 1-12 are knockback, after the freeze
- * (frame 0 means not started). `frame` is the frame executed on the latest tick (frames.ts).
+ * (frame 0 means not started). Stamp frames 1 to STAMP.startupTicks raise it, and it lands on
+ * the last one. `frame` is the frame executed on the latest tick (frames.ts).
  */
 export type OperatorAction =
   | { readonly kind: 'free' }
   | { readonly kind: 'dodge'; readonly frame: number; readonly dir: Vec; readonly perfect: boolean }
-  | { readonly kind: 'hurt'; readonly frame: number; readonly dir: Vec };
+  | { readonly kind: 'hurt'; readonly frame: number; readonly dir: Vec }
+  | { readonly kind: 'stamp'; readonly frame: number };
 
 export interface OperatorState {
   readonly x: number;
@@ -33,8 +36,10 @@ export interface OperatorState {
   readonly facing: Facing;
   /** Unit vector of the last stick direction; staples fly along it unless soft lock applies. */
   readonly aim: Vec;
-  /** Visible slow sources (adenosine stacks, syrup floor); capped in movement. */
+  /** Visible slow sources other than clinging (syrup floor, status icons); capped in movement. */
   readonly slows: readonly number[];
+  /** Clinging stacks riding on the operator, each one a CLING.slowPerStack slow source. */
+  readonly stacks: number;
   readonly halves: number;
   readonly maxHalves: number;
   readonly action: OperatorAction;
@@ -47,6 +52,9 @@ export interface OperatorState {
   /** Tick a press was buffered on; null when nothing is waiting (design doc 5.3, 0.35 s). */
   readonly bufferedAttack: number | null;
   readonly bufferedDodge: number | null;
+  readonly bufferedStamp: number | null;
+  /** Rejection gauge, 0 to STAMP.gaugeMax (design doc 5.4). */
+  readonly gauge: number;
 }
 
 /** Operator feet box: narrower than the 32 px frame so doorways two tiles wide feel roomy. */
@@ -57,12 +65,14 @@ export const OPERATOR_HURT: Body = { halfW: 6, height: 9 };
 const DODGE_STEP = DODGE.distancePx / DODGE.ticks;
 const DODGE_LAST = DODGE.ticks + DODGE.recoveryTicks;
 const KNOCK_STEP = HURT.knockbackPx / HURT.knockbackTicks;
+/** The stamp lands on the frame after its startup, so every startup frame is invincible. */
+export const STAMP_LAND = STAMP.startupTicks + 1;
 
-export function newOperator(x: number, y: number, maxHalves: number): OperatorState {
+export function newOperator(x: number, y: number, maxHalves: number, gauge = 0): OperatorState {
   return {
-    x, y, vx: 0, vy: 0, facing: 'down', aim: { x: 0, y: 1 }, slows: [], halves: maxHalves, maxHalves,
+    x, y, vx: 0, vy: 0, facing: 'down', aim: { x: 0, y: 1 }, slows: [], stacks: 0, halves: maxHalves, maxHalves,
     action: { kind: 'free' }, dodgeReadyAt: 0, invulnUntil: 0, shotReadyAt: 0, nextShotAt: null,
-    bufferedAttack: null, bufferedDodge: null,
+    bufferedAttack: null, bufferedDodge: null, bufferedStamp: null, gauge,
   };
 }
 
@@ -75,11 +85,12 @@ export function unit(v: Vec): Vec {
 
 /** Records presses; used every tick, including frozen ones, so input during hit-stop counts. */
 export function bufferInput(op: OperatorState, input: TickInput, now: number): OperatorState {
-  if (!input.attackPressed && !input.dodgePressed) return op;
+  if (!input.attackPressed && !input.dodgePressed && !input.stampPressed) return op;
   return {
     ...op,
     bufferedAttack: input.attackPressed ? now : op.bufferedAttack,
     bufferedDodge: input.dodgePressed ? now : op.bufferedDodge,
+    bufferedStamp: input.stampPressed ? now : op.bufferedStamp,
   };
 }
 
@@ -89,14 +100,20 @@ export function inDodgeIframes(a: OperatorAction): a is Extract<OperatorAction, 
 }
 
 export function isInvincible(op: OperatorState, now: number): boolean {
-  return inDodgeIframes(op.action) || now < op.invulnUntil;
+  return inDodgeIframes(op.action) || op.action.kind === 'stamp' || now < op.invulnUntil;
 }
+
+export const gaugeFull = (op: OperatorState): boolean => op.gauge >= STAMP.gaugeMax;
 
 export interface OperatorStep {
   readonly op: OperatorState;
   /** True when a staple leaves the stapler this tick. */
   readonly fired: boolean;
   readonly dodged: boolean;
+  /** The stamp was raised this tick (its frame 1). */
+  readonly stampRaised?: boolean;
+  /** The stamp comes down this tick; game.ts resolves what it covers. */
+  readonly stampLanded?: boolean;
   readonly blockedX: boolean;
   readonly blockedY: boolean;
 }
@@ -117,6 +134,13 @@ export function stepOperator(grid: SolidGrid, op0: OperatorState, input: TickInp
   if (a.kind === 'dodge' && a.frame < DODGE_LAST) {
     return { ...stepDodge(grid, op, a, a.frame + 1, now), fired: false, dodged: false };
   }
+  if (a.kind === 'stamp' && a.frame < STAMP_LAND) {
+    const frame = a.frame + 1;
+    return {
+      op: { ...op, vx: 0, vy: 0, action: { kind: 'stamp', frame } },
+      fired: false, dodged: false, stampLanded: frame === STAMP_LAND, blockedX: false, blockedY: false,
+    };
+  }
   if (a.kind !== 'free') op = { ...op, action: { kind: 'free' } };
 
   // Free: a dodge takes priority over firing and cancels a pending staple (recovery is cancelable).
@@ -127,6 +151,14 @@ export function stepOperator(grid: SolidGrid, op0: OperatorState, input: TickInp
       ...op, bufferedDodge: null, nextShotAt: null, aim: dir, facing: facingFor(dir, op.facing),
     };
     return { ...stepDodge(grid, started, { kind: 'dodge', frame: 0, dir, perfect: false }, 1, now), fired: false, dodged: true };
+  }
+
+  // The whole gauge is spent on the press, whatever the stamp later covers (design doc 5.4).
+  if (live(op.bufferedStamp, now) && gaugeFull(op)) {
+    return {
+      op: { ...op, bufferedStamp: null, nextShotAt: null, gauge: 0, vx: 0, vy: 0, action: { kind: 'stamp', frame: 1 } },
+      fired: false, dodged: false, stampRaised: true, blockedX: false, blockedY: false,
+    };
   }
 
   // A shot is scheduled only once its startup fits before shotReadyAt, so releasing the key
@@ -148,7 +180,7 @@ export function stepOperator(grid: SolidGrid, op0: OperatorState, input: TickInp
   const stick = unit(input.move);
   const aim = stick.x === 0 && stick.y === 0 ? op.aim : stick;
   const factor = input.attack === true ? STAPLER.holdSpeedFactor : 1;
-  const want = desiredVelocity(input.move, op.slows);
+  const want = desiredVelocity(input.move, [...op.slows, ...Array<number>(op.stacks).fill(CLING.slowPerStack)]);
   const v = approach({ x: op.vx, y: op.vy }, { x: want.x * factor, y: want.y * factor });
   const m = moveAndCollide(grid, OPERATOR_BODY, op.x, op.y, v.x, v.y);
   return {

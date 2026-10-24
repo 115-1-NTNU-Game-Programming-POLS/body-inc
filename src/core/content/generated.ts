@@ -79,6 +79,10 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
             "description": "Hits to close the case; defeatable enemies only.",
             "type": "integer",
             "minimum": 1
+          },
+          "clings": {
+            "description": "Drifts toward the operator and clings on contact, one slow stack each (design doc 5.5); reforming enemies only.",
+            "type": "boolean"
           }
         }
       }
@@ -1248,6 +1252,8 @@ export interface Enemy {
   readonly archetype?: "salesman" | "flyer" | "manager" | "convener" | "contractor";
   /** Hits to close the case; defeatable enemies only. */
   readonly performance?: number;
+  /** Drifts toward the operator and clings on contact, one slow stack each (design doc 5.5); reforming enemies only. */
+  readonly clings?: boolean;
 }
 
 /** Domain event type to presentation (architecture section 4). Cross-checks (known event types, preset and string references) are in app/feedback.ts. */
