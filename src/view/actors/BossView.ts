@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { tagKey, type ManifestEntry } from '../../app/assets.ts';
 import { bossMove, BOSS_HURT, TICK_HZ, type BossDef, type EnemyState } from '../../core/index.ts';
 import type { ActorFx } from '../fx/FeedbackPlayer.ts';
+import { dashedCircle, tier1Flash } from '../fx/telegraph.ts';
 
 const RED = 0xc8372d;
 const INK = 0x0c2d5e;
@@ -10,8 +11,6 @@ const PAPER = 0xf4efe4;
 const SHEET_W = 32;
 const SHEET_H = 40;
 const SHEET_STEPS = 6;
-/** Same white-flash windows as the tier-1 telegraph of other enemies. */
-const FLASH_WINDOWS: ReadonlyArray<readonly [number, number]> = [[0, 5], [15, 20]];
 /** Where the minis of a power cut pile on him, as offsets from his feet. */
 const PILE: ReadonlyArray<readonly [number, number]> = [[-14, -18], [14, -20], [-8, -34], [10, -38], [0, -50], [-18, -44], [18, -30], [0, -26]];
 
@@ -51,6 +50,7 @@ export class BossView implements ActorFx {
   /** Budget at zero: he shrinks to 0.6 and slides out sideways (art direction 5.5). */
   closeOut(): void {
     this.gone = true;
+    this.scene.tweens.killTweensOf(this.sprite);
     this.marks.clear();
     this.bubble.setVisible(false);
     for (const m of this.minis) m.setVisible(false);
@@ -73,7 +73,14 @@ export class BossView implements ActorFx {
   }
 
   render(prev: Readonly<EnemyState> | undefined, cur: Readonly<EnemyState>, def: BossDef, pinned: number, alpha: number, tick: number): void {
-    if (this.gone || !cur.boss) return;
+    if (!cur.boss) return;
+    if (this.gone) {
+      // A forced leave brings a defeated boss back with a fresh budget.
+      if (cur.phase === 'closed') return;
+      this.gone = false;
+      this.scene.tweens.killTweensOf(this.sprite);
+      this.sprite.setScale(1).setVisible(true);
+    }
     const b = cur.boss;
     const p = prev ?? cur;
     const boosted = b.residue >= def.boostMin;
@@ -97,8 +104,7 @@ export class BossView implements ActorFx {
     else this.pose('idle_down', true);
 
     if (move?.tier === 1 && telegraphing) {
-      const f = b.move!.frame - 1;
-      flash = FLASH_WINDOWS.some(([a, c]) => f >= a && f < c);
+      flash = tier1Flash(b.move!.frame - 1);
     }
     this.bubble.setVisible(move?.tier === 1 && telegraphing).setPosition(x, y - this.entry.frame[1] + 4);
 
@@ -130,18 +136,6 @@ export class BossView implements ActorFx {
     if (tick < this.flashUntil || flash) this.sprite.setTintFill(0xffffff);
     else if (b.stunned > 0) this.sprite.setTint(0x9aa0ab);
     else this.sprite.clearTint();
-  }
-}
-
-/** Red dashed ring, 8 on and 6 off in world pixels, turned by `phase` radians. */
-function dashedCircle(g: Phaser.GameObjects.Graphics, cx: number, cy: number, r: number, color: number, phase: number): void {
-  const step = 14 / r;
-  const on = 8 / r;
-  g.lineStyle(1.5, color, 1);
-  for (let a = phase; a < phase + Math.PI * 2; a += step) {
-    g.beginPath();
-    g.arc(cx, cy, r, a, a + on);
-    g.strokePath();
   }
 }
 

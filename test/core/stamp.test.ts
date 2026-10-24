@@ -131,6 +131,13 @@ describe('rejection stamp (design doc 5.4)', () => {
     expect(r.state.operator.gauge).toBeCloseTo(STAMP.gaugeMax - 0.1, 10);
   });
 
+  it('a press before the gauge is full is not kept: filling it right after does not stamp by itself', () => {
+    const s0 = step(game([], { gauge: STAMP.gaugeMax - 0.1 }), press({ stampPressed: true })).state;
+    const r = run({ ...s0, operator: { ...s0.operator, gauge: STAMP.gaugeMax } }, STAMP_LAND + 2, () => press());
+    expect(ofType(r, 'stampRaised')).toEqual([]);
+    expect(r.state.operator.gauge).toBe(STAMP.gaugeMax);
+  });
+
   it('empties the gauge on the press and lands 0.35 s later, invincible until it lands', () => {
     let s = full();
     const invincible: boolean[] = [];

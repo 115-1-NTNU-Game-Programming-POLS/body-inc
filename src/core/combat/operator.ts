@@ -20,7 +20,7 @@ export const NO_INPUT: TickInput = { move: { x: 0, y: 0 } };
 /**
  * Dodge frames 1-13 move, 14-19 are recovery. Hurt frames 1-12 are knockback, after the freeze
  * (frame 0 means not started). Stamp frames 1 to STAMP.startupTicks raise it, and it lands on
- * the last one. `frame` is the frame executed on the latest tick (frames.ts).
+ * the frame after (STAMP_LAND). `frame` is the frame executed on the latest tick (frames.ts).
  */
 export type OperatorAction =
   | { readonly kind: 'free' }
@@ -90,7 +90,9 @@ export function bufferInput(op: OperatorState, input: TickInput, now: number): O
     ...op,
     bufferedAttack: input.attackPressed ? now : op.bufferedAttack,
     bufferedDodge: input.dodgePressed ? now : op.bufferedDodge,
-    bufferedStamp: input.stampPressed ? now : op.bufferedStamp,
+    // A press without a full gauge does nothing and is not kept, or it would fire by itself once
+    // the gauge filled inside the buffer window.
+    bufferedStamp: input.stampPressed && gaugeFull(op) ? now : op.bufferedStamp,
   };
 }
 

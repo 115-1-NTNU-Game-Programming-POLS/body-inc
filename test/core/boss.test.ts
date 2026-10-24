@@ -249,6 +249,17 @@ describe('stages: tolerance, summons and the power cut (design doc 7.4)', () => 
     expect(ofType(run(after, 6 * TICK_HZ), 'bossDrink').length).toBe(DEF.burstCups);
   });
 
+  it('beside a wall, a summon that would land inside it appears at his feet instead', () => {
+    // The left-hand offset from x = 40 puts the adenosine body inside the border tile.
+    const s0 = withBoss(fight({ x: 200, y: HOME.y }), { stage: 2, burst: 0, rest: 1, residue: 0, summonIn: 0 }, { x: 40, homeX: 40 });
+    const r = run(s0, DEF.summon.ticks + 2);
+    const summoned = r.state.enemies.filter((e) => e.summoner === 1);
+    expect(summoned).toHaveLength(DEF.summon.count);
+    // homeX is where each was summoned; they drift toward the operator from there.
+    expect(summoned.map((e) => e.homeX)).toEqual([40, 40 + 24]);
+    expect(summoned.every((e) => e.homeX - 7 >= TILE)).toBe(true);
+  });
+
   it('no power cut while a burst is still to drink', () => {
     const s = withBoss(fight(), { stage: 2, burst: 2, rest: 999, residue: DEF.boostMin + 0.001, boosted: true });
     expect(ofType(run(s, 60), 'powerCut')).toEqual([]);
@@ -267,14 +278,15 @@ describe('end of the fight and retries', () => {
     expect(ofType(run(r.state, 300), 'telegraph')).toEqual([]);
   });
 
-  it('a forced leave restarts the fight and sends the summons away, except those clinging', () => {
+  it('a forced leave restarts the fight and sends the summons away, except those clinging, which stop counting as his', () => {
     let s = withBoss(fight(), { stage: 2, residue: 80, cups: 3 }, { hp: 120 });
     s = { ...s, enemies: [...s.enemies, adenosineAt(10, 100, 300), { ...adenosineAt(11, 120, 300), phase: 'attached' }] };
     const r = step({ ...s, operator: { ...s.operator, halves: 0 } }, NO_INPUT);
     expect(r.events.map((e) => e.type)).toContain('forcedLeave');
     expect(boss(r.state)).toMatchObject({ hp: DEF.budget, x: HOME.x, y: HOME.y });
     expect(boss(r.state).boss).toEqual(boss(fight()).boss);
-    expect(r.state.enemies.filter((e) => e.summoner === 1).map((e) => e.id)).toEqual([11]);
+    expect(r.state.enemies.filter((e) => e.type === 'adenosine').map((e) => [e.id, e.phase])).toEqual([[11, 'attached']]);
+    expect(r.state.enemies.filter((e) => e.summoner === 1)).toEqual([]);
   });
 
   it('a seeded fight replays to the same hash, and another seed picks other moves', () => {

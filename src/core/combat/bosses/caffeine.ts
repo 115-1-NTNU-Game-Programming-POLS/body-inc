@@ -1,14 +1,14 @@
-import { moveAndCollide, type SolidGrid } from '../../collision/grid.ts';
+import { bodyOverlapsSolid, moveAndCollide, type SolidGrid } from '../../collision/grid.ts';
 import type { DomainEvent } from '../../game.ts';
 import { drawFloat, type RngStreams } from '../../rng.ts';
 import { TICK_HZ } from '../../time.ts';
-import { BOSS_BODY, type EnemyState } from '../actors.ts';
+import { BOSS_BODY, ENEMY_BODY, type EnemyState } from '../actors.ts';
 import type { ShotSpec, ZoneSpec } from '../hazards.ts';
 import type { Vec } from '../movement.ts';
 import { bossMove, boostFactor, moveLength, type BossDef, type BossMoveDef, type BossState } from './boss.ts';
 
 /**
- * 續杯經理 卡費因 (design doc 7.4), v1. Stage 1: he drinks, and caffeine at or above the boost
+ * The caffeine boss, boss.caffeine.name in the strings (design doc 7.4), v1. Stage 1: he drinks, and caffeine at or above the boost
  * threshold speeds his walking and shortens his rests, so the window to hit back is when the
  * residue is low. Stage 2 (budget at stage2Budget): a burst of cups, from the third on with the
  * tolerant boost, and adenosine summoned at his feet. Stage 3: the first time the residue falls
@@ -128,7 +128,9 @@ export function stepCaffeine(e: EnemyState, ctx: CaffeineContext): BossTick {
         const n = Math.min(def.summon.count, def.summon.max - ctx.summoned);
         for (let i = 0; i < n; i++) {
           const o = SUMMON_OFFSETS[i % SUMMON_OFFSETS.length]!;
-          summons.push({ x: e.x + o.x, y: e.y + o.y });
+          const at = { x: e.x + o.x, y: e.y + o.y };
+          // Beside a wall an offset can land inside it; his own feet are always clear.
+          summons.push(bodyOverlapsSolid(ctx.grid, ENEMY_BODY, at.x, at.y) ? { x: e.x, y: e.y } : at);
         }
         b = { ...b, move: null, summonIn: def.summon.everyTicks, rest: restAfter() };
         if (n > 0) events.push({ type: 'bossSummon', target: e.id, count: n });

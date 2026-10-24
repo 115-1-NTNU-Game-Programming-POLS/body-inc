@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { tagKey, type ManifestEntry } from '../../app/assets.ts';
 import { REFORM_TICKS, TICK_HZ, type EnemyState } from '../../core/index.ts';
+import { tier1Flash } from '../fx/telegraph.ts';
 import { REFORM_STAGES } from '../fx/textures.ts';
 
 /** Logical enemy id to manifest key; the view owns this, core only knows `salesman`. */
@@ -13,9 +14,6 @@ export const SKINS: Readonly<Record<string, string>> = {
   adenosine: 'adenosine',
   alcohol_barrel: 'alcohol-barrel',
 };
-
-/** Ticks of the tier-1 telegraph that show a white flash: 0.00-0.08 s and 0.25-0.33 s. */
-const FLASH_WINDOWS: ReadonlyArray<readonly [number, number]> = [[0, 5], [15, 20]];
 
 /** Attached and pinned enemies are drawn as minis on the operator or the boss instead. */
 const isHidden = (e: Readonly<EnemyState>): boolean =>
@@ -70,7 +68,7 @@ export class EnemyView {
     const bob = cur.category === 'reforming' ? Math.round(Math.sin((ms / 1600) * Math.PI * 2) * 2) : 0;
     this.sprite.setPosition(Math.round(x), Math.round(y) + bob).setDepth(y).setFlipX(side && dir.x < 0);
 
-    const inFlash = windup && FLASH_WINDOWS.some(([a, b]) => cur.phaseTicks >= a && cur.phaseTicks < b);
+    const inFlash = windup && tier1Flash(cur.phaseTicks);
     if (tick < this.flashUntil || inFlash) this.sprite.setTintFill(0xffffff);
     else this.sprite.clearTint();
 

@@ -79,4 +79,13 @@ describe('flyer archetype (design doc 5.3)', () => {
     expect(onTop.enemies[0]!.phase).toBe('strike');
     expect(ofType(run(onTop, FLYER.throwTicks), 'heartLost')).toEqual([]);
   });
+
+  it('a sheet already in the air keeps flying when the flyer is closed', () => {
+    const g = game(START.x + 4 * TILE);
+    const t = firstTick(run(g, 120), 'telegraph');
+    const mid = run(g, t + TELEGRAPH.tier1Ticks + 1).state;
+    const closed = { ...mid, enemies: mid.enemies.map((e) => ({ ...e, hp: 0, phase: 'closed' as const })) };
+    expect(mid.shots).toHaveLength(1);
+    expect(step(closed, NO_INPUT).state.shots).toHaveLength(1);
+  });
 });

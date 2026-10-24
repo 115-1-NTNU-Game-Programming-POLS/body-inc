@@ -1,4 +1,4 @@
-import { EMPTY_LOG, EMPTY_TAGS, record, setAmount, setFlag, type TagDictionary, type TagState } from '../core/index.ts';
+import { EMPTY_LOG, EMPTY_TAGS, record, setAmount, setFlag, STAMP, type TagDictionary, type TagState } from '../core/index.ts';
 
 /**
  * Which room the game opens and the tags it is entered with. Until the outer layer (build plan
@@ -29,7 +29,7 @@ export function gaugeFromQuery(search: string): number | undefined {
   const v = new URLSearchParams(search).get('gauge');
   if (v === null) return undefined;
   const n = Number(v);
-  if (v.trim() === '' || !Number.isFinite(n) || n < 0 || n > 100) throw new QueryError(`?gauge=${v}: expected a number from 0 to 100`);
+  if (v.trim() === '' || !Number.isFinite(n) || n < 0 || n > STAMP.gaugeMax) throw new QueryError(`?gauge=${v}: expected a number from 0 to ${STAMP.gaugeMax}`);
   return n;
 }
 

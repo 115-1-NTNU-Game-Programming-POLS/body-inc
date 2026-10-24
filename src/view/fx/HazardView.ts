@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { zoneFill, type GameState, type Shot } from '../../core/index.ts';
+import { dashedCircle } from './telegraph.ts';
 
 const RED = 0xc8372d;
 /** Hatch period of fx-hatch-tile (art direction 9.2): 45-degree lines every 8 world px. */
@@ -27,7 +28,7 @@ export class HazardView {
     const g = this.ground.clear();
     for (const z of cur.zones) {
       if (z.tier !== 2) continue;
-      dashedCircle(g, z.x, z.y, z.radius);
+      dashedCircle(g, z.x, z.y, z.radius, RED);
       const inner = z.radius * (1 - zoneFill(z));
       hatchRing(g, z.x, z.y, z.radius, inner);
     }
@@ -52,17 +53,6 @@ export class HazardView {
       img.destroy();
       this.shots.delete(id);
     }
-  }
-}
-
-function dashedCircle(g: Phaser.GameObjects.Graphics, cx: number, cy: number, r: number): void {
-  const step = 14 / r;
-  const on = 8 / r;
-  g.lineStyle(1.5, RED, 1);
-  for (let a = 0; a < Math.PI * 2; a += step) {
-    g.beginPath();
-    g.arc(cx, cy, r, a, Math.min(a + on, Math.PI * 2));
-    g.strokePath();
   }
 }
 

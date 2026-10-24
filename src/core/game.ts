@@ -202,12 +202,17 @@ function aimFrom(op: OperatorState, origin: Vec, enemies: readonly EnemyState[])
 /**
  * Back to the last checkpoint: room enemies reset, nothing is taken away (design doc 5.6). The
  * gauge stays, and so do clinging stacks: only sleep clears adenosine, not a retry. A boss
- * starts its fight over, and what it summoned leaves with the attempt unless it clings on.
+ * starts its fight over, and what it summoned leaves with the attempt unless it clings on; a
+ * clinging one is no longer the boss's, so it does not count toward the next attempt's summons.
  */
 function forcedLeave(state: GameState): GameState {
   const start = playerStart(state.room);
   const enemies = state.enemies.filter((e) => e.summoner === undefined || e.phase === 'attached').map((e) => {
-    if (e.phase === 'attached') return e;
+    if (e.phase === 'attached') {
+      if (e.summoner === undefined) return e;
+      const { summoner: _, ...own } = e;
+      return own;
+    }
     const reset: EnemyState = { ...e, x: e.homeX, y: e.homeY, hp: e.maxHp, phase: 'idle', phaseTicks: 0, frozen: 0 };
     return e.boss ? { ...reset, boss: newBossState(state.bosses[e.boss.def]!) } : reset;
   });
@@ -330,7 +335,12 @@ export function step(state: GameState, input: TickInput): StepResult {
   }
   for (const z of newZones) zones.set(nextId, { ...z, id: nextId++, age: 1, spent: false });
   let shots: Shot[] = [...state.shots, ...newShots.map((sh) => ({ ...sh, id: nextId++, spent: false }))];
-  const byId = () => [...enemies.values()].sort((a, b) => a.id - b.id);
+  // Within a tick enemies are only added, never removed, so the sorted ids change only with the size.
+  let order: number[] = [];
+  const byId = (): EnemyState[] => {
+    if (order.length !== enemies.size) order = [...enemies.keys()].sort((a, b) => a - b);
+    return order.map((id) => enemies.get(id)!);
+  };
 
   // The stamp covers every hittable enemy whose feet are within the radius of the operator's.
   // Only defeatable ones take damage; on the rest it is void, and the gauge is gone either way.
@@ -380,8 +390,9 @@ export function step(state: GameState, input: TickInput): StepResult {
     }
   }
 
-  // A closed boss stops attacking at once: its shots and areas go with it.
-  const closed = new Set(byId().filter((e) => e.phase === 'closed').map((e) => e.id));
+  // A closed boss stops attacking at once: its shots and areas go with it. A closed ordinary
+  // enemy's shot already in the air still flies.
+  const closed = new Set(byId().filter((e) => e.boss && e.phase === 'closed').map((e) => e.id));
   for (const [id, z] of zones) if (closed.has(z.owner)) zones.delete(id);
   shots = shots.filter((sh) => !closed.has(sh.owner));
 
@@ -480,7 +491,7 @@ export const selectFrozen = (s: GameState): boolean => s.freeze > 0;
 export const selectGauge = (s: GameState): { readonly value: number; readonly max: number } =>
   ({ value: s.operator.gauge, max: STAMP.gaugeMax });
 export const selectClock = (s: GameState): RuleClock => s.clock;
-/** Clinging enemies in the order they latched on, for drawing them on the operator. */
+/** Clinging enemies in id order, for drawing them on the operator. */
 export const selectStacks = (s: GameState): readonly Readonly<EnemyState>[] =>
   s.enemies.filter((e) => e.phase === 'attached');
 
