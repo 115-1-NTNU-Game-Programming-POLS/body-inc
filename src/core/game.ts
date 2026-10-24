@@ -1,6 +1,6 @@
 import { moveAndCollide, type Body } from './collision/grid.ts';
 import { approach, desiredVelocity, facingFor, type Facing, type Vec } from './combat/movement.ts';
-import { seedRng, type RngState } from './rng.ts';
+import { seedStreams, type RngStreams } from './rng.ts';
 import { playerStart, type RoomModel } from './rooms/tiled.ts';
 
 /** Player intent for one tick, produced by the input adapter (keys and bindings never reach core). */
@@ -22,7 +22,7 @@ export interface OperatorState {
 
 export interface GameState {
   readonly tick: number;
-  readonly rng: RngState;
+  readonly rng: RngStreams;
   readonly room: RoomModel;
   readonly operator: OperatorState;
 }
@@ -43,7 +43,7 @@ export function createGame(room: RoomModel, seed: number): GameState {
   const start = playerStart(room);
   return {
     tick: 0,
-    rng: seedRng(seed),
+    rng: seedStreams(seed),
     room,
     operator: { x: start.x, y: start.y, vx: 0, vy: 0, facing: 'down', slows: [] },
   };

@@ -4,3 +4,9 @@ export { parseRoom, RoomFormatError, type RoomModel, type TiledMap } from './roo
 export { TICK_HZ, TICK_MS, TILE } from './time.ts';
 export type { Facing, Vec } from './combat/movement.ts';
 export type { Body, SolidGrid } from './collision/grid.ts';
+export * from './clock.ts';
+export * from './rng.ts';
+export * from './tags/condition.ts';
+export * from './tags/dictionary.ts';
+export * from './tags/causal.ts';
+export * from './tags/store.ts';
