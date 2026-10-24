@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { atlasProblems, atlasUrls, type AsepriteJson, type Manifest } from '../../src/app/assets.ts';
 import { FixedStepLoop } from '../../src/app/loop.ts';
-import { createGame, parseRoom, TICK_MS, type TiledMap } from '../../src/core/index.ts';
+import { createGame, EMPTY_TAGS, enterRoom, parseRoom, TICK_MS, type TiledMap } from '../../src/core/index.ts';
 
 const manifest = JSON.parse(readFileSync('public/assets/manifest.json', 'utf8')) as Manifest;
 const index = JSON.parse(readFileSync('public/assets/atlases/index.json', 'utf8')) as Record<string, string>;
@@ -34,7 +34,7 @@ describe('asset contract', () => {
 });
 
 describe('fixed-step loop', () => {
-  const room = parseRoom('g', JSON.parse(readFileSync('public/assets/maps/greybox/greybox-room.tmj', 'utf8')) as TiledMap, TAGS);
+  const room = enterRoom(parseRoom('g', JSON.parse(readFileSync('public/assets/maps/greybox/greybox-room.tmj', 'utf8')) as TiledMap, TAGS), EMPTY_TAGS, TAGS);
 
   it('turns elapsed time into whole ticks and scales by game speed', () => {
     const loop = new FixedStepLoop(createGame(room, 1, ENEMIES));

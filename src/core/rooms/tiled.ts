@@ -10,7 +10,8 @@ import { OBJECT_CLASSES, ROOM_CLASS, VARIANT_PREFIX, type ClassSpec, type RefKin
  *
  * Authoring convention: every non-empty cell of the top-level tile layer "walls" is solid;
  * objects live in the object layer "objects" or inside a top-level "variant:<id>" group or
- * layer, whose `when` property switches it on. Object kind is its Tiled class.
+ * layer, whose `when` property switches it on. Object kind is its Tiled class. Object layers
+ * named "props" (art direction 7.3) hold decoration only and are left to the view.
  */
 export interface TiledMap {
   readonly width: number;
@@ -109,6 +110,8 @@ export class RoomFormatError extends Error {
 /** Standard room is 20 x 12; 2 x 1 and 2 x 2 are allowed (design doc 13.3). */
 export const CELL_COLS = 20;
 export const CELL_ROWS = 12;
+/** Decoration object layer; tile objects only, no gameplay class. */
+export const PROPS_LAYER = 'props';
 const ALLOWED_CELLS: ReadonlyArray<readonly [number, number]> = [[1, 1], [2, 1], [2, 2]];
 
 /**
@@ -251,7 +254,7 @@ export function readRoom(id: string, map: TiledMap, dict: TagDictionary): ReadRe
   const objects: RoomObject[] = [];
   const readObjects = (layer: TiledLayer, variant: string | undefined) => {
     if (layer.type === 'group') for (const l of layer.layers) readObjects(l, variant);
-    if (layer.type !== 'objectgroup') return;
+    if (layer.type !== 'objectgroup' || layer.name === PROPS_LAYER) return;
     for (const o of layer.objects) {
       const kind = o.class ?? o.type ?? '';
       const spec = OBJECT_CLASSES[kind];

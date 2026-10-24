@@ -2,13 +2,13 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
   BUFFER_TICKS, createGame, DODGE, HURT, isInvincible, loadEnemyTable, MOVE, NO_INPUT, SALESMAN, stateHash, step, STAPLER,
-  TILE, type DomainEvent, type EnemyState, type GameState, type RoomModel, type TickInput,
+  TILE, type DomainEvent, type EnemyState, type EnteredRoom, type GameState, type TickInput,
 } from '../../src/core/index.ts';
 
 const TABLE = loadEnemyTable(JSON.parse(readFileSync('content/enemies.json', 'utf8')));
 
 /** Open 20 x 12 room with a one-tile border; PlayerStart at (160, 192). */
-function room(spawns: { type: string; x: number; y: number; respawnSeconds?: number; count?: number }[] = []): RoomModel {
+function room(spawns: { type: string; x: number; y: number; respawnSeconds?: number; count?: number }[] = []): EnteredRoom {
   const cols = 20;
   const rows = 12;
   const solid = Array.from({ length: cols * rows }, (_, i) => {
@@ -17,7 +17,7 @@ function room(spawns: { type: string; x: number; y: number; respawnSeconds?: num
     return c === 0 || r === 0 || c === cols - 1 || r === rows - 1;
   });
   return {
-    id: 'test', grid: { cols, rows, solid }, props: {}, variants: [],
+    id: 'test', grid: { cols, rows, solid }, props: {}, variants: [], active: [],
     objects: [
       { id: 1, kind: 'PlayerStart', x: 160, y: 192, width: 0, height: 0, props: {}, conditions: {} },
       ...spawns.map((s, i) => ({

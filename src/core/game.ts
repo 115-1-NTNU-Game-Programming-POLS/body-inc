@@ -9,7 +9,8 @@ import {
   type OperatorState, type TickInput,
 } from './combat/operator.ts';
 import { seedStreams, type RngStreams } from './rng.ts';
-import { playerStart, type RoomModel } from './rooms/tiled.ts';
+import type { EnteredRoom } from './rooms/entry.ts';
+import { playerStart } from './rooms/tiled.ts';
 import { TICK_HZ, TILE } from './time.ts';
 
 export { NO_INPUT, OPERATOR_BODY, OPERATOR_HURT, type OperatorAction, type OperatorState, type TickInput } from './combat/operator.ts';
@@ -27,7 +28,7 @@ export interface Projectile {
 export interface GameState {
   readonly tick: number;
   readonly rng: RngStreams;
-  readonly room: RoomModel;
+  readonly room: EnteredRoom;
   readonly operator: OperatorState;
   readonly enemies: readonly EnemyState[];
   readonly projectiles: readonly Projectile[];
@@ -69,15 +70,15 @@ const STAPLE_HALF = 2;
 const STAPLE_LIFE = Math.ceil(STAPLER.rangePx / STAPLER.speed);
 
 /**
- * Enemies come from base-layer Spawn objects without a `when`; tag-driven spawns and variant
- * layers are switched in at room entry once P2 lands. Ids come from the shared counter, taken
- * in object id order, so no Spawn count can make two enemies share an id.
+ * Enemies come from the Spawns enterRoom kept, so inactive variants and failed `when`s never
+ * reach here. Ids come from the shared counter, taken in object id order, so no Spawn count
+ * can make two enemies share an id.
  */
-function spawnEnemies(room: RoomModel, table: EnemyTable, firstId: number): { enemies: EnemyState[]; nextId: number } {
+function spawnEnemies(room: EnteredRoom, table: EnemyTable, firstId: number): { enemies: EnemyState[]; nextId: number } {
   const out: EnemyState[] = [];
   let nextId = firstId;
   for (const o of [...room.objects].sort((a, b) => a.id - b.id)) {
-    if (o.kind !== 'Spawn' || o.variant !== undefined || o.conditions['when']) continue;
+    if (o.kind !== 'Spawn') continue;
     const type = String(o.props['enemyType']);
     const def = table.enemies.get(type);
     if (!def) throw new GameSetupError(`${room.id}: Spawn #${o.id} uses enemy "${type}", which content/enemies.json does not define`);
@@ -101,8 +102,11 @@ function spawnEnemies(room: RoomModel, table: EnemyTable, firstId: number): { en
   return { enemies: out, nextId };
 }
 
-/** The enemy table is required: rooms with Spawns cannot start without it. */
-export function createGame(room: RoomModel, seed: number, table: EnemyTable): GameState {
+/**
+ * The enemy table is required: rooms with Spawns cannot start without it. The room must have
+ * gone through enterRoom, so a caller cannot forget the tags and silently get the base room.
+ */
+export function createGame(room: EnteredRoom, seed: number, table: EnemyTable): GameState {
   const start = playerStart(room);
   const spawned = spawnEnemies(room, table, 1);
   return {
@@ -250,4 +254,5 @@ export const selectProjectiles = (s: GameState): readonly Readonly<Projectile>[]
 export const selectHearts = (s: GameState): { readonly halves: number; readonly maxHalves: number } =>
   ({ halves: s.operator.halves, maxHalves: s.operator.maxHalves });
 export const selectTick = (s: GameState): number => s.tick;
+export const selectActiveVariants = (s: GameState): readonly string[] => s.room.active;
 export const selectFrozen = (s: GameState): boolean => s.freeze > 0;

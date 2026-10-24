@@ -3,12 +3,12 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { bodyOverlapsSolid } from '../../src/core/collision/grid.ts';
 import {
-  createGame, OPERATOR_BODY, parseRoom, RoomFormatError, stateHash, step, type GameState, type TickInput, type TiledMap,
+  createGame, EMPTY_TAGS, enterRoom, OPERATOR_BODY, parseRoom, RoomFormatError, stateHash, step, type GameState, type TickInput, type TiledMap,
 } from '../../src/core/index.ts';
 import { nextInt, seedRng } from '../../src/core/rng.ts';
 
 const MAP = JSON.parse(readFileSync('public/assets/maps/greybox/greybox-room.tmj', 'utf8')) as TiledMap;
-const room = parseRoom('greybox-room', MAP, TAGS);
+const room = enterRoom(parseRoom('greybox-room', MAP, TAGS), EMPTY_TAGS, TAGS);
 
 /**
  * Seeded random fight: a new stick direction every 20 ticks, fire held half the time, and a

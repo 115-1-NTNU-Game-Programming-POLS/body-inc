@@ -13,6 +13,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { basename, dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadEnemyTable, type EnemyTable } from '../src/core/combat/enemies.ts';
+import { listProps, type PropProblem, type TiledMapFile } from '../src/core/rooms/props.ts';
 import { SOCKET_COLS, SOCKET_ROWS, readRoom, type RoomModel, type RoomProblem, type TiledMap } from '../src/core/rooms/tiled.ts';
 import type { ConditionProblem } from '../src/core/tags/condition.ts';
 import { loadDictionary, type TagDictionary } from '../src/core/tags/dictionary.ts';
@@ -118,6 +119,14 @@ function problemMessage(p: RoomProblem): string {
   }
 }
 
+function propMessage(p: PropProblem): string {
+  switch (p.code) {
+    case 'prop-not-tile': return `圖層「${p.layer}」的物件 #${p.object} 不是圖塊物件；道具請從道具圖塊集拖曳`;
+    case 'prop-unknown-gid': return `圖層「${p.layer}」的道具 #${p.object} 用了圖塊編號 ${p.gid}，不屬於任何道具圖塊集`;
+    case 'variant-tile-layer': return `變體裡的圖塊圖層「${p.layer}」目前遊戲不會畫出來；請改用 props 物件圖層放道具`;
+  }
+}
+
 interface LoadedRoom {
   readonly file: string;
   readonly chapter: string;
@@ -170,6 +179,11 @@ export function checkMaps(mapsDir: string, content: MapContent = loadMapContent(
       if (o.kind === 'Pickup' && o.props['itemType'] === 'handbook' && !content.handbookIds.has(id)) {
         out.push(`${file} ${where(room, { object: o.id })}：itemId「${id}」不存在於手冊頁（content/handbook.json）`);
       }
+    }
+    const props = listProps({ ...map, tilesets: (map as Partial<TiledMapFile>).tilesets ?? [] });
+    for (const p of props.problems) out.push(`${file}：${propMessage(p)}`);
+    for (const p of props.props) {
+      if (!existsSync(join(dirname(path), p.image))) out.push(`${file} 道具 #${p.object}：圖片 ${p.image} 不存在`);
     }
     for (const t of list(room.props['tutorialFor'])) {
       const e = content.enemies.enemies.get(t);

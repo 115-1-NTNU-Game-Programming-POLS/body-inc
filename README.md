@@ -30,18 +30,21 @@
 npm install
 npm run dev          # 開發伺服器，WASD 移動、J 或左鍵釘書機（按住連射）、空白或 K 閃身、F1 顯示碰撞框
 npm run verify       # 型別檢查、測試、邊界與地圖檢查、建置，提交前必跑
-node tools/maps/make-greybox.ts   # 重新產生灰盒測試房間
+node tools/maps/make-greybox.ts         # 重新產生灰盒測試房間
+node tools/maps/make-brain-corridor.ts  # 重新產生灰盒大腦走廊（狀態變體範例）
 ```
 
 程式分成規則層 `src/core/`（純 TypeScript，可在 Node 執行，不得引用 Phaser 或瀏覽器）、轉接層 `src/app/` 與畫面層 `src/view/`，規則見 `docs/architecture.md`。違反分層的程式碼會讓 `npm run typecheck` 或 `npm run check` 失敗。合併到 `main` 時，GitHub Actions 會跑同一套檢查與美術檢查，通過後部署到 GitHub Pages。
 
 畫面上的文字一律用 `src/view/text/fonts.ts` 的 `addText` 建立，中文字串放在 `content/strings/zh-TW.json`。Boot 會等字型載入完遊戲可能用到的每個字才開始；開發版遇到字表外的字或字型還沒載完就建立文字，會直接報錯。要模擬網路慢的冷啟動，在網址加上 `?fontDelay=4000`。
 
-存檔透過 src/app/storage.ts 讀寫 localStorage（鍵名 hbc.v1.*），任何失敗都只在畫面左下角顯示提示，不會讓遊戲停下。存檔格式改版時，要在 src/core/save/slots.ts 調高版本並補上遷移函式，否則測試會失敗。開發版可在網址加上 ?storage=blocked 或 ?storage=full 模擬寫入失敗。
+存檔透過 `src/app/storage.ts` 讀寫 `localStorage`（鍵名 `hbc.v1.*`），任何失敗都只在畫面左下角顯示提示，不會讓遊戲停下。存檔格式改版時，要在 `src/core/save/slots.ts` 調高版本並補上遷移函式，否則測試會失敗。開發版可在網址加上 `?storage=blocked` 或 `?storage=full` 模擬寫入失敗。
+
+開發版可用網址選房間與進房時的狀態標籤，例如 `?room=greybox/brain-corridor&tags=sleep_debt:2,breakfast`：`room` 是 `public/assets/maps/` 下的「資料夾/檔名」，`tags` 的數值標籤寫成 `名稱:數值`、布林標籤只寫名稱。在外層卡牌（P1）完成前，這是看狀態變體的唯一方式；正式版忽略這兩個參數。
 
 ### 編輯地圖
 
-用 Tiled 開啟專案根目錄的 `body-inc.tiled-project`，物件類別（Spawn、NPC、Door 等）與地圖屬性會以下拉選單出現。地圖放在 `public/assets/maps/<章節>/*.tmj`，同一個資料夾視為同一章。狀態變體做成名稱以 `variant:` 開頭的圖層，類別選 Variant 並填 `when` 條件式。條件式只能用 `content/tags.json` 中的標籤與 `mod.` 開頭的修飾器。提交前執行 `node tools/check-maps.ts`，錯誤會以中文列出檔名與物件編號。新增敵人種類（`content/enemies.json`）後要重跑 `node tools/maps/make-tiled-project.ts` 更新下拉選單。
+用 Tiled 開啟專案根目錄的 `body-inc.tiled-project`，物件類別（Spawn、NPC、Door 等）與地圖屬性會以下拉選單出現。地圖放在 `public/assets/maps/<章節>/*.tmj`，同一個資料夾視為同一章。狀態變體做成名稱以 `variant:` 開頭的群組圖層，類別選 Variant 並填 `when` 條件式；進房時條件成立才會出現，房間裡標籤再變也不會即時切換。群組內的 `objects` 物件圖層放 Spawn 等玩法物件，`props` 物件圖層放道具：道具是從道具圖塊集（圖片集合，指向 `public/assets/props/*.png`）拖曳的圖塊物件，遊戲以同名的場景圖集影格畫出。變體內的圖塊圖層目前不會畫出，地圖檢查會報錯。範例見 `public/assets/maps/greybox/brain-corridor.tmj`。條件式只能用 `content/tags.json` 中的標籤與 `mod.` 開頭的修飾器。提交前執行 `node tools/check-maps.ts`，錯誤會以中文列出檔名與物件編號。新增敵人種類（`content/enemies.json`）後要重跑 `node tools/maps/make-tiled-project.ts` 更新下拉選單。
 
 ### 編輯內容資料
 

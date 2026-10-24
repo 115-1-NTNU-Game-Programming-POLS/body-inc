@@ -148,6 +148,19 @@ describe('map check', () => {
     const spawn = (enemy: string) => ({ type: 'Spawn', properties: [prop('enemyType', enemy)] });
     const tutorial = (enemy: string) => [...ROOM_PROPS, prop('tutorialFor', enemy)];
 
+    it('props must be tiles whose image exists next to the map', () => {
+      const withProps = (image: string, objects: object[]) => ({
+        ...map([]), tilesets: [{ firstgid: 50, name: 'props', tiles: [{ id: 0, image }] }],
+        layers: [...map([]).layers, { type: 'objectgroup', name: 'props', objects }],
+      }) as unknown as TiledMap;
+      writeFileSync(join(dir, 'prop-real.png'), '');
+      const tile = { id: 3, gid: 50, x: 0, y: 64, width: 64, height: 64 };
+      expect(check({ a: withProps('../prop-real.png', [tile]) })).toEqual([]);
+      expect(check({ a: withProps('../prop-gone.png', [tile]) })).toEqual(['圖片 ../prop-gone.png 不存在']);
+      expect(check({ a: withProps('../prop-real.png', [{ id: 4, x: 0, y: 0 }]) }))
+        .toEqual(['圖層「props」的物件 #4 不是圖塊物件；道具請從道具圖塊集拖曳']);
+    });
+
     it('a solution object in another room of the chapter counts', () => {
       expect(check({
         a: map([spawn('adenosine')], { props: tutorial('adenosine') }),

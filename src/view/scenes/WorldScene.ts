@@ -4,14 +4,15 @@ import { ENEMIES, FEEDBACK, STRINGS, TAGS } from '../../app/content.ts';
 import { KeyboardInput } from '../../app/input.ts';
 import { FixedStepLoop } from '../../app/loop.ts';
 import {
-  createGame, parseRoom, selectEnemies, selectOperator, selectProjectiles, TILE, type DomainEvent, type EnemyState, type GameState, type TiledMap,
+  createGame, enterRoom, listProps, parseRoom, visibleProps, selectEnemies, selectOperator, selectProjectiles, TILE,
+  type DomainEvent, type EnemyState, type EnteredRoom, type GameState, type TagState, type TiledMapFile,
 } from '../../core/index.ts';
 import { EnemyView, SKINS } from '../actors/EnemyView.ts';
 import { OperatorView } from '../actors/OperatorView.ts';
 import { CollisionOverlay } from '../debug/CollisionOverlay.ts';
 import { FeedbackPlayer } from '../fx/FeedbackPlayer.ts';
 import { makeFxTextures } from '../fx/textures.ts';
-import { GREYBOX_MAP } from './BootScene.ts';
+import { ROOM_MAP, SCENE_ATLASES } from './BootScene.ts';
 
 export interface WorldNote {
   readonly text: string;
@@ -35,22 +36,22 @@ export class WorldScene extends Phaser.Scene {
   }
 
   create(): void {
-    const mapData = this.cache.tilemap.get(GREYBOX_MAP).data as TiledMap & {
-      tilesets: readonly { name: string; margin: number; spacing: number }[];
-    };
-    const room = parseRoom(GREYBOX_MAP, mapData, TAGS);
+    const mapData = this.cache.tilemap.get(ROOM_MAP).data as TiledMapFile;
+    const path = this.registry.get('room-path') as string;
+    const room = enterRoom(parseRoom(path, mapData, TAGS), this.registry.get('entry-tags') as TagState, TAGS);
     this.loop = new FixedStepLoop(createGame(room, 1, ENEMIES));
     this.registry.set('loop', this.loop);
     makeFxTextures(this);
 
-    const map = this.make.tilemap({ key: GREYBOX_MAP });
-    const tilesets = mapData.tilesets.map((t) => {
-      const ts = map.addTilesetImage(t.name, t.name, TILE, TILE, t.margin, t.spacing);
+    const map = this.make.tilemap({ key: ROOM_MAP });
+    const tilesets = mapData.tilesets.filter((t) => t.image !== undefined).map((t) => {
+      const ts = map.addTilesetImage(t.name, t.name, TILE, TILE, t.margin ?? 0, t.spacing ?? 0);
       if (!ts) throw new Error(`tileset ${t.name} is not loaded`);
       return ts;
     });
     map.createLayer('floor', tilesets);
     map.createLayer('walls', tilesets);
+    this.drawProps(mapData, room);
 
     const manifest = this.cache.json.get('manifest') as Manifest;
     const entry = (key: string) => {
@@ -105,6 +106,18 @@ export class WorldScene extends Phaser.Scene {
     this.renderStaples(prevState, alpha);
     this.overlay.render(state);
     for (const e of this.pending.splice(0)) this.feedback.play(e, tick);
+  }
+
+  /**
+   * Base props plus those of the variants active at entry. Boot already checked every frame
+   * exists, so a miss here is a bug. Depth is the prop's bottom edge, like actors' feet.
+   */
+  private drawProps(mapData: TiledMapFile, room: EnteredRoom): void {
+    for (const p of visibleProps(listProps(mapData).props, room.active)) {
+      const atlas = SCENE_ATLASES.find((k) => this.textures.get(k).has(p.frame));
+      if (!atlas) throw new Error(`prop frame ${p.frame} is in no scene atlas`);
+      this.add.image(p.x, p.y, atlas, p.frame).setOrigin(0, 0).setDepth(p.y + p.height);
+    }
   }
 
   /** Staples are drawn 12 px above their ground position, rotated along their flight. */
