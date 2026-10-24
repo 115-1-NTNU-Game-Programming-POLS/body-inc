@@ -37,6 +37,8 @@ node tools/maps/make-greybox.ts   # 重新產生灰盒測試房間
 
 畫面上的文字一律用 `src/view/text/fonts.ts` 的 `addText` 建立，中文字串放在 `content/strings/zh-TW.json`。Boot 會等字型載入完遊戲可能用到的每個字才開始；開發版遇到字表外的字或字型還沒載完就建立文字，會直接報錯。要模擬網路慢的冷啟動，在網址加上 `?fontDelay=4000`。
 
+存檔透過 src/app/storage.ts 讀寫 localStorage（鍵名 hbc.v1.*），任何失敗都只在畫面左下角顯示提示，不會讓遊戲停下。存檔格式改版時，要在 src/core/save/slots.ts 調高版本並補上遷移函式，否則測試會失敗。開發版可在網址加上 ?storage=blocked 或 ?storage=full 模擬寫入失敗。
+
 ### 編輯地圖
 
 用 Tiled 開啟專案根目錄的 `body-inc.tiled-project`，物件類別（Spawn、NPC、Door 等）與地圖屬性會以下拉選單出現。地圖放在 `public/assets/maps/<章節>/*.tmj`，同一個資料夾視為同一章。狀態變體做成名稱以 `variant:` 開頭的圖層，類別選 Variant 並填 `when` 條件式。條件式只能用 `content/tags.json` 中的標籤與 `mod.` 開頭的修飾器。提交前執行 `node tools/check-maps.ts`，錯誤會以中文列出檔名與物件編號。新增敵人種類（`content/enemies.json`）後要重跑 `node tools/maps/make-tiled-project.ts` 更新下拉選單。

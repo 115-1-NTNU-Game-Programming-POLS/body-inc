@@ -1,6 +1,8 @@
 import Phaser from 'phaser';
 import { atlasProblems, atlasUrls, type AsepriteJson, type AtlasIndex, type Manifest } from '../../app/assets.ts';
 import { STRINGS } from '../../app/content.ts';
+import { browserStore, SaveStore, type SaveIssue } from '../../app/storage.ts';
+import { SETTINGS } from '../../core/index.ts';
 import { glyphCorpus } from '../text/corpus.ts';
 import { addSystemText, loadFonts, type FontGateResult } from '../text/fonts.ts';
 
@@ -70,9 +72,21 @@ export class BootScene extends Phaser.Scene {
     void this.fonts.then(({ problems }) => {
       this.failed.push(...problems);
       if (this.failed.length > 0) return this.fail();
+      this.loadSaves();
       this.scene.start('World');
       this.scene.launch('Hud');
     });
+  }
+
+  /** Save problems never stop the game; they reach the HUD as notices (ux-spec section 8). */
+  private loadSaves(): void {
+    const saves = new SaveStore(browserStore(window));
+    const settings = saves.load(SETTINGS);
+    const issues: SaveIssue[] = [...settings.issues];
+    if (settings.needsWrite) issues.push(...saves.save(SETTINGS, settings.data));
+    this.registry.set('saves', saves);
+    this.registry.set('settings', settings.data);
+    this.registry.set('save-issues', issues);
   }
 
   private fail(): void {

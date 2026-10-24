@@ -19,3 +19,5 @@ export { inDodgeIframes, isInvincible } from './combat/operator.ts';
 export * from './content/generated.ts';
 export * from './content/read.ts';
 export * from './content/schema.ts';
+export * from './save/save.ts';
+export * from './save/slots.ts';

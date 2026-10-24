@@ -6,6 +6,11 @@
     "solution.conveyor": { "text": "非本部門權限：請送產線", "fact": "22" },
     "solution.guards": { "text": "非本部門權限：請找保全", "fact": "" },
     "hud.controls": { "text": "WASD 移動　J／左鍵 釘書機（按住連射）　空白／K 閃身　F1 碰撞框", "fact": "" },
-    "hud.rule_time": { "text": "規則時間 {seconds} 秒", "fact": "" }
+    "hud.rule_time": { "text": "規則時間 {seconds} 秒", "fact": "" },
+    "save.unavailable": { "text": "瀏覽器停用了儲存空間，這次的進度不會保留。", "fact": "" },
+    "save.write_blocked": { "text": "存檔失敗：瀏覽器不允許儲存，這次的進度不會保留。", "fact": "" },
+    "save.write_quota": { "text": "存檔失敗：瀏覽器的儲存空間已滿。", "fact": "" },
+    "save.corrupt": { "text": "存檔損毀，已備份並改用預設值。", "fact": "" },
+    "save.newer": { "text": "這份存檔來自較新的版本，本版本不會覆寫它。", "fact": "" }
   }
 }
