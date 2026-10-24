@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import type { FixedStepLoop } from '../../app/loop.ts';
-import { MINUTES_PER_DAY, selectClock, selectGauge, selectHearts, selectTick, TICK_HZ } from '../../core/index.ts';
+import { MINUTES_PER_DAY, selectBoss, selectClock, selectGauge, selectHearts, selectTick, TICK_HZ, type BossSummary, type GameState } from '../../core/index.ts';
 import { STRINGS } from '../../app/content.ts';
 import { issueMessage, type SaveIssue } from '../../app/storage.ts';
 import { addText, updateText } from '../text/fonts.ts';
@@ -27,6 +27,21 @@ const INK = 0x0c2d5e;
 const STAMP_RED = 0xc8372d;
 /** When full the pad pulses once every 2 s (art direction 8.3). */
 const FULL_PULSE_MS = 2000;
+/** Boss nameplate (art direction 8.3): top centre, x 400 to 880, y 16, 480 x 72. */
+const PLATE = { x: 400, y: 16, w: 480, h: 72 } as const;
+/** Caffeine's residue curve inside the plate: 160 x 32, the last 40 s sampled every 0.25 s. */
+const CURVE = { x: 708, y: 24, w: 160, h: 32, samples: 160, everyMs: 250 } as const;
+const PAPER = 0xf4efe4;
+
+interface Plate {
+  readonly g: Phaser.GameObjects.Graphics;
+  readonly name: Phaser.GameObjects.Text;
+  readonly stage: Phaser.GameObjects.Text;
+  readonly residue: Phaser.GameObjects.Text;
+  readonly history: number[];
+  lastSample: number;
+  shown: string;
+}
 
 /** Overlay at scale 1, separate from World so hit-stop and camera zoom never affect UI. */
 export class HudScene extends Phaser.Scene {
@@ -34,6 +49,7 @@ export class HudScene extends Phaser.Scene {
   private clock!: Phaser.GameObjects.Text;
   private hearts!: Phaser.GameObjects.Graphics;
   private gauge!: Phaser.GameObjects.Graphics;
+  private plate: Plate | undefined;
   private shownHalves = -1;
   private shownGauge = '';
   private shownTime = '';
@@ -106,6 +122,66 @@ export class HudScene extends Phaser.Scene {
     g.fillStyle(0xe8edf5).fillRect(GAUGE_X + 2 + GAUGE_W / 2, GAUGE_Y + 2, 1, GAUGE_H);
   }
 
+  /** Nameplate of the room's boss; made on first sight, since the Hud can start before World. */
+  private renderBoss(state: GameState, time: number): void {
+    const boss = selectBoss(state);
+    if (!boss) return;
+    if (!this.plate) {
+      const g = this.add.graphics();
+      const name = addText(this, PLATE.x + 16, PLATE.y + 6, str(`boss.${boss.type}.name`), { role: 'hand', weight: 700, size: 22, color: '#0c2d5e' });
+      const stage = addText(this, name.x + name.displayWidth + 48, PLATE.y + 12, '', { role: 'print', weight: 700, size: 14, color: '#0c2d5e' });
+      const residue = addText(this, CURVE.x, CURVE.y + CURVE.h + 2, '', { role: 'print', weight: 400, size: 12, color: '#0c2d5e' });
+      this.plate = { g, name, stage, residue, history: [], lastSample: -Infinity, shown: '' };
+      // The control hint line sits under the plate's left edge, so it moves below the plate.
+      this.controls.setY(PLATE.y + PLATE.h + 12);
+      this.clock.setY(this.controls.y + this.controls.displayHeight + 2);
+    }
+    const p = this.plate;
+    if (time - p.lastSample >= CURVE.everyMs) {
+      p.lastSample = time;
+      p.history.push(boss.residue);
+      if (p.history.length > CURVE.samples) p.history.shift();
+    }
+    const key = `${boss.budget}/${boss.stage}/${p.history.length}/${p.lastSample}/${boss.defeated}`;
+    if (key === p.shown) return;
+    p.shown = key;
+    this.drawPlate(p, boss);
+  }
+
+  private drawPlate(p: Plate, boss: BossSummary): void {
+    const g = p.g.clear();
+    g.fillStyle(INK, 0.35).fillRect(PLATE.x + 4, PLATE.y + 4, PLATE.w, PLATE.h);
+    g.fillStyle(INK).fillRect(PLATE.x - 2, PLATE.y - 2, PLATE.w + 4, PLATE.h + 4);
+    g.fillStyle(PAPER).fillRect(PLATE.x + 1, PLATE.y + 1, PLATE.w - 2, PLATE.h - 2);
+    // Stage dots: filled up to the current stage.
+    const dx = p.name.x + p.name.displayWidth + 12;
+    for (let i = 0; i < 3; i++) {
+      g.lineStyle(2, INK, 1).strokeCircle(dx + i * 12, PLATE.y + 22, 4);
+      if (i < boss.stage) g.fillStyle(INK).fillCircle(dx + i * 12, PLATE.y + 22, 4);
+    }
+    updateText(p.stage, str(`boss.stage.${boss.stage}`));
+    // Annual budget bar, in ink: red belongs to warnings and the stamp (art direction 3.2).
+    const bw = CURVE.x - 24 - (PLATE.x + 16);
+    g.fillStyle(INK).fillRect(PLATE.x + 16, PLATE.y + 48, bw, 14);
+    g.fillStyle(PAPER).fillRect(PLATE.x + 18, PLATE.y + 50, bw - 4, 10);
+    g.fillStyle(INK).fillRect(PLATE.x + 18, PLATE.y + 50, Math.round(((bw - 4) * boss.budget) / boss.maxBudget), 10);
+
+    // Residue curve with the boost threshold dashed across it.
+    const top = Math.max(200, ...p.history);
+    const yOf = (v: number) => CURVE.y + CURVE.h - (v / top) * CURVE.h;
+    g.lineStyle(1, INK, 0.5).strokeRect(CURVE.x, CURVE.y, CURVE.w, CURVE.h);
+    const ty = Math.round(yOf(boss.boostMin));
+    for (let x = CURVE.x; x < CURVE.x + CURVE.w; x += 6) g.fillStyle(INK, 0.6).fillRect(x, ty, 3, 1);
+    g.lineStyle(2, INK, 1).beginPath();
+    p.history.forEach((v, i) => {
+      const x = CURVE.x + CURVE.w - (p.history.length - 1 - i) * (CURVE.w / CURVE.samples);
+      if (i === 0) g.moveTo(x, yOf(v));
+      else g.lineTo(x, yOf(v));
+    });
+    g.strokePath();
+    updateText(p.residue, str('boss.residue').replace('{residue}', String(Math.round(boss.residue))));
+  }
+
   override update(time: number): void {
     const loop = this.registry.get('loop') as FixedStepLoop | undefined;
     if (!loop) return;
@@ -121,6 +197,7 @@ export class HudScene extends Phaser.Scene {
       this.shownGauge = gaugeKey;
       this.drawGauge(value, max, lit);
     }
+    this.renderBoss(loop.state, time);
     const seconds = (selectTick(loop.state) / TICK_HZ).toFixed(1);
     const clock = selectClock(loop.state);
     const minute = clock.minute % MINUTES_PER_DAY;

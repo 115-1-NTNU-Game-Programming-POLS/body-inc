@@ -32,6 +32,7 @@ npm run dev          # 開發伺服器，WASD 移動、J 或左鍵釘書機（�
 npm run verify       # 型別檢查、測試、邊界與地圖檢查、建置，提交前必跑
 node tools/maps/make-greybox.ts         # 重新產生灰盒測試房間
 node tools/maps/make-brain-corridor.ts  # 重新產生灰盒大腦走廊（狀態變體範例）
+node tools/maps/make-caffeine-arena.ts  # 重新產生咖啡因 Boss 灰盒場地
 ```
 
 程式分成規則層 `src/core/`（純 TypeScript，可在 Node 執行，不得引用 Phaser 或瀏覽器）、轉接層 `src/app/` 與畫面層 `src/view/`，規則見 `docs/architecture.md`。違反分層的程式碼會讓 `npm run typecheck` 或 `npm run check` 失敗。合併到 `main` 時，GitHub Actions 會跑同一套檢查與美術檢查，通過後部署到 GitHub Pages。
@@ -40,7 +41,7 @@ node tools/maps/make-brain-corridor.ts  # 重新產生灰盒大腦走廊（狀�
 
 存檔透過 `src/app/storage.ts` 讀寫 `localStorage`（鍵名 `hbc.v1.*`），任何失敗都只在畫面左下角顯示提示，不會讓遊戲停下。存檔格式改版時，要在 `src/core/save/slots.ts` 調高版本並補上遷移函式，否則測試會失敗。開發版可在網址加上 `?storage=blocked` 或 `?storage=full` 模擬寫入失敗。
 
-開發版可用網址選房間與進房時的狀態標籤，例如 `?room=greybox/brain-corridor&tags=sleep_debt:2,breakfast`：`room` 是 `public/assets/maps/` 下的「資料夾/檔名」，`tags` 的數值標籤寫成 `名稱:數值`、布林標籤只寫名稱。在外層卡牌（P1）完成前，這是看狀態變體的唯一方式。`sleep_debt` 也決定董事長精神係數 P，進而影響駁回量表的充能速度。加上 `gauge=100` 會以滿格的駁回量表開始，不必先打中 125 發釘書針就能試印章。正式版忽略這些參數。
+開發版可用網址選房間與進房時的狀態標籤，例如 `?room=greybox/brain-corridor&tags=sleep_debt:2,breakfast`：`room` 是 `public/assets/maps/` 下的「資料夾/檔名」，`tags` 的數值標籤寫成 `名稱:數值`、布林標籤只寫名稱。在外層卡牌（P1）完成前，這是看狀態變體的唯一方式。`sleep_debt` 也決定董事長精神係數 P，進而影響駁回量表的充能速度。加上 `gauge=100` 會以滿格的駁回量表開始，不必先打中 125 發釘書針就能試印章。`?room=greybox/caffeine-arena&gauge=100` 是續杯經理卡費因的 Boss 戰，在他舉起提案書時蓋章可以駁回提案；灰盒測試房間裡有推銷員、傳單手與腺苷各一。正式版忽略這些參數。
 
 ### 編輯地圖
 
@@ -48,7 +49,7 @@ node tools/maps/make-brain-corridor.ts  # 重新產生灰盒大腦走廊（狀�
 
 ### 編輯內容資料
 
-`content/` 下的每個 JSON 檔都由 `content/schema/` 中對應的 schema 檢查，對應關係登記在 `tools/check-content.ts` 的 `RULES`。提交前執行 `node tools/check-content.ts`，會以中文列出檔名、欄位位置與問題，例如拼錯或多出的欄位。修改 schema 後要重跑 `node tools/content/make-content-types.ts`，重新產生程式使用的型別 `src/core/content/generated.ts`。
+`content/` 下的每個 JSON 檔都由 `content/schema/` 中對應的 schema 檢查，對應關係登記在 `tools/check-content.ts` 的 `RULES`。提交前執行 `node tools/check-content.ts`，會以中文列出檔名、欄位位置與問題，例如拼錯或多出的欄位。Boss 的招式與數值放在 `content/bosses/<id>.json`，每一招必須符合預警分級的長度，範圍招的有效時間不得超過閃身無敵幀，否則載入失敗。修改 schema 後要重跑 `node tools/content/make-content-types.ts`，重新產生程式使用的型別 `src/core/content/generated.ts`。
 
 角色圖集由 `public/assets/atlases/index.json` 決定載入正式圖或佔位圖；加入正式圖集 `public/assets/atlases/<key>.json` 後須重跑 `python tools/art/make_placeholders.py` 更新索引。
 

@@ -14,6 +14,7 @@ const ALL_EVENTS: Record<DomainEvent['type'], true> = {
   bumpWall: true, fire: true, dodge: true, perfectDodge: true, telegraph: true, hit: true, caseClosed: true,
   dispersed: true, reformed: true, respawned: true, immuneBounce: true, heartLost: true, freeze: true, forcedLeave: true,
   gaugeFull: true, stampRaised: true, stampLanded: true, stampVoid: true, clung: true, forcedNap: true,
+  bossStage: true, bossDrink: true, bossSummon: true, powerCut: true, proposalRejected: true, bossDefeated: true,
 };
 /** Every event type core can emit; a feedback key outside this list is a typo. */
 export const EVENT_TYPES = Object.keys(ALL_EVENTS) as DomainEvent['type'][];
@@ -65,6 +66,7 @@ export function noteFields(table: EnemyTable): NoteFields {
   return {
     immuneBounce: { solution: solutions((c) => c === 'immune') },
     stampVoid: { solution: solutions((c) => c !== 'defeatable') },
+    bossStage: { stage: ['2', '3'] },
   };
 }
 

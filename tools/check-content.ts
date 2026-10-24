@@ -12,7 +12,9 @@ import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { feedbackProblems, noteFields } from '../src/app/feedback.ts';
 import type { ContentTypes, SchemaName, SchemaProblem } from '../src/core/index.ts';
-import { DictionaryError, EnemyTableError, loadDictionary, loadEnemyTable, schemaProblems, type EnemyTable } from '../src/core/index.ts';
+import {
+  BossTableError, DictionaryError, EnemyTableError, loadBossTable, loadDictionary, loadEnemyTable, schemaProblems, type EnemyTable,
+} from '../src/core/index.ts';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -24,6 +26,7 @@ const RULES: ReadonlyArray<readonly [RegExp, SchemaName]> = [
   [/^params\.json$/, 'params'],
   [/^strings\/[a-z]{2}(-[A-Z]{2})?\.json$/, 'strings'],
   [/^cards\/schedule\.json$/, 'scheduleCards'],
+  [/^bosses\/[a-z0-9_]+\.json$/, 'boss'],
 ];
 
 const TYPE_NAME: Record<string, string> = {
@@ -64,7 +67,7 @@ function loaderProblems(file: string, load: () => void): string[] {
     load();
     return [];
   } catch (e) {
-    if (e instanceof DictionaryError || e instanceof EnemyTableError) return e.problems.map((p) => `${file}：${p}`);
+    if (e instanceof DictionaryError || e instanceof EnemyTableError || e instanceof BossTableError) return e.problems.map((p) => `${file}：${p}`);
     throw e;
   }
 }
@@ -112,6 +115,15 @@ export function checkContent(contentDir: string): string[] {
   }
 
   const params = get<'params'>('params.json');
+  // Boss files are checked against the enemy table; every boss enemy needs a file, so this runs
+  // even when content/bosses is empty.
+  const bossFiles = [...valid.entries()].filter(([, v]) => v.schema === 'boss');
+  const invalidBoss = walk(root).some((p) => /[\\/]bosses[\\/]/.test(p) && !valid.has(relative(root, p).replaceAll('\\', '/')));
+  if (enemyTable && params && !invalidBoss) {
+    const where = bossFiles.length === 1 ? bossFiles[0]![1].file : 'content/bosses';
+    out.push(...loaderProblems(where, () => loadBossTable(bossFiles.map(([, v]) => v.value), enemyTable!, params.value.defaults)));
+  }
+
   if (params) {
     const keys = Object.keys(params.value.defaults);
     for (const k of keys) if (!(k in params.value.notes)) out.push(`${params.file} notes：參數「${k}」沒有來源說明（DOC、ASSUME 等）`);

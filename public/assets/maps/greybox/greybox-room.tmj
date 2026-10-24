@@ -10,7 +10,7 @@
  "tilewidth": 32,
  "tileheight": 32,
  "nextlayerid": 4,
- "nextobjectid": 10,
+ "nextobjectid": 11,
  "class": "Room",
  "properties": [
   {
@@ -726,6 +726,31 @@
      "rotation": 0,
      "visible": true,
      "properties": []
+    },
+    {
+     "id": 10,
+     "name": "flyer",
+     "type": "Spawn",
+     "x": 560,
+     "y": 150,
+     "width": 0,
+     "height": 0,
+     "rotation": 0,
+     "visible": true,
+     "point": true,
+     "properties": [
+      {
+       "name": "enemyType",
+       "type": "string",
+       "propertytype": "EnemyType",
+       "value": "flyer"
+      },
+      {
+       "name": "respawnSeconds",
+       "type": "float",
+       "value": 3
+      }
+     ]
     }
    ]
   }

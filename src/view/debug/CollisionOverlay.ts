@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import {
-  boxAt, centeredBox, enemyHurtbox, isHittable, OPERATOR_BODY, OPERATOR_HURT, strikeBox, TILE, type Box, type GameState,
+  boxAt, centeredBox, enemyHurtbox, isHittable, isMelee, OPERATOR_BODY, OPERATOR_HURT, shotBox, strikeBox, TILE, zoneLive,
+  type Box, type GameState,
 } from '../../core/index.ts';
 
 /**
@@ -40,8 +41,11 @@ export class CollisionOverlay {
     draw(boxAt(OPERATOR_HURT, op.x, op.y), 0x34c759);
     for (const e of state.enemies) {
       if (isHittable(e)) draw(enemyHurtbox(e), 0xffd60a);
-      if (e.phase === 'strike') draw(strikeBox(e), 0xff2d95);
+      if (isMelee(e) && e.phase === 'strike') draw(strikeBox(e), 0xff2d95);
     }
     for (const p of state.projectiles) draw(centeredBox(p.x, p.y, 2, 2), 0xffffff);
+    for (const s of state.shots) draw(shotBox(s), s.spent ? 0x8e8e93 : 0xff2d95);
+    // Areas: orange while they warn, magenta on the ticks they can hit.
+    for (const z of state.zones) g.lineStyle(1, zoneLive(z) ? 0xff2d95 : 0xff9500, 1).strokeCircle(z.x, z.y, z.radius);
   }
 }

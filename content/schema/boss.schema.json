@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "BossFile",
+  "description": "One boss: budget, stages and move table (architecture section 4, content/bosses). Rules the schema cannot state (telegraph lengths per tier, live windows no longer than the dodge i-frames, the summoned enemy existing) are checked in core/combat/bosses/boss.ts.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "id", "behaviour", "budget", "stage2Budget", "speedTiles", "rangeTiles", "restSeconds", "drink", "summon", "powerCutSeconds", "moves", "notes"],
+  "properties": {
+    "version": { "const": 1 },
+    "id": { "description": "Matches the boss field of the enemy in content/enemies.json.", "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+    "behaviour": { "description": "Which core controller runs this boss.", "enum": ["caffeine"] },
+    "budget": { "description": "Annual budget, the boss's health (design doc 5.8).", "type": "integer", "minimum": 1 },
+    "stage2Budget": { "description": "Stage 2 starts once the budget falls to this.", "type": "integer", "minimum": 1 },
+    "speedTiles": { "description": "Walking speed in tiles per second before caffeine.", "type": "number", "exclusiveMinimum": 0 },
+    "rangeTiles": { "description": "Preferred distance from the operator, [near, far] in tiles.", "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "number", "minimum": 0 } },
+    "restSeconds": { "description": "Pause between moves before caffeine; caffeine shortens it.", "type": "number", "minimum": 0 },
+    "drink": { "$ref": "#/$defs/BossDrink" },
+    "summon": { "$ref": "#/$defs/BossSummon" },
+    "powerCutSeconds": { "description": "How long the stage-3 power cut holds the boss still.", "type": "number", "exclusiveMinimum": 0 },
+    "moves": { "type": "object", "additionalProperties": { "$ref": "#/$defs/BossMove" } },
+    "notes": { "description": "Provenance of the numbers (DOC, ASSUME), as in content/params.json.", "type": "object", "additionalProperties": { "type": "string" } }
+  },
+  "$defs": {
+    "BossDrink": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["seconds", "refillDelaySeconds", "burstCups", "tolerantFromCup"],
+      "properties": {
+        "seconds": { "type": "number", "exclusiveMinimum": 0 },
+        "refillDelaySeconds": { "description": "Stage 1: how long the residue stays under the boost threshold before the next cup.", "type": "number", "minimum": 0 },
+        "burstCups": { "description": "Cups drunk back to back on entering stage 2 and after each power cut.", "type": "integer", "minimum": 1 },
+        "tolerantFromCup": { "description": "From this cup on the boost is the tolerant one (design doc 7.4: the third).", "type": "integer", "minimum": 1 }
+      }
+    },
+    "BossSummon": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enemy", "count", "everySeconds", "max", "seconds"],
+      "properties": {
+        "enemy": { "description": "Enemy id from content/enemies.json.", "type": "string" },
+        "count": { "type": "integer", "minimum": 1 },
+        "everySeconds": { "type": "number", "exclusiveMinimum": 0 },
+        "max": { "description": "Most summoned enemies alive at once.", "type": "integer", "minimum": 1 },
+        "seconds": { "description": "Length of the summoning pose.", "type": "number", "exclusiveMinimum": 0 }
+      }
+    },
+    "BossMove": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tier", "weight", "telegraphSeconds", "recoverSeconds", "halves"],
+      "properties": {
+        "tier": { "description": "Warning tier (design doc 5.3): 1 throws shots, 2 marks an area at the operator, 3 is a proposal around the boss.", "enum": [1, 2, 3] },
+        "weight": { "description": "Relative chance of being picked.", "type": "integer", "minimum": 1 },
+        "telegraphSeconds": { "type": "number", "exclusiveMinimum": 0 },
+        "recoverSeconds": { "type": "number", "minimum": 0 },
+        "halves": { "description": "Half hearts per hit.", "type": "integer", "minimum": 1 },
+        "shots": { "description": "Tier 1: shots per throw, fanned around the aim.", "type": "integer", "minimum": 1 },
+        "spreadDeg": { "description": "Tier 1: degrees between neighbouring shots.", "type": "number", "minimum": 0 },
+        "shotSpeedTiles": { "description": "Tier 1: tiles per second.", "type": "number", "exclusiveMinimum": 0 },
+        "rangeTiles": { "description": "Tier 1: how far a shot flies.", "type": "number", "exclusiveMinimum": 0 },
+        "radiusTiles": { "description": "Tier 2 and 3: radius of the area.", "type": "number", "exclusiveMinimum": 0 },
+        "activeTicks": { "description": "Tier 2 and 3: ticks the area stays live after the telegraph.", "type": "integer", "minimum": 1 }
+      }
+    }
+  }
+}

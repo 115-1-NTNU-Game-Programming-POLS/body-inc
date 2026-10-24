@@ -1,8 +1,12 @@
 import { boxAt, centeredBox, overlaps } from './collision/boxes.ts';
 import { isSolid } from './collision/grid.ts';
-import { enemyHurtbox, isHittable, stepEnemy, strikeBox, type EnemyState } from './combat/actors.ts';
+import { enemyCenter, enemyHurtbox, isHittable, isMelee, stepEnemy, strikeBox, type EnemyState } from './combat/actors.ts';
+import { newBossState, type BossDef, type BossTable } from './combat/bosses/boss.ts';
+import { proposalOpen, stepCaffeine } from './combat/bosses/caffeine.ts';
+import type { Enemy } from './content/generated.ts';
 import type { EnemyTable } from './combat/enemies.ts';
-import { BASE_HALVES, CLING, DODGE, ENEMY_HIT_FREEZE, GAUGE, HURT, STAMP, STAPLER } from './combat/frames.ts';
+import { BASE_HALVES, BOSS, CLING, DODGE, ENEMY_HIT_FREEZE, GAUGE, HURT, STAMP, STAPLER } from './combat/frames.ts';
+import { circleTouchesBox, shotBox, zoneContinues, zoneLive, type Shot, type ShotSpec, type Zone, type ZoneSpec } from './combat/hazards.ts';
 import type { Vec } from './combat/movement.ts';
 import {
   bufferInput, gaugeFull, hurtOperator, inDodgeIframes, isInvincible, newOperator, OPERATOR_BODY, OPERATOR_HURT, stepOperator, unit,
@@ -16,6 +20,7 @@ import { TICK_HZ, TILE } from './time.ts';
 
 export { NO_INPUT, OPERATOR_BODY, OPERATOR_HURT, type OperatorAction, type OperatorState, type TickInput } from './combat/operator.ts';
 export type { EnemyPhase, EnemyState } from './combat/actors.ts';
+export type { Shot, Zone } from './combat/hazards.ts';
 
 export interface Projectile {
   readonly id: number;
@@ -36,7 +41,14 @@ export interface GameState {
   readonly room: EnteredRoom;
   readonly operator: OperatorState;
   readonly enemies: readonly EnemyState[];
+  /** The operator's staples. */
   readonly projectiles: readonly Projectile[];
+  /** Thrown enemy attacks: flyer sheets, coffee cups. */
+  readonly shots: readonly Shot[];
+  /** Tier-2 and tier-3 areas, from their telegraph to their last live tick. */
+  readonly zones: readonly Zone[];
+  /** Definitions of the bosses in this room, by boss id; kept in state so a replay needs nothing else. */
+  readonly bosses: Readonly<Record<string, BossDef>>;
   readonly nextId: number;
   /** Whole-fight hit-stop: while above 0 only input buffering and the tick counter advance. */
   readonly freeze: number;
@@ -51,7 +63,7 @@ export type DomainEvent =
   | { readonly type: 'fire'; readonly weapon: 'stapler' }
   | { readonly type: 'dodge' }
   | { readonly type: 'perfectDodge'; readonly source: number }
-  | { readonly type: 'telegraph'; readonly source: number; readonly tier: 1 }
+  | { readonly type: 'telegraph'; readonly source: number; readonly tier: 1 | 2 | 3; readonly move?: string }
   | { readonly type: 'hit'; readonly target: number; readonly enemy: string; readonly hpLeft: number }
   | { readonly type: 'caseClosed'; readonly target: number; readonly enemy: string }
   | { readonly type: 'dispersed'; readonly target: number; readonly enemy: string }
@@ -66,7 +78,13 @@ export type DomainEvent =
   | { readonly type: 'stampLanded'; readonly x: number; readonly y: number; readonly radius: number }
   | { readonly type: 'stampVoid'; readonly target: number; readonly enemy: string; readonly solution: string }
   | { readonly type: 'clung'; readonly target: number; readonly enemy: string; readonly stacks: number }
-  | { readonly type: 'forcedNap'; readonly minutes: number };
+  | { readonly type: 'forcedNap'; readonly minutes: number }
+  | { readonly type: 'bossStage'; readonly target: number; readonly stage: 2 | 3 }
+  | { readonly type: 'bossDrink'; readonly target: number; readonly residue: number; readonly cups: number }
+  | { readonly type: 'bossSummon'; readonly target: number; readonly count: number }
+  | { readonly type: 'powerCut'; readonly target: number; readonly seconds: number }
+  | { readonly type: 'proposalRejected'; readonly target: number }
+  | { readonly type: 'bossDefeated'; readonly target: number; readonly enemy: string };
 
 export interface StepResult {
   readonly state: GameState;
@@ -80,38 +98,48 @@ const COPY_SPACING = 20;
 const STAPLE_HALF = 2;
 const STAPLE_LIFE = Math.ceil(STAPLER.rangePx / STAPLER.speed);
 
+function enemyFrom(def: Enemy, id: number, x: number, y: number, respawnTicks: number, extra: Partial<EnemyState> = {}): EnemyState {
+  const hp = def.performance ?? 0;
+  return {
+    id, type: def.id, category: def.category,
+    ...(def.archetype ? { archetype: def.archetype } : {}),
+    ...(def.solution ? { solution: def.solution } : {}),
+    x, y, homeX: x, homeY: y, hp, maxHp: hp, phase: 'idle', phaseTicks: 0, frozen: 0,
+    strikeDir: { x: 0, y: 1 }, strikeSpent: false, respawnTicks, clings: def.clings === true,
+    ...extra,
+  };
+}
+
 /**
  * Enemies come from the Spawns enterRoom kept, so inactive variants and failed `when`s never
  * reach here. Ids come from the shared counter, taken in object id order, so no Spawn count
  * can make two enemies share an id.
  */
-function spawnEnemies(room: EnteredRoom, table: EnemyTable, firstId: number): { enemies: EnemyState[]; nextId: number } {
+function spawnEnemies(room: EnteredRoom, table: EnemyTable, bosses: BossTable | undefined, firstId: number) {
   const out: EnemyState[] = [];
+  const used: Record<string, BossDef> = {};
   let nextId = firstId;
   for (const o of [...room.objects].sort((a, b) => a.id - b.id)) {
     if (o.kind !== 'Spawn') continue;
     const type = String(o.props['enemyType']);
     const def = table.enemies.get(type);
     if (!def) throw new GameSetupError(`${room.id}: Spawn #${o.id} uses enemy "${type}", which content/enemies.json does not define`);
-    if (def.category === 'defeatable' && def.performance === undefined) {
+    const boss = def.boss === undefined ? undefined : bosses?.get(def.boss);
+    if (def.boss !== undefined && !boss) throw new GameSetupError(`${room.id}: enemy "${type}" is a boss, but no definition for "${def.boss}" was given`);
+    if (!boss && def.category === 'defeatable' && def.performance === undefined) {
       throw new GameSetupError(`${room.id}: enemy "${type}" has no performance in content/enemies.json, so it cannot be fought yet`);
     }
     const count = Number(o.props['count']);
     for (let i = 0; i < count; i++) {
       const x = o.x + (i - (count - 1) / 2) * COPY_SPACING;
-      const hp = def.performance ?? 0;
-      out.push({
-        id: nextId++, type, category: def.category,
-        ...(def.archetype ? { archetype: def.archetype } : {}),
-        ...(def.solution ? { solution: def.solution } : {}),
-        x, y: o.y, homeX: x, homeY: o.y, hp, maxHp: hp, phase: 'idle', phaseTicks: 0, frozen: 0,
-        strikeDir: { x: 0, y: 1 }, strikeSpent: false,
-        respawnTicks: Math.round(Number(o.props['respawnSeconds']) * TICK_HZ),
-        clings: def.clings === true,
-      });
+      const respawn = Math.round(Number(o.props['respawnSeconds']) * TICK_HZ);
+      if (boss) {
+        used[boss.id] = boss;
+        out.push(enemyFrom(def, nextId++, x, o.y, 0, { hp: boss.budget, maxHp: boss.budget, boss: newBossState(boss) }));
+      } else out.push(enemyFrom(def, nextId++, x, o.y, respawn));
     }
   }
-  return { enemies: out, nextId };
+  return { enemies: out, nextId, bosses: used };
 }
 
 export interface GameOptions {
@@ -120,6 +148,8 @@ export interface GameOptions {
   readonly clock?: RuleClock;
   /** Starting gauge, e.g. 50 from the early-sleep bonus card (design doc 8.8). */
   readonly gauge?: number;
+  /** Needed when the room spawns a boss. */
+  readonly bosses?: BossTable;
 }
 
 /**
@@ -132,7 +162,7 @@ export function createGame(room: EnteredRoom, seed: number, table: EnemyTable, o
   if (!(p > 0 && p <= 1)) throw new GameSetupError(`P must be in (0, 1], got ${p}`);
   if (!(gauge >= 0 && gauge <= STAMP.gaugeMax)) throw new GameSetupError(`gauge must be 0 to ${STAMP.gaugeMax}, got ${gauge}`);
   const start = playerStart(room);
-  const spawned = spawnEnemies(room, table, 1);
+  const spawned = spawnEnemies(room, table, options.bosses, 1);
   return {
     tick: 0,
     rng: seedStreams(seed),
@@ -142,12 +172,13 @@ export function createGame(room: EnteredRoom, seed: number, table: EnemyTable, o
     operator: newOperator(start.x, start.y, BASE_HALVES, gauge),
     enemies: spawned.enemies,
     projectiles: [],
+    shots: [],
+    zones: [],
+    bosses: spawned.bosses,
     nextId: spawned.nextId,
     freeze: 0,
   };
 }
-
-const center = (e: EnemyState): Vec => ({ x: e.x, y: e.y - 8 });
 
 /** Soft lock (design doc 5.2): the nearest defeatable target within 25 degrees of aim and 7 tiles. */
 function aimFrom(op: OperatorState, origin: Vec, enemies: readonly EnemyState[]): Vec {
@@ -155,7 +186,7 @@ function aimFrom(op: OperatorState, origin: Vec, enemies: readonly EnemyState[])
   let best: { e: EnemyState; d: number } | undefined;
   for (const e of enemies) {
     if (e.category !== 'defeatable' || !isHittable(e)) continue;
-    const c = center(e);
+    const c = enemyCenter(e);
     const dx = c.x - origin.x;
     const dy = c.y - origin.y;
     const d = Math.hypot(dx, dy);
@@ -164,24 +195,29 @@ function aimFrom(op: OperatorState, origin: Vec, enemies: readonly EnemyState[])
     if (!best || d < best.d) best = { e, d };
   }
   if (!best) return op.aim;
-  const c = center(best.e);
+  const c = enemyCenter(best.e);
   return unit({ x: c.x - origin.x, y: c.y - origin.y });
 }
 
 /**
  * Back to the last checkpoint: room enemies reset, nothing is taken away (design doc 5.6). The
- * gauge stays, and so do clinging stacks: only sleep clears adenosine, not a retry.
+ * gauge stays, and so do clinging stacks: only sleep clears adenosine, not a retry. A boss
+ * starts its fight over, and what it summoned leaves with the attempt unless it clings on.
  */
 function forcedLeave(state: GameState): GameState {
   const start = playerStart(state.room);
-  const enemies = state.enemies.map((e) => (e.phase === 'attached'
-    ? e
-    : { ...e, x: e.homeX, y: e.homeY, hp: e.maxHp, phase: 'idle' as const, phaseTicks: 0, frozen: 0 }));
+  const enemies = state.enemies.filter((e) => e.summoner === undefined || e.phase === 'attached').map((e) => {
+    if (e.phase === 'attached') return e;
+    const reset: EnemyState = { ...e, x: e.homeX, y: e.homeY, hp: e.maxHp, phase: 'idle', phaseTicks: 0, frozen: 0 };
+    return e.boss ? { ...reset, boss: newBossState(state.bosses[e.boss.def]!) } : reset;
+  });
   return {
     ...state,
     operator: withStacks(newOperator(start.x, start.y, state.operator.maxHalves, state.operator.gauge), enemies),
     enemies,
     projectiles: [],
+    shots: [],
+    zones: [],
     freeze: 0,
   };
 }
@@ -199,6 +235,25 @@ function charge(op: OperatorState, amount: number, p: number, events: DomainEven
   const gauge = Math.min(STAMP.gaugeMax, Math.round((op.gauge + amount * p) * 1e6) / 1e6);
   if (gauge >= STAMP.gaugeMax) events.push({ type: 'gaugeFull' });
   return { ...op, gauge };
+}
+
+/**
+ * Damage to a defeatable enemy. A boss has no hit-stop, so hits never stretch its telegraphs,
+ * and takes 1.5 times damage under review (design doc 5.4).
+ */
+function damage(e: EnemyState, amount: number, freeze: number, events: DomainEvent[]): EnemyState {
+  const factor = e.boss && e.boss.review > 0 ? BOSS.reviewDamageFactor : 1;
+  const hp = Math.round((e.hp - amount * factor) * 1e6) / 1e6;
+  if (hp <= 0) {
+    if (e.boss) {
+      events.push({ type: 'bossDefeated', target: e.id, enemy: e.type });
+      return { ...e, hp: 0, phase: 'closed', phaseTicks: 0, frozen: 0, boss: { ...e.boss, move: null } };
+    }
+    events.push({ type: 'caseClosed', target: e.id, enemy: e.type });
+    return { ...e, hp: 0, phase: 'closed', phaseTicks: 0, frozen: 0 };
+  }
+  events.push({ type: 'hit', target: e.id, enemy: e.type, hpLeft: hp });
+  return { ...e, hp, frozen: e.boss ? 0 : freeze };
 }
 
 export function step(state: GameState, input: TickInput): StepResult {
@@ -220,6 +275,7 @@ export function step(state: GameState, input: TickInput): StepResult {
   // Ids only ever grow, and every loop below runs in id order, so results never depend on
   // where an entity sits in its array.
   let nextId = state.nextId;
+  let rng = state.rng;
   const projectiles: Projectile[] = [...state.projectiles];
   if (s.fired) {
     const origin = { x: op.x, y: op.y - 4 };
@@ -228,33 +284,78 @@ export function step(state: GameState, input: TickInput): StepResult {
     events.push({ type: 'fire', weapon: 'stapler' });
   }
 
+  // Zones age before new ones join, so a zone's first tick is its age 1.
+  const zones = new Map<number, Zone>(state.zones.map((z) => [z.id, { ...z, age: z.age + 1 }]));
+  const newShots: ShotSpec[] = [];
+  const newZones: ZoneSpec[] = [];
+  const target = { x: op.x, y: op.y };
   const enemies = new Map<number, EnemyState>();
-  for (const e of [...state.enemies].sort((a, b) => a.id - b.id)) {
-    const r = stepEnemy(grid, e, { x: op.x, y: op.y });
+  const ordered = [...state.enemies].sort((a, b) => a.id - b.id);
+  for (const e of ordered) {
+    if (e.boss && e.phase !== 'closed') {
+      const def = state.bosses[e.boss.def]!;
+      const summoned = ordered.filter((x) => x.summoner === e.id).length;
+      const r = stepCaffeine(e, { grid, def, target, rng, summoned });
+      rng = r.rng;
+      enemies.set(e.id, r.enemy);
+      events.push(...r.events);
+      newShots.push(...r.shots);
+      newZones.push(...r.zones);
+      for (const at of r.summons) {
+        const id = nextId++;
+        enemies.set(id, enemyFrom(def.summon.enemy, id, at.x, at.y, 0, { summoner: e.id }));
+      }
+      if (r.powerCut) {
+        // The adenosine at his feet piles onto him (design doc 7.4); what clings to the operator stays.
+        for (const [id, z] of zones) if (z.owner === e.id) zones.delete(id);
+        for (const x of ordered) {
+          if (x.summoner === e.id && x.phase === 'idle') enemies.set(x.id, { ...x, phase: 'pinned', phaseTicks: 0, x: r.enemy.x, y: r.enemy.y });
+        }
+      }
+      if (r.powerBack) {
+        // They fall off as fluff and reform where they were summoned: the count never drops.
+        for (const x of ordered) {
+          if (x.summoner === e.id && x.phase === 'pinned') enemies.set(x.id, { ...x, phase: 'dispersed', phaseTicks: 0, x: x.homeX, y: x.homeY });
+        }
+      }
+      continue;
+    }
+    if (enemies.has(e.id)) continue;
+    const r = stepEnemy(grid, e, target);
     enemies.set(e.id, r.enemy);
+    newShots.push(...r.shots);
     if (r.telegraph) events.push({ type: 'telegraph', source: e.id, tier: 1 });
     if (r.reformed) events.push({ type: 'reformed', target: e.id, enemy: e.type });
     if (r.respawned) events.push({ type: 'respawned', target: e.id, enemy: e.type });
   }
+  for (const z of newZones) zones.set(nextId, { ...z, id: nextId++, age: 1, spent: false });
+  let shots: Shot[] = [...state.shots, ...newShots.map((sh) => ({ ...sh, id: nextId++, spent: false }))];
+  const byId = () => [...enemies.values()].sort((a, b) => a.id - b.id);
 
   // The stamp covers every hittable enemy whose feet are within the radius of the operator's.
   // Only defeatable ones take damage; on the rest it is void, and the gauge is gone either way.
   if (s.stampLanded) {
     events.push({ type: 'stampLanded', x: op.x, y: op.y, radius: STAMP.radiusPx });
-    for (const e of [...enemies.values()]) {
+    for (const e of byId()) {
       if (!isHittable(e) || Math.hypot(e.x - op.x, e.y - op.y) > STAMP.radiusPx) continue;
       if (e.category !== 'defeatable') {
         events.push({ type: 'stampVoid', target: e.id, enemy: e.type, solution: e.solution ?? '' });
         continue;
       }
-      const hp = e.hp - STAMP.damage;
-      if (hp <= 0) {
-        enemies.set(e.id, { ...e, hp: 0, phase: 'closed', phaseTicks: 0, frozen: 0 });
-        events.push({ type: 'caseClosed', target: e.id, enemy: e.type });
-      } else {
-        enemies.set(e.id, { ...e, hp, frozen: STAMP.hitFreeze });
-        events.push({ type: 'hit', target: e.id, enemy: e.type, hpLeft: hp });
+      if (!e.boss) {
+        enemies.set(e.id, damage(e, STAMP.damage, STAMP.hitFreeze, events));
+        continue;
       }
+      const def = state.bosses[e.boss.def]!;
+      const rejected = proposalOpen(def, e.boss);
+      let hit = damage(e, BOSS.stampDamage, 0, events);
+      if (rejected && hit.phase !== 'closed') {
+        // The proposal is stamped: the move is cancelled and the boss sits under review.
+        for (const [id, z] of zones) if (z.owner === e.id) zones.delete(id);
+        hit = { ...hit, boss: { ...hit.boss!, move: null, review: BOSS.reviewTicks } };
+        events.push({ type: 'proposalRejected', target: e.id });
+      }
+      enemies.set(e.id, hit);
     }
   }
 
@@ -264,7 +365,7 @@ export function step(state: GameState, input: TickInput): StepResult {
     const p = { ...p0, x: p0.x + p0.vx, y: p0.y + p0.vy, ticksLeft: p0.ticksLeft - 1 };
     if (p.ticksLeft < 0 || isSolid(grid, Math.floor(p.x / TILE), Math.floor(p.y / TILE))) continue;
     const box = centeredBox(p.x, p.y, STAPLE_HALF, STAPLE_HALF);
-    const target = [...enemies.values()].find((e) => isHittable(e) && overlaps(box, enemyHurtbox(e)));
+    const target = byId().find((e) => isHittable(e) && overlaps(box, enemyHurtbox(e)));
     if (!target) { flying.push(p); continue; }
     if (target.category === 'immune') {
       // No hit-stop and no damage: the flag decides, not a large health pool (design doc 5.1, 5.5).
@@ -275,37 +376,59 @@ export function step(state: GameState, input: TickInput): StepResult {
       op = charge(op, GAUGE.staple, state.p, events);
     } else {
       op = charge(op, GAUGE.staple, state.p, events);
-      const hp = target.hp - STAPLER.damage;
-      if (hp <= 0) {
-        enemies.set(target.id, { ...target, hp: 0, phase: 'closed', phaseTicks: 0, frozen: 0 });
-        events.push({ type: 'caseClosed', target: target.id, enemy: target.type });
-      } else {
-        enemies.set(target.id, { ...target, hp, frozen: ENEMY_HIT_FREEZE });
-        events.push({ type: 'hit', target: target.id, enemy: target.type, hpLeft: hp });
-      }
+      enemies.set(target.id, damage(target, STAPLER.damage, ENEMY_HIT_FREEZE, events));
     }
   }
 
-  // Strikes against the operator: at most one lands per tick, lowest id first.
+  // A closed boss stops attacking at once: its shots and areas go with it.
+  const closed = new Set(byId().filter((e) => e.phase === 'closed').map((e) => e.id));
+  for (const [id, z] of zones) if (closed.has(z.owner)) zones.delete(id);
+  shots = shots.filter((sh) => !closed.has(sh.owner));
+
+  // Hits on the operator: at most one lands per tick. Strikes, then shots, then areas, each in
+  // id order. Dodge i-frames absorb any of them; the first six i-frames make it perfect.
   let freeze = 0;
   const hurt = boxAt(OPERATOR_HURT, op.x, op.y);
-  for (const e of [...enemies.values()]) {
-    if (e.phase !== 'strike' || e.strikeSpent || e.frozen > 0 || !overlaps(strikeBox(e), hurt)) continue;
+  const absorb = (source: number, halves: number, from: Vec, cause: string): 'dodged' | 'ignored' | 'hit' => {
     const a = op.action;
     if (inDodgeIframes(a)) {
-      enemies.set(e.id, { ...e, strikeSpent: true });
       if (a.frame <= DODGE.perfectLast && !a.perfect) {
         op = { ...op, action: { ...a, perfect: true } };
-        events.push({ type: 'perfectDodge', source: e.id });
+        events.push({ type: 'perfectDodge', source });
         op = charge(op, GAUGE.perfectDodge, state.p, events);
       }
-      continue;
+      return 'dodged';
     }
-    if (isInvincible(op, now) || freeze > 0) continue;
-    enemies.set(e.id, { ...e, strikeSpent: true });
-    op = hurtOperator(op, 1, { x: e.x, y: e.y }, now);
+    if (isInvincible(op, now) || freeze > 0) return 'ignored';
+    op = hurtOperator(op, halves, from, now);
     freeze = HURT.freezeTicks;
-    events.push({ type: 'heartLost', halves: 1, cause: e.type });
+    events.push({ type: 'heartLost', halves, cause });
+    return 'hit';
+  };
+  const typeOf = (id: number) => enemies.get(id)?.type ?? 'unknown';
+
+  for (const e of byId()) {
+    if (!isMelee(e) || e.phase !== 'strike' || e.strikeSpent || e.frozen > 0 || !overlaps(strikeBox(e), hurt)) continue;
+    if (absorb(e.id, 1, { x: e.x, y: e.y }, e.type) !== 'ignored') enemies.set(e.id, { ...e, strikeSpent: true });
+  }
+
+  const movedShots: Shot[] = [];
+  for (const sh0 of shots.sort((a, b) => a.id - b.id)) {
+    const sh = { ...sh0, x: sh0.x + sh0.vx, y: sh0.y + sh0.vy, ticksLeft: sh0.ticksLeft - 1 };
+    if (sh.ticksLeft < 0 || isSolid(grid, Math.floor(sh.x / TILE), Math.floor(sh.y / TILE))) continue;
+    if (!sh.spent && overlaps(shotBox(sh), hurt)) {
+      const r = absorb(sh.owner, sh.halves, { x: sh.x - sh.vx, y: sh.y - sh.vy }, typeOf(sh.owner));
+      if (r === 'hit') continue;
+      if (r === 'dodged') { movedShots.push({ ...sh, spent: true }); continue; }
+    }
+    movedShots.push(sh);
+  }
+
+  for (const z of [...zones.values()].sort((a, b) => a.id - b.id)) {
+    if (!z.spent && zoneLive(z) && circleTouchesBox(z.x, z.y, z.radius, hurt)) {
+      if (absorb(z.owner, z.halves, { x: z.x, y: z.y }, typeOf(z.owner)) !== 'ignored') zones.set(z.id, { ...z, spent: true });
+    }
+    if (!zoneContinues(zones.get(z.id)!)) zones.delete(z.id);
   }
 
   // Clinging: at most one enemy latches on per tick, and never through i-frames, so a dodge
@@ -314,14 +437,14 @@ export function step(state: GameState, input: TickInput): StepResult {
   let clock = state.clock;
   if (!isInvincible(op, now)) {
     const body = boxAt(OPERATOR_BODY, op.x, op.y);
-    const clinger = [...enemies.values()].find((e) => e.clings && e.phase === 'idle' && e.frozen === 0 && overlaps(enemyHurtbox(e), body));
+    const clinger = byId().find((e) => e.clings && e.phase === 'idle' && e.frozen === 0 && overlaps(enemyHurtbox(e), body));
     if (clinger) {
       enemies.set(clinger.id, { ...clinger, phase: 'attached', phaseTicks: 0 });
       const stacks = stackCount(enemies.values());
       events.push({ type: 'clung', target: clinger.id, enemy: clinger.type, stacks });
       if (stacks >= CLING.maxStacks) {
         // The stacks go home and reform there: the nap clears the stacks, not the adenosine.
-        for (const e of [...enemies.values()]) {
+        for (const e of byId()) {
           if (e.phase === 'attached') enemies.set(e.id, { ...e, phase: 'dispersed', phaseTicks: 0, x: e.homeX, y: e.homeY });
         }
         clock = advance(clock, CLING.napMinutes);
@@ -332,7 +455,8 @@ export function step(state: GameState, input: TickInput): StepResult {
   op = withStacks(op, enemies.values());
 
   const next: GameState = {
-    ...state, tick: now + 1, clock, operator: op, enemies: [...enemies.values()], projectiles: flying, nextId, freeze,
+    ...state, tick: now + 1, rng, clock, operator: op, enemies: byId(), projectiles: flying,
+    shots: movedShots, zones: [...zones.values()].sort((a, b) => a.id - b.id), nextId, freeze,
   };
   // A forced leave clears the freeze, so the freeze event is only emitted when it will happen.
   if (op.halves <= 0) {
@@ -346,6 +470,8 @@ export function step(state: GameState, input: TickInput): StepResult {
 export const selectOperator = (s: GameState): Readonly<OperatorState> => s.operator;
 export const selectEnemies = (s: GameState): readonly Readonly<EnemyState>[] => s.enemies;
 export const selectProjectiles = (s: GameState): readonly Readonly<Projectile>[] => s.projectiles;
+export const selectShots = (s: GameState): readonly Readonly<Shot>[] => s.shots;
+export const selectZones = (s: GameState): readonly Readonly<Zone>[] => s.zones;
 export const selectHearts = (s: GameState): { readonly halves: number; readonly maxHalves: number } =>
   ({ halves: s.operator.halves, maxHalves: s.operator.maxHalves });
 export const selectTick = (s: GameState): number => s.tick;
@@ -357,3 +483,24 @@ export const selectClock = (s: GameState): RuleClock => s.clock;
 /** Clinging enemies in the order they latched on, for drawing them on the operator. */
 export const selectStacks = (s: GameState): readonly Readonly<EnemyState>[] =>
   s.enemies.filter((e) => e.phase === 'attached');
+
+export interface BossSummary {
+  readonly id: number;
+  readonly type: string;
+  readonly budget: number;
+  readonly maxBudget: number;
+  readonly stage: 1 | 2 | 3;
+  readonly residue: number;
+  readonly boostMin: number;
+  readonly defeated: boolean;
+}
+
+/** The room's boss for the nameplate, or undefined in a room without one. */
+export function selectBoss(s: GameState): BossSummary | undefined {
+  const e = s.enemies.find((x) => x.boss);
+  if (!e?.boss) return undefined;
+  return {
+    id: e.id, type: e.type, budget: e.hp, maxBudget: e.maxHp, stage: e.boss.stage, residue: e.boss.residue,
+    boostMin: s.bosses[e.boss.def]!.boostMin, defeated: e.phase === 'closed',
+  };
+}

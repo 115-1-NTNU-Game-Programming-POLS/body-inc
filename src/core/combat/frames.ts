@@ -81,12 +81,57 @@ export const CLING = {
   senseRangePx: 5 * TILE,
 } as const;
 
-/** Salesman archetype prototype (design doc 5.3 tier-1 telegraph is 0.5 s). */
+/**
+ * Telegraph length per warning tier (design doc 5.3): tier 1 for melee and single shots, tier 2
+ * for areas and charges, tier 3 for boss signature moves, which may run 1.2 to 1.5 s.
+ */
+export const TELEGRAPH = {
+  tier1Ticks: Math.round(0.5 * TICK_HZ),
+  tier2Ticks: Math.round(0.8 * TICK_HZ),
+  tier3MinTicks: Math.round(1.2 * TICK_HZ),
+  tier3MaxTicks: Math.round(1.5 * TICK_HZ),
+} as const;
+
+/**
+ * Longest an area may stay live: the dodge i-frames. A dodge pressed on the last telegraph tick
+ * is invincible on every live tick, which is what makes every boss move dodgeable (design doc 5.3).
+ */
+export const ZONE_MAX_ACTIVE = DODGE.iframeLast - DODGE.iframeFirst + 1;
+
+/** Salesman archetype (design doc 5.3): melee rush, tier-1 telegraph. */
 export const SALESMAN = {
   speed: tilesPerSecond(1.5),
   reachPx: 40,
-  windupTicks: Math.round(0.5 * TICK_HZ),
+  windupTicks: TELEGRAPH.tier1Ticks,
   strikeTicks: 6,
   recoverTicks: 40,
   damageHalves: 1,
+} as const;
+
+/**
+ * Flyer archetype (design doc 5.3, performance 3): keeps 3 to 6 tiles away and throws one sheet
+ * after a tier-1 telegraph. Speeds, range and the pause are placeholders the design doc does not
+ * fix. The folder parry that sends the sheet back arrives with the folder.
+ */
+export const FLYER = {
+  speed: tilesPerSecond(1.2),
+  nearPx: 3 * TILE,
+  farPx: 6 * TILE,
+  windupTicks: TELEGRAPH.tier1Ticks,
+  throwTicks: 8,
+  recoverTicks: 60,
+  shotSpeed: tilesPerSecond(4),
+  shotRangePx: 8 * TILE,
+  shotHalf: 3,
+  damageHalves: 1,
+} as const;
+
+/**
+ * Rules shared by every boss (design doc 5.4): the stamp takes 40 budget; a stamp on a tier-3
+ * proposal cancels it and puts the boss under review for 4 s, taking 1.5 times damage.
+ */
+export const BOSS = {
+  stampDamage: 40,
+  reviewTicks: 4 * TICK_HZ,
+  reviewDamageFactor: 1.5,
 } as const;

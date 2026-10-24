@@ -1,19 +1,23 @@
 import { boxAt, centeredBox, type Box } from '../collision/boxes.ts';
 import { moveAndCollide, type Body, type SolidGrid } from '../collision/grid.ts';
+import type { BossState } from './bosses/boss.ts';
 import type { Archetype, Category } from './enemies.ts';
-import { CLING, REFORM_TICKS, SALESMAN } from './frames.ts';
+import { CLING, FLYER, REFORM_TICKS, SALESMAN } from './frames.ts';
+import type { ShotSpec } from './hazards.ts';
 import type { Vec } from './movement.ts';
 
 /**
- * Enemy runtime state. Behaviour is a pure function of (state, what it perceives); the salesman
- * here is the S9 prototype of the archetype (approach, 0.5 s tier-1 telegraph, short strike),
- * and other archetypes stand still until P4.
+ * Enemy runtime state. Behaviour is a pure function of (state, what it perceives). Archetypes
+ * with behaviour: salesman (approach, tier-1 telegraph, melee strike) and flyer (keep range,
+ * tier-1 telegraph, one thrown sheet); the others stand still until their packages. A boss is
+ * an enemy with `boss` set, stepped by its controller in combat/bosses instead.
  *
- * Phases: idle, windup (telegraph), strike (hitbox live), recover; dispersed is a reforming
- * enemy waiting to reform; closed is a defeatable enemy whose case is closed; attached is a
- * clinging enemy riding on the operator as one slow stack.
+ * Phases: idle, windup (telegraph), strike (melee hitbox live or throw pose), recover; dispersed
+ * is a reforming enemy waiting to reform; closed is a defeatable enemy whose case is closed;
+ * attached is a clinging enemy riding on the operator as one slow stack; pinned is a summoned
+ * enemy piled on its boss during a power cut.
  */
-export type EnemyPhase = 'idle' | 'windup' | 'strike' | 'recover' | 'dispersed' | 'closed' | 'attached';
+export type EnemyPhase = 'idle' | 'windup' | 'strike' | 'recover' | 'dispersed' | 'closed' | 'attached' | 'pinned';
 
 export interface EnemyState {
   readonly id: number;
@@ -38,14 +42,27 @@ export interface EnemyState {
   /** Ticks after a case closes before the enemy comes back; 0 means never. */
   readonly respawnTicks: number;
   readonly clings: boolean;
+  readonly boss?: BossState;
+  /** Id of the boss that summoned this enemy; summoned enemies leave on a forced leave. */
+  readonly summoner?: number;
 }
 
 export const ENEMY_BODY: Body = { halfW: 7, height: 10 };
 export const ENEMY_HURT: Body = { halfW: 9, height: 16 };
+/** Boss frames are 64 x 64 with about 56 to 60 visible (art direction 5.1). */
+export const BOSS_BODY: Body = { halfW: 14, height: 12 };
+export const BOSS_HURT: Body = { halfW: 20, height: 44 };
 
-export const isHittable = (e: EnemyState): boolean => e.phase !== 'dispersed' && e.phase !== 'closed' && e.phase !== 'attached';
+export const isHittable = (e: EnemyState): boolean =>
+  e.phase !== 'dispersed' && e.phase !== 'closed' && e.phase !== 'attached' && e.phase !== 'pinned';
 
-export const enemyHurtbox = (e: EnemyState): Box => boxAt(ENEMY_HURT, e.x, e.y);
+export const enemyHurtbox = (e: EnemyState): Box => boxAt(e.boss ? BOSS_HURT : ENEMY_HURT, e.x, e.y);
+
+/** Middle of the hurtbox: soft lock aims here. */
+export const enemyCenter = (e: EnemyState): Vec => ({ x: e.x, y: e.y - (e.boss ? BOSS_HURT : ENEMY_HURT).height / 2 });
+
+/** Only melee archetypes have a strike box; a flyer's strike phase is its throwing pose. */
+export const isMelee = (e: EnemyState): boolean => e.archetype === 'salesman' && e.boss === undefined;
 
 /** The strike lands in front of the enemy on the ground plane, along the direction locked at windup. */
 export function strikeBox(e: EnemyState): Box {
@@ -66,11 +83,12 @@ export interface EnemyStep {
   readonly telegraph: boolean;
   readonly reformed: boolean;
   readonly respawned: boolean;
+  readonly shots: readonly ShotSpec[];
 }
 
 export function stepEnemy(grid: SolidGrid, e0: EnemyState, target: Vec): EnemyStep {
   const out = (enemy: EnemyState, flags: Partial<Omit<EnemyStep, 'enemy'>> = {}): EnemyStep =>
-    ({ enemy, telegraph: false, reformed: false, respawned: false, ...flags });
+    ({ enemy, telegraph: false, reformed: false, respawned: false, shots: [], ...flags });
   if (e0.frozen > 0) return out({ ...e0, frozen: e0.frozen - 1 });
   const e = { ...e0, phaseTicks: e0.phaseTicks + 1 };
 
@@ -83,6 +101,7 @@ export function stepEnemy(grid: SolidGrid, e0: EnemyState, target: Vec): EnemySt
       }
       return out(e);
     case 'attached':
+    case 'pinned':
       return out(e);
     default:
       break;
@@ -96,6 +115,7 @@ export function stepEnemy(grid: SolidGrid, e0: EnemyState, target: Vec): EnemySt
     const m = moveAndCollide(grid, ENEMY_BODY, e.x, e.y, (dx / d) * CLING.driftSpeed, (dy / d) * CLING.driftSpeed);
     return out({ ...e, x: m.x, y: m.y });
   }
+  if (e.archetype === 'flyer') return stepFlyer(grid, e, target, out);
   if (e.archetype !== 'salesman') return out(e);
 
   switch (e.phase) {
@@ -115,5 +135,49 @@ export function stepEnemy(grid: SolidGrid, e0: EnemyState, target: Vec): EnemySt
       return out(e.phaseTicks >= SALESMAN.strikeTicks ? to(e, 'recover') : e);
     case 'recover':
       return out(e.phaseTicks >= SALESMAN.recoverTicks ? to(e, 'idle') : e);
+  }
+}
+
+type Out = (enemy: EnemyState, flags?: Partial<Omit<EnemyStep, 'enemy'>>) => EnemyStep;
+
+/**
+ * Flyer: backs off inside 3 tiles, closes in beyond 6, and in between raises a sheet for the
+ * tier-1 telegraph. The sheet is aimed where the operator is on release, so stepping aside
+ * during the warning is not enough on its own; a dodge or a wider step is.
+ */
+function stepFlyer(grid: SolidGrid, e: EnemyState, target: Vec, out: Out): EnemyStep {
+  const dx = target.x - e.x;
+  const dy = target.y - e.y;
+  const d = Math.hypot(dx, dy);
+  switch (e.phase) {
+    case 'idle': {
+      if (d === 0) return out(e);
+      if (d >= FLYER.nearPx && d <= FLYER.farPx) {
+        return out(to(e, 'windup', { strikeDir: cardinal(dx, dy), strikeSpent: false }), { telegraph: true });
+      }
+      const sign = d > FLYER.farPx ? 1 : -1;
+      const m = moveAndCollide(grid, ENEMY_BODY, e.x, e.y, (dx / d) * FLYER.speed * sign, (dy / d) * FLYER.speed * sign);
+      return out({ ...e, x: m.x, y: m.y });
+    }
+    case 'windup': {
+      if (e.phaseTicks < FLYER.windupTicks) return out(e);
+      const ox = e.x;
+      const oy = e.y - 4;
+      const ax = target.x - ox;
+      const ay = target.y - 4 - oy;
+      const len = Math.hypot(ax, ay) || 1;
+      return out(to(e, 'strike'), {
+        shots: [{
+          owner: e.id, kind: 'sheet', x: ox, y: oy, vx: (ax / len) * FLYER.shotSpeed, vy: (ay / len) * FLYER.shotSpeed,
+          ticksLeft: Math.ceil(FLYER.shotRangePx / FLYER.shotSpeed), halves: FLYER.damageHalves, half: FLYER.shotHalf,
+        }],
+      });
+    }
+    case 'strike':
+      return out(e.phaseTicks >= FLYER.throwTicks ? to(e, 'recover') : e);
+    case 'recover':
+      return out(e.phaseTicks >= FLYER.recoverTicks ? to(e, 'idle') : e);
+    default:
+      return out(e);
   }
 }

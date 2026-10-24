@@ -3,6 +3,235 @@
 import type { Schema } from './schema.ts';
 
 export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
+  "boss": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "BossFile",
+    "description": "One boss: budget, stages and move table (architecture section 4, content/bosses). Rules the schema cannot state (telegraph lengths per tier, live windows no longer than the dodge i-frames, the summoned enemy existing) are checked in core/combat/bosses/boss.ts.",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "version",
+      "id",
+      "behaviour",
+      "budget",
+      "stage2Budget",
+      "speedTiles",
+      "rangeTiles",
+      "restSeconds",
+      "drink",
+      "summon",
+      "powerCutSeconds",
+      "moves",
+      "notes"
+    ],
+    "properties": {
+      "version": {
+        "const": 1
+      },
+      "id": {
+        "description": "Matches the boss field of the enemy in content/enemies.json.",
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_]*$"
+      },
+      "behaviour": {
+        "description": "Which core controller runs this boss.",
+        "enum": [
+          "caffeine"
+        ]
+      },
+      "budget": {
+        "description": "Annual budget, the boss's health (design doc 5.8).",
+        "type": "integer",
+        "minimum": 1
+      },
+      "stage2Budget": {
+        "description": "Stage 2 starts once the budget falls to this.",
+        "type": "integer",
+        "minimum": 1
+      },
+      "speedTiles": {
+        "description": "Walking speed in tiles per second before caffeine.",
+        "type": "number",
+        "exclusiveMinimum": 0
+      },
+      "rangeTiles": {
+        "description": "Preferred distance from the operator, [near, far] in tiles.",
+        "type": "array",
+        "minItems": 2,
+        "maxItems": 2,
+        "items": {
+          "type": "number",
+          "minimum": 0
+        }
+      },
+      "restSeconds": {
+        "description": "Pause between moves before caffeine; caffeine shortens it.",
+        "type": "number",
+        "minimum": 0
+      },
+      "drink": {
+        "$ref": "#/$defs/BossDrink"
+      },
+      "summon": {
+        "$ref": "#/$defs/BossSummon"
+      },
+      "powerCutSeconds": {
+        "description": "How long the stage-3 power cut holds the boss still.",
+        "type": "number",
+        "exclusiveMinimum": 0
+      },
+      "moves": {
+        "type": "object",
+        "additionalProperties": {
+          "$ref": "#/$defs/BossMove"
+        }
+      },
+      "notes": {
+        "description": "Provenance of the numbers (DOC, ASSUME), as in content/params.json.",
+        "type": "object",
+        "additionalProperties": {
+          "type": "string"
+        }
+      }
+    },
+    "$defs": {
+      "BossDrink": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "seconds",
+          "refillDelaySeconds",
+          "burstCups",
+          "tolerantFromCup"
+        ],
+        "properties": {
+          "seconds": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "refillDelaySeconds": {
+            "description": "Stage 1: how long the residue stays under the boost threshold before the next cup.",
+            "type": "number",
+            "minimum": 0
+          },
+          "burstCups": {
+            "description": "Cups drunk back to back on entering stage 2 and after each power cut.",
+            "type": "integer",
+            "minimum": 1
+          },
+          "tolerantFromCup": {
+            "description": "From this cup on the boost is the tolerant one (design doc 7.4: the third).",
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "BossSummon": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "enemy",
+          "count",
+          "everySeconds",
+          "max",
+          "seconds"
+        ],
+        "properties": {
+          "enemy": {
+            "description": "Enemy id from content/enemies.json.",
+            "type": "string"
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "everySeconds": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "max": {
+            "description": "Most summoned enemies alive at once.",
+            "type": "integer",
+            "minimum": 1
+          },
+          "seconds": {
+            "description": "Length of the summoning pose.",
+            "type": "number",
+            "exclusiveMinimum": 0
+          }
+        }
+      },
+      "BossMove": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "tier",
+          "weight",
+          "telegraphSeconds",
+          "recoverSeconds",
+          "halves"
+        ],
+        "properties": {
+          "tier": {
+            "description": "Warning tier (design doc 5.3): 1 throws shots, 2 marks an area at the operator, 3 is a proposal around the boss.",
+            "enum": [
+              1,
+              2,
+              3
+            ]
+          },
+          "weight": {
+            "description": "Relative chance of being picked.",
+            "type": "integer",
+            "minimum": 1
+          },
+          "telegraphSeconds": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "recoverSeconds": {
+            "type": "number",
+            "minimum": 0
+          },
+          "halves": {
+            "description": "Half hearts per hit.",
+            "type": "integer",
+            "minimum": 1
+          },
+          "shots": {
+            "description": "Tier 1: shots per throw, fanned around the aim.",
+            "type": "integer",
+            "minimum": 1
+          },
+          "spreadDeg": {
+            "description": "Tier 1: degrees between neighbouring shots.",
+            "type": "number",
+            "minimum": 0
+          },
+          "shotSpeedTiles": {
+            "description": "Tier 1: tiles per second.",
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "rangeTiles": {
+            "description": "Tier 1: how far a shot flies.",
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "radiusTiles": {
+            "description": "Tier 2 and 3: radius of the area.",
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "activeTicks": {
+            "description": "Tier 2 and 3: ticks the area stays live after the telegraph.",
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      }
+    }
+  },
   "enemies": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "title": "EnemiesFile",
@@ -83,6 +312,10 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
           "clings": {
             "description": "Drifts toward the operator and clings on contact, one slow stack each (design doc 5.5); reforming enemies only.",
             "type": "boolean"
+          },
+          "boss": {
+            "description": "Id of the file in content/bosses that runs this enemy; its budget replaces performance and its moves replace an archetype.",
+            "type": "string"
           }
         }
       }
@@ -352,7 +585,8 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
           "walkHours",
           "pastExamBonus",
           "wakeCap",
-          "examWake"
+          "examWake",
+          "bossSecondsPerHour"
         ],
         "properties": {
           "days": {
@@ -817,6 +1051,11 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
           },
           "examWake": {
             "type": "number"
+          },
+          "bossSecondsPerHour": {
+            "description": "Real seconds per game hour on the boss clock.",
+            "type": "number",
+            "exclusiveMinimum": 0
           }
         }
       },
@@ -1220,15 +1459,86 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
   }
 };
 
-export type SchemaName = "enemies" | "feedback" | "params" | "scheduleCards" | "strings" | "tags";
+export type SchemaName = "boss" | "enemies" | "feedback" | "params" | "scheduleCards" | "strings" | "tags";
 
 export interface ContentTypes {
+  readonly boss: BossFile;
   readonly enemies: EnemiesFile;
   readonly feedback: FeedbackFile;
   readonly params: ParamsFile;
   readonly scheduleCards: ScheduleCardsFile;
   readonly strings: StringsFile;
   readonly tags: TagsFile;
+}
+
+/** One boss: budget, stages and move table (architecture section 4, content/bosses). Rules the schema cannot state (telegraph lengths per tier, live windows no longer than the dodge i-frames, the summoned enemy existing) are checked in core/combat/bosses/boss.ts. */
+export interface BossFile {
+  readonly version: 1;
+  /** Matches the boss field of the enemy in content/enemies.json. */
+  readonly id: string;
+  /** Which core controller runs this boss. */
+  readonly behaviour: "caffeine";
+  /** Annual budget, the boss's health (design doc 5.8). */
+  readonly budget: number;
+  /** Stage 2 starts once the budget falls to this. */
+  readonly stage2Budget: number;
+  /** Walking speed in tiles per second before caffeine. */
+  readonly speedTiles: number;
+  /** Preferred distance from the operator, [near, far] in tiles. */
+  readonly rangeTiles: readonly number[];
+  /** Pause between moves before caffeine; caffeine shortens it. */
+  readonly restSeconds: number;
+  readonly drink: BossDrink;
+  readonly summon: BossSummon;
+  /** How long the stage-3 power cut holds the boss still. */
+  readonly powerCutSeconds: number;
+  readonly moves: Readonly<Record<string, BossMove>>;
+  /** Provenance of the numbers (DOC, ASSUME), as in content/params.json. */
+  readonly notes: Readonly<Record<string, string>>;
+}
+
+export interface BossDrink {
+  readonly seconds: number;
+  /** Stage 1: how long the residue stays under the boost threshold before the next cup. */
+  readonly refillDelaySeconds: number;
+  /** Cups drunk back to back on entering stage 2 and after each power cut. */
+  readonly burstCups: number;
+  /** From this cup on the boost is the tolerant one (design doc 7.4: the third). */
+  readonly tolerantFromCup: number;
+}
+
+export interface BossSummon {
+  /** Enemy id from content/enemies.json. */
+  readonly enemy: string;
+  readonly count: number;
+  readonly everySeconds: number;
+  /** Most summoned enemies alive at once. */
+  readonly max: number;
+  /** Length of the summoning pose. */
+  readonly seconds: number;
+}
+
+export interface BossMove {
+  /** Warning tier (design doc 5.3): 1 throws shots, 2 marks an area at the operator, 3 is a proposal around the boss. */
+  readonly tier: 1 | 2 | 3;
+  /** Relative chance of being picked. */
+  readonly weight: number;
+  readonly telegraphSeconds: number;
+  readonly recoverSeconds: number;
+  /** Half hearts per hit. */
+  readonly halves: number;
+  /** Tier 1: shots per throw, fanned around the aim. */
+  readonly shots?: number;
+  /** Tier 1: degrees between neighbouring shots. */
+  readonly spreadDeg?: number;
+  /** Tier 1: tiles per second. */
+  readonly shotSpeedTiles?: number;
+  /** Tier 1: how far a shot flies. */
+  readonly rangeTiles?: number;
+  /** Tier 2 and 3: radius of the area. */
+  readonly radiusTiles?: number;
+  /** Tier 2 and 3: ticks the area stays live after the telegraph. */
+  readonly activeTicks?: number;
 }
 
 /** Enemy categories and solutions (design doc 5.5). Cross-checks (solution references, which fields each category may have, Tiled object classes) are in core/combat/enemies.ts. */
@@ -1254,6 +1564,8 @@ export interface Enemy {
   readonly performance?: number;
   /** Drifts toward the operator and clings on contact, one slow stack each (design doc 5.5); reforming enemies only. */
   readonly clings?: boolean;
+  /** Id of the file in content/bosses that runs this enemy; its budget replaces performance and its moves replace an archetype. */
+  readonly boss?: string;
 }
 
 /** Domain event type to presentation (architecture section 4). Cross-checks (known event types, preset and string references) are in app/feedback.ts. */
@@ -1424,6 +1736,8 @@ export interface ParamsFile {
     readonly pastExamBonus: number;
     readonly wakeCap: number;
     readonly examWake: number;
+    /** Real seconds per game hour on the boss clock. */
+    readonly bossSecondsPerHour: number;
   };
   readonly difficulty: readonly Difficulty[];
   readonly semesterCards: {

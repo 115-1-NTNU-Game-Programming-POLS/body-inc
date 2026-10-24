@@ -1,16 +1,18 @@
 import Phaser from 'phaser';
-import type { Manifest } from '../../app/assets.ts';
-import { ENEMIES, FEEDBACK, PARAMS, STRINGS, TAGS } from '../../app/content.ts';
+import type { Manifest, ManifestEntry } from '../../app/assets.ts';
+import { BOSSES, ENEMIES, FEEDBACK, PARAMS, STRINGS, TAGS } from '../../app/content.ts';
 import { KeyboardInput } from '../../app/input.ts';
 import { FixedStepLoop } from '../../app/loop.ts';
 import {
   createGame, enterRoom, listProps, parseRoom, visibleProps, selectEnemies, selectOperator, selectProjectiles, selectStacks, spiritAtEntry, TILE,
   type DomainEvent, type EnemyState, type EnteredRoom, type GameState, type TagState, type TiledMapFile,
 } from '../../core/index.ts';
+import { BossView } from '../actors/BossView.ts';
 import { EnemyView, SKINS } from '../actors/EnemyView.ts';
 import { OperatorView } from '../actors/OperatorView.ts';
 import { CollisionOverlay } from '../debug/CollisionOverlay.ts';
-import { FeedbackPlayer } from '../fx/FeedbackPlayer.ts';
+import { FeedbackPlayer, type ActorFx } from '../fx/FeedbackPlayer.ts';
+import { HazardView } from '../fx/HazardView.ts';
 import { makeFxTextures } from '../fx/textures.ts';
 import { ROOM_MAP, SCENE_ATLASES } from './BootScene.ts';
 
@@ -27,7 +29,10 @@ export class WorldScene extends Phaser.Scene {
   private operator!: OperatorView;
   private overlay!: CollisionOverlay;
   private feedback!: FeedbackPlayer;
+  private hazards!: HazardView;
+  private entry!: (key: string) => ManifestEntry;
   private readonly enemyViews = new Map<number, EnemyView>();
+  private readonly bossViews = new Map<number, BossView>();
   private readonly staples = new Map<number, Phaser.GameObjects.Image>();
   private readonly pending: DomainEvent[] = [];
 
@@ -42,7 +47,7 @@ export class WorldScene extends Phaser.Scene {
     const room = enterRoom(parseRoom(path, mapData, TAGS), tags, TAGS);
     const gauge = this.registry.get('entry-gauge') as number | undefined;
     this.loop = new FixedStepLoop(createGame(room, 1, ENEMIES, {
-      p: spiritAtEntry(tags, TAGS, PARAMS), ...(gauge !== undefined ? { gauge } : {}),
+      p: spiritAtEntry(tags, TAGS, PARAMS), bosses: BOSSES, ...(gauge !== undefined ? { gauge } : {}),
     }));
     this.registry.set('loop', this.loop);
     makeFxTextures(this);
@@ -58,20 +63,17 @@ export class WorldScene extends Phaser.Scene {
     this.drawProps(mapData, room);
 
     const manifest = this.cache.json.get('manifest') as Manifest;
-    const entry = (key: string) => {
+    this.entry = (key: string) => {
       const e = manifest.entries.find((m) => m.key === key);
       if (!e) throw new Error(`manifest has no ${key} entry`);
       return e;
     };
-    this.operator = new OperatorView(this, entry('operator'), entry('adenosine-mini'));
-    for (const e of this.loop.state.enemies) {
-      const skin = SKINS[e.type];
-      if (!skin) throw new Error(`no skin for enemy type ${e.type}; add it to SKINS in EnemyView.ts`);
-      this.enemyViews.set(e.id, new EnemyView(this, entry(skin)));
-    }
+    this.operator = new OperatorView(this, this.entry('operator'), this.entry('adenosine-mini'));
+    this.hazards = new HazardView(this);
+    this.syncViews(this.loop.state);
     this.overlay = new CollisionOverlay(this, this.loop.state);
     this.feedback = new FeedbackPlayer(this, FEEDBACK, STRINGS, {
-      enemy: (id) => this.enemyViews.get(id),
+      enemy: (id): ActorFx | undefined => this.bossViews.get(id) ?? this.enemyViews.get(id),
       operator: this.operator,
       note: (text, worldX, worldY) => this.game.events.emit('world-note', { text, worldX, worldY } satisfies WorldNote),
     });
@@ -105,14 +107,41 @@ export class WorldScene extends Phaser.Scene {
     this.operator.render(cur, x, y, tick);
     this.operator.renderStacks(selectStacks(state).length);
 
+    this.syncViews(state);
     const before = new Map<number, Readonly<EnemyState>>(selectEnemies(prevState).map((e) => [e.id, e]));
-    for (const e of selectEnemies(state)) this.enemyViews.get(e.id)?.render(before.get(e.id), e, alpha, tick, time);
+    for (const e of selectEnemies(state)) {
+      if (e.boss) {
+        const pinned = state.enemies.filter((x) => x.summoner === e.id && x.phase === 'pinned').length;
+        this.bossViews.get(e.id)?.render(before.get(e.id), e, state.bosses[e.boss.def]!, pinned, alpha, tick);
+      } else this.enemyViews.get(e.id)?.render(before.get(e.id), e, alpha, tick, time);
+    }
 
+    this.hazards.render(prevState, state, alpha);
     this.renderStaples(prevState, alpha);
     this.overlay.render(state);
     for (const e of this.pending.splice(0)) {
       if (e.type === 'stampLanded') this.stampRing(e.x, e.y, e.radius);
       this.feedback.play(e, tick);
+    }
+  }
+
+  /**
+   * One view per enemy in the snapshot. Bosses summon enemies mid-fight and a forced leave sends
+   * them away, so views are made and dropped as ids come and go.
+   */
+  private syncViews(state: GameState): void {
+    const ids = new Set(state.enemies.map((e) => e.id));
+    for (const e of state.enemies) {
+      if (this.enemyViews.has(e.id) || this.bossViews.has(e.id)) continue;
+      const skin = SKINS[e.type];
+      if (!skin) throw new Error(`no skin for enemy type ${e.type}; add it to SKINS in EnemyView.ts`);
+      if (e.boss) this.bossViews.set(e.id, new BossView(this, this.entry(skin), this.entry('adenosine-mini')));
+      else this.enemyViews.set(e.id, new EnemyView(this, this.entry(skin)));
+    }
+    for (const [id, v] of this.enemyViews) {
+      if (ids.has(id)) continue;
+      v.destroy();
+      this.enemyViews.delete(id);
     }
   }
 

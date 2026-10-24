@@ -36,7 +36,7 @@ const spawn = (id: number, enemyType: string, x: number, y: number, respawnSecon
 
 writeRoom('greybox/greybox-room.tmj', {
   type: 'map', version: '1.10', tiledversion: '1.11.0', orientation: 'orthogonal', renderorder: 'right-down',
-  infinite: false, width: W, height: 12, tilewidth: 32, tileheight: 32, nextlayerid: 4, nextobjectid: 10, class: 'Room',
+  infinite: false, width: W, height: 12, tilewidth: 32, tileheight: 32, nextlayerid: 4, nextobjectid: 11, class: 'Room',
   properties: [
     { name: 'organ', type: 'string', value: world },
     { name: 'role', type: 'string', value: 'combat' },
@@ -59,6 +59,7 @@ writeRoom('greybox/greybox-room.tmj', {
         spawn(7, 'alcohol_barrel', 520, 300, 0),
         { id: 8, name: 'nap', type: 'Bed', x: 64, y: 300, width: 64, height: 32, rotation: 0, visible: true, properties: [] },
         { id: 9, name: 'line', type: 'Conveyor', x: 384, y: 320, width: 96, height: 32, rotation: 0, visible: true, properties: [] },
+        spawn(10, 'flyer', 560, 150, 3),
       ],
     },
   ],

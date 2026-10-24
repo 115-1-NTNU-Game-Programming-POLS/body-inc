@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "id": "caffeine",
+  "behaviour": "caffeine",
+  "budget": 300,
+  "stage2Budget": 200,
+  "speedTiles": 1.2,
+  "rangeTiles": [3, 6],
+  "restSeconds": 1.2,
+  "drink": { "seconds": 1, "refillDelaySeconds": 8, "burstCups": 2, "tolerantFromCup": 3 },
+  "summon": { "enemy": "adenosine", "count": 2, "everySeconds": 10, "max": 8, "seconds": 0.6 },
+  "powerCutSeconds": 8,
+  "moves": {
+    "cup_throw": { "tier": 1, "weight": 3, "telegraphSeconds": 0.5, "recoverSeconds": 0.5, "halves": 1, "shots": 3, "spreadDeg": 18, "shotSpeedTiles": 4.5, "rangeTiles": 9 },
+    "splash": { "tier": 2, "weight": 2, "telegraphSeconds": 0.8, "recoverSeconds": 0.6, "halves": 1, "radiusTiles": 1.5, "activeTicks": 6 },
+    "refill_plan": { "tier": 3, "weight": 1, "telegraphSeconds": 1.3, "recoverSeconds": 1, "halves": 2, "radiusTiles": 5, "activeTicks": 6 }
+  },
+  "notes": {
+    "budget": "ASSUME: about 3 minutes at the rested damage rate; the design doc gives no number",
+    "stage2Budget": "ASSUME: stage 2 at two thirds of the budget",
+    "speedTiles": "ASSUME",
+    "rangeTiles": "ASSUME",
+    "restSeconds": "ASSUME; residue at or above boostMin divides it by the boost (design doc 7.4: attack speed x1.2)",
+    "drink": "DOC each cup adds params.cup and the tolerant boost starts at the third cup (7.4); seconds, refillDelaySeconds and burstCups are ASSUME",
+    "summon": "DOC stage 2 summons adenosine (7.4); counts and timing are ASSUME",
+    "powerCutSeconds": "DOC 8 s (7.4)",
+    "moves": "DOC tiers and telegraph lengths (5.3), cup barrage (7.4), signature move costs a whole heart (5.3); shapes, sizes and weights are ASSUME"
+  }
+}

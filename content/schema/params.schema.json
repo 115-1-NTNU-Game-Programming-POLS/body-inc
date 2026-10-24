@@ -136,7 +136,8 @@
         "walkHours",
         "pastExamBonus",
         "wakeCap",
-        "examWake"
+        "examWake",
+        "bossSecondsPerHour"
       ],
       "properties": {
         "days": {
@@ -601,6 +602,11 @@
         },
         "examWake": {
           "type": "number"
+        },
+        "bossSecondsPerHour": {
+          "description": "Real seconds per game hour on the boss clock.",
+          "type": "number",
+          "exclusiveMinimum": 0
         }
       }
     },

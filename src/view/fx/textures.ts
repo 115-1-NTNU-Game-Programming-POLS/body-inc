@@ -21,6 +21,17 @@ export function makeFxTextures(scene: Phaser.Scene): void {
   make('fx-sweat', 4, 6, () => { g.fillStyle(0xa8d4f0).fillRect(1, 0, 2, 2).fillRect(0, 2, 4, 4); });
   make('fx-staple', 6, 2, () => { g.fillStyle(0xd8dde6).fillRect(0, 0, 6, 2); });
   make('fx-afterimage', 1, 1, () => { g.fillStyle(0xffffff).fillRect(0, 0, 1, 1); });
+  // Thrown attacks: a takeaway cup in the caffeine palette (art direction 5.5) and a folded flyer.
+  make('fx-shot-cup', 6, 8, () => {
+    g.fillStyle(0x6b4a3a).fillRect(0, 0, 6, 2);
+    g.fillStyle(0xf4ebdd).fillRect(1, 2, 4, 6);
+    g.fillStyle(0x8b5a3c).fillRect(1, 4, 4, 2);
+  });
+  make('fx-shot-sheet', 7, 6, () => {
+    g.fillStyle(0x0c2d5e).fillRect(0, 0, 7, 6);
+    g.fillStyle(0xf4efe4).fillRect(1, 1, 5, 4);
+    g.fillStyle(0x0c2d5e).fillRect(2, 2, 3, 1);
+  });
   // White "!" bubble, the tier-1 telegraph shape (12 x 14).
   make('fx-alert-bubble', 12, 14, () => {
     g.fillStyle(0xffffff).fillRect(1, 0, 10, 11).fillRect(0, 1, 12, 9).fillRect(4, 11, 3, 2);

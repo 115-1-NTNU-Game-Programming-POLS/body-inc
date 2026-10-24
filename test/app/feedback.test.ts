@@ -92,6 +92,15 @@ describe('feedback table', () => {
     expect(feedbackProblems(FEEDBACK, STRINGS, {})).toEqual([
       'immuneBounce: note "solution.{solution}" uses unknown placeholder "{solution}"',
       'stampVoid: note "stamp_void.{solution}" uses unknown placeholder "{solution}"',
+      'bossStage: note "boss_stage.{stage}" uses unknown placeholder "{stage}"',
+    ]);
+  });
+
+  it('each boss stage a bossStage event can name has its line', () => {
+    expect(FIELDS.bossStage?.['stage']).toEqual(['2', '3']);
+    const { ['boss_stage.3']: _, ...rest } = STRINGS.strings;
+    expect(feedbackProblems(FEEDBACK, { ...STRINGS, strings: rest }, FIELDS)).toEqual([
+      'bossStage: note "boss_stage.3" is not in content/strings',
     ]);
   });
 
