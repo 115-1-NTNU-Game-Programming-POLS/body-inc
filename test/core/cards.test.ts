@@ -4,8 +4,8 @@ import { BOSSES, DECKS, DIALOGUES, ENEMIES, PARAMS, TAGS } from '../../src/app/c
 import { missingCards } from '../../src/app/decks.ts';
 import { tagsFromQuery } from '../../src/app/session.ts';
 import {
-  amount, BED_SEARCH_MINUTES, caffeineOf, CHAPTER_OPENS, CLOAK, comboReports, LOCK_TICKS, metabolise, openingCombos, OuterError, parseRoom,
-  playOpening, readContent, readDeck, senseCap, startChapter, stepChapter, ticksPerMinute, TILE, worstSpread,
+  amount, BED_SEARCH_MINUTES, caffeineOf, CHAPTER_OPENS, CLOAK, comboReports, LOCK_TICKS, metabolise, openingCombos, optionPressure, OuterError, parseRoom,
+  playOpening, readContent, readDeck, senseCap, sightOver, startChapter, stepChapter, ticksPerMinute, TILE, worstSpread,
   type ChapterContent, type ChapterState, type Deck, type GameEvent, type TickInput, type TiledMap,
 } from '../../src/core/index.ts';
 
@@ -268,6 +268,44 @@ describe('every opening combination gives a playable chapter (build plan P1 done
     expect(reports.filter((r) => r.picks[1]!.option === 'drink').every((r) => r.bedAfter! > 0)).toBe(true);
     expect(reports.filter((r) => r.picks[1]!.option === 'skip').every((r) => r.bedAfter === 0)).toBe(true);
     expect(worstSpread(reports)).toBeGreaterThan(0);
+  });
+
+  it('weighs clinging enemies by how much of the day the cloak lets them see the operator', () => {
+    const reports = comboReports(ctx, DECK, CHAPTER_OPENS);
+    const of = (bed: string, coffee: string) => reports.find((r) => r.picks[0]!.option === bed && r.picks[1]!.option === coffee)!;
+    // 08:00 to 23:00 with a cup at 08:00: blind for 5 h, 2 of 5 tiles for the next 5 h, then the full range.
+    expect(of('at_23', 'drink').sight).toBeCloseTo((0 * 300 + 0.4 * 300 + 1 * 300) / 900, 2);
+    expect(of('at_23', 'skip').sight).toBe(1);
+    expect(of('at_01', 'skip')).toMatchObject({ enemies: 8, clinging: 4 });
+    const drink = of('at_01', 'drink');
+    expect(drink.pressure).toBeCloseTo((drink.enemies - drink.clinging + drink.clinging * drink.sight) / drink.p, 9);
+    for (const bed of ['at_23', 'at_01', 'at_03']) expect(of(bed, 'drink').pressure).toBeLessThan(of(bed, 'skip').pressure);
+  });
+
+  it('only enemies that cling are hidden by the cloak, not every reforming one', () => {
+    const map = new Map(ENEMIES.enemies);
+    const { clings: _, ...adenosine } = map.get('adenosine')!;
+    map.set('adenosine', adenosine);
+    const reports = comboReports({ ...ctx, enemies: { ...ENEMIES, enemies: map } }, DECK, CHAPTER_OPENS);
+    for (const r of reports) expect(r.clinging).toBe(0);
+    const at23 = reports.filter((r) => r.picks[0]!.option === 'at_23');
+    expect(at23[0]!.pressure).toBe(at23[1]!.pressure);
+  });
+
+  it('a cloak that starts after 23:00 is weighed at the moment the chapter opens', () => {
+    const late = { day: 1, minute: 23 * 60 + 30 };
+    expect(sightOver(ctx, tags('caffeine:100'), late)).toBe(0);
+    expect(sightOver(ctx, tags('caffeine:30'), late)).toBeCloseTo(0.4, 9);
+    expect(sightOver(ctx, tags(''), late)).toBe(1);
+  });
+
+  it('lists each opening option by the mean pressure of the combinations that include it', () => {
+    const reports = comboReports(ctx, DECK, CHAPTER_OPENS);
+    const rows = optionPressure(DECK, reports);
+    expect(rows.map((r) => `${r.card}.${r.option}`)).toEqual(['bedtime.at_23', 'bedtime.at_01', 'bedtime.at_03', 'morning_coffee.drink', 'morning_coffee.skip']);
+    const mean = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
+    expect(rows[0]!.pressure).toBeCloseTo(mean(reports.filter((r) => r.picks[0]!.option === 'at_23').map((r) => r.pressure)), 9);
+    expect(optionPressure(DECK, reports.map((r) => ({ ...r, problems: [{ code: 'no-bed' as const }] })))[0]!.pressure).toBeNaN();
   });
 
   it('a bed that never accepts is reported, as is a chapter with no sleep bed', () => {
