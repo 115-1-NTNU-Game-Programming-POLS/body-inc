@@ -1,2 +1,10 @@
 dialogueId,order,speaker,expression,text,condition,effect,next,fact
 greybox.liver.hello,1,liver,normal,歡迎。,,,,
+greybox.brain.briefing,1,brain,normal,早安，營運長。今天的待辦有點多。,,,,
+greybox.brain.briefing,2,brain,surprised,你的黑眼圈比昨天深了。,sleep_debt>=2,,,
+greybox.brain.briefing,3,brain,normal,先從哪一件開始？,,,,
+greybox.brain.briefing,4,operator,,先趕報告。,,tag:deadline;clock:30,7,
+greybox.brain.briefing,5,operator,,先去補眠。,,clock:20,8,
+greybox.brain.briefing,6,operator,,晚點再說。,,,end,
+greybox.brain.briefing,7,brain,warning,好。截止時間逼近了，記得存檔。,,,end,
+greybox.brain.briefing,8,brain,sleepy,好。睡醒再說。,,,,

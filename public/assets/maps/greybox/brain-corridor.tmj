@@ -10,7 +10,7 @@
  "tilewidth": 32,
  "tileheight": 32,
  "nextlayerid": 8,
- "nextobjectid": 10,
+ "nextobjectid": 11,
  "class": "Room",
  "properties": [
   {
@@ -637,6 +637,30 @@
        "type": "string",
        "propertytype": "EnemyType",
        "value": "adenosine"
+      }
+     ]
+    },
+    {
+     "id": 10,
+     "name": "brain",
+     "type": "NPC",
+     "x": 448,
+     "y": 192,
+     "width": 0,
+     "height": 0,
+     "rotation": 0,
+     "visible": true,
+     "point": true,
+     "properties": [
+      {
+       "name": "npcId",
+       "type": "string",
+       "value": "brain"
+      },
+      {
+       "name": "dialogueId",
+       "type": "string",
+       "value": "greybox.brain.briefing"
       }
      ]
     }

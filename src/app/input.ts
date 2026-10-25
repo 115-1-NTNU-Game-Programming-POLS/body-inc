@@ -1,6 +1,6 @@
 import type { TickInput } from '../core/index.ts';
 
-export type Action = 'up' | 'down' | 'left' | 'right' | 'attack' | 'dodge' | 'stamp' | 'interact';
+export type Action = 'up' | 'down' | 'left' | 'right' | 'attack' | 'dodge' | 'stamp' | 'interact' | 'pick1' | 'pick2' | 'pick3';
 
 /** Default bindings (design doc 5.2). Stored per player later; core only ever sees TickInput. */
 export const DEFAULT_BINDINGS: Readonly<Record<Action, readonly string[]>> = {
@@ -12,7 +12,12 @@ export const DEFAULT_BINDINGS: Readonly<Record<Action, readonly string[]>> = {
   dodge: ['Space', 'KeyK'],
   stamp: ['KeyR', 'Mouse1'],
   interact: ['KeyE', 'Enter'],
+  pick1: ['Digit1', 'Numpad1'],
+  pick2: ['Digit2', 'Numpad2'],
+  pick3: ['Digit3', 'Numpad3'],
 };
+
+const PICKS = ['pick1', 'pick2', 'pick3'] as const;
 
 /**
  * Tracks held keys by KeyboardEvent.code, so bindings work on any keyboard layout. Mouse
@@ -24,6 +29,8 @@ export class KeyboardInput {
   /** Held keys that count as released until they come up; see `ignoreHeld`. */
   private readonly ignored = new Set<string>();
   private readonly pressedSince = new Set<string>();
+  /** A reply chosen with the mouse, reported once by the next `sample`. */
+  private queuedPick = 0;
   private readonly target: EventTarget;
   private readonly bindings: Readonly<Record<Action, readonly string[]>>;
   private readonly down = (code: string) => {
@@ -85,6 +92,7 @@ export class KeyboardInput {
    */
   clearPresses(): void {
     this.pressedSince.clear();
+    this.queuedPick = 0;
   }
 
   /**
@@ -94,12 +102,21 @@ export class KeyboardInput {
   ignoreHeld(): void {
     for (const code of this.held) this.ignored.add(code);
     this.pressedSince.clear();
+    this.queuedPick = 0;
+  }
+
+  /** A reply (1 to 3) clicked on screen; the dialogue scene calls this, and the next tick sees it as a key press. */
+  queuePick(n: number): void {
+    this.queuedPick = n;
   }
 
   /** Called once per rule tick; clears the presses it reports. */
   sample(): TickInput {
     const x = (this.isHeld('right') ? 1 : 0) - (this.isHeld('left') ? 1 : 0);
     const y = (this.isHeld('down') ? 1 : 0) - (this.isHeld('up') ? 1 : 0);
+    // A press of up and of down in the same tick cancel out, like holding both.
+    const menuStep = (this.wasPressed('down') ? 1 : 0) - (this.wasPressed('up') ? 1 : 0) as -1 | 0 | 1;
+    const pick = this.queuedPick || (PICKS.findIndex((a) => this.wasPressed(a)) + 1);
     const input: TickInput = {
       move: { x, y },
       attack: this.isHeld('attack'),
@@ -107,8 +124,11 @@ export class KeyboardInput {
       dodgePressed: this.wasPressed('dodge'),
       stampPressed: this.wasPressed('stamp'),
       interactPressed: this.wasPressed('interact'),
+      menuStep,
+      ...(pick > 0 ? { pick } : {}),
     };
     this.pressedSince.clear();
+    this.queuedPick = 0;
     return input;
   }
 
