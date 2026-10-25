@@ -5,6 +5,7 @@ import type { DeckFile } from '../content/generated.ts';
 import type { SchemaProblem } from '../content/schema.ts';
 import { parseEffects, type Effect, type EffectProblemCode } from '../dialogue/lines.ts';
 import { record } from '../tags/causal.ts';
+import type { MetabolismParams } from './caffeine.ts';
 import type { TagDictionary } from '../tags/dictionary.ts';
 import { EMPTY_TAGS, type TagState } from '../tags/store.ts';
 
@@ -105,8 +106,8 @@ export class OuterError extends Error {}
  * Plays one option: its effects with the option as their logged source. An option with no effect
  * is still logged, because the close-out report tells what was chosen, not only what it changed.
  */
-export function playOption(dict: TagDictionary, tags: TagState, clock: RuleClock, effects: readonly Effect[], source: EffectSource) {
-  if (effects.length > 0) return applyEffects(dict, tags, clock, effects, source);
+export function playOption(dict: TagDictionary, tags: TagState, clock: RuleClock, effects: readonly Effect[], source: EffectSource, k: MetabolismParams) {
+  if (effects.length > 0) return applyEffects(dict, tags, clock, effects, source, k);
   const [log] = record(tags.log, { kind: source.kind, key: source.key, at: clock.minute });
   return { tags: { ...tags, log }, clock, events: [] as EffectEvent[] };
 }
@@ -119,13 +120,15 @@ export interface Opening {
 }
 
 /** Plays the opening cards with one option index per card, in order. */
-export function playOpening(deck: Deck, dict: TagDictionary, picks: readonly number[], clock: RuleClock, tags: TagState = EMPTY_TAGS): Opening {
+export function playOpening(
+  deck: Deck, dict: TagDictionary, picks: readonly number[], clock: RuleClock, k: MetabolismParams, tags: TagState = EMPTY_TAGS,
+): Opening {
   if (picks.length !== deck.opening.length) throw new OuterError(`${deck.chapter}: ${deck.opening.length} opening cards need as many picks, got ${picks.length}`);
   let state: Opening = { tags, clock, events: [] };
   deck.opening.forEach((card, i) => {
     const option = card.options[picks[i]!];
     if (!option) throw new OuterError(`${deck.chapter}: card ${card.id} has no option ${picks[i]}`);
-    const r = playOption(dict, state.tags, state.clock, option.effects, { kind: 'card', key: `card.${card.id}.${option.id}` });
+    const r = playOption(dict, state.tags, state.clock, option.effects, { kind: 'card', key: `card.${card.id}.${option.id}` }, k);
     state = { tags: r.tags, clock: r.clock, events: [...state.events, ...r.events] };
   });
   return state;

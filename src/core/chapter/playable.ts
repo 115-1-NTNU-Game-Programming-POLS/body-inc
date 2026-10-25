@@ -60,7 +60,7 @@ const errorText = (e: unknown): string => (e instanceof Error ? e.message : Stri
 export function comboReports(ctx: ChapterContent, deck: Deck, clock: RuleClock): ComboReport[] {
   return openingCombos(deck).map((combo) => {
     const picks = combo.map((i, n) => ({ card: deck.opening[n]!.id, option: deck.opening[n]!.options[i]!.id }));
-    const opening = playOpening(deck, ctx.dict, combo, clock);
+    const opening = playOpening(deck, ctx.dict, combo, clock, ctx.params);
     const problems: PlayProblem[] = [];
     let enemies = 0;
     let p = 1;
@@ -76,10 +76,11 @@ export function comboReports(ctx: ChapterContent, deck: Deck, clock: RuleClock):
     const bed = bedAfter(ctx, opening.tags);
     if (bed === 'none') problems.push({ code: 'no-bed' });
     else if (bed === undefined) problems.push({ code: 'bed-never' });
-    if (bed !== 'none') {
+    // Only on a combination whose bed opens: on top of one that never opens, every option would repeat that one problem.
+    if (bed !== 'none' && bed !== undefined) {
       for (const card of deck.events.values()) {
         for (const option of card.options) {
-          const after = playOption(ctx.dict, opening.tags, opening.clock, option.effects, { kind: 'event', key: `event.${card.id}.${option.id}` });
+          const after = playOption(ctx.dict, opening.tags, opening.clock, option.effects, { kind: 'event', key: `event.${card.id}.${option.id}` }, ctx.params);
           if (bedAfter(ctx, after.tags) === undefined) problems.push({ code: 'bed-never', event: { card: card.id, option: option.id } });
         }
       }

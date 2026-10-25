@@ -105,15 +105,15 @@ describe('opening cards', () => {
   });
 
   it('logs each pick as a card node, also a pick that changes nothing, and the tag under it', () => {
-    const o = playOpening(DECK, TAGS, [2, 1], CHAPTER_OPENS);
+    const o = playOpening(DECK, TAGS, [2, 1], CHAPTER_OPENS, PARAMS);
     expect(amount(o.tags, TAGS, 'sleep_debt')).toBe(4);
     expect(o.tags.log.nodes.map((n) => `${n.kind}:${n.key}`)).toEqual(['card:card.bedtime.at_03', 'tag:sleep_debt', 'card:card.morning_coffee.skip']);
     expect(o.tags.log.nodes[1]!.causes).toEqual([{ node: 0, at: CHAPTER_OPENS.minute }]);
   });
 
   it('a wrong number of picks or an option that is not there is an error, not a silent default', () => {
-    expect(() => playOpening(DECK, TAGS, [0], CHAPTER_OPENS)).toThrow(OuterError);
-    expect(() => playOpening(DECK, TAGS, [0, 2], CHAPTER_OPENS)).toThrow(OuterError);
+    expect(() => playOpening(DECK, TAGS, [0], CHAPTER_OPENS, PARAMS)).toThrow(OuterError);
+    expect(() => playOpening(DECK, TAGS, [0, 2], CHAPTER_OPENS, PARAMS)).toThrow(OuterError);
   });
 });
 
@@ -159,7 +159,10 @@ describe('event card inside a chapter', () => {
   it('fires once: walking back over the Trigger does not open it again', () => {
     const chosen = run(atCard(), { ...NONE, pick: 2 }).state;
     const away = run(chosen, { move: { x: -1, y: 0 } }, 30).state;
-    const back = run(away, { move: { x: 1, y: 0 } }, 30);
+    // Fully off the 32 px strip at x 512, so walking back is a fresh step onto it.
+    expect(away.game.operator.x).toBeLessThan(512 - 32);
+    const back = run(away, { move: { x: 1, y: 0 } }, 40);
+    expect(back.state.game.operator.x).toBeGreaterThan(512);
     expect(types(back.events)).not.toContain('cardOpened');
   });
 });
@@ -171,6 +174,19 @@ describe('chapter clock while exploring', () => {
     expect(run(s, NONE, 54).state.game.clock.minute).toBe(s.game.clock.minute);
     expect(run(s, NONE, 55).state.game.clock.minute).toBe(s.game.clock.minute + 1);
     expect(run(s, NONE, 110).state.game.clock.minute).toBe(s.game.clock.minute + 2);
+  });
+
+  it('keeps the part of a minute walked before a door', () => {
+    const s0 = startChapter(ctx);
+    let s: ChapterState = { ...s0, run: { ...s0.run, explored: 50 }, game: { ...s0.game, touching: [], operator: { ...s0.game.operator, x: 320, y: 340 } } };
+    let walked = 0;
+    for (; s.run.roomId === GREY; walked++) {
+      if (walked > 200) throw new Error('did not reach the south door');
+      s = stepChapter(ctx, s, { move: { x: 0, y: 1 } }).state;
+    }
+    expect(s.run.roomId).toBe(REST);
+    expect(s.run.explored).toBe((50 + walked) % 55);
+    expect(s.game.clock.minute).toBe(s0.game.clock.minute + Math.floor((50 + walked) / 55));
   });
 });
 
@@ -186,6 +202,22 @@ describe('caffeine residual (design doc 7.4)', () => {
   it('decays by however the clock moved, here an event card that takes an hour', () => {
     const r = run(atCard(tags('caffeine:100')), { ...NONE, pick: 1 }).state;
     expect(caffeineOf(r.run.tags, TAGS)).toBeCloseTo(100 * 0.5 ** (1 / PARAMS.halfLife), 4);
+  });
+
+  it('decays where the clock moves inside an effect, so the order of effects matters as written', () => {
+    const deckOf = (effect: string) => readDeck({ version: 1, chapter: 'greybox', opening: [{ id: 'c', options: [{ id: 'a', effect }, { id: 'b', effect: '' }] }], events: [] }, TAGS).deck!;
+    const drankThenWaited = playOpening(deckOf('tag:caffeine=100;clock:120'), TAGS, [0], CHAPTER_OPENS, PARAMS);
+    expect(caffeineOf(drankThenWaited.tags, TAGS)).toBeCloseTo(100 * 0.5 ** (2 / PARAMS.halfLife), 4);
+    expect(drankThenWaited.clock.minute).toBe(CHAPTER_OPENS.minute + 120);
+    const waitedThenDrank = playOpening(deckOf('clock:120;tag:caffeine=100'), TAGS, [0], CHAPTER_OPENS, PARAMS);
+    expect(caffeineOf(waitedThenDrank.tags, TAGS)).toBe(100);
+  });
+
+  it('decays during a nap', () => {
+    const s0 = startChapter(ctx, { room: REST, tags: tags('caffeine:100') });
+    const r = run({ ...s0, game: { ...s0.game, touching: [], operator: { ...s0.game.operator, x: 128, y: 330 } } }, { ...NONE, interactPressed: true });
+    expect(types(r.events)).toContain('napped');
+    expect(caffeineOf(r.state.run.tags, TAGS)).toBeCloseTo(100 * 0.5 ** (20 / 60 / PARAMS.halfLife), 4);
   });
 
   it('a return to the checkpoint takes the clock back and restores the residual, never inflates it', () => {
@@ -244,7 +276,8 @@ describe('every opening combination gives a playable chapter (build plan P1 done
     const bed = objects.find((o) => o.name === 'bedtime')!;
     bed.properties = bed.properties!.map((p) => (p.name === 'requires' ? { ...p, value: 'caffeine<0' } : p));
     const never = comboReports({ ...ctx, rooms: new Map([...rooms, [REST, load(REST, map)]]) }, DECK, CHAPTER_OPENS);
-    expect(never.every((r) => r.problems.some((p) => p.code === 'bed-never' && !('event' in p && p.event)))).toBe(true);
+    // One problem per combination: the event options are not retried on top of a bed that never opens.
+    for (const r of never) expect(r.problems).toEqual([{ code: 'bed-never' }]);
 
     objects.splice(objects.indexOf(bed), 1);
     const none = comboReports({ ...ctx, rooms: new Map([...rooms, [REST, load(REST, map)]]) }, DECK, CHAPTER_OPENS);

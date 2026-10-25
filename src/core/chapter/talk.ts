@@ -23,7 +23,7 @@ export interface Applied {
 
 /** `applyEffects` on a run and its room: tags live on the run, the clock in the room. */
 export function applyToRun(ctx: ChapterContent, run: Run, game: GameState, effects: readonly Effect[], source: EffectSource): Applied {
-  const a = applyEffects(ctx.dict, run.tags, game.clock, effects, source);
+  const a = applyEffects(ctx.dict, run.tags, game.clock, effects, source, ctx.params);
   return { run: { ...run, tags: a.tags }, game: { ...game, clock: a.clock }, events: a.events };
 }
 

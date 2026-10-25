@@ -142,7 +142,6 @@ export function checkContent(contentDir: string): string[] {
   }
 
   // A deck belongs to one chapter: same id in the file name, and a chapter file that exists.
-  const chapterIds = new Set([...valid.values()].filter((v) => v.schema === 'chapter').map((v) => (v.value as ContentTypes['chapter']).id));
   for (const [rel, v] of valid) {
     if (v.schema !== 'deck') continue;
     const stem = rel.replace(/^decks\//, '').replace(/\.json$/, '');

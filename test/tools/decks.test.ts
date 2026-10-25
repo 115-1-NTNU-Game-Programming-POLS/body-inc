@@ -59,6 +59,14 @@ describe('deck check (build plan P1)', () => {
     expect(checkContent(lonely)).toEqual(expect.arrayContaining([expect.stringContaining('沒有對應的 content/chapters/greybox.json')]));
   });
 
+  it('reads JSON files saved with a byte order mark', () => {
+    const dir = contentWith('decks/greybox.json', () => {});
+    for (const f of ['tags.json', 'strings/zh-TW.json', 'decks/greybox.json', 'params.json']) {
+      writeFileSync(join(dir, f), String.fromCharCode(0xfeff) + readFileSync(join(dir, f), 'utf8').replace(/^﻿/, ''));
+    }
+    expect(problems(dir)).toEqual([]);
+  });
+
   it('the command exits 1 on a problem and 0 on the shipped content', () => {
     const run = (args: string[]) => spawnSync(process.execPath, ['tools/check-decks.ts', ...args], { encoding: 'utf8' });
     const bad = contentWith('decks/greybox.json', (j) => { j['events'][0].options[1].id = 'rewrite'; });

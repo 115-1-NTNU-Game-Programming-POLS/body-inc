@@ -42,7 +42,7 @@ export function stepCard(ctx: ChapterContent, state: ChapterState, input: TickIn
   if (picked === undefined && !confirmPressed(input)) return { state: { ...state, card: { ...s, age: LOCK_TICKS } }, events: [] };
 
   const option = card.options[picked ?? s.cursor]!;
-  const r = playOption(ctx.dict, state.run.tags, state.game.clock, option.effects, { kind: 'event', key: `event.${card.id}.${option.id}` });
+  const r = playOption(ctx.dict, state.run.tags, state.game.clock, option.effects, { kind: 'event', key: `event.${card.id}.${option.id}` }, ctx.params);
   const events: ChapterEvent[] = [{ type: 'cardChosen', card: card.id, option: option.id }, ...r.events];
   return { state: { ...state, run: { ...state.run, tags: r.tags }, game: { ...state.game, clock: r.clock }, card: null }, events };
 }

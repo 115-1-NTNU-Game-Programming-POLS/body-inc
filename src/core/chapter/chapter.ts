@@ -43,6 +43,11 @@ export interface Run {
   readonly seed: number;
   /** Rooms entered so far; each entry reseeds from it so a retry is not a copy of the last try. */
   readonly entries: number;
+  /**
+   * Exploring ticks since the chapter clock last moved a minute. It lives on the run, not the
+   * room, so the part of a minute walked before a door is not lost when the next room starts.
+   */
+  readonly explored: number;
 }
 
 export interface ChapterState {
@@ -157,6 +162,7 @@ export function startChapter(ctx: ChapterContent, options: StartOptions = {}): C
     checkpoint: null,
     seed: options.seed ?? 1,
     entries: 1,
+    explored: 0,
   };
   const game = build(ctx, run, { kind: 'start' }, {
     clock: options.clock ?? CHAPTER_OPENS, gauge: options.gauge ?? 0, halves: options.halves ?? BASE_HALVES, stacks: 0,
@@ -168,7 +174,7 @@ export function startChapter(ctx: ChapterContent, options: StartOptions = {}): C
 export function resumeChapter(ctx: ChapterContent, saved: Checkpoint, seed = 1): ChapterState {
   if (saved.chapter !== ctx.chapter.id) throw new ChapterError(`checkpoint belongs to chapter "${saved.chapter}", not "${ctx.chapter.id}"`);
   const run: Run = {
-    chapter: saved.chapter, roomId: saved.roomId, tags: saved.tags, fired: saved.fired, checkpoint: saved, seed, entries: 1,
+    chapter: saved.chapter, roomId: saved.roomId, tags: saved.tags, fired: saved.fired, checkpoint: saved, seed, entries: 1, explored: 0,
   };
   const game = build(ctx, run, { kind: 'at', x: saved.x, y: saved.y }, { clock: saved.clock, gauge: 0, halves: BASE_HALVES, stacks: 0 });
   return { run, game, dialogue: null, card: null };
@@ -232,7 +238,7 @@ function onTrigger(ctx: ChapterContent, run: Run, game: GameState, e: Extract<Do
     case 'clock_advance': {
       const minutes = wholeMinutes(e.eventId);
       if (minutes === undefined) throw new ChapterError(`${run.roomId}: clock_advance trigger #${o.id} needs whole minutes in eventId, got "${e.eventId}"`);
-      return { run, game: { ...game, clock: advance(game.clock, minutes) }, events: [{ type: 'clockAdvanced', minutes }] };
+      return { ...passTime(ctx, run, game, minutes), events: [{ type: 'clockAdvanced', minutes }] };
     }
     case 'dialogue':
     case 'card':
@@ -252,11 +258,17 @@ function onBed(ctx: ChapterContent, run: Run, game: GameState, e: Extract<Domain
   // The nap sofa is once per chapter (design doc 7.4); here that is once per bed object.
   const key = `${run.roomId}#${o.id}`;
   if (run.fired.includes(key)) return refused;
-  return {
-    run: { ...run, fired: [...run.fired, key] },
-    game: sendStacksHome({ ...game, clock: advance(game.clock, NAP.minutes) }),
-    events: [{ type: 'napped', minutes: NAP.minutes }],
-  };
+  const slept = passTime(ctx, { ...run, fired: [...run.fired, key] }, game, NAP.minutes);
+  return { run: slept.run, game: sendStacksHome(slept.game), events: [{ type: 'napped', minutes: NAP.minutes }] };
+}
+
+/**
+ * Moves the chapter clock on, and the caffeine residual with it (design doc 7.4). Every forward
+ * move goes through here or through a `clock:` effect, which decays the same way; a return to a
+ * checkpoint moves the clock back and restores the saved tags instead.
+ */
+function passTime(ctx: ChapterContent, run: Run, game: GameState, minutes: number): { run: Run; game: GameState } {
+  return { run: { ...run, tags: metabolise(run.tags, ctx.dict, minutes, ctx.params) }, game: { ...game, clock: advance(game.clock, minutes) } };
 }
 
 const isBed = (ctx: ChapterContent, key: string): boolean => {
@@ -273,20 +285,10 @@ export interface Modal {
 /**
  * One rule tick of a chapter. While a conversation or an event card is open only it takes input
  * and the room is frozen; otherwise the room steps and the chapter handles what only a chapter
- * can. Every tick then settles the time that passed, so the caffeine residual follows the clock
- * however the clock moved (exploring, a nap, a reply, a card).
+ * can.
  */
 export function stepChapter(ctx: ChapterContent, state: ChapterState, input: TickInput): ChapterResult {
-  const r = state.dialogue ? stepTalk(ctx, state, input) : state.card ? stepCard(ctx, state, input) : stepRoom(ctx, state, input);
-  return settle(ctx, state, r);
-}
-
-function settle(ctx: ChapterContent, before: ChapterState, r: ChapterResult): ChapterResult {
-  // A return to an earlier checkpoint moves the clock back; the tags come back with it.
-  const passed = r.state.game.clock.minute - before.game.clock.minute;
-  if (passed <= 0) return r;
-  const tags = metabolise(r.state.run.tags, ctx.dict, passed, ctx.params);
-  return tags === r.state.run.tags ? r : { ...r, state: { ...r.state, run: { ...r.state.run, tags } } };
+  return state.dialogue ? stepTalk(ctx, state, input) : state.card ? stepCard(ctx, state, input) : stepRoom(ctx, state, input);
 }
 
 /** The room as the cloak leaves it: adenosine sees less while the residual is high (design doc 7.4). */
@@ -305,7 +307,9 @@ function stepRoom(ctx: ChapterContent, state: ChapterState, input: TickInput): C
   let { run } = state;
   let game = r.state;
   // The chapter clock runs while exploring (design doc 7.2); a conversation or a card stops it.
-  if (game.tick > 0 && game.tick % ticksPerMinute(ctx.params) === 0) game = { ...game, clock: advance(game.clock, 1) };
+  const explored = run.explored + 1;
+  if (explored < ticksPerMinute(ctx.params)) run = { ...run, explored };
+  else ({ run, game } = passTime(ctx, { ...run, explored: 0 }, game, 1));
   const extra: ChapterEvent[] = [];
   let through: Extract<DomainEvent, { type: 'doorEntered' }> | undefined;
   /** The first conversation or card asked for this tick; one at a time, so a second request is dropped. */

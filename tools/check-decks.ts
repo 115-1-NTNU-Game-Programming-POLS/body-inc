@@ -23,6 +23,9 @@ import { schemaMessage } from './check-content.ts';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 
+/** Editors on Windows may save a BOM, which JSON.parse rejects. */
+const readJson = (p: string): unknown => JSON.parse(readFileSync(p, 'utf8').replace(/^\uFEFF/, ''));
+
 export interface DeckCheckOptions {
   readonly contentDir?: string;
   readonly mapsDir?: string;
@@ -99,20 +102,19 @@ function textProblems(file: string, deck: Deck, strings: StringsFile, stringsFil
 
 /** Everything a chapter needs to start in Node, read the way the game reads it. */
 function chapterContent(contentDir: string, mapsDir: string, dict: TagDictionary, chapterId: string, deck: Deck): ChapterContent | string {
-  const json = (p: string) => JSON.parse(readFileSync(p, 'utf8').replace(/^﻿/, '')) as unknown;
   const chapterFile = join(contentDir, 'chapters', `${chapterId}.json`);
   if (!existsSync(chapterFile)) return `content/chapters/${chapterId}.json 不存在`;
   try {
-    const chapter = readContent('chapter', json(chapterFile));
-    const params = readContent('params', json(join(contentDir, 'params.json'))).defaults;
-    const enemies = loadEnemyTable(json(join(contentDir, 'enemies.json')));
+    const chapter = readContent('chapter', readJson(chapterFile));
+    const params = readContent('params', readJson(join(contentDir, 'params.json'))).defaults;
+    const enemies = loadEnemyTable(readJson(join(contentDir, 'enemies.json')));
     const bossDir = join(contentDir, 'bosses');
-    const bossFiles = existsSync(bossDir) ? readdirSync(bossDir).filter((n) => n.endsWith('.json')).map((n) => json(join(bossDir, n))) : [];
+    const bossFiles = existsSync(bossDir) ? readdirSync(bossDir).filter((n) => n.endsWith('.json')).map((n) => readJson(join(bossDir, n))) : [];
     const dialogueDir = join(contentDir, 'dialogue');
     const dialogueFiles = existsSync(dialogueDir)
       ? readdirSync(dialogueDir).filter((n) => n.endsWith('.csv')).sort().map((n) => ({ file: n, text: readFileSync(join(dialogueDir, n), 'utf8') }))
       : [];
-    const rooms = new Map(roomsOf(chapter).map((path) => [path, parseRoom(path, json(join(mapsDir, `${path}.tmj`)) as TiledMap, dict)] as const));
+    const rooms = new Map(roomsOf(chapter).map((path) => [path, parseRoom(path, readJson(join(mapsDir, `${path}.tmj`)) as TiledMap, dict)] as const));
     return {
       chapter, rooms, dict, enemies, params, deck,
       bosses: loadBossTable(bossFiles, enemies, params),
@@ -136,8 +138,8 @@ export function checkDecks(opts: DeckCheckOptions = {}): DeckCheck {
   let strings: StringsFile;
   const stringsPath = join(contentDir, 'strings', 'zh-TW.json');
   try {
-    dict = loadDictionary(JSON.parse(readFileSync(join(contentDir, 'tags.json'), 'utf8')));
-    strings = readContent('strings', JSON.parse(readFileSync(stringsPath, 'utf8').replace(/^﻿/, '')));
+    dict = loadDictionary(readJson(join(contentDir, 'tags.json')));
+    strings = readContent('strings', readJson(stringsPath));
   } catch {
     return { problems: [`${here(deckDir)}：讀不到可用的標籤字典或字串表，請先修正 node tools/check-content.ts 回報的問題`], report };
   }
@@ -146,7 +148,7 @@ export function checkDecks(opts: DeckCheckOptions = {}): DeckCheck {
     const file = here(join(deckDir, name));
     let raw: unknown;
     try {
-      raw = JSON.parse(readFileSync(join(deckDir, name), 'utf8').replace(/^﻿/, ''));
+      raw = readJson(join(deckDir, name));
     } catch (e) {
       problems.push(`${file}：不是有效的 JSON（${(e as Error).message}）`);
       continue;
