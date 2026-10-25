@@ -1,4 +1,4 @@
-# 房間與對話製作說明
+# 房間、對話與卡片製作說明
 
 這份說明給用 Tiled 做房間、用試算表寫對話的組員。程式不需要改動：房間是 `public/assets/maps/` 下的 Tiled 檔，章節的房間怎麼接在一起寫在 `content/chapters/` 的一個 JSON 檔，對話寫在 `content/dialogue/` 的 CSV 檔。每一種檔案都有檢查腳本，錯誤會用中文指出檔名與位置。設計依據是設計文件第 13.2 與 13.3 節；說明與設計文件不一致時，以設計文件為準。
 
@@ -25,7 +25,7 @@
 | Door | 房間的門 | `socket` 朝哪個方向；`lock` 是否上鎖；**物件的 Name 欄必填** |
 | Bed | 床 | `bedType` 是 `nap` 或 `sleep`；`requires` 條件式，成立才能用 |
 
-Trigger 的 `event` 有五種。`checkpoint` 是打卡機：營運長踩上去時存檔、補滿心，之後強制下班會回到這裡，每次踩上去都算，不受 `once` 影響。`clock_advance` 讓章內時鐘前進，`eventId` 填分鐘數，必須是 1 到 4 位數的整數，例如 `20`；留空、寫小數、`1e1` 或文字都會被地圖檢查擋下。`dialogue` 開啟對話，`eventId` 填對話 id。`card` 與 `cutscene` 會通知外層的卡片與過場，那兩個功能完成前沒有反應。
+Trigger 的 `event` 有五種。`checkpoint` 是打卡機：營運長踩上去時存檔、補滿心，之後強制下班會回到這裡，每次踩上去都算，不受 `once` 影響。`clock_advance` 讓章內時鐘前進，`eventId` 填分鐘數，必須是 1 到 4 位數的整數，例如 `20`；留空、寫小數、`1e1` 或文字都會被地圖檢查擋下。`dialogue` 開啟對話，`eventId` 填對話 id。`card` 翻開一張事件卡，`eventId` 填這一章卡組裡事件卡的 id，寫法見下方「卡片」一節。`cutscene` 會通知外層的過場，那個功能完成前沒有反應。
 
 Bed 的 `nap` 是午睡沙發：時鐘前進 20 分鐘，黏在身上的腺苷全部回到原處，每張床只能用一次。`sleep` 是就寢門：條件成立就結束這一章，目前會回到標題畫面。`requires` 寫成條件式，例如 `caffeine<15`，不成立時床會回應「還睡不著」。條件式只能用 `content/tags.json` 裡的標籤，語法是標籤名、比較運算、驚嘆號否定、逗號表示「且」。
 
@@ -65,7 +65,7 @@ http://localhost:5173/?room=greybox/rest-room&tags=caffeine:50
 
 ## 提交前
 
-執行 `npm run check`（只想檢查地圖時執行 `node tools/check-maps.ts`，只檢查資料檔時執行 `node tools/check-content.ts`，只檢查對話時執行 `node tools/check-dialogue.ts`）。通過時最後一行是 `0 problem(s)`。有問題時每一行是一個問題，開頭是檔名，接著是物件編號與原因，例如：
+執行 `npm run check`（只想檢查地圖時執行 `node tools/check-maps.ts`，只檢查資料檔時執行 `node tools/check-content.ts`，只檢查對話時執行 `node tools/check-dialogue.ts`，只檢查卡片時執行 `node tools/check-decks.ts`）。通過時最後一行是 `0 problem(s)`。有問題時每一行是一個問題，開頭是檔名，接著是物件編號與原因，例如：
 
 ```
 public/assets/maps/brain/coffee-room.tmj 物件 #4（Door）：門「door-e」沒有接到任何房間，也沒有上鎖；請在章節檔連起來，或把 lock 設成上鎖
@@ -132,6 +132,45 @@ greybox.brain.briefing,8,brain,sleepy,好。睡醒再說。,,,,
 ### 目前還沒有的
 
 台詞整句直接顯示，沒有逐字出現的效果。員工手冊還沒做，所以 `unlock:` 目前只會跳出「員工手冊多了一頁」的提示並記進因果紀錄，不會留下解鎖狀態，等建置計畫 P6 補上。同一個 tick 只會開一段對話；同時踩到兩個對話觸發點時，後一個被丟掉；如果它是只觸發一次的觸發點，會還回來，離開再踩進去就能觸發。同理，整段都被條件略過、沒有開起來的對話，也不會用掉它的觸發點。每一句出現後的前 12 個 tick（0.2 秒）按鍵不算，避免戰鬥中按住的鍵把第一句直接跳過，這個時間是暫定值，要看試玩的感覺再調。
+
+## 卡片
+
+每一章的外層卡片寫在 `content/decks/<章>.json`，檔名與裡面的 `chapter` 都要和章節檔同名。卡片分兩種：章首卡在新遊戲進入第一間房之前依序翻開，決定這一章開局有多糟（例如昨晚幾點睡、早上有沒有喝咖啡）；事件卡在章節中途由 Tiled 的 Trigger 翻開，`event` 選 `card`、`eventId` 填事件卡的 id。範例（`content/decks/greybox.json` 的一部分）：
+
+```json
+{
+  "version": 1,
+  "chapter": "greybox",
+  "opening": [
+    {
+      "id": "morning_coffee",
+      "options": [
+        { "id": "drink", "effect": "tag:caffeine=100" },
+        { "id": "skip", "effect": "" }
+      ]
+    }
+  ],
+  "events": [
+    {
+      "id": "group_chat",
+      "options": [
+        { "id": "rewrite", "effect": "tag:deadline;clock:60" },
+        { "id": "office_hour", "effect": "tag:stress+10" }
+      ]
+    }
+  ]
+}
+```
+
+章首卡最多 3 張，每張卡有 2 到 3 個選項。卡片 id 在整個卡組裡不能重複（章首卡與事件卡共用一套 id，因為卡面文字以 id 為鍵），同一張卡的選項 id 也不能重複。`effect` 的寫法與對話相同，留空表示這個選項不改變任何狀態，但選擇本身仍會記進因果紀錄，結算報告才知道玩家選了什麼。章首卡只能設定標籤字典裡來源含 `card` 的標籤，事件卡只能設定來源含 `event` 的標籤。
+
+卡面文字放在 `content/strings/zh-TW.json`：題目是 `deck.<章>.<卡>.title`，每個選項的名稱是 `deck.<章>.<卡>.<選項>`，名稱下方的說明是 `deck.<章>.<卡>.<選項>.note`。題目最多 2 行，選項名稱最多 2 行，說明最多 4 行，在 100% 與 125% 字級都要放得下。選項說明是玩家做決定時唯一的線索，請寫出這個選擇在章節裡會造成的結果，例如「睡眠債 2 小時：走廊多兩個腺苷通風口」。
+
+章首卡畫面可以用 W、S、A、D 或方向鍵移動，按 E、Enter、J 或空白鍵確定，也可以直接按 1、2、3 或用滑鼠點卡片。事件卡出現時房間與章內時鐘都會停住，用 W、S 移動、確認鍵確定、1 2 3 直接選，或點卡片；點在卡片以外的地方不算數。和對話一樣，卡片出現後的前 12 個 tick 按鍵不算。帶有事件卡的 Trigger 預設只觸發一次。
+
+章內時鐘在探索時會自己走，現實 55 秒是遊戲裡 1 小時（`content/params.json` 的 `exploreSecondsPerHour`）；對話與事件卡打開時時鐘停住。咖啡因殘留隨時鐘以 5 小時半衰期遞減（`halfLife`），殘留 50 以上時腺苷完全看不到營運長，不會飄過來也不會黏上，25 到 50 之間只在 2 格內察覺，25 以下恢復正常。
+
+`node tools/check-decks.ts`（`npm run check` 已包含）用遊戲讀檔的同一支程式讀卡組，檢查格式、id、效果寫法、卡面文字是否存在與放得下，並把每一種章首卡組合實際帶進章節：每間房都要進得去，而且在等待 24 小時之內，至少有一張 `bedType` 為 `sleep` 的床的 `requires` 會成立；每一張事件卡的每個選項也會疊在每種組合上再試一次。任何一種組合讓章節無法結束，檢查就失敗。檢查同時列出每種組合的敵人數、董事長精神 P 與「壓力」（敵人數除以 P），以及最難組合比最簡單組合難多少，設計文件的目標約 30%；這個數字只記錄、不會讓檢查失敗，而且它還沒有計入咖啡因隱身的好處。地圖檢查確認 Trigger 寫的事件卡存在於該地圖資料夾那一章的卡組，遊戲啟動時也會再確認一次。
 
 ## 尚未驗證的事
 
