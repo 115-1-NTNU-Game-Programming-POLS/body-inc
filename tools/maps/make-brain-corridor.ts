@@ -5,7 +5,8 @@
  * adenosine, when sleep_debt>=2 at room entry. It sits in the greybox chapter, whose test room
  * already carries the adenosine tutorial and the bed; real brain rooms are build-plan P7. The
  * brain itself stands in the corridor with a briefing that offers three replies (build plan P5),
- * so the conversation system has a choice to play.
+ * so the conversation system has a choice to play, and a Trigger before the east door shows the
+ * chapter's event card (build plan P1).
  *
  *   node tools/maps/make-brain-corridor.ts
  */
@@ -40,13 +41,24 @@ const brain = (id: number) => ({
     { name: 'dialogueId', type: 'string', value: 'greybox.brain.briefing' },
   ],
 });
+/**
+ * The chapter's event card (build plan P1), as a strip across the whole floor before the east
+ * door, so the operator meets it on the way to the boss arena.
+ */
+const eventCard = (id: number) => ({
+  id, name: 'group-chat', type: 'Trigger', x: 16 * 32, y: 3 * 32, width: 32, height: 8 * 32, rotation: 0, visible: true,
+  properties: [
+    { name: 'event', type: 'string', propertytype: 'TriggerEvent', value: 'card' },
+    { name: 'eventId', type: 'string', value: 'group_chat' },
+  ],
+});
 const group = (id: number, name: string, objects: object[]) => ({
   id, name, type: 'objectgroup', x: 0, y: 0, opacity: 1, visible: true, draworder: 'topdown', objects,
 });
 
 writeRoom('greybox/brain-corridor.tmj', {
   type: 'map', version: '1.10', tiledversion: '1.11.0', orientation: 'orthogonal', renderorder: 'right-down',
-  infinite: false, width: W, height: 12, tilewidth: 32, tileheight: 32, nextlayerid: 8, nextobjectid: 11, class: 'Room',
+  infinite: false, width: W, height: 12, tilewidth: 32, tileheight: 32, nextlayerid: 8, nextobjectid: 12, class: 'Room',
   properties: [
     { name: 'organ', type: 'string', value: 'brain' },
     { name: 'role', type: 'string', value: 'combat' },
@@ -62,6 +74,7 @@ writeRoom('greybox/brain-corridor.tmj', {
       door(3, 'E', (W - 1) * 32),
       adenosine(4, 2),
       brain(10),
+      eventCard(11),
     ]),
     {
       id: 5, name: 'variant:sleep_debt_2', type: 'group', class: 'Variant', x: 0, y: 0, opacity: 1, visible: true,

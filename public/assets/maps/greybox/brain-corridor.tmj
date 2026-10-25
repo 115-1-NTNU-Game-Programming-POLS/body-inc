@@ -10,7 +10,7 @@
  "tilewidth": 32,
  "tileheight": 32,
  "nextlayerid": 8,
- "nextobjectid": 11,
+ "nextobjectid": 12,
  "class": "Room",
  "properties": [
   {
@@ -661,6 +661,30 @@
        "name": "dialogueId",
        "type": "string",
        "value": "greybox.brain.briefing"
+      }
+     ]
+    },
+    {
+     "id": 11,
+     "name": "group-chat",
+     "type": "Trigger",
+     "x": 512,
+     "y": 96,
+     "width": 32,
+     "height": 256,
+     "rotation": 0,
+     "visible": true,
+     "properties": [
+      {
+       "name": "event",
+       "type": "string",
+       "propertytype": "TriggerEvent",
+       "value": "card"
+      },
+      {
+       "name": "eventId",
+       "type": "string",
+       "value": "group_chat"
       }
      ]
     }

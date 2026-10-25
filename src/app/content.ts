@@ -7,8 +7,8 @@ import speakersJson from '../../content/speakers.json';
 import stringsJson from '../../content/strings/zh-TW.json';
 import tagsJson from '../../content/tags.json';
 import {
-  loadBossTable, loadDictionary, loadDialogueTable, loadEnemyTable, readContent,
-  type BossTable, type ChapterFile, type DialogueFile, type DialogueTable, type EnemyTable, type TagDictionary,
+  loadBossTable, loadDeck, loadDictionary, loadDialogueTable, loadEnemyTable, readContent,
+  type BossTable, type ChapterFile, type Deck, type DialogueFile, type DialogueTable, type EnemyTable, type TagDictionary,
 } from '../core/index.ts';
 import { speakerProblems, type Speakers } from './dialogue.ts';
 import { feedbackProblems, noteFields, type FeedbackTable, type StringTable } from './feedback.ts';
@@ -52,6 +52,17 @@ export const CHAPTER_FILES: readonly unknown[] = [greyboxChapter];
 export const CHAPTERS: ReadonlyMap<string, ChapterFile> = new Map(CHAPTER_FILES.map((f) => {
   const c = readContent('chapter', f);
   return [c.id, c] as const;
+}));
+
+/**
+ * Every file in content/decks, found by pattern, by chapter id. A chapter without one opens with
+ * no cards. The deck check (tools/check-decks.ts) reports problems in Chinese; this load stops
+ * startup on any.
+ */
+const deckSources = import.meta.glob<unknown>('../../content/decks/*.json', { import: 'default', eager: true });
+export const DECKS: ReadonlyMap<string, Deck> = new Map(Object.values(deckSources).map((raw) => {
+  const d = loadDeck(raw, TAGS);
+  return [d.chapter, d] as const;
 }));
 
 const problems = feedbackProblems(FEEDBACK, STRINGS, noteFields(ENEMIES));

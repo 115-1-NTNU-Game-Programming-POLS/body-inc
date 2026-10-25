@@ -108,15 +108,18 @@ const UNLOCK = /^unlock:([a-z][a-z0-9_]*)$/;
 const CLOCK = /^clock:(.*)$/;
 
 /** The tag sources that let a conversation set a tag: story events, not cards or derived rules. */
-const DIALOGUE_SOURCES: readonly string[] = ['event', 'chapter'];
+export const DIALOGUE_SOURCES: readonly string[] = ['event', 'chapter'];
 
 export interface EffectProblem {
   readonly code: EffectProblemCode;
   readonly part: string;
 }
 
-/** Effects of one cell, `;` separated, e.g. `tag:breakfast;clock:10`. */
-export function parseEffects(text: string, dict: TagDictionary): { effects: Effect[]; problems: EffectProblem[] } {
+/**
+ * Effects of one cell, `;` separated, e.g. `tag:breakfast;clock:10`. `sources` are the dictionary
+ * sources that let the caller set a tag: a conversation sets story-event tags, a card sets card tags.
+ */
+export function parseEffects(text: string, dict: TagDictionary, sources: readonly string[] = DIALOGUE_SOURCES): { effects: Effect[]; problems: EffectProblem[] } {
   const effects: Effect[] = [];
   const problems: EffectProblem[] = [];
   if (text.trim() === '') return { effects, problems };
@@ -144,7 +147,7 @@ export function parseEffects(text: string, dict: TagDictionary): { effects: Effe
     // Modifiers are conditions over tags, not tags, so they cannot be set.
     const def = dict.tags.get(name);
     if (!def) bad(dict.aliases.has(name) ? 'alias' : 'unknown-tag');
-    else if (!def.sources.some((s) => DIALOGUE_SOURCES.includes(s))) bad('tag-source');
+    else if (!def.sources.some((s) => sources.includes(s))) bad('tag-source');
     else if (def.type === 'boolean' && op === undefined) effects.push({ kind: 'flag', name });
     else if (def.type === 'number' && op !== undefined) effects.push({ kind: 'amount', name, mode: op === '=' ? 'set' : 'add', value: Number(num) });
     else bad('tag-form');

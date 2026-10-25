@@ -2,13 +2,14 @@ import { OPERATOR_SPEAKER, type ContentTypes, type DialogueTable, type GameEvent
 import type { KeyboardInput } from './input.ts';
 
 /**
- * When a conversation ends, keys still down from confirming it count as released until they come
- * up. A held J or left button is also a held attack, and the stapler fires on a held attack.
+ * When a conversation ends or an event card is chosen, keys still down from confirming it count as
+ * released until they come up. A held J or left button is also a held attack, and the stapler
+ * fires on a held attack.
  * Listeners run inside the tick, so this lands before the next tick samples. Returns the remover.
  */
 export function releaseKeysOnClose(loop: { onEvent(fn: (e: GameEvent) => void): () => void }, keys: Pick<KeyboardInput, 'ignoreHeld'>): () => void {
   return loop.onEvent((e) => {
-    if (e.type === 'dialogueClosed') keys.ignoreHeld();
+    if (e.type === 'dialogueClosed' || e.type === 'cardChosen') keys.ignoreHeld();
   });
 }
 

@@ -287,6 +287,86 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
       }
     }
   },
+  "deck": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "DeckFile",
+    "description": "A story chapter's outer-layer cards (design doc 4.2 and 7.2, build plan P1): the 2 to 3 cards played before the chapter opens, and the event cards a Trigger with event \"card\" shows inside it. Card and option text is in content/strings under deck.<chapter>.<card>.title, deck.<chapter>.<card>.<option> and deck.<chapter>.<card>.<option>.note. Cross-file checks (the chapter exists, effects name card or event tags, every combination of opening cards can finish the chapter) are in tools/check-decks.ts.",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "version",
+      "chapter",
+      "opening",
+      "events"
+    ],
+    "properties": {
+      "version": {
+        "const": 1
+      },
+      "chapter": {
+        "description": "The chapter id; also the file name.",
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9-]*$"
+      },
+      "opening": {
+        "description": "Played in order before the first room. Empty for a chapter whose premise is fixed (the prologue).",
+        "type": "array",
+        "maxItems": 3,
+        "items": {
+          "$ref": "#/$defs/Card"
+        }
+      },
+      "events": {
+        "description": "Shown when the operator steps on a Trigger whose event is card and whose eventId is the card id.",
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/Card"
+        }
+      }
+    },
+    "$defs": {
+      "Card": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "options"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "options": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 3,
+            "items": {
+              "$ref": "#/$defs/Option"
+            }
+          }
+        }
+      },
+      "Option": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "effect"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "effect": {
+            "description": "What choosing it does, in the effect language of the dialogue CSV: tag:x, tag:x=n, tag:x+n, clock:minutes, unlock:page, separated by ;. Empty does nothing. Opening cards may set tags whose sources include card, event cards those whose sources include event.",
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
   "enemies": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "title": "EnemiesFile",
@@ -641,7 +721,8 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
           "pastExamBonus",
           "wakeCap",
           "examWake",
-          "bossSecondsPerHour"
+          "bossSecondsPerHour",
+          "exploreSecondsPerHour"
         ],
         "properties": {
           "days": {
@@ -1111,6 +1192,11 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
             "description": "Real seconds per game hour on the boss clock.",
             "type": "number",
             "exclusiveMinimum": 0
+          },
+          "exploreSecondsPerHour": {
+            "description": "Real seconds per game hour on the chapter clock while exploring.",
+            "type": "number",
+            "exclusiveMinimum": 0
           }
         }
       },
@@ -1559,11 +1645,12 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
   }
 };
 
-export type SchemaName = "boss" | "chapter" | "enemies" | "feedback" | "params" | "scheduleCards" | "speakers" | "strings" | "tags";
+export type SchemaName = "boss" | "chapter" | "deck" | "enemies" | "feedback" | "params" | "scheduleCards" | "speakers" | "strings" | "tags";
 
 export interface ContentTypes {
   readonly boss: BossFile;
   readonly chapter: ChapterFile;
+  readonly deck: DeckFile;
   readonly enemies: EnemiesFile;
   readonly feedback: FeedbackFile;
   readonly params: ParamsFile;
@@ -1657,6 +1744,28 @@ export interface ChapterFile {
 export interface ChapterLink {
   readonly a: string;
   readonly b: string;
+}
+
+/** A story chapter's outer-layer cards (design doc 4.2 and 7.2, build plan P1): the 2 to 3 cards played before the chapter opens, and the event cards a Trigger with event "card" shows inside it. Card and option text is in content/strings under deck.<chapter>.<card>.title, deck.<chapter>.<card>.<option> and deck.<chapter>.<card>.<option>.note. Cross-file checks (the chapter exists, effects name card or event tags, every combination of opening cards can finish the chapter) are in tools/check-decks.ts. */
+export interface DeckFile {
+  readonly version: 1;
+  /** The chapter id; also the file name. */
+  readonly chapter: string;
+  /** Played in order before the first room. Empty for a chapter whose premise is fixed (the prologue). */
+  readonly opening: readonly Card[];
+  /** Shown when the operator steps on a Trigger whose event is card and whose eventId is the card id. */
+  readonly events: readonly Card[];
+}
+
+export interface Card {
+  readonly id: string;
+  readonly options: readonly Option[];
+}
+
+export interface Option {
+  readonly id: string;
+  /** What choosing it does, in the effect language of the dialogue CSV: tag:x, tag:x=n, tag:x+n, clock:minutes, unlock:page, separated by ;. Empty does nothing. Opening cards may set tags whose sources include card, event cards those whose sources include event. */
+  readonly effect: string;
 }
 
 /** Enemy categories and solutions (design doc 5.5). Cross-checks (solution references, which fields each category may have, Tiled object classes) are in core/combat/enemies.ts. */
@@ -1856,6 +1965,8 @@ export interface ParamsFile {
     readonly examWake: number;
     /** Real seconds per game hour on the boss clock. */
     readonly bossSecondsPerHour: number;
+    /** Real seconds per game hour on the chapter clock while exploring. */
+    readonly exploreSecondsPerHour: number;
   };
   readonly difficulty: readonly Difficulty[];
   readonly semesterCards: {

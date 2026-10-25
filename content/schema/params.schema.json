@@ -137,7 +137,8 @@
         "pastExamBonus",
         "wakeCap",
         "examWake",
-        "bossSecondsPerHour"
+        "bossSecondsPerHour",
+        "exploreSecondsPerHour"
       ],
       "properties": {
         "days": {
@@ -605,6 +606,11 @@
         },
         "bossSecondsPerHour": {
           "description": "Real seconds per game hour on the boss clock.",
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "exploreSecondsPerHour": {
+          "description": "Real seconds per game hour on the chapter clock while exploring.",
           "type": "number",
           "exclusiveMinimum": 0
         }

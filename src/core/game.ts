@@ -57,6 +57,12 @@ export interface GameState {
   readonly touching: readonly number[];
   /** Clinging stacks brought in from another room; they belong to no enemy here and only sleep clears them. */
   readonly carried: number;
+  /**
+   * How far clinging enemies can see the operator, when the caffeine cloak cuts it below
+   * CLING.senseRangePx (design doc 7.4); 0 means they cannot see the operator at all. The chapter
+   * sets it every tick from the caffeine tag, since the room knows no tags.
+   */
+  readonly senseCapPx?: number;
 }
 
 /**
@@ -316,6 +322,7 @@ export function step(state: GameState, input: TickInput): StepResult {
   }
 
   const grid = state.room.grid;
+  const senseRange = Math.min(CLING.senseRangePx, state.senseCapPx ?? CLING.senseRangePx);
   const s = stepOperator(grid, state.operator, input, now);
   let op = s.op;
   if (s.blockedX) events.push({ type: 'bumpWall', axis: 'x' });
@@ -390,7 +397,7 @@ export function step(state: GameState, input: TickInput): StepResult {
       continue;
     }
     if (enemies.has(e.id)) continue;
-    const r = stepEnemy(grid, e, target);
+    const r = stepEnemy(grid, e, target, senseRange);
     enemies.set(e.id, r.enemy);
     newShots.push(...r.shots);
     if (r.telegraph) events.push({ type: 'telegraph', source: e.id, tier: 1 });
@@ -511,7 +518,8 @@ export function step(state: GameState, input: TickInput): StepResult {
   // an exam fight it fails the current question instead, which arrives with the exam fight.
   let clock = state.clock;
   let carried = state.carried;
-  if (!isInvincible(op, now)) {
+  // Under a full cloak they cannot see the operator, so they do not grab either (design doc 7.4).
+  if (!isInvincible(op, now) && senseRange > 0) {
     const body = boxAt(OPERATOR_BODY, op.x, op.y);
     const clinger = byId().find((e) => e.clings && e.phase === 'idle' && e.frozen === 0 && overlaps(enemyHurtbox(e), body));
     if (clinger) {

@@ -177,4 +177,18 @@ describe('keyboard input in a conversation', () => {
     target.dispatchEvent(key('keydown', 'KeyJ'));
     expect(input.sample().attack).toBe(true);
   });
+
+  it('so is a key held to choose an event card', () => {
+    const { target, input } = setup();
+    const loop = new FixedStepLoop<number, GameEvent>(0, (s) => ({ state: s + 1, events: s === 0 ? [{ type: 'cardChosen', card: 'c', option: 'o' }] : [] }));
+    releaseKeysOnClose(loop, input);
+    const seen: boolean[] = [];
+    target.dispatchEvent(key('keydown', 'KeyJ'));
+    loop.advance(TICK_MS * 3 + 1, () => {
+      const i = input.sample();
+      seen.push(i.attack === true);
+      return i;
+    });
+    expect(seen).toEqual([true, false, false]);
+  });
 });

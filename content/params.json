@@ -206,7 +206,8 @@
     "pastExamBonus": 1.05,
     "wakeCap": 11,
     "examWake": 7,
-    "bossSecondsPerHour": 6
+    "bossSecondsPerHour": 6,
+    "exploreSecondsPerHour": 55
   },
   "difficulty": [
     {
@@ -388,6 +389,7 @@
     "pastExamBonus": "[risk-3 mechanisms / opportunity events (need an RSVP the evening before, i.e. reading ctx.tomorrow)] 學長姐考古題 (sudden): final x1.05 for one social hour",
     "wakeCap": "[risk-3 mechanisms / opportunity events (need an RSVP the evening before, i.e. reading ctx.tomorrow)] latest sleep-in on a free morning",
     "examWake": "[risk-3 mechanisms / opportunity events (need an RSVP the evening before, i.e. reading ctx.tomorrow)] exam mornings: must be up by 07:00 (travel + prep)",
-    "bossSecondsPerHour": "[clock] DOC boss fights run 1 game hour in 6 s, so the 5 h caffeine half-life is 30 s (design doc 7.3, 7.4)"
+    "bossSecondsPerHour": "[clock] DOC boss fights run 1 game hour in 6 s, so the 5 h caffeine half-life is 30 s (design doc 7.3, 7.4)",
+    "exploreSecondsPerHour": "[clock] DOC the chapter clock runs about 1 game hour in 55 s while exploring (design doc 7.2); it stands still while a conversation or a card is open"
   }
 }

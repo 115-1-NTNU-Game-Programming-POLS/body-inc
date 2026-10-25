@@ -7,7 +7,7 @@
  *
  *   node tools/check-content.ts [contentDir]     exit 1 on any problem
  */
-import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { feedbackProblems, noteFields } from '../src/app/feedback.ts';
@@ -29,6 +29,7 @@ const RULES: ReadonlyArray<readonly [RegExp, SchemaName]> = [
   [/^bosses\/[a-z0-9_]+\.json$/, 'boss'],
   [/^chapters\/[a-z][a-z0-9-]*\.json$/, 'chapter'],
   [/^speakers\.json$/, 'speakers'],
+  [/^decks\/[a-z][a-z0-9-]*\.json$/, 'deck'],
 ];
 
 const TYPE_NAME: Record<string, string> = {
@@ -138,6 +139,16 @@ export function checkContent(contentDir: string): string[] {
     const stem = rel.replace(/^chapters\//, '').replace(/\.json$/, '');
     const { id } = v.value as ContentTypes['chapter'];
     if (id !== stem) out.push(`${v.file}：id「${id}」必須與檔名「${stem}」相同`);
+  }
+
+  // A deck belongs to one chapter: same id in the file name, and a chapter file that exists.
+  const chapterIds = new Set([...valid.values()].filter((v) => v.schema === 'chapter').map((v) => (v.value as ContentTypes['chapter']).id));
+  for (const [rel, v] of valid) {
+    if (v.schema !== 'deck') continue;
+    const stem = rel.replace(/^decks\//, '').replace(/\.json$/, '');
+    const { chapter } = v.value as ContentTypes['deck'];
+    if (chapter !== stem) out.push(`${v.file}：chapter「${chapter}」必須與檔名「${stem}」相同`);
+    else if (!existsSync(join(contentDir, 'chapters', `${chapter}.json`))) out.push(`${v.file}：章節「${chapter}」沒有對應的 content/chapters/${chapter}.json`);
   }
 
   // A speaker is shown under a name tag whose text is a string; the CSV check cannot supply a missing one.
