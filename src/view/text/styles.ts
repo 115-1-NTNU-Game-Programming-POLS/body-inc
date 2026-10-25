@@ -84,3 +84,21 @@ export const MEMO = {
     return Math.min(this.maxEm * this.fontSize * scale, this.noteWidth - 2 * this.padding);
   },
 };
+
+/**
+ * Outer-layer cards (build plan P1). Card title 26 px and interface text 20 px follow art
+ * direction 8.2; the option card size (320 px wide, 20 px padding, 24 px apart, so three fit on
+ * the 1280 px screen) and the line caps are assumptions until the card table is reviewed.
+ */
+export const CARD = {
+  width: 320,
+  padding: 20,
+  gap: 24,
+  innerWidth: 320 - 2 * 20,
+  /** The question on top of the table: document title, 32 px, up to 2 lines across 1000 px. */
+  title: { role: 'hand' as FontRole, weight: 700, fontSize: 32, lineHeight: 1.3, maxLines: 2, maxWidth: (_scale: number) => 1000 },
+  /** An option's name on its card: card title, 26 px. */
+  label: { role: 'hand' as FontRole, weight: 700, fontSize: 26, lineHeight: 1.3, maxLines: 2, maxWidth: (_scale: number) => 320 - 2 * 20 },
+  /** What the option does, under its name: interface text, 20 px. */
+  note: { role: 'print' as FontRole, weight: 400, fontSize: 20, lineHeight: 1.5, maxLines: 4, maxWidth: (_scale: number) => 320 - 2 * 20 },
+};

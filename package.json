@@ -11,7 +11,7 @@
     "preview": "vite preview",
     "typecheck": "tsc -p tsconfig.core.json && tsc -p tsconfig.json",
     "test": "vitest run",
-    "check": "node tools/check-boundaries.ts && node tools/check-content.ts && node tools/content/make-content-types.ts --check && node tools/check-dialogue.ts && node tools/check-maps.ts && node tools/maps/make-tiled-project.ts --check && node tools/maps/make-room-template.ts --check",
+    "check": "node tools/check-boundaries.ts && node tools/check-content.ts && node tools/content/make-content-types.ts --check && node tools/check-dialogue.ts && node tools/check-decks.ts && node tools/check-maps.ts && node tools/maps/make-tiled-project.ts --check && node tools/maps/make-room-template.ts --check",
     "check:release": "node tools/check-dialogue.ts --release",
     "verify": "npm run typecheck && npm run test && npm run check && npm run build"
   },

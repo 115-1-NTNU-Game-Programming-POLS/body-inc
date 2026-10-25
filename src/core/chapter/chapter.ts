@@ -14,6 +14,10 @@ import type { Checkpoint, StoryData } from '../save/slots.ts';
 import { spiritAtEntry, type SleepCoefficients } from '../spirit.ts';
 import type { TagDictionary } from '../tags/dictionary.ts';
 import { EMPTY_TAGS, holds, type TagState } from '../tags/store.ts';
+import { TICK_HZ } from '../time.ts';
+import { caffeineOf, metabolise, senseCap, type MetabolismParams } from '../outer/caffeine.ts';
+import type { Deck } from '../outer/deck.ts';
+import { openCard, stepCard, type CardState } from './cards.ts';
 import { openTalk, stepTalk } from './talk.ts';
 
 /**
@@ -46,6 +50,8 @@ export interface ChapterState {
   readonly game: GameState;
   /** The conversation on screen, or null. While one is open the room is frozen and only it takes input. */
   readonly dialogue: DialogueState | null;
+  /** The event card on screen, or null; like a conversation it freezes the room. */
+  readonly card: CardState | null;
 }
 
 /** What the chapter itself reports on top of a room's events. */
@@ -59,7 +65,9 @@ export type ChapterEvent =
   | { readonly type: 'napped'; readonly minutes: number }
   | { readonly type: 'checkpointSaved'; readonly room: string }
   | { readonly type: 'clockAdvanced'; readonly minutes: number }
-  /** A card or cutscene trigger fired; the outer layer picks it up when it exists. */
+  | { readonly type: 'cardOpened'; readonly card: string }
+  | { readonly type: 'cardChosen'; readonly card: string; readonly option: string }
+  /** A cutscene trigger fired; the cutscene player picks it up when it exists. */
   | { readonly type: 'outerRequested'; readonly kind: string; readonly eventId: string }
   | { readonly type: 'returnedToCheckpoint'; readonly room: string }
   | { readonly type: 'chapterEnded' };
@@ -76,8 +84,18 @@ export interface ChapterContent {
   readonly dict: TagDictionary;
   readonly enemies: EnemyTable;
   readonly bosses: BossTable;
-  readonly params: SleepCoefficients;
+  readonly params: ChapterParams;
+  /** The chapter's outer-layer cards; absent for a chapter without any. */
+  readonly deck?: Deck;
 }
+
+export interface ChapterParams extends SleepCoefficients, MetabolismParams {
+  /** Real seconds per game hour of the chapter clock while exploring (design doc 7.2). */
+  readonly exploreSecondsPerHour: number;
+}
+
+/** Room ticks per minute of the chapter clock. */
+export const ticksPerMinute = (k: ChapterParams): number => Math.max(1, Math.round((k.exploreSecondsPerHour * TICK_HZ) / 60));
 
 export interface ChapterResult {
   readonly state: ChapterState;
@@ -117,6 +135,9 @@ function build(ctx: ChapterContent, run: Run, place: Place, carry: Carry): GameS
   });
 }
 
+/** When a chapter opens unless told otherwise: day 1, 08:00. The opening cards are played at this time too. */
+export const CHAPTER_OPENS: RuleClock = startClock(1, 8);
+
 export interface StartOptions {
   /** Room to open in; the chapter's start room when absent. */
   readonly room?: string;
@@ -138,9 +159,9 @@ export function startChapter(ctx: ChapterContent, options: StartOptions = {}): C
     entries: 1,
   };
   const game = build(ctx, run, { kind: 'start' }, {
-    clock: options.clock ?? startClock(1, 8), gauge: options.gauge ?? 0, halves: options.halves ?? BASE_HALVES, stacks: 0,
+    clock: options.clock ?? CHAPTER_OPENS, gauge: options.gauge ?? 0, halves: options.halves ?? BASE_HALVES, stacks: 0,
   });
-  return { run, game, dialogue: null };
+  return { run, game, dialogue: null, card: null };
 }
 
 /** Continue from a saved checkpoint: its room and place, its tags and clock, full hearts. */
@@ -150,7 +171,7 @@ export function resumeChapter(ctx: ChapterContent, saved: Checkpoint, seed = 1):
     chapter: saved.chapter, roomId: saved.roomId, tags: saved.tags, fired: saved.fired, checkpoint: saved, seed, entries: 1,
   };
   const game = build(ctx, run, { kind: 'at', x: saved.x, y: saved.y }, { clock: saved.clock, gauge: 0, halves: BASE_HALVES, stacks: 0 });
-  return { run, game, dialogue: null };
+  return { run, game, dialogue: null, card: null };
 }
 
 /** Every room the chapter file names, start first; the rooms the app must have loaded before play. */
@@ -179,9 +200,9 @@ interface Applied {
   readonly run: Run;
   readonly game: GameState;
   readonly events: readonly ChapterEvent[];
-  /** The id of a dialogue trigger; the conversation opens once the tick's other events are settled. */
-  readonly dialogue?: string;
-  /** The `fired` key this trigger just used up; given back if its conversation never opens. */
+  /** A conversation or event card this trigger asks for; it opens once the tick's other events are settled. */
+  readonly opens?: Modal;
+  /** The `fired` key this trigger just used up; given back if what it opens never appears. */
   readonly spent?: string;
 }
 
@@ -214,7 +235,8 @@ function onTrigger(ctx: ChapterContent, run: Run, game: GameState, e: Extract<Do
       return { run, game: { ...game, clock: advance(game.clock, minutes) }, events: [{ type: 'clockAdvanced', minutes }] };
     }
     case 'dialogue':
-      return { run, game, events: [], dialogue: e.eventId, ...(once ? { spent: key } : {}) };
+    case 'card':
+      return { run, game, events: [], opens: { kind: e.trigger, id: e.eventId }, ...(once ? { spent: key } : {}) };
     default:
       return { run, game, events: [{ type: 'outerRequested', kind: e.trigger, eventId: e.eventId }] };
   }
@@ -242,15 +264,52 @@ const isBed = (ctx: ChapterContent, key: string): boolean => {
   return ctx.rooms.get(room)?.objects.some((o) => o.kind === 'Bed' && String(o.id) === id) ?? false;
 };
 
+/** A conversation or an event card. Only one is on screen at a time, and only one opens per tick. */
+export interface Modal {
+  readonly kind: 'dialogue' | 'card';
+  readonly id: string;
+}
+
+/**
+ * One rule tick of a chapter. While a conversation or an event card is open only it takes input
+ * and the room is frozen; otherwise the room steps and the chapter handles what only a chapter
+ * can. Every tick then settles the time that passed, so the caffeine residual follows the clock
+ * however the clock moved (exploring, a nap, a reply, a card).
+ */
 export function stepChapter(ctx: ChapterContent, state: ChapterState, input: TickInput): ChapterResult {
-  if (state.dialogue) return stepTalk(ctx, state, input);
-  const r = step(state.game, input);
+  const r = state.dialogue ? stepTalk(ctx, state, input) : state.card ? stepCard(ctx, state, input) : stepRoom(ctx, state, input);
+  return settle(ctx, state, r);
+}
+
+function settle(ctx: ChapterContent, before: ChapterState, r: ChapterResult): ChapterResult {
+  // A return to an earlier checkpoint moves the clock back; the tags come back with it.
+  const passed = r.state.game.clock.minute - before.game.clock.minute;
+  if (passed <= 0) return r;
+  const tags = metabolise(r.state.run.tags, ctx.dict, passed, ctx.params);
+  return tags === r.state.run.tags ? r : { ...r, state: { ...r.state, run: { ...r.state.run, tags } } };
+}
+
+/** The room as the cloak leaves it: adenosine sees less while the residual is high (design doc 7.4). */
+function cloaked(ctx: ChapterContent, run: Run, game: GameState): GameState {
+  const cap = senseCap(caffeineOf(run.tags, ctx.dict));
+  if (cap !== undefined) return game.senseCapPx === cap ? game : { ...game, senseCapPx: cap };
+  if (game.senseCapPx === undefined) return game;
+  const { senseCapPx: _, ...rest } = game;
+  return rest;
+}
+
+const plain = (run: Run, game: GameState): ChapterState => ({ run, game, dialogue: null, card: null });
+
+function stepRoom(ctx: ChapterContent, state: ChapterState, input: TickInput): ChapterResult {
+  const r = step(cloaked(ctx, state.run, state.game), input);
   let { run } = state;
   let game = r.state;
+  // The chapter clock runs while exploring (design doc 7.2); a conversation or a card stops it.
+  if (game.tick > 0 && game.tick % ticksPerMinute(ctx.params) === 0) game = { ...game, clock: advance(game.clock, 1) };
   const extra: ChapterEvent[] = [];
   let through: Extract<DomainEvent, { type: 'doorEntered' }> | undefined;
-  /** The first conversation asked for this tick; one at a time, so a second request is dropped. */
-  let opening: { readonly id: string; readonly spent?: string } | undefined;
+  /** The first conversation or card asked for this tick; one at a time, so a second request is dropped. */
+  let opening: (Modal & { readonly spent?: string }) | undefined;
   /**
    * A once-trigger whose conversation is not shown has not been seen, so it can fire again. A
    * checkpoint punched later in the same tick already copied the key, so it is taken back there too.
@@ -284,18 +343,18 @@ export function stepChapter(ctx: ChapterContent, state: ChapterState, input: Tic
         const built = build(ctx, next, { kind: 'at', x: cp.x, y: cp.y }, {
           clock: cp.clock, gauge: game.operator.gauge, halves: game.operator.maxHalves, stacks: game.operator.stacks,
         });
-        return done({ run: next, game: built, dialogue: null }, [{ type: 'returnedToCheckpoint', room: cp.roomId }]);
+        return done(plain(next, built), [{ type: 'returnedToCheckpoint', room: cp.roomId }]);
       }
       case 'talk':
-        opening ??= { id: e.dialogueId };
+        opening ??= { kind: 'dialogue', id: e.dialogueId };
         break;
       case 'triggerEntered': {
         const a = onTrigger(ctx, run, game, e);
         ({ run, game } = a);
         extra.push(...a.events);
-        if (a.dialogue === undefined) break;
+        if (a.opens === undefined) break;
         if (opening) giveBack(a.spent);
-        else opening = { id: a.dialogue, ...(a.spent !== undefined ? { spent: a.spent } : {}) };
+        else opening = { ...a.opens, ...(a.spent !== undefined ? { spent: a.spent } : {}) };
         break;
       }
       case 'bedUse': {
@@ -309,14 +368,16 @@ export function stepChapter(ctx: ChapterContent, state: ChapterState, input: Tic
     }
   }
 
+  // A door crossed on the same tick waits: it is forgotten as touched, so it fires again once the
+  // conversation or card is over.
+  const holdDoor = (g: GameState): GameState => (through ? { ...g, touching: g.touching.filter((id) => id !== through!.object) } : g);
+  if (opening?.kind === 'card') {
+    return done({ ...plain(run, holdDoor(game)), card: openCard(ctx, opening.id) }, [{ type: 'cardOpened', card: opening.id }]);
+  }
   if (opening !== undefined) {
     if (!ctx.dialogues.has(opening.id)) throw new ChapterError(`${run.roomId}: dialogue "${opening.id}" does not exist (the map check and Boot should have caught this)`);
     const talk = openTalk(ctx, run, game, opening.id);
-    if (talk) {
-      // A door crossed on the same tick waits: it is forgotten as touched, so it fires again once the conversation is over.
-      const touching = through ? talk.game.touching.filter((id) => id !== through!.object) : talk.game.touching;
-      return done({ run: talk.run, game: { ...talk.game, touching }, dialogue: talk.dialogue }, talk.events);
-    }
+    if (talk) return done({ ...plain(talk.run, holdDoor(talk.game)), dialogue: talk.dialogue }, talk.events);
     giveBack(opening.spent);
   }
 
@@ -328,7 +389,7 @@ export function stepChapter(ctx: ChapterContent, state: ChapterState, input: Tic
     const built = build(ctx, next, { kind: 'door', door: dest.door }, {
       clock: game.clock, gauge: game.operator.gauge, halves: game.operator.halves, stacks: game.operator.stacks,
     });
-    return done({ run: next, game: built, dialogue: null }, [{ type: 'roomChanged', from: run.roomId, to: dest.room }]);
+    return done(plain(next, built), [{ type: 'roomChanged', from: run.roomId, to: dest.room }]);
   }
-  return done({ run, game, dialogue: null }, []);
+  return done(plain(run, game), []);
 }

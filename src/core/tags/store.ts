@@ -104,6 +104,26 @@ export function flag(state: TagState, dict: TagDictionary, name: string): boolea
   return state.values[name] !== undefined;
 }
 
+/** Below this a decaying amount counts as gone, so a residual does not linger as 0.000001 forever. */
+const DECAY_FLOOR = 0.01;
+
+/**
+ * Multiplies a number tag by `factor` (0 to 1), e.g. caffeine metabolised over time. A decrease
+ * needs no source, for the same reason repaying sleep debt is not a cause of it: the log explains
+ * why a tag is there, not why it is fading. The tag keeps its log entry.
+ */
+export function decayAmount(state: TagState, dict: TagDictionary, name: string, factor: number): TagState {
+  if (def(dict, name).type !== 'number') throw new TagError(`"${name}" is a boolean tag`);
+  if (!(factor >= 0 && factor <= 1)) throw new TagError(`decay factor must be 0 to 1, got ${factor}`);
+  const e = state.values[name];
+  if (typeof e?.value !== 'number' || factor === 1) return state;
+  const value = Math.round(e.value * factor * 1e6) / 1e6;
+  const values = { ...state.values };
+  if (value < DECAY_FLOOR) delete values[name];
+  else values[name] = { ...e, value };
+  return { ...state, values };
+}
+
 /** Ends `hours` tags whose time is up. Expiry follows the dictionary, so it needs no source. */
 export function expireTags(state: TagState, now: number): TagState {
   const kept = Object.entries(state.values).filter(([, e]) => e.until === undefined || e.until > now);

@@ -1,10 +1,10 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { BOSSES, DIALOGUES, ENEMIES, PARAMS, TAGS } from '../../src/app/content.ts';
+import { BOSSES, DECKS, DIALOGUES, ENEMIES, PARAMS, TAGS } from '../../src/app/content.ts';
 import { tagsFromQuery } from '../../src/app/session.ts';
 import { bodyOverlapsSolid } from '../../src/core/collision/grid.ts';
 import {
-  advance, ChapterError, decode, encode, EMPTY_TAGS, NAP, OPERATOR_BODY, parseRoom, readContent, resumeChapter, selectInteractable,
+  advance, ChapterError, LOCK_TICKS, decode, encode, EMPTY_TAGS, NAP, OPERATOR_BODY, parseRoom, readContent, resumeChapter, selectInteractable,
   startChapter, startClock, stateHash, stepChapter, storyOf, STORY, touchedObjects, wholeMinutes,
   type ChapterContent, type ChapterState, type GameEvent, type TickInput, type TiledMap,
 } from '../../src/core/index.ts';
@@ -19,7 +19,7 @@ const load = (path: string) => parseRoom(path, JSON.parse(readFileSync(`public/a
 const ctx: ChapterContent = {
   chapter: CHAPTER,
   rooms: new Map([GREY, REST, CORRIDOR, ARENA].map((p) => [p, load(p)])),
-  dialogues: DIALOGUES, dict: TAGS, enemies: ENEMIES, bosses: BOSSES, params: PARAMS,
+  dialogues: DIALOGUES, dict: TAGS, enemies: ENEMIES, bosses: BOSSES, params: PARAMS, deck: DECKS.get('greybox')!,
 };
 
 const tags = (q: string) => tagsFromQuery(`?tags=${q}`, TAGS);
@@ -230,11 +230,11 @@ describe('triggers', () => {
     expect(['', ' ', '1e1', '0x10', '+5', '2 0', 'twenty'].map(wholeMinutes)).toEqual(new Array(7).fill(undefined));
   });
 
-  it('dialogue triggers open the dialogue, and card and cutscene triggers are handed to the outer layer', () => {
-    const c = lab([trigger(2, 'dialogue', 'greybox.liver.hello'), trigger(3, 'card', 'sleep_time', [p('once', false)])]);
+  it('dialogue triggers open the dialogue, and cutscene triggers are handed to the outer layer', () => {
+    const c = lab([trigger(2, 'dialogue', 'greybox.liver.hello'), trigger(3, 'cutscene', 'contract', [p('once', false)])]);
     const r = advanceBy(c, place(startChapter(c), 220, 190), NONE);
     expect(r.events).toContainEqual({ type: 'dialogueOpened', dialogueId: 'greybox.liver.hello' });
-    expect(r.events).toContainEqual({ type: 'outerRequested', kind: 'card', eventId: 'sleep_time' });
+    expect(r.events).toContainEqual({ type: 'outerRequested', kind: 'cutscene', eventId: 'contract' });
   });
 });
 
@@ -500,7 +500,12 @@ describe('a whole walk through the chapter replays exactly', () => {
     expect(s.run.roomId).toBe(CORRIDOR);
     expect(s.run.checkpoint?.roomId).toBe(REST);
     expect(s.run.fired).toHaveLength(1);
-    const arena = walkTo(ctx, s, 625, 224, changed).state;
+    // The corridor's event card stops the walk; the second option leaves the clock alone.
+    const card = walkTo(ctx, s, 625, 224, (e) => e.type === 'cardOpened');
+    expect(card.state.card?.id).toBe('group_chat');
+    const chosen = advanceBy(ctx, advanceBy(ctx, card.state, NONE, LOCK_TICKS).state, { ...NONE, pick: 2 });
+    expect(types(chosen.events)).toContain('cardChosen');
+    const arena = walkTo(ctx, chosen.state, 625, 224, changed).state;
     expect(arena.run.roomId).toBe(ARENA);
   });
 

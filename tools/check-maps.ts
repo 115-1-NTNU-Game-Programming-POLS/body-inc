@@ -33,6 +33,8 @@ export interface MapContent {
   readonly enemies: EnemyTable;
   readonly dialogueIds: ReadonlySet<string>;
   readonly handbookIds: ReadonlySet<string>;
+  /** Event card ids by chapter, read loosely from content/decks: what is wrong inside a deck is check-decks' to say. */
+  readonly cardIds?: ReadonlyMap<string, ReadonlySet<string>>;
   /** Chapter files by chapter id; a file that fails to parse or its schema is left out and reported in `problems`. */
   readonly chapters?: ReadonlyMap<string, ChapterFile>;
   /** Problems found while reading content (a chapter file that does not parse), reported first. */
@@ -75,11 +77,26 @@ export function loadMapContent(contentDir = join(ROOT, 'content')): MapContent {
       chapters.set((value as ChapterFile).id, value as ChapterFile);
     }
   }
+  const cardIds = new Map<string, Set<string>>();
+  const deckDir = join(contentDir, 'decks');
+  if (existsSync(deckDir)) {
+    for (const f of readdirSync(deckDir).filter((n) => n.endsWith('.json')).sort()) {
+      let value: { events?: { id?: unknown }[] };
+      try {
+        value = JSON.parse(readFileSync(join(deckDir, f), 'utf8').replace(/^﻿/, '')) as typeof value;
+      } catch {
+        continue;
+      }
+      const ids = new Set((Array.isArray(value.events) ? value.events : []).map((c) => String(c?.id)));
+      cardIds.set(basename(f, '.json'), ids);
+    }
+  }
   return {
     dict: loadDictionary(json('tags.json')),
     enemies: loadEnemyTable(json('enemies.json')),
     dialogueIds,
     handbookIds: new Set(handbook.map((p) => p.id)),
+    cardIds,
     chapters,
     problems,
   };
@@ -192,6 +209,12 @@ export function checkMaps(mapsDir: string, content: MapContent = loadMapContent(
       const id = String(o.props['eventId'] ?? o.props['itemId'] ?? '');
       if (o.kind === 'Trigger' && o.props['event'] === 'dialogue' && !content.dialogueIds.has(id)) {
         out.push(`${file} ${where(room, { object: o.id })}：eventId「${id}」不存在於對話（content/dialogue/*.csv）`);
+      }
+      if (o.kind === 'Trigger' && o.props['event'] === 'card') {
+        const chapter = basename(dirname(path));
+        if (!content.cardIds?.get(chapter)?.has(id)) {
+          out.push(`${file} ${where(room, { object: o.id })}：eventId「${id}」不是這一章的事件卡（content/decks/${chapter}.json 的 events）`);
+        }
       }
       if (o.kind === 'Trigger' && o.props['event'] === 'clock_advance' && wholeMinutes(id) === undefined) {
         out.push(`${file} ${where(room, { object: o.id })}：clock_advance 的 eventId「${id}」必須是分鐘數，1 到 4 位數的整數，例如 20`);

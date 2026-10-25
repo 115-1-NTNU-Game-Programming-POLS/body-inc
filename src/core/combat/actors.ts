@@ -86,7 +86,8 @@ export interface EnemyStep {
   readonly shots: readonly ShotSpec[];
 }
 
-export function stepEnemy(grid: SolidGrid, e0: EnemyState, target: Vec): EnemyStep {
+/** `senseRangePx` is how far a clinging enemy notices the operator; the caffeine cloak lowers it. */
+export function stepEnemy(grid: SolidGrid, e0: EnemyState, target: Vec, senseRangePx: number = CLING.senseRangePx): EnemyStep {
   const out = (enemy: EnemyState, flags: Partial<Omit<EnemyStep, 'enemy'>> = {}): EnemyStep =>
     ({ enemy, telegraph: false, reformed: false, respawned: false, shots: [], ...flags });
   if (e0.frozen > 0) return out({ ...e0, frozen: e0.frozen - 1 });
@@ -111,7 +112,7 @@ export function stepEnemy(grid: SolidGrid, e0: EnemyState, target: Vec): EnemySt
     const dx = target.x - e.x;
     const dy = target.y - e.y;
     const d = Math.hypot(dx, dy);
-    if (d === 0 || d > CLING.senseRangePx) return out(e);
+    if (d === 0 || d > senseRangePx) return out(e);
     const m = moveAndCollide(grid, ENEMY_BODY, e.x, e.y, (dx / d) * CLING.driftSpeed, (dy / d) * CLING.driftSpeed);
     return out({ ...e, x: m.x, y: m.y });
   }

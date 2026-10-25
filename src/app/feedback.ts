@@ -22,7 +22,7 @@ const ALL_EVENTS: Record<GameEvent['type'], true> = {
   bossStage: true, bossDrink: true, bossSummon: true, powerCut: true, proposalRejected: true, bossDefeated: true,
   doorEntered: true, doorLocked: true, triggerEntered: true, talk: true, bedUse: true,
   roomChanged: true, dialogueOpened: true, dialogueClosed: true, handbookUnlocked: true, bedRefused: true, napped: true,
-  checkpointSaved: true, clockAdvanced: true,
+  checkpointSaved: true, clockAdvanced: true, cardOpened: true, cardChosen: true,
   outerRequested: true, returnedToCheckpoint: true, chapterEnded: true,
 };
 /** Every event type core can emit; a feedback key outside this list is a typo. */

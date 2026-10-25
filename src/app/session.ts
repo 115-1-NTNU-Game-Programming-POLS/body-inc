@@ -2,8 +2,8 @@ import { BASE_HALVES, EMPTY_LOG, EMPTY_TAGS, record, setAmount, setFlag, STAMP, 
 
 /**
  * Which room a dev build opens and the tags it is entered with, skipping the title screen.
- * Until the outer layer (build plan P1) produces tags from cards, dev builds take them from the
- * URL so variants can be seen:
+ * A new game takes its tags from the opening cards; dev builds can instead take them from the URL,
+ * so any variant can be seen without playing the cards that lead to it:
  *
  *   ?room=greybox/brain-corridor&tags=sleep_debt:2,breakfast&gauge=100&halves=2
  *

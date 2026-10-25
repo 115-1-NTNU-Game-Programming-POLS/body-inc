@@ -197,6 +197,20 @@ describe('map check', () => {
       expect(check({ a: map([spawn('ghost')]) })).toEqual([expect.stringContaining('enemyType「ghost」不存在')]);
     });
 
+    it('a card Trigger must name an event card of its own chapter (the map folder) deck', () => {
+      const ch = join(dir, 'cards');
+      mkdirSync(ch);
+      const card = (id: string) => ({ type: 'Trigger', properties: [prop('event', 'card'), prop('eventId', id)] });
+      const content = { ...loadMapContent(), cardIds: new Map([['cards', new Set(['group_chat'])], ['other', new Set(['elsewhere'])]]) };
+      const at = (id: string) => {
+        writeFileSync(join(ch, 'a.tmj'), JSON.stringify(map([card(id)])));
+        return checkMaps(ch, content).map((l) => l.slice(l.indexOf('：') + 1));
+      };
+      expect(at('group_chat')).toEqual([]);
+      expect(at('elsewhere')).toEqual(['eventId「elsewhere」不是這一章的事件卡（content/decks/cards.json 的 events）']);
+      expect(loadMapContent().cardIds?.get('greybox')?.has('group_chat')).toBe(true);
+    });
+
     it('dialogue and handbook ids must exist', () => {
       const out = check({
         a: map([
