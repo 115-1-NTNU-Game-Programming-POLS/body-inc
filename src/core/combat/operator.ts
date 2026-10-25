@@ -15,6 +15,10 @@ export interface TickInput {
   readonly stampPressed?: boolean;
   /** Talk to an NPC or use a bed; not buffered, since it is only meaningful while standing next to one. */
   readonly interactPressed?: boolean;
+  /** A fresh press of up (-1) or down (1); only a conversation's choice reads it. */
+  readonly menuStep?: -1 | 0 | 1;
+  /** A reply picked by number key or click, counted from 1 (0 or absent: none); only a conversation's choice reads it. */
+  readonly pick?: number;
 }
 
 export const NO_INPUT: TickInput = { move: { x: 0, y: 0 } };

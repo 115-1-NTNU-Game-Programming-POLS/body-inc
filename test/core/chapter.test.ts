@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { BOSSES, ENEMIES, PARAMS, TAGS } from '../../src/app/content.ts';
+import { BOSSES, DIALOGUES, ENEMIES, PARAMS, TAGS } from '../../src/app/content.ts';
 import { tagsFromQuery } from '../../src/app/session.ts';
 import { bodyOverlapsSolid } from '../../src/core/collision/grid.ts';
 import {
@@ -19,7 +19,7 @@ const load = (path: string) => parseRoom(path, JSON.parse(readFileSync(`public/a
 const ctx: ChapterContent = {
   chapter: CHAPTER,
   rooms: new Map([GREY, REST, CORRIDOR, ARENA].map((p) => [p, load(p)])),
-  dict: TAGS, enemies: ENEMIES, bosses: BOSSES, params: PARAMS,
+  dialogues: DIALOGUES, dict: TAGS, enemies: ENEMIES, bosses: BOSSES, params: PARAMS,
 };
 
 const tags = (q: string) => tagsFromQuery(`?tags=${q}`, TAGS);
@@ -57,6 +57,15 @@ function walkTo(c: ChapterContent, s: ChapterState, x: number, y: number, until:
   throw new Error(`did not reach (${x}, ${y}); stopped at (${s.game.operator.x}, ${s.game.operator.y})`);
 }
 const changed = (e: GameEvent) => e.type === 'roomChanged';
+
+/** Reads the open conversation to its end, confirming on every other tick (each press needs a fresh edge). */
+function finishTalk(c: ChapterContent, s: ChapterState): ChapterState {
+  for (let i = 0; s.dialogue; i++) {
+    if (i > 2000) throw new Error('the conversation did not end');
+    s = stepChapter(c, s, i % 2 === 0 ? { move: { x: 0, y: 0 }, interactPressed: true } : NONE).state;
+  }
+  return s;
+}
 
 /** A bare open room of the given Tiled objects, for rules the greybox rooms do not exercise. */
 function labRoom(path: string, objects: object[]) {
@@ -415,6 +424,7 @@ describe('retries and events on the same tick', () => {
     const s0 = startChapter(ctx);
     const adenosine = s0.game.enemies.find((e) => e.type === 'adenosine')!;
     const clinging: ChapterState = {
+      ...s0,
       run: { ...s0.run, checkpoint: cp },
       game: {
         ...s0.game,
@@ -481,6 +491,7 @@ describe('a whole walk through the chapter replays exactly', () => {
     }
     s = walkTo(ctx, s, 320, 232).state;
     s = advanceBy(ctx, s, PRESS).state;
+    s = finishTalk(ctx, s);
     return walkTo(ctx, s, 625, 224, changed).state;
   }
 

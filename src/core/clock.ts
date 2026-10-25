@@ -29,6 +29,14 @@ export function advance(clock: RuleClock, minutes: number): RuleClock {
   return { day: clock.day, minute: clock.minute + minutes };
 }
 
+/**
+ * Whole minutes written in a content cell, or undefined for anything else. Number() would also
+ * take '', ' ', '1e1' and '0x10', so every place content names minutes shares this.
+ */
+export function wholeMinutes(text: string): number | undefined {
+  return /^[0-9]{1,4}$/.test(text) ? Number(text) : undefined;
+}
+
 /** Hour of the wall clock, 0 to 23. */
 export const hourOf = (clock: RuleClock): number => Math.floor((clock.minute % MINUTES_PER_DAY) / 60);
 
