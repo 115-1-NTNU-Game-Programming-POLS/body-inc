@@ -87,6 +87,30 @@ describe('content check (build plan S4)', () => {
     expect(checkContent(dir3)).toEqual([expect.stringMatching(/links\[0\]\.extra：不認得的欄位「extra」/)]);
   });
 
+  it('a speaker needs a name tag string and a plain id, and the operator is not a speaker', () => {
+    const dir = contentCopy();
+    edit(dir, 'speakers.json', (j) => { j.speakers.ghost = { style: 'box', portrait: false }; });
+    expect(checkContent(dir)).toEqual([expect.stringMatching(/speakers\.json：說話者「ghost」在 .*zh-TW\.json 沒有名牌文字，請新增「speaker\.ghost」/)]);
+
+    const dir2 = contentCopy();
+    edit(dir2, 'speakers.json', (j) => { j.speakers.Bad_Id = { style: 'box', portrait: false }; });
+    edit(dir2, 'strings/zh-TW.json', (j) => { j.strings['speaker.Bad_Id'] = { text: '壞', fact: '' }; });
+    expect(checkContent(dir2)).toEqual([expect.stringMatching(/說話者代號「Bad_Id」只能用小寫英文/)]);
+
+    const dir3 = contentCopy();
+    edit(dir3, 'speakers.json', (j) => { j.speakers.operator = { style: 'box', portrait: false }; });
+    edit(dir3, 'strings/zh-TW.json', (j) => { j.strings['speaker.operator'] = { text: '營運長', fact: '' }; });
+    expect(checkContent(dir3)).toEqual([expect.stringMatching(/「operator」是玩家回覆專用的代號/)]);
+  });
+
+  it('a speaker entry must match its schema', () => {
+    const dir = contentCopy();
+    edit(dir, 'speakers.json', (j) => { j.speakers.brain.style = 'bubble'; delete j.speakers.gut.portrait; });
+    const problems = checkContent(dir);
+    expect(problems).toContainEqual(expect.stringMatching(/speakers\.json speakers\.brain\.style：必須是/));
+    expect(problems).toContainEqual(expect.stringMatching(/speakers\.json speakers\.gut\.portrait：缺少必填欄位「portrait」/));
+  });
+
   it('checks feedback notes against every strings file', () => {
     const dir = contentCopy();
     edit(dir, 'strings/zh-TW.json', (j) => { delete j.strings['solution.guards']; });

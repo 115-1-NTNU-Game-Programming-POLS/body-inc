@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "speakers": {
+    "adenosine": { "style": "box", "portrait": true },
+    "brain": { "style": "box", "portrait": true },
+    "caffeine": { "style": "box", "portrait": true },
+    "exam": { "style": "box", "portrait": true },
+    "gut": { "style": "box", "portrait": true },
+    "immune": { "style": "box", "portrait": true },
+    "liver": { "style": "memo", "portrait": true },
+    "muscle": { "style": "box", "portrait": true },
+    "stomach": { "style": "box", "portrait": true },
+    "toast-boss": { "style": "box", "portrait": true }
+  }
+}

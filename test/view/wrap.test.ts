@@ -1,14 +1,11 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { DIALOGUE } from '../../src/view/text/styles.ts';
-import { CLOSING, OPENING, units, wrapCJK, type Measure } from '../../src/view/text/wrap.ts';
+import { modelMeasure as model } from '../../src/view/text/measure.ts';
+import { DIALOGUE, MEMO, REPLY, TEXT_SCALES } from '../../src/view/text/styles.ts';
+import { CLOSING, OPENING, units, wrapCJK } from '../../src/view/text/wrap.ts';
 
 const SAMPLES = (JSON.parse(readFileSync('test/fixtures/text/dialogue-samples.json', 'utf8')) as { samples: { text: string }[] }).samples;
 const NBSP = ' ';
-
-/** Width model for Node: CJK and full-width marks are 1 em, Latin 0.55 em, spaces 0.3 em. */
-const model = (size: number): Measure => (s) =>
-  [...s].reduce((w, c) => w + size * (c === ' ' || c === NBSP ? 0.3 : c.codePointAt(0)! >= 0x2000 ? 1 : 0.55), 0);
 
 const chars = (lines: string[]) => lines.join('').replace(/ /g, '');
 
@@ -91,5 +88,25 @@ describe('dialogue samples at the dialogue box width (build plan S10)', () => {
     expect(/[A-Za-z]{4,}/.test(all)).toBe(true);
     // At 30 characters per line some samples must actually wrap, or the test proves nothing.
     expect(SAMPLES.some((s) => wrapCJK(s.text, DIALOGUE.maxWidth(1), model(DIALOGUE.fontSize)).length > 1)).toBe(true);
+  });
+});
+
+describe('reply and memo notes', () => {
+  it.each([['reply', REPLY], ['memo', MEMO]] as const)('the %s text area stays inside its note at both text sizes', (_name, p) => {
+    for (const scale of TEXT_SCALES) {
+      expect(p.maxWidth(scale)).toBeLessThanOrEqual(p.noteWidth - 2 * p.padding);
+    }
+  });
+
+  it('the memo note holds its lines at both text sizes', () => {
+    for (const scale of TEXT_SCALES) {
+      expect(MEMO.maxLines * MEMO.fontSize * scale * MEMO.lineHeight + 2 * MEMO.padding, `${scale}`).toBeLessThanOrEqual(MEMO.noteHeight);
+    }
+  });
+
+  it('a full reply line is the width the preset promises', () => {
+    const line = '一'.repeat(REPLY.maxEm);
+    expect(wrapCJK(line, REPLY.maxWidth(1), model(REPLY.fontSize))).toEqual([line]);
+    expect(wrapCJK(line + '二', REPLY.maxWidth(1), model(REPLY.fontSize))).toHaveLength(2);
   });
 });

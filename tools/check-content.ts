@@ -13,7 +13,7 @@ import { fileURLToPath } from 'node:url';
 import { feedbackProblems, noteFields } from '../src/app/feedback.ts';
 import type { ContentTypes, SchemaName, SchemaProblem } from '../src/core/index.ts';
 import {
-  BossTableError, DictionaryError, EnemyTableError, loadBossTable, loadDictionary, loadEnemyTable, schemaProblems, type EnemyTable,
+  BossTableError, DictionaryError, EnemyTableError, OPERATOR_SPEAKER, loadBossTable, loadDictionary, loadEnemyTable, schemaProblems, type EnemyTable,
 } from '../src/core/index.ts';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -28,6 +28,7 @@ const RULES: ReadonlyArray<readonly [RegExp, SchemaName]> = [
   [/^cards\/schedule\.json$/, 'scheduleCards'],
   [/^bosses\/[a-z0-9_]+\.json$/, 'boss'],
   [/^chapters\/[a-z][a-z0-9-]*\.json$/, 'chapter'],
+  [/^speakers\.json$/, 'speakers'],
 ];
 
 const TYPE_NAME: Record<string, string> = {
@@ -137,6 +138,19 @@ export function checkContent(contentDir: string): string[] {
     const stem = rel.replace(/^chapters\//, '').replace(/\.json$/, '');
     const { id } = v.value as ContentTypes['chapter'];
     if (id !== stem) out.push(`${v.file}：id「${id}」必須與檔名「${stem}」相同`);
+  }
+
+  // A speaker is shown under a name tag whose text is a string; the CSV check cannot supply a missing one.
+  const speakers = get<'speakers'>('speakers.json');
+  if (speakers) {
+    for (const id of Object.keys(speakers.value.speakers)) {
+      if (!/^[a-z][a-z0-9-]*$/.test(id)) out.push(`${speakers.file}：說話者代號「${id}」只能用小寫英文、數字與連字號，且以英文字母開頭`);
+      if (id === OPERATOR_SPEAKER) out.push(`${speakers.file}：「${id}」是玩家回覆專用的代號，不能登記成說話者`);
+      for (const [, s] of strings) {
+        const stringsFile = s.value as ContentTypes['strings'];
+        if (!stringsFile.strings[`speaker.${id}`]) out.push(`${speakers.file}：說話者「${id}」在 ${s.file} 沒有名牌文字，請新增「speaker.${id}」`);
+      }
+    }
   }
 
   const cards = get<'scheduleCards'>('cards/schedule.json');
