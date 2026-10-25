@@ -5,7 +5,7 @@ import { tagsFromQuery } from '../../src/app/session.ts';
 import { bodyOverlapsSolid } from '../../src/core/collision/grid.ts';
 import {
   advance, ChapterError, decode, encode, EMPTY_TAGS, NAP, OPERATOR_BODY, parseRoom, readContent, resumeChapter, selectInteractable,
-  startChapter, startClock, stateHash, stepChapter, storyOf, STORY, touchedObjects, triggerMinutes,
+  startChapter, startClock, stateHash, stepChapter, storyOf, STORY, touchedObjects, wholeMinutes,
   type ChapterContent, type ChapterState, type GameEvent, type TickInput, type TiledMap,
 } from '../../src/core/index.ts';
 
@@ -226,8 +226,8 @@ describe('triggers', () => {
   });
 
   it('only plain whole minutes are minutes', () => {
-    expect(['0', '20', '480', '9999'].map(triggerMinutes)).toEqual([0, 20, 480, 9999]);
-    expect(['', ' ', '1e1', '0x10', '+5', '2 0', 'twenty'].map(triggerMinutes)).toEqual(new Array(7).fill(undefined));
+    expect(['0', '20', '480', '9999'].map(wholeMinutes)).toEqual([0, 20, 480, 9999]);
+    expect(['', ' ', '1e1', '0x10', '+5', '2 0', 'twenty'].map(wholeMinutes)).toEqual(new Array(7).fill(undefined));
   });
 
   it('dialogue triggers open the dialogue, and card and cutscene triggers are handed to the outer layer', () => {

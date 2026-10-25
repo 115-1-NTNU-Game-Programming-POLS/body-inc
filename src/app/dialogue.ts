@@ -1,4 +1,4 @@
-import { OPERATOR_SPEAKER, type ContentTypes, type DialogueTable } from '../core/index.ts';
+import { OPERATOR_SPEAKER, type ContentTypes, type DialogueTable, type RoomObject } from '../core/index.ts';
 
 export type Speakers = ContentTypes['speakers']['speakers'];
 
@@ -22,6 +22,26 @@ export function portraitsUsed(table: DialogueTable, speakers: Speakers): Portrai
     }
   }
   return [...files.values()];
+}
+
+/**
+ * Conversations that rooms start but the table does not hold: an NPC's `dialogueId` or a dialogue
+ * Trigger's `eventId`. The map check catches these in CI; this is the same rule where the game
+ * starts, so a stale bundle stops at Boot instead of throwing in the middle of a tick.
+ */
+export function missingDialogues(
+  rooms: ReadonlyMap<string, { readonly objects: readonly Pick<RoomObject, 'id' | 'kind' | 'props'>[] }>,
+  table: DialogueTable,
+): string[] {
+  const out: string[] = [];
+  for (const [path, room] of rooms) {
+    for (const o of room.objects) {
+      const id = o.kind === 'NPC' ? o.props['dialogueId'] : o.kind === 'Trigger' && o.props['event'] === 'dialogue' ? o.props['eventId'] : undefined;
+      if (id === undefined || table.has(String(id))) continue;
+      out.push(`${path}: ${o.kind} #${o.id} starts conversation "${String(id)}", which no file under content/dialogue defines`);
+    }
+  }
+  return out;
 }
 
 /**

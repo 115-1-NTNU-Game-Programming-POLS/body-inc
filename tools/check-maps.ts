@@ -18,7 +18,7 @@ import { loadEnemyTable, type EnemyTable } from '../src/core/combat/enemies.ts';
 import { schemaProblems } from '../src/core/content/read.ts';
 import { parseCsv } from '../src/core/dialogue/csv.ts';
 import type { ChapterFile } from '../src/core/content/generated.ts';
-import { triggerMinutes } from '../src/core/chapter/chapter.ts';
+import { wholeMinutes } from '../src/core/clock.ts';
 import { arrivalPoint } from '../src/core/rooms/interact.ts';
 import { listProps, type PropProblem, type TiledMapFile } from '../src/core/rooms/props.ts';
 import { SOCKET_COLS, SOCKET_ROWS, readRoom, type RoomModel, type RoomObject, type RoomProblem, type TiledMap } from '../src/core/rooms/tiled.ts';
@@ -193,7 +193,7 @@ export function checkMaps(mapsDir: string, content: MapContent = loadMapContent(
       if (o.kind === 'Trigger' && o.props['event'] === 'dialogue' && !content.dialogueIds.has(id)) {
         out.push(`${file} ${where(room, { object: o.id })}：eventId「${id}」不存在於對話（content/dialogue/*.csv）`);
       }
-      if (o.kind === 'Trigger' && o.props['event'] === 'clock_advance' && triggerMinutes(id) === undefined) {
+      if (o.kind === 'Trigger' && o.props['event'] === 'clock_advance' && wholeMinutes(id) === undefined) {
         out.push(`${file} ${where(room, { object: o.id })}：clock_advance 的 eventId「${id}」必須是分鐘數，1 到 4 位數的整數，例如 20`);
       }
       if (o.kind === 'Pickup' && o.props['itemType'] === 'handbook' && !content.handbookIds.has(id)) {

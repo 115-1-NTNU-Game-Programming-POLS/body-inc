@@ -83,10 +83,10 @@ export function stepTalk(ctx: ChapterContent, state: ChapterState, input: TickIn
   const choosing = s.options.length > 0;
   const picked = choosing && input.pick ? pickReply(s, input.pick) : undefined;
   if (!picked && choosing && input.menuStep) {
-    return { state: { ...state, dialogue: { ...moveCursor(s, input.menuStep), age: s.age + 1 } }, events: [] };
+    return { state: { ...state, dialogue: { ...moveCursor(s, input.menuStep), age: LOCK_TICKS } }, events: [] };
   }
   const confirmed = picked !== undefined || input.interactPressed === true || input.attackPressed === true || input.dodgePressed === true;
-  if (!confirmed) return { state: { ...state, dialogue: { ...s, age: s.age + 1 } }, events: [] };
+  if (!confirmed) return { state: { ...state, dialogue: { ...s, age: LOCK_TICKS } }, events: [] };
 
   const at = picked ?? s;
   let { run, game } = state;

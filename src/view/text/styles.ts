@@ -57,12 +57,17 @@ export const REPLY = {
   maxLines: 2,
   noteWidth: 420,
   padding: 16,
+  gap: 10,
   maxWidth(scale: number): number {
     return Math.min(this.maxEm * this.fontSize * scale, this.noteWidth - 2 * this.padding);
   },
 };
 
-/** The liver's sticky note: 320 x 160 at center right, no dialogue box (art direction 6.2). */
+/**
+ * The liver's sticky note: 320 x 160 at center right, no dialogue box (art direction 6.2). The
+ * replies stack upward from `replyBottom`; three two-line replies at 125% reach about y 355, so the
+ * note ends above that (a test pins it).
+ */
 export const MEMO = {
   role: 'hand' as FontRole,
   weight: 400,
@@ -72,6 +77,8 @@ export const MEMO = {
   maxLines: 3,
   noteWidth: 320,
   noteHeight: 160,
+  at: { x: 700, y: 160 },
+  replyBottom: 720,
   padding: 16,
   maxWidth(scale: number): number {
     return Math.min(this.maxEm * this.fontSize * scale, this.noteWidth - 2 * this.padding);

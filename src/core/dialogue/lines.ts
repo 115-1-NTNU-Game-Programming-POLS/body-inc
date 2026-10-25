@@ -1,7 +1,7 @@
 import { checkCondition, ConditionError, parseCondition, type Condition, type ConditionProblem } from '../tags/condition.ts';
 import { nameKind, type TagDictionary } from '../tags/dictionary.ts';
 import { wholeMinutes } from '../clock.ts';
-import { parseCsv } from './csv.ts';
+import { parseCsvRecords } from './csv.ts';
 
 /**
  * Dialogue tables (design doc 13.2, build plan P5). A CSV row is one line; rows sharing a
@@ -79,7 +79,7 @@ export type DialogueProblemCode =
   | 'unreachable'
   | 'duplicate-dialogue';
 
-export type EffectProblemCode = 'syntax' | 'unknown-tag' | 'tag-source' | 'tag-form' | 'minutes';
+export type EffectProblemCode = 'syntax' | 'unknown-tag' | 'alias' | 'tag-source' | 'tag-form' | 'minutes';
 
 export interface DialogueProblem {
   readonly code: DialogueProblemCode;
@@ -102,7 +102,8 @@ export class DialogueTableError extends Error {
 }
 
 const FACT = /^(|\d+|pending:\d+|general)$/;
-const FLAG_OR_AMOUNT = /^tag:([a-z][a-z0-9_]*)(?:([=+])(\d+(?:\.\d+)?))?$/;
+// A name may carry the `mod.` prefix of modifiers, so that setting one gets its own message.
+const FLAG_OR_AMOUNT = /^tag:((?:mod\.)?[a-z][a-z0-9_]*)(?:([=+])(\d+(?:\.\d+)?))?$/;
 const UNLOCK = /^unlock:([a-z][a-z0-9_]*)$/;
 const CLOCK = /^clock:(.*)$/;
 
@@ -142,7 +143,7 @@ export function parseEffects(text: string, dict: TagDictionary): { effects: Effe
     const [, name = '', op, num] = tag;
     // Modifiers are conditions over tags, not tags, so they cannot be set.
     const def = dict.tags.get(name);
-    if (!def) bad('unknown-tag');
+    if (!def) bad(dict.aliases.has(name) ? 'alias' : 'unknown-tag');
     else if (!def.sources.some((s) => DIALOGUE_SOURCES.includes(s))) bad('tag-source');
     else if (def.type === 'boolean' && op === undefined) effects.push({ kind: 'flag', name });
     else if (def.type === 'number' && op !== undefined) effects.push({ kind: 'amount', name, mode: op === '=' ? 'set' : 'add', value: Number(num) });
@@ -271,27 +272,36 @@ export function readDialogues(files: readonly DialogueFile[], dict: TagDictionar
   const table = new Map<string, Dialogue>();
   const owner = new Map<string, string>();
   for (const { file, text } of files) {
-    const [header = [], ...rows] = parseCsv(text.replace(/^\uFEFF/, ''));
+    const [head, ...records] = parseCsvRecords(text.replace(/^\uFEFF/, ''));
+    const header = head?.cells ?? [];
     if (header.map((h) => h.trim()).join(',') !== DIALOGUE_COLUMNS.join(',')) {
       problems.push({ code: 'header', file, detail: header.join(',') });
       continue;
     }
     const lines = new Map<string, Line[]>();
     const broken = new Set<string>();
-    rows.forEach((cells, i) => {
-      const row = i + 2;
+    for (const { cells, row } of records) {
       const id = (cells[0] ?? '').trim();
-      if (cells.length !== header.length) return void problems.push({ code: 'columns', file, row, detail: String(cells.length) });
-      if (id === '') return void problems.push({ code: 'id-empty', file, row });
+      // A conversation with a row that cannot be read is left out whole, so nothing is judged on half of it.
+      if (cells.length !== header.length) {
+        if (id !== '') broken.add(id);
+        problems.push({ code: 'columns', file, row, detail: String(cells.length) });
+        continue;
+      }
+      if (id === '') {
+        problems.push({ code: 'id-empty', file, row });
+        continue;
+      }
       const line = rowProblems({ file, row, dialogueId: id }, cells, dict, problems);
       if (!line) broken.add(id);
       else lines.set(id, [...(lines.get(id) ?? []), line]);
-    });
+    }
     for (const [id, found] of lines) {
       if (broken.has(id)) continue;
       const sorted = [...found].sort((a, b) => a.order - b.order);
       const dup = sorted.find((l, k) => k > 0 && sorted[k - 1]!.order === l.order);
       if (dup) {
+        broken.add(id);
         problems.push({ code: 'order-duplicate', file, row: dup.row, dialogueId: id, order: dup.order });
         continue;
       }

@@ -16,11 +16,8 @@ const BOX = { x: 48, y: 544, w: 1184, h: 200 } as const;
 const TAG = { w: 160, h: 40 } as const;
 /** Portrait (art direction 6.1): 300 px high, the bottom 80 px behind the box. */
 const PORTRAIT = { x: 72, height: 300, hidden: 80 } as const;
-/** The liver has no box; its note sits center right, and its portrait stands on the lower edge. */
-const MEMO_AT = { x: 700, y: 200 } as const;
+/** The liver has no box; its portrait stands on the lower edge. */
 const MEMO_PORTRAIT_BOTTOM = 704;
-const MEMO_REPLY_BOTTOM = 720;
-const REPLY_GAP = 10;
 const SLIDE_PX = 520;
 const SLIDE_MS = 180;
 const SLIDE_STAGGER_MS = 60;
@@ -120,9 +117,10 @@ export class DialogueScene extends Phaser.Scene {
       if (memo) this.memo(line.text, scale);
       else this.box(line.speaker, line.text, scale);
     }
-    if (view.options.length > 0) this.replies(view.options, memo ? MEMO_REPLY_BOTTOM : BOX.y - 16, scale);
+    const choosing = view.options.length > 0;
+    if (choosing) this.replies(view.options, memo ? MEMO.replyBottom : BOX.y - 16, scale);
     else if (line && !memo) this.continueMark();
-    this.put(addText(this, BOX.x + BOX.w, this.scale.height - 2, str('dialogue.hint'), {
+    this.put(addText(this, BOX.x + BOX.w, this.scale.height - 2, str(choosing ? 'dialogue.hint_choose' : 'dialogue.hint'), {
       role: 'print', weight: 700, size: 16, color: '#e8edf5', backgroundColor: 'rgba(12, 45, 94, 0.82)', padding: { x: 6, y: 2 },
     }).setOrigin(1, 1));
     this.paint(view.cursor);
@@ -152,10 +150,11 @@ export class DialogueScene extends Phaser.Scene {
 
   private memo(text: string, scale: number): void {
     const g = this.put(this.add.graphics());
-    g.fillStyle(INK, 0.35).fillRect(MEMO_AT.x + 6, MEMO_AT.y + 6, MEMO.noteWidth, MEMO.noteHeight);
-    g.fillStyle(NOTE).fillRect(MEMO_AT.x, MEMO_AT.y, MEMO.noteWidth, MEMO.noteHeight);
-    g.lineStyle(2, INK, 1).strokeRect(MEMO_AT.x + 1, MEMO_AT.y + 1, MEMO.noteWidth - 2, MEMO.noteHeight - 2);
-    this.put(addText(this, MEMO_AT.x + MEMO.padding, MEMO_AT.y + MEMO.padding, text, {
+    const { x, y } = MEMO.at;
+    g.fillStyle(INK, 0.35).fillRect(x + 6, y + 6, MEMO.noteWidth, MEMO.noteHeight);
+    g.fillStyle(NOTE).fillRect(x, y, MEMO.noteWidth, MEMO.noteHeight);
+    g.lineStyle(2, INK, 1).strokeRect(x + 1, y + 1, MEMO.noteWidth - 2, MEMO.noteHeight - 2);
+    this.put(addText(this, x + MEMO.padding, y + MEMO.padding, text, {
       role: MEMO.role, weight: 400, size: MEMO.fontSize * scale, color: '#2b2b2b', maxWidth: MEMO.maxWidth(scale), lineHeight: MEMO.lineHeight,
     }));
   }
@@ -180,7 +179,7 @@ export class DialogueScene extends Phaser.Scene {
       note.setAlpha(0);
       this.tweens.add({ targets: note, x, alpha: 1, duration: SLIDE_MS, delay: (options.length - 1 - i) * SLIDE_STAGGER_MS, ease: 'Cubic.easeOut' });
       this.notes[i] = { frame, badge, w: REPLY.noteWidth, h };
-      y -= REPLY_GAP;
+      y -= REPLY.gap;
     }
   }
 
