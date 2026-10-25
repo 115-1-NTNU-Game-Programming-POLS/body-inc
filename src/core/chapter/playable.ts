@@ -1,5 +1,6 @@
-import type { RuleClock } from '../clock.ts';
-import { metabolise } from '../outer/caffeine.ts';
+import { MINUTES_PER_DAY, type RuleClock } from '../clock.ts';
+import { CLING } from '../combat/frames.ts';
+import { caffeineOf, metabolise, senseCap } from '../outer/caffeine.ts';
 import { openingCombos, playOpening, playOption, type Deck } from '../outer/deck.ts';
 import { enterRoom } from '../rooms/entry.ts';
 import { holds, type TagState } from '../tags/store.ts';
@@ -25,15 +26,27 @@ export type PlayProblem =
   | { readonly code: 'no-bed' }
   | { readonly code: 'bed-never'; readonly event?: { readonly card: string; readonly option: string } };
 
+/** The chapter clock runs from the opening to 23:00 (design doc 7.4); the cloak is weighed over that day. */
+export const DAY_ENDS_HOUR = 23;
+
 export interface ComboReport {
   readonly picks: readonly { readonly card: string; readonly option: string }[];
   /** Enemies present at entry, summed over the chapter's rooms. */
   readonly enemies: number;
+  /** Of those, the ones that cling (adenosine), which the caffeine cloak hides the operator from. */
+  readonly clinging: number;
+  /**
+   * How much of the day clinging enemies can see the operator, from 0 to 1: their sensing range
+   * under the cloak as a share of the normal range, averaged over every minute from the opening
+   * to DAY_ENDS_HOUR as the residual decays. 1 without caffeine.
+   */
+  readonly sight: number;
   /** The chairman's spirit at entry (design doc 5.4). */
   readonly p: number;
   /**
-   * Enemies divided by P: more enemies, and a slower stamp gauge to deal with them. A rough
-   * stand-in for difficulty until playtests give a better one.
+   * Enemies, each clinging one counted by `sight`, divided by P: more enemies, and a slower stamp
+   * gauge to deal with them. A rough stand-in for difficulty until playtests give a better one;
+   * it does not count the hearts P should scale (design doc 9.2), which the rules do not do yet.
    */
   readonly pressure: number;
   /** Minutes after the chapter opens until a sleep bed first accepts, or undefined. */
@@ -55,6 +68,21 @@ export function bedAfter(ctx: ChapterContent, tags: TagState): number | undefine
   return undefined;
 }
 
+/** See ComboReport.sight. */
+export function sightOver(ctx: ChapterContent, tags: TagState, clock: RuleClock): number {
+  const day = Math.floor(clock.minute / MINUTES_PER_DAY) * MINUTES_PER_DAY;
+  const span = day + DAY_ENDS_HOUR * 60 - clock.minute;
+  const at = (t: number) => {
+    const cap = senseCap(caffeineOf(metabolise(tags, ctx.dict, t, ctx.params), ctx.dict));
+    return cap === undefined ? 1 : Math.min(1, cap / CLING.senseRangePx);
+  };
+  // An opening that ends after 23:00 still meets the enemies once: weigh the moment it starts.
+  if (span <= 0) return at(0);
+  let sum = 0;
+  for (let t = 0; t < span; t++) sum += at(t);
+  return sum / span;
+}
+
 const errorText = (e: unknown): string => (e instanceof Error ? e.message : String(e));
 
 export function comboReports(ctx: ChapterContent, deck: Deck, clock: RuleClock): ComboReport[] {
@@ -63,11 +91,13 @@ export function comboReports(ctx: ChapterContent, deck: Deck, clock: RuleClock):
     const opening = playOpening(deck, ctx.dict, combo, clock, ctx.params);
     const problems: PlayProblem[] = [];
     let enemies = 0;
+    let clinging = 0;
     let p = 1;
     for (const room of roomsOf(ctx.chapter)) {
       try {
         const s = startChapter(ctx, { room, tags: opening.tags, clock: opening.clock });
         enemies += s.game.enemies.length;
+        clinging += s.game.enemies.filter((e) => ctx.enemies.enemies.get(e.type)?.clings === true).length;
         p = s.game.p;
       } catch (e) {
         problems.push({ code: 'room', room, message: errorText(e) });
@@ -85,8 +115,22 @@ export function comboReports(ctx: ChapterContent, deck: Deck, clock: RuleClock):
         }
       }
     }
-    return { picks, enemies, p, pressure: enemies / p, bedAfter: bed === 'none' ? undefined : bed, problems };
+    const sight = sightOver(ctx, opening.tags, opening.clock);
+    const pressure = (enemies - clinging + clinging * sight) / p;
+    return { picks, enemies, clinging, sight, p, pressure, bedAfter: bed === 'none' ? undefined : bed, problems };
   });
+}
+
+/**
+ * What each opening option does to difficulty: the mean pressure of the playable combinations
+ * that include it, so the card that drives the spread stands out.
+ */
+export function optionPressure(deck: Deck, reports: readonly ComboReport[]): { card: string; option: string; pressure: number }[] {
+  const ok = reports.filter((r) => r.problems.length === 0);
+  return deck.opening.flatMap((card, n) => card.options.map((o) => {
+    const with_ = ok.filter((r) => r.picks[n]?.option === o.id);
+    return { card: card.id, option: o.id, pressure: with_.length ? with_.reduce((s, r) => s + r.pressure, 0) / with_.length : Number.NaN };
+  }));
 }
 
 /** How much harder the hardest combination is than the easiest, by pressure: 0.3 is 30%. */

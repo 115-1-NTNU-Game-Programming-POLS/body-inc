@@ -12,7 +12,7 @@ import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   cardText, comboReports, loadBossTable, loadDialogueTable, loadEnemyTable, parseRoom, readContent, readDeck, roomsOf,
-  CHAPTER_OPENS, worstSpread, type ChapterContent, type ComboReport, type Deck, type DeckProblem, type PlayProblem, type StringsFile,
+  CHAPTER_OPENS, optionPressure, worstSpread, type ChapterContent, type ComboReport, type Deck, type DeckProblem, type PlayProblem, type StringsFile,
   type TagDictionary, type TiledMap,
 } from '../src/core/index.ts';
 import { loadDictionary } from '../src/core/tags/dictionary.ts';
@@ -167,11 +167,18 @@ export function checkDecks(opts: DeckCheckOptions = {}): DeckCheck {
     report.push(`${file}：${reports.length} 種章首卡組合`);
     for (const r of reports) {
       const bed = r.bedAfter === undefined ? '無法上床' : `${Math.floor(r.bedAfter / 60)} 小時 ${r.bedAfter % 60} 分後可上床`;
-      report.push(`  ${comboName(r)}：敵人 ${r.enemies}，P ${r.p.toFixed(3)}，壓力 ${r.pressure.toFixed(2)}，${bed}`);
+      const sight = r.clinging > 0 && r.sight < 1 ? `，咖啡因斗篷下平均看得見 ${(r.sight * 100).toFixed(0)}%` : '';
+      report.push(`  ${comboName(r)}：敵人 ${r.enemies}（會黏人的 ${r.clinging}${sight}），P ${r.p.toFixed(3)}，壓力 ${r.pressure.toFixed(2)}，${bed}`);
     }
-    const spread = worstSpread(reports);
-    const worst = reports.filter((r) => r.problems.length === 0).sort((a, b) => b.pressure - a.pressure)[0];
-    report.push(`  最差組合比最好組合難 ${(spread * 100).toFixed(0)}%${worst ? `（${comboName(worst)}）` : ''}；設計文件 4.2 的目標約 30%`);
+    report.push('  各選項的影響（含該選項的組合平均壓力）：');
+    for (const card of deck.opening) {
+      const row = optionPressure(deck, reports).filter((o) => o.card === card.id).map((o) => `${o.option} ${Number.isNaN(o.pressure) ? '無可玩組合' : o.pressure.toFixed(2)}`);
+      report.push(`    ${card.id}：${row.join('，')}`);
+    }
+    const ok = reports.filter((r) => r.problems.length === 0).sort((a, b) => a.pressure - b.pressure);
+    const [best, worst] = [ok[0], ok.at(-1)];
+    const ends = best && worst ? `（最難 ${comboName(worst)}，最易 ${comboName(best)}）` : '';
+    report.push(`  最差組合比最好組合難 ${(worstSpread(reports) * 100).toFixed(0)}%${ends}；設計文件 4.2 的目標約 30%`);
   }
   return { problems, report };
 }
