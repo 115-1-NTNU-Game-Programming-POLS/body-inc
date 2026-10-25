@@ -12,6 +12,7 @@
 | --- | --- |
 | `docs/design-doc.md` | 遊戲設計文件（正本） |
 | `docs/art-direction.md` | 美術指南：渲染架構、色票、視覺語法、角色與環境規格、介面與特效、AI 使用規範、素材清單與交付批次 |
+| `docs/authoring/` | 給做房間與寫對話的組員：房間範本怎麼用、各物件類別怎麼填、章節怎麼串接、對話 CSV 的欄位 |
 | `docs/specs/` | 設計文件的三份附錄：內容規格、玩家體驗流程與文案規格（兩者屬舊設計，部分可沿用）、衛教查證表（仍有效） |
 | `docs/site/` | 把設計文件與附錄轉成網頁閱讀版的腳本與模板 |
 | `sim/` | 數值模擬程式（Node.js），用來驗證數值是否傳達正確的衛教訊息；代幣與危機模型屬舊設計，需依設計文件第 9.6 節重新模擬 |
@@ -28,11 +29,13 @@
 
 ```
 npm install
-npm run dev          # 開發伺服器，WASD 移動、J 或左鍵釘書機（按住連射）、空白或 K 閃身、R 或中鍵駁回印章、F1 顯示碰撞框
+npm run dev          # 開發伺服器，標題畫面選新遊戲或繼續；WASD 移動、J 或左鍵釘書機（按住連射）、空白或 K 閃身、R 或中鍵駁回印章、E 或 Enter 互動、F1 顯示碰撞框
 npm run verify       # 型別檢查、測試、邊界與地圖檢查、建置，提交前必跑
 node tools/maps/make-greybox.ts         # 重新產生灰盒測試房間
 node tools/maps/make-brain-corridor.ts  # 重新產生灰盒大腦走廊（狀態變體範例）
 node tools/maps/make-caffeine-arena.ts  # 重新產生咖啡因 Boss 灰盒場地
+node tools/maps/make-rest-room.ts       # 重新產生灰盒休息室（打卡機、午睡與就寢的床、NPC）
+node tools/maps/make-room-template.ts   # 重新產生給內容組複製的房間範本
 ```
 
 程式分成規則層 `src/core/`（純 TypeScript，可在 Node 執行，不得引用 Phaser 或瀏覽器）、轉接層 `src/app/` 與畫面層 `src/view/`，規則見 `docs/architecture.md`。違反分層的程式碼會讓 `npm run typecheck` 或 `npm run check` 失敗。合併到 `main` 時，GitHub Actions 會跑同一套檢查與美術檢查，通過後部署到 GitHub Pages。
@@ -41,11 +44,19 @@ node tools/maps/make-caffeine-arena.ts  # 重新產生咖啡因 Boss 灰盒場�
 
 存檔透過 `src/app/storage.ts` 讀寫 `localStorage`（鍵名 `hbc.v1.*`），任何失敗都只在畫面左下角顯示提示，不會讓遊戲停下。存檔格式改版時，要在 `src/core/save/slots.ts` 調高版本並補上遷移函式，否則測試會失敗。開發版可在網址加上 `?storage=blocked` 或 `?storage=full` 模擬寫入失敗。
 
-開發版可用網址選房間與進房時的狀態標籤，例如 `?room=greybox/brain-corridor&tags=sleep_debt:2,breakfast`：`room` 是 `public/assets/maps/` 下的「資料夾/檔名」，`tags` 的數值標籤寫成 `名稱:數值`、布林標籤只寫名稱。在外層卡牌（P1）完成前，這是看狀態變體的唯一方式。`sleep_debt` 也決定董事長精神係數 P，進而影響駁回量表的充能速度。加上 `gauge=100` 會以滿格的駁回量表開始，不必先打中 125 發釘書針就能試印章。`?room=greybox/caffeine-arena&gauge=100` 是續杯經理卡費因的 Boss 戰，在他舉起提案書時蓋章可以駁回提案；灰盒測試房間裡有推銷員、傳單手與腺苷各一。正式版忽略這些參數。
+開發版可用網址跳過標題畫面，直接進指定的房間並指定進房時的狀態標籤，例如 `?room=greybox/brain-corridor&tags=sleep_debt:2,breakfast`：`room` 是 `public/assets/maps/` 下的「資料夾/檔名」，`tags` 的數值標籤寫成 `名稱:數值`、布林標籤只寫名稱。在外層卡牌（P1）完成前，這是看狀態變體的唯一方式。`sleep_debt` 也決定董事長精神係數 P，進而影響駁回量表的充能速度。`halves=2` 讓營運長只剩兩個半顆心，方便測試強制下班。加上 `gauge=100` 會以滿格的駁回量表開始，不必先打中 125 發釘書針就能試印章。`?room=greybox/caffeine-arena&gauge=100` 是續杯經理卡費因的 Boss 戰，在他舉起提案書時蓋章可以駁回提案；灰盒測試房間裡有推銷員、傳單手與腺苷各一。正式版忽略這些參數。
 
 ### 編輯地圖
 
+做房間與寫對話的步驟、各物件類別怎麼填，見 [`docs/authoring/rooms-and-dialogue.md`](docs/authoring/rooms-and-dialogue.md)；新房間從 `public/assets/maps/_template/` 複製。以下是給程式組的重點。
+
 用 Tiled 開啟專案根目錄的 `body-inc.tiled-project`，物件類別（Spawn、NPC、Door 等）與地圖屬性會以下拉選單出現。地圖放在 `public/assets/maps/<章節>/*.tmj`，同一個資料夾視為同一章。狀態變體做成名稱以 `variant:` 開頭的群組圖層，類別選 Variant 並填 `when` 條件式；進房時條件成立才會出現，房間裡標籤再變也不會即時切換。群組內的 `objects` 物件圖層放 Spawn 等玩法物件，`props` 物件圖層放道具：道具是從道具圖塊集（圖片集合，指向 `public/assets/props/*.png`）拖曳的圖塊物件，遊戲以同名的場景圖集影格畫出。變體內的圖塊圖層目前不會畫出，地圖檢查會報錯。範例見 `public/assets/maps/greybox/brain-corridor.tmj`。條件式只能用 `content/tags.json` 中的標籤與 `mod.` 開頭的修飾器。提交前執行 `node tools/check-maps.ts`，錯誤會以中文列出檔名與物件編號。新增敵人種類（`content/enemies.json`）後要重跑 `node tools/maps/make-tiled-project.ts` 更新下拉選單。
+
+### 章節、打卡機與存檔
+
+一個地圖資料夾是一章，章內房間怎麼接在一起寫在 `content/chapters/<章>.json`：每個 `links` 項目把兩扇名字對得上的門（Tiled 物件的 Name 欄）接起來，兩端 socket 必須相對。`node tools/check-maps.ts` 檢查兩端存在、socket 相對、沒有接兩次、沒有接去哪裡又沒上鎖的門、全章從起點可達、每間房有 PlayerStart、走過門後不會站在牆裡。新章節還要登記在 `src/app/content.ts` 的 `CHAPTER_FILES`，Boot 才會載入它的房間，漏掉時 `npm test` 會失敗。上鎖的門目前打不開，不算通路；`variant:` 圖層裡的門無法串接，必須上鎖。
+
+房間之間的狀態由 `src/core/chapter/` 管：標籤、章內時鐘、血量與駁回量表、用掉的一次性觸發點、最近的打卡機。Trigger 的 `checkpoint` 是打卡機，存檔寫進 `hbc.v1.story`；強制下班會回到最近的打卡機，已用掉的觸發點保留，標籤與時鐘回到打卡時的狀態，黏身的腺苷層數跟著回來（只有睡覺會清），打卡之後用掉的午睡沙發隨時鐘還原而恢復可用。腺苷也會跟著過門，只有睡覺清得掉。午睡沙發（Bed 的 `nap`）每張只能用一次；就寢門（`sleep`）條件成立時結束這一章。對話框還沒做（P5），NPC 與對話 Trigger 目前只顯示對話 id。
 
 ### 編輯內容資料
 
