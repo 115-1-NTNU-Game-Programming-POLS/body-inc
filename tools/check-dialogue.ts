@@ -34,10 +34,11 @@ const EFFECT_FORMS = '可寫 tag:標籤、tag:標籤=數字、tag:標籤+數字�
 
 function effectMessage(p: DialogueProblem): string {
   const part = p.detail ?? '';
-  const tag = /^tag:([a-z0-9_]+)/.exec(part)?.[1] ?? part;
+  const tag = /^tag:([a-z0-9_.]+)/.exec(part)?.[1] ?? part;
   switch (p.effect) {
     case 'syntax': return `effect「${part}」看不懂；${EFFECT_FORMS}`;
     case 'unknown-tag': return `effect 的標籤「${tag}」不在狀態標籤字典（content/tags.json）中`;
+    case 'alias': return `effect 的「${tag}」是修飾器，由標籤條件算出來，不能直接設定；請改設它所依據的標籤`;
     case 'tag-source': return `effect 的標籤「${tag}」不是故事事件或章節設定的標籤，對話不能改它；字典裡它的 sources 要包含 event 或 chapter`;
     case 'tag-form': return `effect「${part}」寫法和標籤型別不符：布林標籤寫 tag:${tag}，數值標籤寫 tag:${tag}=數字 或 tag:${tag}+數字`;
     case 'minutes': return `effect「${part}」的 clock: 後面必須是分鐘數，1 到 4 位數的整數，例如 clock:10`;

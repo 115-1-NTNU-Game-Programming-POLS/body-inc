@@ -66,6 +66,7 @@ describe('dialogue check: reader problems in words', () => {
     ['an effect it cannot read', csv(row('x', 1, 'brain', 'normal', '好', '', 'dance')), 'effect「dance」看不懂'],
     ['an effect on an unknown tag', csv(row('x', 1, 'brain', 'normal', '好', '', 'tag:nope')), '標籤「nope」不在狀態標籤字典'],
     ['an effect on a tag only cards set', csv(row('x', 1, 'brain', 'normal', '好', '', 'tag:caffeine=5')), '標籤「caffeine」不是故事事件或章節設定的標籤'],
+    ['an effect that sets a modifier', csv(row('x', 1, 'brain', 'normal', '好', '', 'tag:mod.caffeine_cloak')), '「mod.caffeine_cloak」是修飾器'],
     ['an effect in the wrong form', csv(row('x', 1, 'brain', 'normal', '好', '', 'tag:deadline=1')), '寫法和標籤型別不符'],
     ['a clock effect without minutes', csv(row('x', 1, 'brain', 'normal', '好', '', 'clock:abc')), 'clock: 後面必須是分鐘數'],
     ['a next that is no order', csv(row('x', 1, 'brain', 'normal', '好', '', '', 'soon')), 'next「soon」必須是'],
@@ -100,6 +101,16 @@ describe('dialogue check: reader problems in words', () => {
   it('names the file, the row, the conversation and the order', () => {
     const found = run(csv(row('x', 1, 'brain', 'normal', '好'), row('x', 2, 'brain', 'normal', '壞', '', 'dance')));
     expect(found).toEqual([expect.stringMatching(/a\.csv 第 3 列（x，order 2）：/)]);
+  });
+
+  it('counts blank lines, so the row is the one the spreadsheet shows', () => {
+    const found = run(`${H}\n${row('x', 1, 'brain', 'normal', '好')}\n\n\n${row('x', 2, 'brain', 'normal', '壞', '', 'dance')}\n`);
+    expect(found).toEqual([expect.stringMatching(/a\.csv 第 5 列（x，order 2）：/)]);
+  });
+
+  it('a short row is the only thing said about its conversation', () => {
+    const found = run(csv(row('x', 1, 'brain', 'normal', '好', '', '', '10'), 'x,10,brain,normal,壞', row('x', 20, 'brain', 'normal', '再見')));
+    expect(found).toEqual([expect.stringContaining('有 5 欄，應為 9 欄')]);
   });
 });
 

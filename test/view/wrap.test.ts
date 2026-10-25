@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { OPTION_COUNT } from '../../src/core/dialogue/lines.ts';
 import { modelMeasure as model } from '../../src/view/text/measure.ts';
 import { DIALOGUE, MEMO, REPLY, TEXT_SCALES } from '../../src/view/text/styles.ts';
 import { CLOSING, OPENING, units, wrapCJK } from '../../src/view/text/wrap.ts';
@@ -102,6 +103,19 @@ describe('reply and memo notes', () => {
     for (const scale of TEXT_SCALES) {
       expect(MEMO.maxLines * MEMO.fontSize * scale * MEMO.lineHeight + 2 * MEMO.padding, `${scale}`).toBeLessThanOrEqual(MEMO.noteHeight);
     }
+  });
+
+  it('the liver note ends above the tallest stack of replies, at both text sizes', () => {
+    for (const scale of TEXT_SCALES) {
+      const note = Math.ceil(REPLY.maxLines * REPLY.fontSize * scale * REPLY.lineHeight) + 2 * REPLY.padding;
+      const top = MEMO.replyBottom - (OPTION_COUNT.max * note + (OPTION_COUNT.max - 1) * REPLY.gap);
+      expect(MEMO.at.y + MEMO.noteHeight, `${scale}`).toBeLessThan(top);
+    }
+  });
+
+  it('the liver note and the replies fit on the canvas', () => {
+    expect(MEMO.at.x + MEMO.noteWidth).toBeLessThanOrEqual(1280);
+    expect(MEMO.replyBottom).toBeLessThanOrEqual(768);
   });
 
   it('a full reply line is the width the preset promises', () => {

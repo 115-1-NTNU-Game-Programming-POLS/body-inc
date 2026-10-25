@@ -3,13 +3,17 @@ import {
   type ChapterContent, type ChapterFile, type ChapterState, type Checkpoint, type GameEvent, type TiledMap,
 } from '../core/index.ts';
 import { BOSSES, DIALOGUES, ENEMIES, PARAMS, TAGS } from './content.ts';
+import { missingDialogues } from './dialogue.ts';
 import { FixedStepLoop } from './loop.ts';
 
 /** Parses the loaded Tiled files of a chapter into the content `stepChapter` needs. */
 export function chapterContent(chapter: ChapterFile, maps: ReadonlyMap<string, TiledMap>): ChapterContent {
+  const rooms = new Map([...maps].map(([path, map]) => [path, parseRoom(path, map, TAGS)] as const));
+  const missing = missingDialogues(rooms, DIALOGUES);
+  if (missing.length > 0) throw new Error(`rooms start conversations that do not exist:\n  ${missing.join('\n  ')}`);
   return {
     chapter,
-    rooms: new Map([...maps].map(([path, map]) => [path, parseRoom(path, map, TAGS)] as const)),
+    rooms,
     dialogues: DIALOGUES,
     dict: TAGS,
     enemies: ENEMIES,

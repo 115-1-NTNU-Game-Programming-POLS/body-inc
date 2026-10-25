@@ -75,6 +75,15 @@ describe('fixed-step loop', () => {
     expect(loop.state.game.room.id).toBe('greybox/rest-room');
   });
 
+  it('chapter content refuses rooms that start a conversation the game does not have', () => {
+    const chapter = CHAPTERS.get('greybox')!;
+    const maps = new Map(roomsOf(chapter).map((p) => {
+      const text = readFileSync(`public/assets/maps/${p}.tmj`, 'utf8').replaceAll('greybox.brain.briefing', 'greybox.brain.gone');
+      return [p, JSON.parse(text) as TiledMap];
+    }));
+    expect(() => chapterContent(chapter, maps)).toThrow(/NPC #\d+ starts conversation "greybox\.brain\.gone"/);
+  });
+
   it('a frame ends at an event that leaves the room, so no tick runs in a room nobody has seen', () => {
     const leaving = (e: string) => e === 'moved';
     const stepper = (n: number) => ({ state: n + 1, events: n === 1 ? ['moved'] : [] });

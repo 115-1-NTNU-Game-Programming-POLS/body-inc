@@ -84,6 +84,37 @@ describe('reading a dialogue file', () => {
     expect(codes(readDialogues([broken, two], TAGS).problems)).toEqual(['text-empty', 'duplicate-dialogue']);
   });
 
+  it('a blank line still counts in the row a message names, as a spreadsheet numbers rows', () => {
+    const text = `${HEADER}\n${row('a', 1, 'brain', 'x')}\n\n\n${row('b', 1, 'brain', '')}\n`;
+    expect(readDialogues([{ file: 'x.csv', text }], TAGS).problems).toMatchObject([{ code: 'text-empty', row: 5 }]);
+    const crlf = text.replaceAll('\n', '\r\n');
+    expect(readDialogues([{ file: 'x.csv', text: crlf }], TAGS).problems).toMatchObject([{ code: 'text-empty', row: 5 }]);
+  });
+
+  it('a cell with a line break inside is still one row', () => {
+    const text = `${HEADER}\n${row('a', 1, 'brain', '第一行\n第二行')}\n${row('b', 1, 'brain', '')}`;
+    const r = readDialogues([{ file: 'x.csv', text }], TAGS);
+    expect(r.table.get('a')!.lines[0]!.text).toBe('第一行\n第二行');
+    expect(r.problems).toMatchObject([{ code: 'text-empty', row: 3 }]);
+  });
+
+  it('a row with the wrong number of cells leaves its conversation out whole, with no follow-on problems', () => {
+    // Row 10 is the target of order 1's next; without it the rest would be reported as missing and unreachable.
+    const r = read(row('a', 1, 'brain', 'x', { next: 10 }), 'a,10,brain,normal,hi', row('a', 20, 'brain', 'y'), row('b', 1, 'brain', 'ok'));
+    expect(codes(r.problems)).toEqual(['columns']);
+    expect([...r.table.keys()]).toEqual(['b']);
+  });
+
+  it('a conversation broken by a short row, or by two equal orders, still holds its id against another file', () => {
+    const two = { file: 'two.csv', text: `${HEADER}\n${row('a', 1, 'brain', 'y')}` };
+    const short = { file: 'one.csv', text: `${HEADER}\na,10,brain,normal,hi` };
+    expect(codes(readDialogues([short, two], TAGS).problems)).toEqual(['columns', 'duplicate-dialogue']);
+    const twice = { file: 'one.csv', text: `${HEADER}\n${row('a', 1, 'brain', 'x')}\n${row('a', 1, 'brain', 'z')}` };
+    const r = readDialogues([twice, two], TAGS);
+    expect(codes(r.problems)).toEqual(['order-duplicate', 'duplicate-dialogue']);
+    expect(r.table.size).toBe(0);
+  });
+
   it('the game load refuses a file with any problem and names them all', () => {
     const load = () => loadDialogueTable([csv(row('a', 1, 'brain', ''), row('b', 0, 'brain', 'x'))], TAGS);
     expect(load).toThrow(DialogueTableError);
@@ -127,7 +158,9 @@ describe('effects of a line', () => {
   it.each([
     ['an unknown effect', 'give:coffee', 'syntax'],
     ['an empty part', 'clock:5;', 'syntax'],
-    ['a modifier, which is a condition and not a tag', 'tag:mod.caffeine_cloak', 'syntax'],
+    ['a modifier, which is a condition and not a tag', 'tag:mod.caffeine_cloak', 'alias'],
+    ['a modifier name that is not in the dictionary', 'tag:mod.no_such_modifier', 'unknown-tag'],
+    ['a dotted name that is not a modifier', 'tag:caffeine.x', 'syntax'],
     ['a tag that is not in the dictionary', 'tag:no_such_tag', 'unknown-tag'],
     ['a tag only cards may set', 'tag:breakfast', 'tag-source'],
     ['a tag only rules may set', 'tag:fever', 'tag-source'],
@@ -442,7 +475,15 @@ describe('a conversation inside a chapter', () => {
     const picked = press(c, q, { ...NONE, pick: 2 });
     expect(selectDialogue(c.dialogues, picked.state.dialogue)!.line!.text).toBe('ok');
     const outOfRange = press(c, q, { ...NONE, pick: 3 });
-    expect(outOfRange.state.dialogue).toEqual({ ...q.dialogue!, age: q.dialogue!.age + LOCK_TICKS + 1 });
+    expect(outOfRange.state.dialogue).toEqual({ ...q.dialogue!, age: LOCK_TICKS });
+  });
+
+  it('the age of a line stops at the lock, however long the player waits', () => {
+    const { c, s } = talking();
+    const q = press(c, step(c, s, PRESS).state).state;
+    const waited = step(c, q, NONE, 500).state;
+    expect(waited.dialogue?.age).toBe(LOCK_TICKS);
+    expect(step(c, waited, { ...NONE, menuStep: 1 }).state.dialogue?.age).toBe(LOCK_TICKS);
   });
 
   it('a line is shown or skipped by the tags the conversation itself has just set', () => {
@@ -523,6 +564,24 @@ describe('a conversation inside a chapter', () => {
     const r = step(c, place(startChapter(c), 240, 190), NONE);
     expect(r.state.dialogue?.id).toBe('one');
     expect(r.events.filter((e) => e.type === 'dialogueOpened')).toHaveLength(1);
+  });
+
+  it('a once trigger whose conversation was dropped on the same tick is given back, and fires after a step off and on', () => {
+    const c = chapter([row('one', 1, 'brain', 'a'), row('two', 1, 'brain', 'b')], [trigger(2, 'one'), trigger(3, 'two', 232, 182)]);
+    const r = step(c, place(startChapter(c), 240, 190), NONE);
+    expect(r.state.dialogue?.id).toBe('one');
+    expect(r.state.run.fired).toEqual(['lab/room#2']);
+    const away = step(c, place(finishTalk(c, r.state), 20, 20), NONE).state;
+    const back = step(c, place(away, 240, 190), NONE);
+    expect(back.state.dialogue?.id).toBe('two');
+    expect(back.state.run.fired).toEqual(['lab/room#2', 'lab/room#3']);
+  });
+
+  it('a once trigger whose lines are all skipped is not used up', () => {
+    const c = chapter([row('c', 1, 'brain', 'never', { condition: 'cold' })], [trigger(2, 'c')]);
+    const r = step(c, place(startChapter(c), 232, 182), NONE);
+    expect(r.state.dialogue).toBeNull();
+    expect(r.state.run.fired).toEqual([]);
   });
 
   it('an NPC pressed on the tick a trigger fires loses to the trigger: the first request of a tick wins', () => {

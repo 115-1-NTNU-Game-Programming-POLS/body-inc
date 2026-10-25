@@ -96,9 +96,6 @@ interface Carry {
   readonly stacks: number;
 }
 
-/** Whole minutes written in a clock_advance trigger's eventId, or undefined for anything else. */
-export const triggerMinutes = wholeMinutes;
-
 function build(ctx: ChapterContent, run: Run, place: Place, carry: Carry): GameState {
   const model = ctx.rooms.get(run.roomId);
   if (!model) throw new ChapterError(`${ctx.chapter.id}: room ${run.roomId} is not in the room library`);
@@ -184,6 +181,8 @@ interface Applied {
   readonly events: readonly ChapterEvent[];
   /** The id of a dialogue trigger; the conversation opens once the tick's other events are settled. */
   readonly dialogue?: string;
+  /** The `fired` key this trigger just used up; given back if its conversation never opens. */
+  readonly spent?: string;
 }
 
 function onTrigger(ctx: ChapterContent, run: Run, game: GameState, e: Extract<DomainEvent, { type: 'triggerEntered' }>): Applied {
@@ -210,12 +209,12 @@ function onTrigger(ctx: ChapterContent, run: Run, game: GameState, e: Extract<Do
       };
     }
     case 'clock_advance': {
-      const minutes = triggerMinutes(e.eventId);
+      const minutes = wholeMinutes(e.eventId);
       if (minutes === undefined) throw new ChapterError(`${run.roomId}: clock_advance trigger #${o.id} needs whole minutes in eventId, got "${e.eventId}"`);
       return { run, game: { ...game, clock: advance(game.clock, minutes) }, events: [{ type: 'clockAdvanced', minutes }] };
     }
     case 'dialogue':
-      return { run, game, events: [], dialogue: e.eventId };
+      return { run, game, events: [], dialogue: e.eventId, ...(once ? { spent: key } : {}) };
     default:
       return { run, game, events: [{ type: 'outerRequested', kind: e.trigger, eventId: e.eventId }] };
   }
@@ -251,7 +250,11 @@ export function stepChapter(ctx: ChapterContent, state: ChapterState, input: Tic
   const extra: ChapterEvent[] = [];
   let through: Extract<DomainEvent, { type: 'doorEntered' }> | undefined;
   /** The first conversation asked for this tick; one at a time, so a second request is dropped. */
-  let opening: string | undefined;
+  let opening: { readonly id: string; readonly spent?: string } | undefined;
+  /** A once-trigger whose conversation is not shown has not been seen, so it can fire again. */
+  const giveBack = (key: string | undefined) => {
+    if (key !== undefined) run = { ...run, fired: run.fired.filter((k) => k !== key) };
+  };
   const done = (next: ChapterState, more: readonly ChapterEvent[]): ChapterResult => ({ state: next, events: [...r.events, ...extra, ...more] });
 
   for (const e of r.events) {
@@ -275,13 +278,15 @@ export function stepChapter(ctx: ChapterContent, state: ChapterState, input: Tic
         return done({ run: next, game: built, dialogue: null }, [{ type: 'returnedToCheckpoint', room: cp.roomId }]);
       }
       case 'talk':
-        opening ??= e.dialogueId;
+        opening ??= { id: e.dialogueId };
         break;
       case 'triggerEntered': {
         const a = onTrigger(ctx, run, game, e);
         ({ run, game } = a);
         extra.push(...a.events);
-        if (a.dialogue !== undefined) opening ??= a.dialogue;
+        if (a.dialogue === undefined) break;
+        if (opening) giveBack(a.spent);
+        else opening = { id: a.dialogue, ...(a.spent !== undefined ? { spent: a.spent } : {}) };
         break;
       }
       case 'bedUse': {
@@ -296,13 +301,14 @@ export function stepChapter(ctx: ChapterContent, state: ChapterState, input: Tic
   }
 
   if (opening !== undefined) {
-    if (!ctx.dialogues.has(opening)) throw new ChapterError(`${run.roomId}: dialogue "${opening}" does not exist (the map check should have caught this)`);
-    const talk = openTalk(ctx, run, game, opening);
+    if (!ctx.dialogues.has(opening.id)) throw new ChapterError(`${run.roomId}: dialogue "${opening.id}" does not exist (the map check and Boot should have caught this)`);
+    const talk = openTalk(ctx, run, game, opening.id);
     if (talk) {
       // A door crossed on the same tick waits: it is forgotten as touched, so it fires again once the conversation is over.
       const touching = through ? talk.game.touching.filter((id) => id !== through!.object) : talk.game.touching;
       return done({ run: talk.run, game: { ...talk.game, touching }, dialogue: talk.dialogue }, talk.events);
     }
+    giveBack(opening.spent);
   }
 
   if (through) {
