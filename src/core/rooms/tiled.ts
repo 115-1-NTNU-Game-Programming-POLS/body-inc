@@ -56,6 +56,8 @@ export interface TiledProperty {
 export interface RoomObject {
   readonly id: number;
   readonly kind: string;
+  /** The object's Tiled name; a Door is addressed by it in the chapter file. */
+  readonly name: string;
   /** Top-left corner for areas; the point itself for point objects (PlayerStart, Spawn). */
   readonly x: number;
   readonly y: number;
@@ -263,7 +265,7 @@ export function readRoom(id: string, map: TiledMap, dict: TagDictionary): ReadRe
       const width = o.width ?? 0;
       const height = o.height ?? 0;
       objects.push({
-        id: o.id, kind, x: o.x, y: o.gid !== undefined ? o.y - height : o.y, width, height, props, conditions,
+        id: o.id, kind, name: o.name ?? '', x: o.x, y: o.gid !== undefined ? o.y - height : o.y, width, height, props, conditions,
         ...(variant !== undefined ? { variant } : {}),
       });
     }

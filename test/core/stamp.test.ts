@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
   CLING, createGame, EMPTY_LOG, EMPTY_TAGS, GAUGE, isInvincible, loadDictionary, loadEnemyTable, MOVE, NO_INPUT, record,
-  REFORM_TICKS, SALESMAN, setAmount, spiritAtEntry, STAMP, STAMP_LAND, step, TILE,
+  REFORM_TICKS, SALESMAN, sendStacksHome, setAmount, spiritAtEntry, STAMP, STAMP_LAND, step, TILE,
   type DomainEvent, type EnteredRoom, type GameOptions, type GameState, type TickInput,
 } from '../../src/core/index.ts';
 
@@ -22,9 +22,9 @@ function room(spawns: { type: string; x: number; y: number }[] = []): EnteredRoo
   return {
     id: 'test', grid: { cols, rows, solid }, props: {}, variants: [], active: [],
     objects: [
-      { id: 1, kind: 'PlayerStart', x: 160, y: 192, width: 0, height: 0, props: {}, conditions: {} },
+      { id: 1, kind: 'PlayerStart', name: '', x: 160, y: 192, width: 0, height: 0, props: {}, conditions: {} },
       ...spawns.map((s, i) => ({
-        id: 10 + i, kind: 'Spawn', x: s.x, y: s.y, width: 0, height: 0, conditions: {},
+        id: 10 + i, kind: 'Spawn', name: '', x: s.x, y: s.y, width: 0, height: 0, conditions: {},
         props: { enemyType: s.type, count: 1, respawnSeconds: 0, when: '' },
       })),
     ],
@@ -255,5 +255,36 @@ describe('clinging and the forced nap (design doc 5.5, chapter 1)', () => {
     expect(r.state.operator.stacks).toBe(1);
     expect(r.state.operator.gauge).toBe(40);
     expect(r.state.enemies[0]!.phase).toBe('attached');
+  });
+
+  describe('stacks carried in from another room', () => {
+    it('ride on the operator, slow it, and count toward the forced nap', () => {
+      const g = game([{ type: 'adenosine', x: 170, y: 192 }], { stacks: 2 });
+      expect(g.operator.stacks).toBe(2);
+      expect(g.carried).toBe(2);
+      const r = run(g, 1);
+      expect(ofType(r, 'clung').map((e) => e.stacks)).toEqual([3]);
+      expect(ofType(r, 'forcedNap')).toEqual([{ type: 'forcedNap', minutes: 60 }]);
+      expect(r.state.operator.stacks).toBe(0);
+      expect(r.state.carried).toBe(0);
+    });
+
+    it('stay through a forced leave, since only sleep clears adenosine', () => {
+      const g = game([], { stacks: 2 });
+      const r = step({ ...g, operator: { ...g.operator, halves: 0 } }, NO_INPUT);
+      expect(r.events.map((e) => e.type)).toContain('forcedLeave');
+      expect(r.state.operator.stacks).toBe(2);
+      expect(r.state.carried).toBe(2);
+    });
+
+    it('sleep clears them with the rest', () => {
+      const asleep = sendStacksHome(game([{ type: 'adenosine', x: 170, y: 192 }], { stacks: 1 }));
+      expect(asleep.carried).toBe(0);
+      expect(asleep.operator.stacks).toBe(0);
+    });
+
+    it('a whole number below the nap cap is all createGame takes', () => {
+      for (const stacks of [-1, 1.5, CLING.maxStacks]) expect(() => game([], { stacks })).toThrow(/stacks must be/);
+    });
   });
 });

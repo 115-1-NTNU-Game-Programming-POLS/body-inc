@@ -232,6 +232,61 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
       }
     }
   },
+  "chapter": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "ChapterFile",
+    "description": "A story chapter: where it starts and how its rooms connect (build plan P0). Rooms stay reusable modules; this file is the only place that says which door leads where. Cross-file checks (rooms and doors exist, sockets face each other, every room is reachable) are in tools/check-maps.ts.",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "version",
+      "id",
+      "start",
+      "links"
+    ],
+    "properties": {
+      "version": {
+        "const": 1
+      },
+      "id": {
+        "description": "Same as the folder under public/assets/maps that holds the chapter's rooms.",
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9-]*$"
+      },
+      "start": {
+        "description": "Room a new game opens in, as folder/map without the .tmj extension.",
+        "type": "string",
+        "pattern": "^[a-z0-9-]+/[a-z0-9-]+$"
+      },
+      "links": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/ChapterLink"
+        }
+      }
+    },
+    "$defs": {
+      "ChapterLink": {
+        "description": "Two doors that open onto each other. Each end is room#door, where door is the Door object's name in Tiled. The sockets must face each other (N with S, E with W).",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "a",
+          "b"
+        ],
+        "properties": {
+          "a": {
+            "type": "string",
+            "pattern": "^[a-z0-9-]+/[a-z0-9-]+#[a-z0-9-]+$"
+          },
+          "b": {
+            "type": "string",
+            "pattern": "^[a-z0-9-]+/[a-z0-9-]+#[a-z0-9-]+$"
+          }
+        }
+      }
+    }
+  },
   "enemies": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "title": "EnemiesFile",
@@ -1459,10 +1514,11 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
   }
 };
 
-export type SchemaName = "boss" | "enemies" | "feedback" | "params" | "scheduleCards" | "strings" | "tags";
+export type SchemaName = "boss" | "chapter" | "enemies" | "feedback" | "params" | "scheduleCards" | "strings" | "tags";
 
 export interface ContentTypes {
   readonly boss: BossFile;
+  readonly chapter: ChapterFile;
   readonly enemies: EnemiesFile;
   readonly feedback: FeedbackFile;
   readonly params: ParamsFile;
@@ -1539,6 +1595,22 @@ export interface BossMove {
   readonly radiusTiles?: number;
   /** Tier 2 and 3: ticks the area stays live after the telegraph. */
   readonly activeTicks?: number;
+}
+
+/** A story chapter: where it starts and how its rooms connect (build plan P0). Rooms stay reusable modules; this file is the only place that says which door leads where. Cross-file checks (rooms and doors exist, sockets face each other, every room is reachable) are in tools/check-maps.ts. */
+export interface ChapterFile {
+  readonly version: 1;
+  /** Same as the folder under public/assets/maps that holds the chapter's rooms. */
+  readonly id: string;
+  /** Room a new game opens in, as folder/map without the .tmj extension. */
+  readonly start: string;
+  readonly links: readonly ChapterLink[];
+}
+
+/** Two doors that open onto each other. Each end is room#door, where door is the Door object's name in Tiled. The sockets must face each other (N with S, E with W). */
+export interface ChapterLink {
+  readonly a: string;
+  readonly b: string;
 }
 
 /** Enemy categories and solutions (design doc 5.5). Cross-checks (solution references, which fields each category may have, Tiled object classes) are in core/combat/enemies.ts. */

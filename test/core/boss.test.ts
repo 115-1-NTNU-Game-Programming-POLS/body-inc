@@ -26,9 +26,9 @@ function arena(start: { x: number; y: number }, extra: { type: string; x: number
   return {
     id: 'arena', grid: { cols, rows, solid }, props: {}, variants: [], active: [],
     objects: [
-      { id: 1, kind: 'PlayerStart', x: start.x, y: start.y, width: 0, height: 0, props: {}, conditions: {} },
+      { id: 1, kind: 'PlayerStart', name: '', x: start.x, y: start.y, width: 0, height: 0, props: {}, conditions: {} },
       ...spawns.map((s, i) => ({
-        id: 10 + i, kind: 'Spawn', x: s.x, y: s.y, width: 0, height: 0, conditions: {},
+        id: 10 + i, kind: 'Spawn', name: '', x: s.x, y: s.y, width: 0, height: 0, conditions: {},
         props: { enemyType: s.type, count: 1, respawnSeconds: 0, when: '' },
       })),
     ],

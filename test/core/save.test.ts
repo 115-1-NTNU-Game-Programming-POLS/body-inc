@@ -66,7 +66,7 @@ describe('save slots', () => {
   });
 
   it('every shipped slot is well defined', () => {
-    for (const slot of SLOTS) expect(() => checkSlotDef(slot)).not.toThrow();
+    for (const slot of SLOTS as readonly SlotDef<unknown>[]) expect(() => checkSlotDef(slot)).not.toThrow();
     expect(decode(SETTINGS, stored(1, { textScale: 1.25, gameSpeed: 0.8 })).kind).toBe('ok');
     expect(decode(SETTINGS, stored(1, { textScale: 2, gameSpeed: 1 })).kind).toBe('invalid');
   });

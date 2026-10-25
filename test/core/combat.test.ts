@@ -19,9 +19,9 @@ function room(spawns: { type: string; x: number; y: number; respawnSeconds?: num
   return {
     id: 'test', grid: { cols, rows, solid }, props: {}, variants: [], active: [],
     objects: [
-      { id: 1, kind: 'PlayerStart', x: 160, y: 192, width: 0, height: 0, props: {}, conditions: {} },
+      { id: 1, kind: 'PlayerStart', name: '', x: 160, y: 192, width: 0, height: 0, props: {}, conditions: {} },
       ...spawns.map((s, i) => ({
-        id: 10 + i, kind: 'Spawn', x: s.x, y: s.y, width: 0, height: 0, conditions: {},
+        id: 10 + i, kind: 'Spawn', name: '', x: s.x, y: s.y, width: 0, height: 0, conditions: {},
         props: { enemyType: s.type, count: s.count ?? 1, respawnSeconds: s.respawnSeconds ?? 0, when: '' },
       })),
     ],

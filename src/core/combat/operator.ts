@@ -13,6 +13,8 @@ export interface TickInput {
   readonly attackPressed?: boolean;
   readonly dodgePressed?: boolean;
   readonly stampPressed?: boolean;
+  /** Talk to an NPC or use a bed; not buffered, since it is only meaningful while standing next to one. */
+  readonly interactPressed?: boolean;
 }
 
 export const NO_INPUT: TickInput = { move: { x: 0, y: 0 } };

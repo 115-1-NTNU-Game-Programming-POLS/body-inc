@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ChapterFile",
+  "description": "A story chapter: where it starts and how its rooms connect (build plan P0). Rooms stay reusable modules; this file is the only place that says which door leads where. Cross-file checks (rooms and doors exist, sockets face each other, every room is reachable) are in tools/check-maps.ts.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "id", "start", "links"],
+  "properties": {
+    "version": { "const": 1 },
+    "id": { "description": "Same as the folder under public/assets/maps that holds the chapter's rooms.", "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+    "start": { "description": "Room a new game opens in, as folder/map without the .tmj extension.", "type": "string", "pattern": "^[a-z0-9-]+/[a-z0-9-]+$" },
+    "links": { "type": "array", "items": { "$ref": "#/$defs/ChapterLink" } }
+  },
+  "$defs": {
+    "ChapterLink": {
+      "description": "Two doors that open onto each other. Each end is room#door, where door is the Door object's name in Tiled. The sockets must face each other (N with S, E with W).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["a", "b"],
+      "properties": {
+        "a": { "type": "string", "pattern": "^[a-z0-9-]+/[a-z0-9-]+#[a-z0-9-]+$" },
+        "b": { "type": "string", "pattern": "^[a-z0-9-]+/[a-z0-9-]+#[a-z0-9-]+$" }
+      }
+    }
+  }
+}

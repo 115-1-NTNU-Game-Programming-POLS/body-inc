@@ -15,7 +15,8 @@ import {
 import { advance, startClock, type RuleClock } from './clock.ts';
 import { seedStreams, type RngStreams } from './rng.ts';
 import type { EnteredRoom } from './rooms/entry.ts';
-import { playerStart } from './rooms/tiled.ts';
+import { reachableObject, touchedObjects } from './rooms/interact.ts';
+import { playerStart, type RoomObject } from './rooms/tiled.ts';
 import { TICK_HZ, TILE } from './time.ts';
 
 export { NO_INPUT, OPERATOR_BODY, OPERATOR_HURT, type OperatorAction, type OperatorState, type TickInput } from './combat/operator.ts';
@@ -52,6 +53,10 @@ export interface GameState {
   readonly nextId: number;
   /** Whole-fight hit-stop: while above 0 only input buffering and the tick counter advance. */
   readonly freeze: number;
+  /** Doors and triggers the operator stood on last tick, so each fires once when stepped onto. */
+  readonly touching: readonly number[];
+  /** Clinging stacks brought in from another room; they belong to no enemy here and only sleep clears them. */
+  readonly carried: number;
 }
 
 /**
@@ -84,7 +89,13 @@ export type DomainEvent =
   | { readonly type: 'bossSummon'; readonly target: number; readonly count: number }
   | { readonly type: 'powerCut'; readonly target: number; readonly seconds: number }
   | { readonly type: 'proposalRejected'; readonly target: number }
-  | { readonly type: 'bossDefeated'; readonly target: number; readonly enemy: string };
+  | { readonly type: 'bossDefeated'; readonly target: number; readonly enemy: string }
+  /** The operator stepped onto an unlocked door; the chapter decides where it leads. */
+  | { readonly type: 'doorEntered'; readonly object: number; readonly door: string; readonly socket: string }
+  | { readonly type: 'doorLocked'; readonly object: number; readonly lock: string }
+  | { readonly type: 'triggerEntered'; readonly object: number; readonly trigger: string; readonly eventId: string }
+  | { readonly type: 'talk'; readonly object: number; readonly npc: string; readonly dialogueId: string }
+  | { readonly type: 'bedUse'; readonly object: number; readonly bedType: string };
 
 export interface StepResult {
   readonly state: GameState;
@@ -150,6 +161,12 @@ export interface GameOptions {
   readonly gauge?: number;
   /** Needed when the room spawns a boss. */
   readonly bosses?: BossTable;
+  /** Where the operator stands instead of the PlayerStart: through a door, or back at a checkpoint. */
+  readonly start?: Vec;
+  /** Hearts in halves carried in from the previous room; defaults to full. */
+  readonly halves?: number;
+  /** Clinging stacks carried in, 0 up to one below the forced-nap cap; defaults to none. */
+  readonly stacks?: number;
 }
 
 /**
@@ -161,15 +178,22 @@ export function createGame(room: EnteredRoom, seed: number, table: EnemyTable, o
   const gauge = options.gauge ?? 0;
   if (!(p > 0 && p <= 1)) throw new GameSetupError(`P must be in (0, 1], got ${p}`);
   if (!(gauge >= 0 && gauge <= STAMP.gaugeMax)) throw new GameSetupError(`gauge must be 0 to ${STAMP.gaugeMax}, got ${gauge}`);
-  const start = playerStart(room);
+  const halves = options.halves ?? BASE_HALVES;
+  if (!Number.isInteger(halves) || halves < 1 || halves > BASE_HALVES) throw new GameSetupError(`halves must be a whole number from 1 to ${BASE_HALVES}, got ${halves}`);
+  const carried = options.stacks ?? 0;
+  if (!Number.isInteger(carried) || carried < 0 || carried >= CLING.maxStacks) {
+    throw new GameSetupError(`stacks must be a whole number from 0 to ${CLING.maxStacks - 1}, got ${carried}`);
+  }
+  const start = options.start ?? playerStart(room);
   const spawned = spawnEnemies(room, table, options.bosses, 1);
+  const operator = { ...newOperator(start.x, start.y, BASE_HALVES, gauge), halves, stacks: carried };
   return {
     tick: 0,
     rng: seedStreams(seed),
     clock: options.clock ?? startClock(1, 8),
     p,
     room,
-    operator: newOperator(start.x, start.y, BASE_HALVES, gauge),
+    operator,
     enemies: spawned.enemies,
     projectiles: [],
     shots: [],
@@ -177,6 +201,9 @@ export function createGame(room: EnteredRoom, seed: number, table: EnemyTable, o
     bosses: spawned.bosses,
     nextId: spawned.nextId,
     freeze: 0,
+    // Standing on a door or trigger at the start (a checkpoint return) must not fire it again.
+    touching: touchedObjects(room, boxAt(OPERATOR_BODY, operator.x, operator.y)).map((o) => o.id),
+    carried,
   };
 }
 
@@ -216,21 +243,34 @@ function forcedLeave(state: GameState): GameState {
     const reset: EnemyState = { ...e, x: e.homeX, y: e.homeY, hp: e.maxHp, phase: 'idle', phaseTicks: 0, frozen: 0 };
     return e.boss ? { ...reset, boss: newBossState(state.bosses[e.boss.def]!) } : reset;
   });
+  const operator = withStacks(newOperator(start.x, start.y, state.operator.maxHalves, state.operator.gauge), enemies, state.carried);
   return {
     ...state,
-    operator: withStacks(newOperator(start.x, start.y, state.operator.maxHalves, state.operator.gauge), enemies),
+    operator,
     enemies,
     projectiles: [],
     shots: [],
     zones: [],
     freeze: 0,
+    touching: touchedObjects(state.room, boxAt(OPERATOR_BODY, operator.x, operator.y)).map((o) => o.id),
   };
 }
 
-const stackCount = (enemies: Iterable<EnemyState>): number => [...enemies].filter((e) => e.phase === 'attached').length;
+/** A clinging stack goes back to where it spawned and reforms there; nothing is removed. */
+const stackHome = (e: EnemyState): EnemyState =>
+  e.phase === 'attached' ? { ...e, phase: 'dispersed', phaseTicks: 0, x: e.homeX, y: e.homeY } : e;
 
-function withStacks(op: OperatorState, enemies: Iterable<EnemyState>): OperatorState {
-  const stacks = stackCount(enemies);
+/** Sleep clears the stacks, not the adenosine: a nap on a bed does what the forced nap does. */
+export function sendStacksHome(state: GameState): GameState {
+  const enemies = state.enemies.map(stackHome);
+  return { ...state, enemies, carried: 0, operator: withStacks(state.operator, enemies, 0) };
+}
+
+const stackCount = (enemies: Iterable<EnemyState>, carried: number): number =>
+  carried + [...enemies].filter((e) => e.phase === 'attached').length;
+
+function withStacks(op: OperatorState, enemies: Iterable<EnemyState>, carried: number): OperatorState {
+  const stacks = stackCount(enemies, carried);
   return op.stacks === stacks ? op : { ...op, stacks };
 }
 
@@ -261,6 +301,12 @@ function damage(e: EnemyState, amount: number, freeze: number, events: DomainEve
   return { ...e, hp, frozen: e.boss ? 0 : freeze };
 }
 
+function interactionOf(o: RoomObject): DomainEvent {
+  return o.kind === 'NPC'
+    ? { type: 'talk', object: o.id, npc: String(o.props['npcId']), dialogueId: String(o.props['dialogueId']) }
+    : { type: 'bedUse', object: o.id, bedType: String(o.props['bedType']) };
+}
+
 export function step(state: GameState, input: TickInput): StepResult {
   const now = state.tick;
   const events: DomainEvent[] = [];
@@ -276,6 +322,24 @@ export function step(state: GameState, input: TickInput): StepResult {
   if (s.blockedY) events.push({ type: 'bumpWall', axis: 'y' });
   if (s.dodged) events.push({ type: 'dodge' });
   if (s.stampRaised) events.push({ type: 'stampRaised' });
+
+  // Doors and triggers fire on the tick the operator steps onto them, not while standing there.
+  const onNow = touchedObjects(state.room, boxAt(OPERATOR_BODY, op.x, op.y));
+  const roomEvents: DomainEvent[] = [];
+  for (const o of onNow) {
+    if (state.touching.includes(o.id)) continue;
+    if (o.kind === 'Door') {
+      const lock = String(o.props['lock']);
+      roomEvents.push(lock === 'none'
+        ? { type: 'doorEntered', object: o.id, door: o.name, socket: String(o.props['socket']) }
+        : { type: 'doorLocked', object: o.id, lock });
+    } else roomEvents.push({ type: 'triggerEntered', object: o.id, trigger: String(o.props['event']), eventId: String(o.props['eventId']) });
+  }
+  if (input.interactPressed && op.action.kind === 'free') {
+    const used = reachableObject(state.room, boxAt(OPERATOR_BODY, op.x, op.y), op);
+    if (used) roomEvents.push(interactionOf(used));
+  }
+  events.push(...roomEvents);
 
   // Ids only ever grow, and every loop below runs in id order, so results never depend on
   // where an entity sits in its array.
@@ -446,33 +510,37 @@ export function step(state: GameState, input: TickInput): StepResult {
   // through a crowd is still the answer. Reaching the cap is a forced nap (design doc 5.5); in
   // an exam fight it fails the current question instead, which arrives with the exam fight.
   let clock = state.clock;
+  let carried = state.carried;
   if (!isInvincible(op, now)) {
     const body = boxAt(OPERATOR_BODY, op.x, op.y);
     const clinger = byId().find((e) => e.clings && e.phase === 'idle' && e.frozen === 0 && overlaps(enemyHurtbox(e), body));
     if (clinger) {
       enemies.set(clinger.id, { ...clinger, phase: 'attached', phaseTicks: 0 });
-      const stacks = stackCount(enemies.values());
+      const stacks = stackCount(enemies.values(), carried);
       events.push({ type: 'clung', target: clinger.id, enemy: clinger.type, stacks });
       if (stacks >= CLING.maxStacks) {
         // The stacks go home and reform there: the nap clears the stacks, not the adenosine.
-        for (const e of byId()) {
-          if (e.phase === 'attached') enemies.set(e.id, { ...e, phase: 'dispersed', phaseTicks: 0, x: e.homeX, y: e.homeY });
-        }
+        for (const e of byId()) enemies.set(e.id, stackHome(e));
+        carried = 0;
         clock = advance(clock, CLING.napMinutes);
         events.push({ type: 'forcedNap', minutes: CLING.napMinutes });
       }
     }
   }
-  op = withStacks(op, enemies.values());
+  op = withStacks(op, enemies.values(), carried);
 
   const next: GameState = {
     ...state, tick: now + 1, rng, clock, operator: op, enemies: byId(), projectiles: flying,
     shots: movedShots, zones: [...zones.values()].sort((a, b) => a.id - b.id), nextId, freeze,
+    touching: onNow.map((o) => o.id), carried,
   };
   // A forced leave clears the freeze, so the freeze event is only emitted when it will happen.
   if (op.halves <= 0) {
-    events.push({ type: 'forcedLeave' });
-    return { state: forcedLeave(next), events };
+    // The room is already reset by now, so a door, trigger or bed touched on the lethal tick would
+    // be read against the wrong place and state; dying wins.
+    const settled = events.filter((e) => !roomEvents.includes(e));
+    settled.push({ type: 'forcedLeave' });
+    return { state: forcedLeave(next), events: settled };
   }
   if (freeze > 0) events.push({ type: 'freeze', frames: freeze });
   return { state: next, events };
@@ -491,6 +559,12 @@ export const selectFrozen = (s: GameState): boolean => s.freeze > 0;
 export const selectGauge = (s: GameState): { readonly value: number; readonly max: number } =>
   ({ value: s.operator.gauge, max: STAMP.gaugeMax });
 export const selectClock = (s: GameState): RuleClock => s.clock;
+/** The NPC or bed the interact key would use right now, for the HUD prompt; same rule as the key. */
+export function selectInteractable(s: GameState): { readonly object: number; readonly kind: string } | undefined {
+  if (s.operator.action.kind !== 'free') return undefined;
+  const o = reachableObject(s.room, boxAt(OPERATOR_BODY, s.operator.x, s.operator.y), s.operator);
+  return o ? { object: o.id, kind: o.kind } : undefined;
+}
 /** Clinging enemies in id order, for drawing them on the operator. */
 export const selectStacks = (s: GameState): readonly Readonly<EnemyState>[] =>
   s.enemies.filter((e) => e.phase === 'attached');
