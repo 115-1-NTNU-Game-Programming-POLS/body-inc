@@ -3,12 +3,14 @@ import greyboxChapter from '../../content/chapters/greybox.json';
 import enemiesJson from '../../content/enemies.json';
 import feedbackJson from '../../content/feedback.json';
 import paramsJson from '../../content/params.json';
+import speakersJson from '../../content/speakers.json';
 import stringsJson from '../../content/strings/zh-TW.json';
 import tagsJson from '../../content/tags.json';
 import {
   loadBossTable, loadDictionary, loadDialogueTable, loadEnemyTable, readContent,
   type BossTable, type ChapterFile, type DialogueFile, type DialogueTable, type EnemyTable, type TagDictionary,
 } from '../core/index.ts';
+import { speakerProblems, type Speakers } from './dialogue.ts';
 import { feedbackProblems, noteFields, type FeedbackTable, type StringTable } from './feedback.ts';
 
 /** Content is bundled and parsed once at startup; core receives the parsed objects. */
@@ -36,6 +38,11 @@ export const DIALOGUE_FILES: readonly DialogueFile[] = Object.entries(dialogueSo
   .map(([path, text]) => ({ file: path.replace('../../', ''), text }))
   .sort((a, b) => (a.file < b.file ? -1 : 1));
 export const DIALOGUES: DialogueTable = loadDialogueTable(DIALOGUE_FILES, TAGS);
+export const SPEAKERS: Speakers = readContent('speakers', speakersJson).speakers;
+/** Every spoken and reply text, for the font gate: dialogue is not in content/strings, but it is drawn with the same fonts. */
+export const DIALOGUE_TEXT: readonly string[] = [...DIALOGUES.values()].flatMap((d) => d.lines.map((l) => l.text));
+const speakerIssues = speakerProblems(DIALOGUES, SPEAKERS);
+if (speakerIssues.length > 0) throw new Error(`content/dialogue:\n  ${speakerIssues.join('\n  ')}`);
 
 /**
  * Every file in content/chapters, in the order the title screen offers them. A chapter left out

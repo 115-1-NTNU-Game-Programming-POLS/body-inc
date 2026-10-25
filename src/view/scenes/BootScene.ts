@@ -1,7 +1,8 @@
 import Phaser from 'phaser';
 import { atlasProblems, atlasUrls, type AsepriteJson, type AtlasIndex, type Manifest } from '../../app/assets.ts';
 import { chapterContent, chapterLoop } from '../../app/chapters.ts';
-import { CHAPTERS, STRINGS, TAGS } from '../../app/content.ts';
+import { CHAPTERS, DIALOGUES, DIALOGUE_TEXT, SPEAKERS, STRINGS, TAGS } from '../../app/content.ts';
+import { portraitsUsed } from '../../app/dialogue.ts';
 import { chapterOfRoom, gaugeFromQuery, halvesFromQuery, roomFromQuery, tagsFromQuery } from '../../app/session.ts';
 import { browserStore, SaveStore, type SaveIssue } from '../../app/storage.ts';
 import {
@@ -43,7 +44,7 @@ export class BootScene extends Phaser.Scene {
 
   preload(): void {
     // Fonts load in parallel with the assets; no scene that draws text starts before both finish.
-    this.fonts = loadFonts(glyphCorpus(STRINGS));
+    this.fonts = loadFonts(glyphCorpus(STRINGS, DIALOGUE_TEXT));
     this.load.on(Phaser.Loader.Events.FILE_LOAD_ERROR, (file: Phaser.Loader.File) => {
       this.failed.push(`failed to load ${file.url}`);
     });
@@ -96,6 +97,8 @@ export class BootScene extends Phaser.Scene {
       if (!meta) this.failed.push(`a map uses tileset ${name}, which tilesets.json does not list`);
       else this.load.image(name, meta.image);
     }
+    // A portrait the check missed stops Boot here with its file name, not on the first conversation.
+    for (const p of portraitsUsed(DIALOGUES, SPEAKERS)) this.load.image(p.key, p.url);
     this.load.once(Phaser.Loader.Events.COMPLETE, () => this.ready(manifest, maps));
     this.load.start();
   }

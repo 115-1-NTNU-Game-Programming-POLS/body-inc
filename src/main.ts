@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { BootScene } from './view/scenes/BootScene.ts';
+import { DialogueScene } from './view/scenes/DialogueScene.ts';
 import { HudScene } from './view/scenes/HudScene.ts';
 import { TitleScene } from './view/scenes/TitleScene.ts';
 import { WorldScene } from './view/scenes/WorldScene.ts';
@@ -14,7 +15,8 @@ const game = new Phaser.Game({
   pixelArt: true,
   roundPixels: true,
   scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
-  scene: [BootScene, TitleScene, WorldScene, HudScene],
+  // Draw order: later scenes are on top, so conversations cover the HUD.
+  scene: [BootScene, TitleScene, WorldScene, HudScene, DialogueScene],
 });
 
 // Dev builds only: lets the browser console and automated checks inspect scenes and frame rate.

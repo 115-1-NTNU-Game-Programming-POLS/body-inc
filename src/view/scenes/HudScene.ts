@@ -84,9 +84,12 @@ export class HudScene extends Phaser.Scene {
     const onIssues = (issues: readonly SaveIssue[]) => this.saveNotices(issues);
     this.game.events.on('world-note', onNote);
     this.game.events.on('save-issues', onIssues);
+    // Conversations draw over the HUD and live exactly as long as it does: one run, from title to title.
+    if (!this.scene.isActive('Dialogue')) this.scene.launch('Dialogue');
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.game.events.off('world-note', onNote);
       this.game.events.off('save-issues', onIssues);
+      this.scene.stop('Dialogue');
     });
   }
 
@@ -231,7 +234,7 @@ export class HudScene extends Phaser.Scene {
       this.drawGauge(value, max, lit);
     }
     this.renderBoss(game, time);
-    this.prompt.setVisible(selectInteractable(game) !== undefined);
+    this.prompt.setVisible(loop.state.dialogue === null && selectInteractable(game) !== undefined);
     const seconds = (selectTick(game) / TICK_HZ).toFixed(1);
     const clock = selectClock(game);
     const minute = clock.minute % MINUTES_PER_DAY;
