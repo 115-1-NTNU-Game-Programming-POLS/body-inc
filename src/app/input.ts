@@ -31,6 +31,8 @@ export class KeyboardInput {
   private readonly pressedSince = new Set<string>();
   /** A reply chosen with the mouse, reported once by the next `sample`. */
   private queuedPick = 0;
+  /** See `ignoreMouse`. */
+  private mouseIgnored = false;
   private readonly target: EventTarget;
   private readonly bindings: Readonly<Record<Action, readonly string[]>>;
   private readonly down = (code: string) => {
@@ -50,7 +52,7 @@ export class KeyboardInput {
     const code = `Mouse${(e as MouseEvent).button}`;
     // A bound middle button would otherwise also start the browser's autoscroll.
     if (this.isBound(code)) e.preventDefault();
-    this.down(code);
+    if (!this.mouseIgnored) this.down(code);
   };
   private readonly onMouseUp = (e: Event) => this.release(`Mouse${(e as MouseEvent).button}`);
   private readonly onBlur = () => {
@@ -103,6 +105,15 @@ export class KeyboardInput {
     for (const code of this.held) this.ignored.add(code);
     this.pressedSince.clear();
     this.queuedPick = 0;
+  }
+
+  /**
+   * While replies are offered, a click counts only through `queuePick` on the note it hit. Mouse0 is
+   * also bound to attack, which confirms the highlighted reply, so a click that missed every note
+   * would otherwise commit a reply the player did not aim at.
+   */
+  ignoreMouse(on: boolean): void {
+    this.mouseIgnored = on;
   }
 
   /** A reply (1 to 3) clicked on screen; the dialogue scene calls this, and the next tick sees it as a key press. */

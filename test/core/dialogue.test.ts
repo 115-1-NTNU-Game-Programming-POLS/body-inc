@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { BOSSES, ENEMIES, PARAMS, TAGS } from '../../src/app/content.ts';
 import {
   DIALOGUE_COLUMNS, DialogueTableError, LOCK_TICKS, OPERATOR_SPEAKER, arrivalEffects, loadDialogueTable, moveCursor, openDialogue,
-  parseEffects, parseRoom, pickReply, readDialogues, selectDialogue, startChapter, stateHash, stepChapter, trace, leaveNode,
+  parseEffects, parseRoom, pickReply, readDialogues, resumeChapter, selectDialogue, startChapter, stateHash, stepChapter, trace, leaveNode,
   type ChapterContent, type ChapterState, type DialogueProblem, type DialogueTable, type GameEvent, type TickInput, type TiledMap,
 } from '../../src/core/index.ts';
 
@@ -582,6 +582,16 @@ describe('a conversation inside a chapter', () => {
     const r = step(c, place(startChapter(c), 232, 182), NONE);
     expect(r.state.dialogue).toBeNull();
     expect(r.state.run.fired).toEqual([]);
+  });
+
+  it('a checkpoint punched on the same tick does not keep a skipped once trigger used up', () => {
+    const punch = { id: 3, type: 'Trigger', x: 200, y: 150, width: 64, height: 64, properties: [p('event', 'checkpoint')] };
+    const c = chapter([row('c', 1, 'brain', 'never', { condition: 'cold' })], [trigger(2, 'c'), punch]);
+    const r = step(c, place(startChapter(c), 232, 182), NONE);
+    expect(r.events).toContainEqual({ type: 'checkpointSaved', room: 'lab/room' });
+    expect(r.state.dialogue).toBeNull();
+    expect(r.state.run.checkpoint?.fired).toEqual([]);
+    expect(resumeChapter(c, r.state.run.checkpoint!).run.fired).toEqual([]);
   });
 
   it('an NPC pressed on the tick a trigger fires loses to the trigger: the first request of a tick wins', () => {

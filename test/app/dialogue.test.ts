@@ -1,9 +1,10 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { CHAPTERS, DIALOGUE_FILES, DIALOGUES, SPEAKERS, STRINGS, TAGS } from '../../src/app/content.ts';
-import { missingDialogues, portraitKey, portraitsUsed, speakerProblems } from '../../src/app/dialogue.ts';
+import { missingDialogues, portraitKey, portraitsUsed, releaseKeysOnClose, speakerProblems } from '../../src/app/dialogue.ts';
 import { KeyboardInput } from '../../src/app/input.ts';
-import { loadDialogueTable, OPERATOR_SPEAKER, parseRoom, roomsOf, type TiledMap } from '../../src/core/index.ts';
+import { FixedStepLoop } from '../../src/app/loop.ts';
+import { loadDialogueTable, OPERATOR_SPEAKER, parseRoom, roomsOf, TICK_MS, type GameEvent, type TiledMap } from '../../src/core/index.ts';
 
 const HEADER = 'dialogueId,order,speaker,expression,text,condition,effect,next,fact';
 
@@ -82,6 +83,7 @@ describe('conversations the rooms start', () => {
 
 describe('keyboard input in a conversation', () => {
   const key = (type: string, code: string) => Object.assign(new Event(type), { code, repeat: false });
+  const mouse = (type: string, button: number) => Object.assign(new Event(type), { button });
   const setup = () => {
     const target = new EventTarget();
     return { target, input: new KeyboardInput(target) };
@@ -137,5 +139,42 @@ describe('keyboard input in a conversation', () => {
     input.queuePick(3);
     input.ignoreHeld();
     expect(input.sample()).not.toHaveProperty('pick');
+  });
+
+  it('while replies are offered a click counts only as the note it hit, not as attack', () => {
+    const { target, input } = setup();
+    input.ignoreMouse(true);
+    target.dispatchEvent(mouse('mousedown', 0));
+    const missed = input.sample();
+    expect(missed.attackPressed).toBe(false);
+    expect(missed.attack).toBe(false);
+    target.dispatchEvent(mouse('mouseup', 0));
+    target.dispatchEvent(mouse('mousedown', 0));
+    input.queuePick(2);
+    expect(input.sample()).toMatchObject({ pick: 2, attackPressed: false });
+    target.dispatchEvent(mouse('mouseup', 0));
+    target.dispatchEvent(key('keydown', 'KeyJ'));
+    expect(input.sample().attackPressed).toBe(true);
+    target.dispatchEvent(key('keyup', 'KeyJ'));
+    input.ignoreMouse(false);
+    target.dispatchEvent(mouse('mousedown', 0));
+    expect(input.sample().attackPressed).toBe(true);
+  });
+
+  it('a key held to close a conversation is not a held attack afterwards', () => {
+    const { target, input } = setup();
+    const loop = new FixedStepLoop<number, GameEvent>(0, (s) => ({ state: s + 1, events: s === 0 ? [{ type: 'dialogueClosed', dialogueId: 'x' }] : [] }));
+    releaseKeysOnClose(loop, input);
+    const seen: boolean[] = [];
+    target.dispatchEvent(key('keydown', 'KeyJ'));
+    loop.advance(TICK_MS * 3 + 1, () => {
+      const i = input.sample();
+      seen.push(i.attack === true);
+      return i;
+    });
+    expect(seen).toEqual([true, false, false]);
+    target.dispatchEvent(key('keyup', 'KeyJ'));
+    target.dispatchEvent(key('keydown', 'KeyJ'));
+    expect(input.sample().attack).toBe(true);
   });
 });
