@@ -1,9 +1,10 @@
 import Phaser from 'phaser';
-import { chapterLoop, tryResume } from '../../app/chapters.ts';
+import { tryResume } from '../../app/chapters.ts';
 import { str } from '../../app/content.ts';
 import { sharedKeys } from '../../app/input.ts';
-import { startChapter, type ChapterContent, type StoryData } from '../../core/index.ts';
+import { startChapter, type ChapterContent, type ChapterState, type StoryData } from '../../core/index.ts';
 import { addText } from '../text/fonts.ts';
+import { beginRun } from './run.ts';
 
 const PAPER = '#f4efe4';
 const INK = '#0c2d5e';
@@ -54,7 +55,7 @@ export class TitleScene extends Phaser.Scene {
       run,
     });
     this.items = [
-      make(420, 'title.new', true, () => this.play(first, startChapter(first))),
+      make(420, 'title.new', true, () => this.newGame(first)),
       make(490, 'title.continue', resumed !== undefined, () => this.play(saved!, resumed!)),
     ];
     if (checkpoint && resumed === undefined) {
@@ -95,18 +96,18 @@ export class TitleScene extends Phaser.Scene {
     });
   }
 
-  private play(ctx: ChapterContent, state: ReturnType<typeof startChapter>): void {
+  private play(ctx: ChapterContent, state: ChapterState): void {
     if (this.starting) return;
     this.starting = true;
-    this.registry.set('ended', false);
-    this.registry.set('loop', chapterLoop(ctx, state));
-    // Phaser calls this from its own keydown handler, which runs before the input tracker has
-    // recorded that same key. Handing over one task later lets the tracker see it, so the J that
-    // chose this item is ignored until released instead of being the first staple.
-    window.setTimeout(() => {
-      sharedKeys(this.registry, window).ignoreHeld();
-      this.scene.start('World');
-      this.scene.launch('Hud');
-    }, 0);
+    beginRun(this, ctx, state);
+  }
+
+  /** A new game opens on the chapter's opening cards when its deck has any (build plan P1). */
+  private newGame(ctx: ChapterContent): void {
+    if (!ctx.deck || ctx.deck.opening.length === 0) return this.play(ctx, startChapter(ctx));
+    if (this.starting) return;
+    this.starting = true;
+    // Deferred for the same reason as in beginRun: the confirming key must reach the tracker first.
+    window.setTimeout(() => this.scene.start('Opening', { chapter: ctx.chapter.id }), 0);
   }
 }
