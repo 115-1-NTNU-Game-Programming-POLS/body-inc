@@ -22,6 +22,10 @@
     "bossSummon": { "particles": [{ "preset": "fuzz", "count": 6 }] },
     "powerCut": { "shake": { "px": 4, "seconds": 0.2 }, "particles": [{ "preset": "fuzz", "count": 14 }], "note": "boss.power_cut" },
     "proposalRejected": { "shake": { "px": 6, "seconds": 0.15 }, "particles": [{ "preset": "ink", "count": 12 }], "note": "proposal.rejected" },
-    "bossDefeated": { "closeOut": true, "particles": [{ "preset": "paper", "count": 20 }], "note": "boss.defeated" }
+    "bossDefeated": { "closeOut": true, "particles": [{ "preset": "paper", "count": 20 }], "note": "boss.defeated" },
+    "doorLocked": { "note": "door.locked" },
+    "bedRefused": { "note": "bed.refused.{bedType}" },
+    "napped": { "note": "napped" },
+    "checkpointSaved": { "note": "checkpoint.saved" }
   }
 }

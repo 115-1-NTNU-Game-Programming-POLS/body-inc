@@ -1,24 +1,36 @@
-import { EMPTY_LOG, EMPTY_TAGS, record, setAmount, setFlag, STAMP, type TagDictionary, type TagState } from '../core/index.ts';
+import { BASE_HALVES, EMPTY_LOG, EMPTY_TAGS, record, setAmount, setFlag, STAMP, type TagDictionary, type TagState } from '../core/index.ts';
 
 /**
- * Which room the game opens and the tags it is entered with. Until the outer layer (build plan
- * P1) produces tags from cards, dev builds take both from the URL so variants can be seen:
+ * Which room a dev build opens and the tags it is entered with, skipping the title screen.
+ * Until the outer layer (build plan P1) produces tags from cards, dev builds take them from the
+ * URL so variants can be seen:
  *
- *   ?room=greybox/brain-corridor&tags=sleep_debt:2,breakfast&gauge=100
+ *   ?room=greybox/brain-corridor&tags=sleep_debt:2,breakfast&gauge=100&halves=2
  *
- * Production ignores the URL and opens the default room with no tags.
+ * Production ignores the URL and opens the title screen.
  */
-export const DEFAULT_ROOM = 'greybox/greybox-room';
 const ROOM_PATH = /^[a-z0-9-]+\/[a-z0-9-]+$/;
 
 export class QueryError extends Error {}
 
-/** Map path under assets/maps, without the .tmj extension. */
-export function roomFromQuery(search: string): string {
+/** Map path under assets/maps without the .tmj extension, or undefined when the URL names none. */
+export function roomFromQuery(search: string): string | undefined {
   const v = new URLSearchParams(search).get('room');
-  if (v === null) return DEFAULT_ROOM;
+  if (v === null) return undefined;
   if (!ROOM_PATH.test(v)) throw new QueryError(`?room=${v}: expected <folder>/<map>, e.g. greybox/brain-corridor`);
   return v;
+}
+
+/** The chapter a room belongs to is its folder (docs/authoring/rooms-and-dialogue.md). */
+export const chapterOfRoom = (room: string): string => room.split('/')[0]!;
+
+/** `?halves=2` starts with that many half hearts, so a forced leave is one hit away. Undefined when absent. */
+export function halvesFromQuery(search: string): number | undefined {
+  const v = new URLSearchParams(search).get('halves');
+  if (v === null) return undefined;
+  const n = Number(v);
+  if (v.trim() === '' || !Number.isInteger(n) || n < 1 || n > BASE_HALVES) throw new QueryError(`?halves=${v}: expected a whole number from 1 to ${BASE_HALVES}`);
+  return n;
 }
 
 /**

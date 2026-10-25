@@ -1,6 +1,6 @@
 import type { TickInput } from '../core/index.ts';
 
-export type Action = 'up' | 'down' | 'left' | 'right' | 'attack' | 'dodge' | 'stamp';
+export type Action = 'up' | 'down' | 'left' | 'right' | 'attack' | 'dodge' | 'stamp' | 'interact';
 
 /** Default bindings (design doc 5.2). Stored per player later; core only ever sees TickInput. */
 export const DEFAULT_BINDINGS: Readonly<Record<Action, readonly string[]>> = {
@@ -11,6 +11,7 @@ export const DEFAULT_BINDINGS: Readonly<Record<Action, readonly string[]>> = {
   attack: ['KeyJ', 'Mouse0'],
   dodge: ['Space', 'KeyK'],
   stamp: ['KeyR', 'Mouse1'],
+  interact: ['KeyE', 'Enter'],
 };
 
 /**
@@ -20,6 +21,8 @@ export const DEFAULT_BINDINGS: Readonly<Record<Action, readonly string[]>> = {
  */
 export class KeyboardInput {
   private readonly held = new Set<string>();
+  /** Held keys that count as released until they come up; see `ignoreHeld`. */
+  private readonly ignored = new Set<string>();
   private readonly pressedSince = new Set<string>();
   private readonly target: EventTarget;
   private readonly bindings: Readonly<Record<Action, readonly string[]>>;
@@ -35,15 +38,18 @@ export class KeyboardInput {
     if (k.repeat) this.held.add(k.code);
     else this.down(k.code);
   };
-  private readonly onKeyUp = (e: Event) => this.held.delete((e as KeyboardEvent).code);
+  private readonly onKeyUp = (e: Event) => this.release((e as KeyboardEvent).code);
   private readonly onMouseDown = (e: Event) => {
     const code = `Mouse${(e as MouseEvent).button}`;
     // A bound middle button would otherwise also start the browser's autoscroll.
     if (this.isBound(code)) e.preventDefault();
     this.down(code);
   };
-  private readonly onMouseUp = (e: Event) => this.held.delete(`Mouse${(e as MouseEvent).button}`);
-  private readonly onBlur = () => this.held.clear();
+  private readonly onMouseUp = (e: Event) => this.release(`Mouse${(e as MouseEvent).button}`);
+  private readonly onBlur = () => {
+    this.held.clear();
+    this.ignored.clear();
+  };
 
   constructor(target: EventTarget, bindings = DEFAULT_BINDINGS) {
     this.target = target;
@@ -59,12 +65,35 @@ export class KeyboardInput {
     return Object.values(this.bindings).some((codes) => codes.includes(code));
   }
 
+  private release(code: string): void {
+    this.held.delete(code);
+    this.ignored.delete(code);
+  }
+
   private isHeld(action: Action): boolean {
-    return this.bindings[action].some((code) => this.held.has(code));
+    return this.bindings[action].some((code) => this.held.has(code) && !this.ignored.has(code));
   }
 
   private wasPressed(action: Action): boolean {
     return this.bindings[action].some((code) => this.pressedSince.has(code));
+  }
+
+  /**
+   * Forgets key-down edges seen so far while keeping what is still held. A scene that starts
+   * calls it, so the Enter that chose "new game" is not also an interact press, and a key held
+   * through a doorway keeps moving the operator in the next room.
+   */
+  clearPresses(): void {
+    this.pressedSince.clear();
+  }
+
+  /**
+   * Treats every key down right now as released until it comes up. The title calls it before the
+   * run starts, so the J or Space that chose "new game" does not fire a staple or dodge on tick one.
+   */
+  ignoreHeld(): void {
+    for (const code of this.held) this.ignored.add(code);
+    this.pressedSince.clear();
   }
 
   /** Called once per rule tick; clears the presses it reports. */
@@ -77,6 +106,7 @@ export class KeyboardInput {
       attackPressed: this.wasPressed('attack'),
       dodgePressed: this.wasPressed('dodge'),
       stampPressed: this.wasPressed('stamp'),
+      interactPressed: this.wasPressed('interact'),
     };
     this.pressedSince.clear();
     return input;
@@ -89,4 +119,22 @@ export class KeyboardInput {
     this.target.removeEventListener('mouseup', this.onMouseUp);
     this.target.removeEventListener('blur', this.onBlur);
   }
+}
+
+interface Store {
+  get(key: string): unknown;
+  set(key: string, value: unknown): unknown;
+}
+
+/**
+ * The one tracker of a play session, kept in the game's registry. The title creates it before the
+ * first key is pressed and the world reuses it, so a key held across a scene change is known.
+ */
+export function sharedKeys(store: Store, target: EventTarget): KeyboardInput {
+  let keys = store.get('keys') as KeyboardInput | undefined;
+  if (!keys) {
+    keys = new KeyboardInput(target);
+    store.set('keys', keys);
+  }
+  return keys;
 }

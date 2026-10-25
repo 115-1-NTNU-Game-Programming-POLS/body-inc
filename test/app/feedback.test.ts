@@ -3,7 +3,7 @@ import feedbackJson from '../../content/feedback.json';
 import stringsJson from '../../content/strings/zh-TW.json';
 import enemiesJson from '../../content/enemies.json';
 import { feedbackProblems, noteFields, noteText, type FeedbackTable, type StringTable } from '../../src/app/feedback.ts';
-import { KeyboardInput } from '../../src/app/input.ts';
+import { KeyboardInput, sharedKeys } from '../../src/app/input.ts';
 import { loadEnemyTable } from '../../src/core/index.ts';
 
 const FEEDBACK = feedbackJson as unknown as FeedbackTable;
@@ -51,6 +51,62 @@ describe('keyboard input adapter', () => {
     expect(input.sample()).toMatchObject({ attack: true, attackPressed: false });
   });
 
+  it('E and Enter interact, once per press', () => {
+    const target = new EventTarget();
+    const input = new KeyboardInput(target);
+    target.dispatchEvent(key('keydown', 'KeyE'));
+    expect(input.sample()).toMatchObject({ interactPressed: true });
+    expect(input.sample()).toMatchObject({ interactPressed: false });
+    target.dispatchEvent(key('keydown', 'Enter'));
+    expect(input.sample()).toMatchObject({ interactPressed: true });
+  });
+
+  it('a new scene forgets earlier presses but not the keys still held', () => {
+    const target = new EventTarget();
+    const input = new KeyboardInput(target);
+    target.dispatchEvent(key('keydown', 'Enter'));
+    target.dispatchEvent(key('keydown', 'KeyD'));
+    input.clearPresses();
+    expect(input.sample()).toMatchObject({ move: { x: 1, y: 0 }, interactPressed: false });
+  });
+
+  it('keys held when the title hands over are ignored until released, then work again', () => {
+    const target = new EventTarget();
+    const input = new KeyboardInput(target);
+    target.dispatchEvent(key('keydown', 'KeyJ'));
+    target.dispatchEvent(key('keydown', 'KeyD'));
+    input.ignoreHeld();
+    // The OS repeat of the chosen key must not bring it back.
+    target.dispatchEvent(key('keydown', 'KeyJ', true));
+    expect(input.sample()).toMatchObject({ attack: false, attackPressed: false, move: { x: 0, y: 0 } });
+    target.dispatchEvent(key('keyup', 'KeyJ'));
+    target.dispatchEvent(key('keydown', 'KeyJ'));
+    expect(input.sample()).toMatchObject({ attack: true, attackPressed: true });
+    // A key pressed after the hand-over is never ignored.
+    target.dispatchEvent(key('keydown', 'KeyA'));
+    expect(input.sample().move).toEqual({ x: -1, y: 0 });
+  });
+
+  it('ignored keys are forgotten on a blur, like held ones', () => {
+    const target = new EventTarget();
+    const input = new KeyboardInput(target);
+    target.dispatchEvent(key('keydown', 'KeyJ'));
+    input.ignoreHeld();
+    target.dispatchEvent(new Event('blur'));
+    target.dispatchEvent(key('keydown', 'KeyJ'));
+    expect(input.sample()).toMatchObject({ attack: true });
+  });
+
+  it('the shared tracker is made once and handed to every scene', () => {
+    const target = new EventTarget();
+    const store = new Map<string, unknown>();
+    const registry = { get: (k: string) => store.get(k), set: (k: string, v: unknown) => store.set(k, v) };
+    const first = sharedKeys(registry, target);
+    expect(sharedKeys(registry, target)).toBe(first);
+    target.dispatchEvent(key('keydown', 'KeyW'));
+    expect(sharedKeys(registry, target).sample().move).toEqual({ x: 0, y: -1 });
+  });
+
   it('R and the middle button stamp; a bound middle click cancels the browser autoscroll, an unbound one does not', () => {
     const target = new EventTarget();
     const input = new KeyboardInput(target);
@@ -93,6 +149,15 @@ describe('feedback table', () => {
       'immuneBounce: note "solution.{solution}" uses unknown placeholder "{solution}"',
       'stampVoid: note "stamp_void.{solution}" uses unknown placeholder "{solution}"',
       'bossStage: note "boss_stage.{stage}" uses unknown placeholder "{stage}"',
+      'bedRefused: note "bed.refused.{bedType}" uses unknown placeholder "{bedType}"',
+    ]);
+  });
+
+  it('each bed kind a map can place has its refusal line', () => {
+    expect(FIELDS.bedRefused?.['bedType']).toEqual(['nap', 'sleep']);
+    const { ['bed.refused.sleep']: _, ...rest } = STRINGS.strings;
+    expect(feedbackProblems(FEEDBACK, { ...STRINGS, strings: rest }, FIELDS)).toEqual([
+      'bedRefused: note "bed.refused.sleep" is not in content/strings',
     ]);
   });
 

@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { noteText, type FeedbackTable, type StringTable } from '../../app/feedback.ts';
-import type { DomainEvent } from '../../core/index.ts';
+import type { GameEvent } from '../../core/index.ts';
 import type { OperatorView } from '../actors/OperatorView.ts';
 
 /** What feedback can do to an enemy or boss sprite. */
@@ -52,7 +52,7 @@ export class FeedbackPlayer {
     return e;
   }
 
-  play(event: DomainEvent, tick: number): void {
+  play(event: GameEvent, tick: number): void {
     const fb = this.table.events[event.type];
     if (!fb) return;
     const enemy = 'target' in event ? this.targets.enemy(event.target) : undefined;

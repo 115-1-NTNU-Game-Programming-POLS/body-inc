@@ -1,16 +1,13 @@
 import Phaser from 'phaser';
 import type { FixedStepLoop } from '../../app/loop.ts';
-import { MINUTES_PER_DAY, selectBoss, selectClock, selectGauge, selectHearts, selectTick, TICK_HZ, type BossSummary, type GameState } from '../../core/index.ts';
-import { STRINGS } from '../../app/content.ts';
+import {
+  MINUTES_PER_DAY, selectBoss, selectClock, selectGauge, selectHearts, selectInteractable, selectTick, TICK_HZ,
+  type BossSummary, type ChapterState, type GameEvent, type GameState,
+} from '../../core/index.ts';
+import { str } from '../../app/content.ts';
 import { issueMessage, type SaveIssue } from '../../app/storage.ts';
 import { addText, updateText } from '../text/fonts.ts';
 import type { WorldNote } from './WorldScene.ts';
-
-const str = (key: string): string => {
-  const s = STRINGS.strings[key];
-  if (!s) throw new Error(`content/strings has no "${key}"`);
-  return s.text;
-};
 
 /** 7 x 6 heart, drawn at 4 px per cell; '#' is filled. */
 const HEART = ['.##.##.', '#######', '#######', '.#####.', '..###..', '...#...'];
@@ -46,6 +43,7 @@ interface Plate {
 /** Overlay at scale 1, separate from World so hit-stop and camera zoom never affect UI. */
 export class HudScene extends Phaser.Scene {
   private controls!: Phaser.GameObjects.Text;
+  private prompt!: Phaser.GameObjects.Text;
   private clock!: Phaser.GameObjects.Text;
   private hearts!: Phaser.GameObjects.Graphics;
   private gauge!: Phaser.GameObjects.Graphics;
@@ -53,12 +51,22 @@ export class HudScene extends Phaser.Scene {
   private shownHalves = -1;
   private shownGauge = '';
   private shownTime = '';
+  /** Message keys already on screen, and where the next notice stacks up from. */
+  private readonly noticed = new Set<string>();
+  private noticeBottom = 0;
 
   constructor() {
     super('Hud');
   }
 
   create(): void {
+    // The scene object is reused when the game goes back to the title and into a new run.
+    this.plate = undefined;
+    this.shownHalves = -1;
+    this.shownGauge = '';
+    this.shownTime = '';
+    this.noticed.clear();
+    this.noticeBottom = this.scale.height - 12;
     this.hearts = this.add.graphics();
     this.gauge = this.add.graphics();
     // The HUD sits over the north wall (art direction 7.2), so light text needs its own plate to
@@ -68,22 +76,30 @@ export class HudScene extends Phaser.Scene {
     this.clock = addText(this, 12, this.controls.y + this.controls.displayHeight + 2, '', {
       role: 'print', weight: 400, size: 16, color: '#e8edf5', ...plate,
     });
+    this.prompt = addText(this, this.scale.width / 2, this.scale.height - 72, str('hud.interact'), {
+      role: 'print', weight: 700, size: 20, color: '#e8edf5', ...plate,
+    }).setOrigin(0.5, 1).setVisible(false);
     this.saveNotices((this.registry.get('save-issues') as readonly SaveIssue[] | undefined) ?? []);
     const onNote = (n: WorldNote) => this.note(n);
+    const onIssues = (issues: readonly SaveIssue[]) => this.saveNotices(issues);
     this.game.events.on('world-note', onNote);
-    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.game.events.off('world-note', onNote));
+    this.game.events.on('save-issues', onIssues);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.game.events.off('world-note', onNote);
+      this.game.events.off('save-issues', onIssues);
+    });
   }
 
   /** One line per distinct message, bottom left, kept on screen: lost progress must not go unnoticed. */
   private saveNotices(issues: readonly SaveIssue[]): void {
-    const keys = [...new Set(issues.map(issueMessage).filter((k): k is string => k !== undefined))];
+    const keys = [...new Set(issues.map(issueMessage).filter((k): k is string => k !== undefined))].filter((k) => !this.noticed.has(k));
     // Stacked upward from the bottom by measured height, so wrapped or scaled text never overlaps.
-    let bottom = this.scale.height - 12;
     for (const key of keys.reverse()) {
-      const text = addText(this, 12, bottom, str(key), {
+      this.noticed.add(key);
+      const text = addText(this, 12, this.noticeBottom, str(key), {
         role: 'print', weight: 700, size: 16, color: '#2b2b2b', backgroundColor: '#f2c94c', padding: { x: 8, y: 3 },
       }).setOrigin(0, 1);
-      bottom -= text.displayHeight + 4;
+      this.noticeBottom -= text.displayHeight + 4;
     }
   }
 
@@ -125,7 +141,10 @@ export class HudScene extends Phaser.Scene {
   /** Nameplate of the room's boss; made on first sight, since the Hud can start before World. */
   private renderBoss(state: GameState, time: number): void {
     const boss = selectBoss(state);
-    if (!boss) return;
+    if (!boss) {
+      if (this.plate) this.clearPlate();
+      return;
+    }
     if (!this.plate) {
       const g = this.add.graphics();
       const name = addText(this, PLATE.x + 16, PLATE.y + 6, str(`boss.${boss.type}.name`), { role: 'hand', weight: 700, size: 22, color: '#0c2d5e' });
@@ -146,6 +165,19 @@ export class HudScene extends Phaser.Scene {
     if (key === p.shown) return;
     p.shown = key;
     this.drawPlate(p, boss);
+  }
+
+  /** Leaving the boss room takes the nameplate with it; the control hint goes back up. */
+  private clearPlate(): void {
+    const p = this.plate;
+    if (!p) return;
+    p.g.destroy();
+    p.name.destroy();
+    p.stage.destroy();
+    p.residue.destroy();
+    this.plate = undefined;
+    this.controls.setY(GAUGE_Y + GAUGE_H + 12);
+    this.clock.setY(this.controls.y + this.controls.displayHeight + 2);
   }
 
   private drawPlate(p: Plate, boss: BossSummary): void {
@@ -183,23 +215,25 @@ export class HudScene extends Phaser.Scene {
   }
 
   override update(time: number): void {
-    const loop = this.registry.get('loop') as FixedStepLoop | undefined;
+    const loop = this.registry.get('loop') as FixedStepLoop<ChapterState, GameEvent> | undefined;
     if (!loop) return;
-    const { halves, maxHalves } = selectHearts(loop.state);
+    const game = loop.state.game;
+    const { halves, maxHalves } = selectHearts(game);
     if (halves !== this.shownHalves) {
       this.shownHalves = halves;
       this.drawHearts(halves, maxHalves);
     }
-    const { value, max } = selectGauge(loop.state);
+    const { value, max } = selectGauge(game);
     const lit = value >= max && time % FULL_PULSE_MS < 120;
     const gaugeKey = `${value}/${lit}`;
     if (gaugeKey !== this.shownGauge) {
       this.shownGauge = gaugeKey;
       this.drawGauge(value, max, lit);
     }
-    this.renderBoss(loop.state, time);
-    const seconds = (selectTick(loop.state) / TICK_HZ).toFixed(1);
-    const clock = selectClock(loop.state);
+    this.renderBoss(game, time);
+    this.prompt.setVisible(selectInteractable(game) !== undefined);
+    const seconds = (selectTick(game) / TICK_HZ).toFixed(1);
+    const clock = selectClock(game);
     const minute = clock.minute % MINUTES_PER_DAY;
     const hhmm = `${String(Math.floor(minute / 60)).padStart(2, '0')}:${String(minute % 60).padStart(2, '0')}`;
     const shown = `${seconds} ${hhmm}`;

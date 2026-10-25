@@ -1,15 +1,27 @@
 import { describe, expect, it } from 'vitest';
 import { TAGS } from '../../src/app/content.ts';
-import { DEFAULT_ROOM, gaugeFromQuery, QueryError, roomFromQuery, tagsFromQuery } from '../../src/app/session.ts';
+import { chapterOfRoom, gaugeFromQuery, halvesFromQuery, QueryError, roomFromQuery, tagsFromQuery } from '../../src/app/session.ts';
 import { amount, flag, parseCondition, holds } from '../../src/core/index.ts';
 
 describe('room from the URL', () => {
-  it('defaults, accepts folder/map, and rejects anything that could leave assets/maps', () => {
-    expect(roomFromQuery('')).toBe(DEFAULT_ROOM);
+  it('is absent by default, accepts folder/map, and rejects anything that could leave assets/maps', () => {
+    expect(roomFromQuery('')).toBeUndefined();
     expect(roomFromQuery('?room=greybox/brain-corridor')).toBe('greybox/brain-corridor');
     for (const bad of ['../secret', 'greybox', 'a/b/c', 'Greybox/x', 'greybox/x.tmj']) {
       expect(() => roomFromQuery(`?room=${encodeURIComponent(bad)}`), bad).toThrow(QueryError);
     }
+  });
+});
+
+describe('chapter and hearts from the URL', () => {
+  it('a room belongs to the chapter named by its folder', () => {
+    expect(chapterOfRoom('greybox/rest-room')).toBe('greybox');
+  });
+
+  it('hearts are absent by default, take 1 to 12 and reject anything else', () => {
+    expect(halvesFromQuery('')).toBeUndefined();
+    expect(halvesFromQuery('?halves=2')).toBe(2);
+    for (const bad of ['', '0', '13', '1.5', 'many']) expect(() => halvesFromQuery(`?halves=${bad}`), bad).toThrow(QueryError);
   });
 });
 

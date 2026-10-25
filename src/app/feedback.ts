@@ -1,4 +1,9 @@
-import type { DomainEvent, EnemyTable, FeedbackFile, StringsFile } from '../core/index.ts';
+import type { EnemyTable, FeedbackFile, GameEvent, StringsFile } from '../core/index.ts';
+import { OBJECT_CLASSES } from '../core/rooms/classes.ts';
+
+/** The bed kinds a map can place, from the class definition, so a new kind needs its refusal note. */
+const bedSpec = OBJECT_CLASSES['Bed']!['bedType']!;
+const BED_TYPES: readonly string[] = bedSpec.type === 'enum' ? bedSpec.values : [];
 
 /**
  * content/feedback.json: domain event type to presentation (architecture section 4). The art
@@ -10,14 +15,17 @@ export type FeedbackTable = FeedbackFile;
 export type StringTable = StringsFile;
 
 /** A Record keyed by the union, so adding an event to core without listing it here fails to compile. */
-const ALL_EVENTS: Record<DomainEvent['type'], true> = {
+const ALL_EVENTS: Record<GameEvent['type'], true> = {
   bumpWall: true, fire: true, dodge: true, perfectDodge: true, telegraph: true, hit: true, caseClosed: true,
   dispersed: true, reformed: true, respawned: true, immuneBounce: true, heartLost: true, freeze: true, forcedLeave: true,
   gaugeFull: true, stampRaised: true, stampLanded: true, stampVoid: true, clung: true, forcedNap: true,
   bossStage: true, bossDrink: true, bossSummon: true, powerCut: true, proposalRejected: true, bossDefeated: true,
+  doorEntered: true, doorLocked: true, triggerEntered: true, talk: true, bedUse: true,
+  roomChanged: true, dialogueOpened: true, bedRefused: true, napped: true, checkpointSaved: true, clockAdvanced: true,
+  outerRequested: true, returnedToCheckpoint: true, chapterEnded: true,
 };
 /** Every event type core can emit; a feedback key outside this list is a typo. */
-export const EVENT_TYPES = Object.keys(ALL_EVENTS) as DomainEvent['type'][];
+export const EVENT_TYPES = Object.keys(ALL_EVENTS) as GameEvent['type'][];
 
 /** Every key a note can produce: each "{field}" expands over the values core can put there. */
 function noteKeys(note: string, fields: Readonly<Record<string, readonly string[]>>): { keys: string[]; unknown: string[] } {
@@ -32,7 +40,7 @@ function noteKeys(note: string, fields: Readonly<Record<string, readonly string[
 }
 
 /** Per event type, the values each note placeholder can take. */
-export type NoteFields = Readonly<Partial<Record<DomainEvent['type'], Readonly<Record<string, readonly string[]>>>>>;
+export type NoteFields = Readonly<Partial<Record<GameEvent['type'], Readonly<Record<string, readonly string[]>>>>>;
 
 /**
  * `fields` lists, per event, the values each note placeholder can take (e.g. every immune
@@ -47,7 +55,7 @@ export function feedbackProblems(table: FeedbackTable, strings: StringTable, fie
     if (!(EVENT_TYPES as readonly string[]).includes(type)) out.push(`feedback for unknown event "${type}"`);
     for (const p of fb?.particles ?? []) if (!table.presets[p.preset]) out.push(`${type}: unknown particle preset "${p.preset}"`);
     if (!fb?.note) continue;
-    const { keys, unknown } = noteKeys(fb.note, fields[type as DomainEvent['type']] ?? {});
+    const { keys, unknown } = noteKeys(fb.note, fields[type as GameEvent['type']] ?? {});
     for (const f of unknown) out.push(`${type}: note "${fb.note}" uses unknown placeholder "{${f}}"`);
     if (unknown.length > 0) continue;
     for (const k of keys) if (!strings.strings[k]) out.push(`${type}: note "${k}" is not in content/strings`);
@@ -67,11 +75,12 @@ export function noteFields(table: EnemyTable): NoteFields {
     immuneBounce: { solution: solutions((c) => c === 'immune') },
     stampVoid: { solution: solutions((c) => c !== 'defeatable') },
     bossStage: { stage: ['2', '3'] },
+    bedRefused: { bedType: [...BED_TYPES] },
   };
 }
 
 /** Fills "{field}" placeholders from the event; undefined when the string table lacks the key. */
-export function noteText(note: string, event: DomainEvent, strings: StringTable): string | undefined {
+export function noteText(note: string, event: GameEvent, strings: StringTable): string | undefined {
   const key = note.replace(/\{(\w+)\}/g, (_, f: string) => String((event as unknown as Record<string, unknown>)[f] ?? ''));
   return strings.strings[key]?.text;
 }
