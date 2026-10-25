@@ -65,7 +65,7 @@ http://localhost:5173/?room=greybox/rest-room&tags=caffeine:50
 
 ## 提交前
 
-執行 `npm run check`（只想檢查地圖時執行 `node tools/check-maps.ts`，只檢查資料檔時執行 `node tools/check-content.ts`）。通過時最後一行是 `0 problem(s)`。有問題時每一行是一個問題，開頭是檔名，接著是物件編號與原因，例如：
+執行 `npm run check`（只想檢查地圖時執行 `node tools/check-maps.ts`，只檢查資料檔時執行 `node tools/check-content.ts`，只檢查對話時執行 `node tools/check-dialogue.ts`）。通過時最後一行是 `0 problem(s)`。有問題時每一行是一個問題，開頭是檔名，接著是物件編號與原因，例如：
 
 ```
 public/assets/maps/brain/coffee-room.tmj 物件 #4（Door）：門「door-e」沒有接到任何房間，也沒有上鎖；請在章節檔連起來，或把 lock 設成上鎖
@@ -75,28 +75,63 @@ public/assets/maps/brain/coffee-room.tmj 物件 #4（Door）：門「door-e」�
 
 ## 對話
 
-對話寫在試算表裡，匯出成 UTF-8 的 CSV，放進 `content/dialogue/`，一個檔案可以放很多段對話。第一列是表頭，欄位名稱與順序固定：
+對話寫在試算表裡，匯出成 UTF-8 的 CSV，放進 `content/dialogue/`，一個檔案可以放很多段對話，同一個 `dialogueId` 不能出現在兩個檔案。第一列是表頭，欄位名稱與順序固定：
 
 | 欄位 | 內容 |
 | --- | --- |
 | `dialogueId` | 這一段對話的名字，Tiled 的 NPC 與 Trigger 就是用它接上；同一段對話的每一句都填同樣的名字 |
-| `order` | 這一句在該段對話裡的順序，從 1 開始的整數 |
-| `speaker` | 說話者，對應立繪檔名，例如 `liver` |
-| `expression` | 表情，例如 `normal`，對應立繪的狀態 |
-| `text` | 台詞；台詞裡有逗號或換行時，整格要用雙引號包起來 |
-| `condition` | 預留給條件式，等對話功能完成前請留空 |
-| `effect` | 預留給效果，例如解鎖手冊頁，等對話功能完成前請留空 |
-| `next` | 預留給分支的下一句，等對話功能完成前請留空 |
-| `fact` | 台詞若含生理說法，填衛教查證表的條目編號；查證尚未完成的填 `pending:編號`；沒有生理說法就留空 |
+| `order` | 這一句在該段對話裡的順序，從 1 開始的整數，同一段裡不能重複；播放順序看 `order`，不看列在檔案裡的先後 |
+| `speaker` | 說話者代號，必須登記在 `content/speakers.json`；玩家的選項一律寫 `operator` |
+| `expression` | 表情，對應立繪 `public/assets/portraits/portrait-<說話者>-<表情>.png`；玩家的選項可以留空 |
+| `text` | 台詞或選項文字；有逗號或換行時，整格要用雙引號包起來 |
+| `condition` | 條件式，語法與 Tiled 的 `when` 相同；不成立時這一句被略過，留空表示一定顯示 |
+| `effect` | 這一句出現時（選項則是被選中時）發生的事，多個效果用分號隔開，寫法見下方 |
+| `next` | 這一句之後接哪裡：另一列的 `order`，或 `end` 表示結束；留空就接下一列 |
+| `fact` | 台詞若含生理說法，填衛教查證表的條目編號；查證尚未完成的填 `pending:編號`；也可以填 `general`，意思與標籤字典和字串表裡的 `general` 相同；沒有生理說法就留空 |
 
-範例（`content/dialogue/greybox.csv`）：
+範例（`content/dialogue/greybox.csv` 中腦的簡報）：
 
 ```csv
 dialogueId,order,speaker,expression,text,condition,effect,next,fact
-greybox.liver.hello,1,liver,normal,歡迎。,,,,
+greybox.brain.briefing,1,brain,normal,早安，營運長。今天的待辦有點多。,,,,
+greybox.brain.briefing,2,brain,surprised,你的黑眼圈比昨天深了。,sleep_debt>=2,,,
+greybox.brain.briefing,3,brain,normal,先從哪一件開始？,,,,
+greybox.brain.briefing,4,operator,,先趕報告。,,tag:deadline;clock:30,7,
+greybox.brain.briefing,5,operator,,先去補眠。,,clock:20,8,
+greybox.brain.briefing,6,operator,,晚點再說。,,,end,
+greybox.brain.briefing,7,brain,warning,好。截止時間逼近了，記得存檔。,,,end,
+greybox.brain.briefing,8,brain,sleepy,好。睡醒再說。,,,,
 ```
 
-目前的檢查只看表頭是否完全吻合、每一列的欄位數是否一致、`dialogueId` 有沒有填、`order` 是不是整數；Tiled 裡寫的 `dialogueId` 若不在任何 CSV 裡，地圖檢查會報錯。對話框、條件與效果、`fact` 為 `pending` 時擋下發佈，都屬於對話功能（建置計畫 P5），完成前玩家在遊戲裡只會看到「對話 xxx 尚未實作」。
+### 一段對話怎麼走
+
+對話從第一句開始往下走。說話者的句子顯示在對話框裡，按 E、Enter、J、空白鍵、K 或滑鼠左鍵繼續（互動、攻擊與閃身的按鍵都算確認）。連續 2 到 3 列 `speaker` 為 `operator` 的列是一組玩家選項，會以便利貼從畫面右側滑出；用 W、S 移動、再按確認鍵，或直接按 1、2、3，也可以用滑鼠點選項。選了之後接著走那個選項自己的 `next`，沒填就接在這一組選項後面的第一列。`next` 只能指向比自己大的 `order`，所以每一段對話一定會結束；它也不能指向一組選項的中間。上面的範例裡，第 4 列選了之後接第 7 列，第 5 列接第 8 列，第 6 列直接結束，所以第 7 列要自己寫 `end`，否則會接著念第 8 列。
+
+條件讀的是當下的標籤。說話者的句子條件不成立就略過，接著看下一列；選項條件不成立就不出現；一組選項全部不成立，整組略過；整段都被略過時，對話不會開啟。選項生效之後的下一句，看得到那個選項剛設定的標籤。
+
+### 效果
+
+`effect` 可以寫四種，用分號隔開，依序生效：`tag:名稱` 把布林標籤設為成立；`tag:名稱=數字` 把數值標籤設為該值；`tag:名稱+數字` 把數值標籤加上該值；`clock:分鐘` 讓章內時鐘前進，說話是花時間的；`unlock:手冊頁代號` 解鎖一頁員工手冊。對話只能改標籤字典裡來源含 `event` 或 `chapter` 的標籤，來源只有 `card` 或 `rule` 的標籤（例如咖啡因）由卡片或規則算出來，對話不能直接設定。每個標籤的變動都會記進因果紀錄，寫明是哪一段對話的哪一句造成的。
+
+### 說話者與兩種版面
+
+`content/speakers.json` 登記每個說話者的 `style` 與 `portrait`。每個說話者還要在 `content/strings/zh-TW.json` 有一則 `speaker.<代號>` 的名牌文字，少了的話 `node tools/check-content.ts` 會報錯。`operator` 是玩家選項專用的代號，不能登記。
+
+`style` 為 `box` 的說話者使用畫面下方的對話框，左上角有名牌，立繪站在對話框左上方，下緣被框蓋住一截。`style` 為 `memo` 的說話者用在肝，肝不說話，沒有對話框，台詞寫在畫面中央偏右的一張便利貼上，立繪站在畫面左下。立繪每次只顯示正在說話的那一位；玩家選項出現時，對話框裡仍是上一句說話者的台詞。`portrait` 為 `false` 的說話者不需要立繪檔。
+
+### 長度限制
+
+對話框每行最多 30 個全形字、最多 3 行。玩家選項的便利貼最多 2 行，100% 字級每行 17 字，125% 字級每行 14 字，所以 28 字以內在兩檔字級都放得下。肝的便利貼最多 3 行，100% 字級每行 13 字，125% 字級每行 10 字，所以 30 字以內都放得下。斷行規則和遊戲相同，例如收尾標點不落在行首，所以標點多的句子可能比字數看起來更早換行。兩種便利貼的寬度是暫定值，美術確認前可能調整。
+
+### 檢查
+
+`node tools/check-dialogue.ts`（`npm run check` 已包含）用遊戲讀檔的同一支程式讀 CSV，所以它放行的檔案遊戲一定讀得進去。它檢查表頭與欄位數、`order`、條件式與效果的寫法、`next` 的目標存在且只往後、每組選項是 2 到 3 列、每一句都有辦法走到、說話者已登記、立繪檔存在、文字放得進版面，以及 `unlock:` 指到的手冊頁存在。有任何一列出問題，整段對話都不會載入，遊戲啟動時也會直接停下並列出問題，所以不會有只剩一半的對話。地圖檢查只確認 Tiled 裡寫的 `dialogueId` 存在於某個 CSV。
+
+`npm run check:release` 多擋一項：`fact` 還是 `pending:編號` 的句子，表示衛教查證還沒完成，不能發行。目前沒有任何工作流程會自動執行它，發行前要手動跑一次。字串表 `content/strings` 裡的 `pending` 標記不在這個檢查的範圍內。
+
+### 目前還沒有的
+
+台詞整句直接顯示，沒有逐字出現的效果。員工手冊還沒做，所以 `unlock:` 目前只會跳出「員工手冊多了一頁」的提示並記進因果紀錄，不會留下解鎖狀態，等建置計畫 P6 補上。同一個 tick 只會開一段對話；同時踩到兩個對話觸發點時，後一個被丟掉，而且那個觸發點仍算用掉。每一句出現後的前 12 個 tick（0.2 秒）按鍵不算，避免戰鬥中按住的鍵把第一句直接跳過，這個時間是暫定值，要看試玩的感覺再調。
 
 ## 尚未驗證的事
 
