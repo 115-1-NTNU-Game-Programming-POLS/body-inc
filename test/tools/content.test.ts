@@ -75,6 +75,18 @@ describe('content check (build plan S4)', () => {
     expect(checkContent(dir)).toEqual([expect.stringMatching(/enemies\.json：enemy "salesman": a defeatable enemy has no solution/)]);
   });
 
+  it('a chapter file must match its schema and be named after its id', () => {
+    const dir = contentCopy();
+    edit(dir, 'chapters/greybox.json', (j) => { j.links[0].a = 'greybox/greybox-room'; });
+    expect(checkContent(dir)).toEqual([expect.stringMatching(/chapters\/greybox\.json links\[0\]\.a：格式不符/)]);
+    const dir2 = contentCopy();
+    edit(dir2, 'chapters/greybox.json', (j) => { j.id = 'brain'; });
+    expect(checkContent(dir2)).toEqual([expect.stringMatching(/chapters\/greybox\.json：id「brain」必須與檔名「greybox」相同/)]);
+    const dir3 = contentCopy();
+    edit(dir3, 'chapters/greybox.json', (j) => { j.links[0].extra = true; });
+    expect(checkContent(dir3)).toEqual([expect.stringMatching(/links\[0\]\.extra：不認得的欄位「extra」/)]);
+  });
+
   it('checks feedback notes against every strings file', () => {
     const dir = contentCopy();
     edit(dir, 'strings/zh-TW.json', (j) => { delete j.strings['solution.guards']; });

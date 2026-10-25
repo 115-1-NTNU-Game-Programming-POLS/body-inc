@@ -1,12 +1,12 @@
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 import { TAGS } from '../../src/app/content.ts';
 import { OBJECT_CLASSES } from '../../src/core/rooms/classes.ts';
 import { readRoom, type RoomProblemCode, type TiledMap, type TiledObject } from '../../src/core/rooms/tiled.ts';
-import { checkMaps, loadMapContent, parseCsv } from '../../tools/check-maps.ts';
+import { checkChapters, checkMaps, DIALOGUE_COLUMNS, dialogueProblems, loadMapContent, parseCsv } from '../../tools/check-maps.ts';
 import { buildProject } from '../../tools/maps/make-tiled-project.ts';
 
 type Prop = { name: string; value: string | number | boolean };
@@ -181,6 +181,16 @@ describe('map check', () => {
       expect(out).toEqual([expect.stringContaining('沒有 tutorialFor 包含它')]);
     });
 
+    it('a clock_advance trigger needs a whole number of minutes', () => {
+      const trigger = (eventId?: string) => ({
+        type: 'Trigger', properties: [prop('event', 'clock_advance'), ...(eventId === undefined ? [] : [prop('eventId', eventId)])],
+      });
+      expect(check({ a: map([trigger('20')]) })).toEqual([]);
+      for (const bad of [undefined, '', 'soon', '1e1', '0x10', ' ']) {
+        expect(check({ a: map([trigger(bad)]) }), String(bad)).toEqual([expect.stringContaining('clock_advance 的 eventId')]);
+      }
+    });
+
     it('tutorialFor must name a non-defeatable enemy, and spawns must name a known one', () => {
       expect(check({ a: map([], { props: tutorial('salesman') }) })).toEqual([expect.stringContaining('不是打不掉的敵人種類')]);
       expect(check({ a: map([spawn('ghost')]) })).toEqual([expect.stringContaining('enemyType「ghost」不存在')]);
@@ -200,6 +210,173 @@ describe('map check', () => {
         expect.stringContaining('itemId「handbook_caffeine」不存在'),
       ]);
     });
+  });
+});
+
+describe('chapter check (build plan P0)', () => {
+  const root = mkdtempSync(join(tmpdir(), 'chapters-'));
+  afterAll(() => rmSync(root, { recursive: true, force: true }));
+  let n = 0;
+  const named = (name: string, d: Partial<TiledObject>): Partial<TiledObject> => ({ ...d, name });
+  const start = { type: 'PlayerStart', x: 320, y: 256 };
+  const southDoor = (name = 'door-s', extra: Prop[] = []) => named(name, { ...door('S', 288, 352, 64, 32), properties: [prop('socket', 'S'), ...extra] });
+  const northDoor = (name = 'door-n', extra: Prop[] = []) => named(name, { ...door('N', 288, 0, 64, 96), properties: [prop('socket', 'N'), ...extra] });
+  const a = () => map([start, southDoor()]);
+  const b = () => map([start, northDoor()]);
+  const link = (x: string, y: string) => ({ a: x, b: y });
+  const AB = [link('lab/a#door-s', 'lab/b#door-n')];
+
+  /** Writes rooms into lab/ and checks them against a chapter file; messages are returned without the path prefix. */
+  const check = (rooms: Record<string, TiledMap>, links = AB, chapter: Partial<{ id: string; start: string }> = {}) => {
+    const dir = join(root, `maps${n++}`);
+    mkdirSync(join(dir, 'lab'), { recursive: true });
+    for (const [name, m] of Object.entries(rooms)) writeFileSync(join(dir, 'lab', `${name}.tmj`), JSON.stringify(m));
+    const content = { ...loadMapContent(), chapters: new Map([['lab', { version: 1 as const, id: 'lab', start: 'lab/a', links, ...chapter }]]) };
+    return checkChapters(dir, content).map((l) => l.slice(l.indexOf('：') + 1));
+  };
+
+  it('passes a healthy two-room chapter', () => {
+    expect(check({ a: a(), b: b() })).toEqual([]);
+  });
+
+  it('passes the greybox chapter in the real maps', () => {
+    expect(checkChapters('public/assets/maps')).toEqual([]);
+  });
+
+  it('a link to a room outside the chapter folder fails', () => {
+    // The door left unjoined by the bad link is reported too, which is true and points at the same fix.
+    expect(check({ a: a(), b: b() }, [link('lab/a#door-s', 'lab/zzz#door-n')])).toContainEqual(expect.stringContaining('房間「lab/zzz」不在這一章的資料夾裡'));
+  });
+
+  it('a link to a door that does not exist fails', () => {
+    expect(check({ a: a(), b: b() }, [link('lab/a#door-s', 'lab/b#door-x')])).toContainEqual(expect.stringContaining('房間 lab/b 沒有名叫「door-x」的門'));
+  });
+
+  it('doors whose sockets do not face each other fail', () => {
+    const south = map([start, named('door-n', door('S', 288, 352, 64, 32))]);
+    expect(check({ a: a(), b: south })).toEqual([expect.stringContaining('必須一個朝北一個朝南，或一個朝東一個朝西')]);
+  });
+
+  it('a door joined twice fails', () => {
+    const c = map([start, northDoor()]);
+    expect(check({ a: a(), b: b(), c }, [...AB, link('lab/a#door-s', 'lab/c#door-n')])).toEqual([expect.stringContaining('門 lab/a#door-s 被接了 2 次')]);
+  });
+
+  it('an unlocked door that leads nowhere fails, a locked one is a closed door', () => {
+    const extra = (lock: string) => map([start, northDoor(), named('door-e', { ...door('E', 608, 192, 32, 64), properties: [prop('socket', 'E'), prop('lock', lock)] })]);
+    expect(check({ a: a(), b: extra('none') })).toEqual([expect.stringContaining('門「door-e」沒有接到任何房間，也沒有上鎖')]);
+    expect(check({ a: a(), b: extra('key') })).toEqual([]);
+  });
+
+  it('a room no link reaches fails', () => {
+    expect(check({ a: a(), b: b(), c: map([start]) })).toEqual([expect.stringContaining('房間 lab/c 從起點 lab/a 走不到')]);
+  });
+
+  it('a link through a locked door is no way across, but only in the direction the locked door blocks', () => {
+    const lockedA = map([start, southDoor('door-s', [prop('lock', 'key')])]);
+    expect(check({ a: lockedA, b: b() })).toEqual([expect.stringContaining('房間 lab/b 從起點 lab/a 走不到')]);
+    expect(check({ a: lockedA, b: b() }, AB, { start: 'lab/b' })).toEqual([]);
+    const lockedB = map([start, northDoor('door-n', [prop('lock', 'key')])]);
+    expect(check({ a: a(), b: lockedB })).toEqual([]);
+    expect(check({ a: a(), b: lockedB }, AB, { start: 'lab/b' })).toEqual([expect.stringContaining('房間 lab/a 從起點 lab/b 走不到')]);
+  });
+
+  it('an unlocked door in a variant layer cannot be linked, so it has to be locked', () => {
+    const variantDoor = (lock: string) => ({
+      type: 'objectgroup', name: 'variant:vents', properties: [prop('when', 'deadline')],
+      objects: [{ id: 50, type: 'Door', name: 'door-v', x: 0, y: 192, width: 32, height: 64, properties: [prop('socket', 'W'), prop('lock', lock)] }],
+    });
+    const withVariant = (lock: string) => map([start, northDoor()], { layers: [variantDoor(lock)] });
+    expect(check({ a: a(), b: withVariant('none') })).toEqual([expect.stringContaining('變體圖層裡的門沒辦法在章節檔接到別的房間')]);
+    expect(check({ a: a(), b: withVariant('key') })).toEqual([]);
+  });
+
+  it('a chapter file that is not valid says so, instead of reporting that the folder has none', () => {
+    const content = join(root, `content${n++}`);
+    mkdirSync(join(content, 'chapters'), { recursive: true });
+    for (const f of ['tags.json', 'enemies.json']) cpSync(join('content', f), join(content, f));
+    writeFileSync(join(content, 'chapters', 'broken.json'), '{ "version": 1,');
+    writeFileSync(join(content, 'chapters', 'wrong.json'), JSON.stringify({ version: 1, id: 'wrong', start: 'wrong/a', links: [], extra: 1 }));
+    const loaded = loadMapContent(content);
+    expect(loaded.chapters?.size).toBe(0);
+    expect(loaded.problems).toEqual([
+      expect.stringMatching(/^content\/chapters\/broken\.json：不是有效的 JSON/),
+      expect.stringMatching(/^content\/chapters\/wrong\.json .*不認得的欄位.*extra.*完整清單請執行 node tools\/check-content\.ts/),
+    ]);
+  });
+
+  it('a door without a name, a repeated name and a room without PlayerStart each fail', () => {
+    expect(check({ a: a(), b: map([start, northDoor('')]) })).toContainEqual(expect.stringContaining('沒有名字'));
+    const twice = map([start, northDoor(), named('door-n', { ...door('W', 0, 192, 32, 64), properties: [prop('socket', 'W'), prop('lock', 'key')] })]);
+    expect(check({ a: a(), b: twice })).toEqual([expect.stringContaining('有不只一扇門叫「door-n」')]);
+    expect(check({ a: a(), b: map([northDoor()]) })).toEqual([expect.stringContaining('缺少 PlayerStart')]);
+  });
+
+  it('arriving through a door into a wall fails', () => {
+    const walled = b();
+    const walls = (walled.layers[0] as unknown as { data: number[] }).data;
+    for (const c of [9, 10]) walls[3 * 20 + c] = 1;
+    expect(check({ a: a(), b: walled })).toEqual([expect.stringContaining('lab/a#door-s 走到 lab/b#door-n 會站在牆裡')]);
+  });
+
+  it('the start room must be in the chapter, and the file id must match its folder', () => {
+    expect(check({ a: a(), b: b() }, AB, { start: 'lab/zzz' })).toEqual([
+      expect.stringContaining('start「lab/zzz」不是這一章的房間'),
+    ]);
+    expect(check({ a: a(), b: b() }, AB, { id: 'other' })).toEqual([expect.stringContaining('id「other」必須與地圖資料夾 lab 相同')]);
+  });
+
+  it('a map folder without a chapter file, and a chapter file without a folder, both fail', () => {
+    const dir = join(root, `maps${n++}`);
+    mkdirSync(join(dir, 'lab'), { recursive: true });
+    writeFileSync(join(dir, 'lab', 'a.tmj'), JSON.stringify(a()));
+    const none = { ...loadMapContent(), chapters: new Map() };
+    expect(checkChapters(dir, none).map((l) => l.slice(l.indexOf('：') + 1))).toEqual(['地圖資料夾沒有對應的章節檔 content/chapters/lab.json']);
+    const ghost = { ...loadMapContent(), chapters: new Map([['ghost', { version: 1 as const, id: 'ghost', start: 'ghost/a', links: [] }]]) };
+    expect(checkChapters(dir, ghost)).toEqual(expect.arrayContaining([expect.stringContaining('沒有對應的地圖資料夾 ghost')]));
+  });
+
+  it('template folders (leading underscore) are not rooms of the game', () => {
+    const dir = join(root, `maps${n++}`);
+    mkdirSync(join(dir, '_template'), { recursive: true });
+    writeFileSync(join(dir, '_template', 'room.tmj'), JSON.stringify(map([], { props: [] })));
+    expect(checkMaps(dir)).toEqual([]);
+    expect(checkChapters(dir, { ...loadMapContent(), chapters: new Map() })).toEqual([]);
+  });
+
+  it('the command fails when a chapter rule is broken and passes on the real maps', () => {
+    const dir = join(root, `maps${n++}`);
+    mkdirSync(join(dir, 'lab'), { recursive: true });
+    writeFileSync(join(dir, 'lab', 'a.tmj'), JSON.stringify(a()));
+    const run = (d: string) => spawnSync(process.execPath, ['tools/check-maps.ts', d], { encoding: 'utf8' });
+    expect(run(dir).status).toBe(1);
+    expect(run(dir).stdout).toContain('地圖資料夾沒有對應的章節檔');
+    expect(run('public/assets/maps').status).toBe(0);
+  });
+});
+
+describe('dialogue CSV format', () => {
+  const header = DIALOGUE_COLUMNS.join(',');
+  const problems = (text: string) => dialogueProblems('x.csv', parseCsv(text));
+
+  it('accepts the shipped file and a minimal row', () => {
+    expect(loadMapContent().problems).toEqual([]);
+    expect(problems(`${header}\nhello,1,liver,normal,歡迎。,,,,\n`)).toEqual([]);
+  });
+
+  it('a wrong or reordered header fails', () => {
+    expect(problems('dialogueId,order,speaker\nhello,1,liver\n')).toEqual([expect.stringContaining('表頭必須依序是')]);
+    expect(problems(`${header.replace('speaker,expression', 'expression,speaker')}\n`)).toEqual([expect.stringContaining('表頭必須依序是')]);
+  });
+
+  it('a row with a stray comma, no id or a bad order fails with its line number', () => {
+    expect(problems(`${header}\nhello,1,liver,normal,好,的,,,,\n`)).toEqual([expect.stringContaining('x.csv 第 2 列：有 10 欄，應為 9 欄')]);
+    expect(problems(`${header}\n,1,liver,normal,好,,,,\n`)).toEqual([expect.stringContaining('第 2 列：dialogueId 是空的')]);
+    expect(problems(`${header}\nhello,0,liver,normal,好,,,,\n`)).toEqual([expect.stringContaining('第 2 列：order 必須是從 1 開始的整數')]);
+  });
+
+  it('quoted fields may hold commas', () => {
+    expect(problems(`${header}\nhello,1,liver,normal,"好,的",,,,\n`)).toEqual([]);
   });
 });
 

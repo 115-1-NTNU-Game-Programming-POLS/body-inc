@@ -12,19 +12,37 @@
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { basename, dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { bodyOverlapsSolid } from '../src/core/collision/grid.ts';
+import { OPERATOR_BODY } from '../src/core/combat/operator.ts';
 import { loadEnemyTable, type EnemyTable } from '../src/core/combat/enemies.ts';
+import { schemaProblems } from '../src/core/content/read.ts';
+import type { ChapterFile } from '../src/core/content/generated.ts';
+import { triggerMinutes } from '../src/core/chapter/chapter.ts';
+import { arrivalPoint } from '../src/core/rooms/interact.ts';
 import { listProps, type PropProblem, type TiledMapFile } from '../src/core/rooms/props.ts';
-import { SOCKET_COLS, SOCKET_ROWS, readRoom, type RoomModel, type RoomProblem, type TiledMap } from '../src/core/rooms/tiled.ts';
+import { SOCKET_COLS, SOCKET_ROWS, readRoom, type RoomModel, type RoomObject, type RoomProblem, type TiledMap } from '../src/core/rooms/tiled.ts';
 import type { ConditionProblem } from '../src/core/tags/condition.ts';
 import { loadDictionary, type TagDictionary } from '../src/core/tags/dictionary.ts';
+import { schemaMessage } from './check-content.ts';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
+
+/**
+ * Columns of a dialogue CSV, in order (design doc 13.2; docs/authoring/rooms-and-dialogue.md).
+ * Only the header and the shape of each row are checked here; what a line may say and do is
+ * the dialogue package's (build plan P5).
+ */
+export const DIALOGUE_COLUMNS = ['dialogueId', 'order', 'speaker', 'expression', 'text', 'condition', 'effect', 'next', 'fact'] as const;
 
 export interface MapContent {
   readonly dict: TagDictionary;
   readonly enemies: EnemyTable;
   readonly dialogueIds: ReadonlySet<string>;
   readonly handbookIds: ReadonlySet<string>;
+  /** Chapter files by chapter id; a file that fails to parse or its schema is left out and reported in `problems`. */
+  readonly chapters?: ReadonlyMap<string, ChapterFile>;
+  /** Problems found while reading content (a malformed dialogue CSV), reported first. */
+  readonly problems?: readonly string[];
 }
 
 /** Minimal RFC 4180 reader: quoted fields may hold commas, newlines and doubled quotes. */
@@ -48,25 +66,64 @@ export function parseCsv(text: string): string[][] {
   return rows.filter((r) => r.some((f) => f.trim() !== ''));
 }
 
+/** Header and row-shape problems of one dialogue CSV, in Chinese for the people who write it. */
+export function dialogueProblems(file: string, table: readonly (readonly string[])[]): string[] {
+  const [header = [], ...rows] = table;
+  const want = DIALOGUE_COLUMNS.join(',');
+  if (header.map((h) => h.trim()).join(',') !== want) return [`${file}：表頭必須依序是 ${want}，目前是 ${header.join(',') || '（空的）'}`];
+  const out: string[] = [];
+  rows.forEach((r, i) => {
+    const at = `${file} 第 ${i + 2} 列`;
+    if (r.length !== header.length) out.push(`${at}：有 ${r.length} 欄，應為 ${header.length} 欄；台詞裡有逗號時整格要用雙引號包起來`);
+    else if (r[0]!.trim() === '') out.push(`${at}：dialogueId 是空的`);
+    else if (!/^[1-9][0-9]*$/.test(r[1]!.trim())) out.push(`${at}：order 必須是從 1 開始的整數，目前是「${r[1]}」`);
+  });
+  return out;
+}
+
 export function loadMapContent(contentDir = join(ROOT, 'content')): MapContent {
   const json = (name: string) => JSON.parse(readFileSync(join(contentDir, name), 'utf8')) as unknown;
+  const problems: string[] = [];
   const dialogueIds = new Set<string>();
   const dialogueDir = join(contentDir, 'dialogue');
   if (existsSync(dialogueDir)) {
-    for (const f of readdirSync(dialogueDir).filter((n) => n.endsWith('.csv'))) {
-      const [header, ...rows] = parseCsv(readFileSync(join(dialogueDir, f), 'utf8').replace(/^﻿/, ''));
-      const col = header?.indexOf('dialogueId') ?? -1;
-      if (col < 0) throw new Error(`${f}: no dialogueId column`);
-      for (const r of rows) if (r[col]) dialogueIds.add(r[col]!.trim());
+    for (const f of readdirSync(dialogueDir).filter((n) => n.endsWith('.csv')).sort()) {
+      const table = parseCsv(readFileSync(join(dialogueDir, f), 'utf8').replace(/^﻿/, ''));
+      const found = dialogueProblems(`content/dialogue/${f}`, table);
+      problems.push(...found);
+      if (found.length === 0) for (const r of table.slice(1)) dialogueIds.add(r[0]!.trim());
     }
   }
   const handbookFile = join(contentDir, 'handbook.json');
   const handbook = existsSync(handbookFile) ? (json('handbook.json') as { pages?: { id: string }[] }).pages ?? [] : [];
+  const chapters = new Map<string, ChapterFile>();
+  const chapterDir = join(contentDir, 'chapters');
+  if (existsSync(chapterDir)) {
+    for (const f of readdirSync(chapterDir).filter((n) => n.endsWith('.json')).sort()) {
+      const file = `content/chapters/${f}`;
+      let value: unknown;
+      try {
+        value = JSON.parse(readFileSync(join(chapterDir, f), 'utf8').replace(/^﻿/, ''));
+      } catch (e) {
+        problems.push(`${file}：不是有效的 JSON（${(e as Error).message}）`);
+        continue;
+      }
+      const found = schemaProblems('chapter', value);
+      if (found.length > 0) {
+        // Said here as well, because without it the folder would be reported as having no chapter file at all.
+        problems.push(`${file} ${found[0]!.path || '（整個檔案）'}：${schemaMessage(found[0]!)}（共 ${found.length} 項，完整清單請執行 node tools/check-content.ts）`);
+        continue;
+      }
+      chapters.set((value as ChapterFile).id, value as ChapterFile);
+    }
+  }
   return {
     dict: loadDictionary(json('tags.json')),
     enemies: loadEnemyTable(json('enemies.json')),
     dialogueIds,
     handbookIds: new Set(handbook.map((p) => p.id)),
+    chapters,
+    problems,
   };
 }
 
@@ -142,17 +199,19 @@ function where(room: RoomModel, p: { object?: number; layer?: string; prop?: str
   return '地圖屬性';
 }
 
+/** Folders starting with an underscore hold templates for authors to copy, not rooms of the game. */
 function walk(dir: string): string[] {
   return readdirSync(dir).flatMap((name) => {
     const p = join(dir, name);
-    return statSync(p).isDirectory() ? walk(p) : p.endsWith('.tmj') ? [p] : [];
+    if (statSync(p).isDirectory()) return name.startsWith('_') ? [] : walk(p);
+    return p.endsWith('.tmj') ? [p] : [];
   });
 }
 
 const list = (s: unknown) => String(s ?? '').split(',').map((x) => x.trim()).filter(Boolean);
 
 export function checkMaps(mapsDir: string, content: MapContent = loadMapContent()): string[] {
-  const out: string[] = [];
+  const out: string[] = [...(content.problems ?? [])];
   const rooms: LoadedRoom[] = [];
   for (const path of walk(resolve(mapsDir)).sort()) {
     const file = relative(process.cwd(), path).replaceAll('\\', '/');
@@ -175,6 +234,9 @@ export function checkMaps(mapsDir: string, content: MapContent = loadMapContent(
       const id = String(o.props['eventId'] ?? o.props['itemId'] ?? '');
       if (o.kind === 'Trigger' && o.props['event'] === 'dialogue' && !content.dialogueIds.has(id)) {
         out.push(`${file} ${where(room, { object: o.id })}：eventId「${id}」不存在於對話（content/dialogue/*.csv）`);
+      }
+      if (o.kind === 'Trigger' && o.props['event'] === 'clock_advance' && triggerMinutes(id) === undefined) {
+        out.push(`${file} ${where(room, { object: o.id })}：clock_advance 的 eventId「${id}」必須是分鐘數，1 到 4 位數的整數，例如 20`);
       }
       if (o.kind === 'Pickup' && o.props['itemType'] === 'handbook' && !content.handbookIds.has(id)) {
         out.push(`${file} ${where(room, { object: o.id })}：itemId「${id}」不存在於手冊頁（content/handbook.json）`);
@@ -217,9 +279,125 @@ export function checkMaps(mapsDir: string, content: MapContent = loadMapContent(
   return out;
 }
 
+const OPPOSITE: Readonly<Record<string, string>> = { N: 'S', S: 'N', E: 'W', W: 'E' };
+
+interface ChapterRoom {
+  readonly path: string;
+  readonly folder: string;
+  readonly room: RoomModel;
+}
+
+/** Every room under the maps folder, keyed by `folder/map` as the chapter files name them. */
+function loadRooms(mapsDir: string, dict: TagDictionary): ChapterRoom[] {
+  const root = resolve(mapsDir);
+  const out: ChapterRoom[] = [];
+  for (const file of walk(root).sort()) {
+    const path = relative(root, file).replaceAll('\\', '/').replace(/\.tmj$/, '');
+    let map: TiledMap;
+    try {
+      map = JSON.parse(readFileSync(file, 'utf8')) as TiledMap;
+    } catch {
+      continue; // checkMaps already reports an unreadable file
+    }
+    out.push({ path, folder: path.split('/')[0]!, room: readRoom(path, map, dict).room });
+  }
+  return out;
+}
+
+const doorsOf = (r: RoomModel): RoomObject[] => r.objects.filter((o) => o.kind === 'Door');
+
+/**
+ * Chapter rules (build plan P0). A chapter file says which door opens onto which; this checks
+ * that every end exists, the sockets face each other, nothing is joined twice, no unlocked door
+ * is left leading nowhere, every room can be reached from the start, and a player coming
+ * through a door never lands inside a wall. Rooms of a folder with no chapter file are an
+ * error too, so a new chapter cannot be forgotten.
+ */
+export function checkChapters(mapsDir: string, content: MapContent = loadMapContent()): string[] {
+  const out: string[] = [];
+  const chapters = content.chapters ?? new Map<string, ChapterFile>();
+  const rooms = loadRooms(mapsDir, content.dict);
+  const byPath = new Map(rooms.map((r) => [r.path, r]));
+  const folders = [...new Set(rooms.map((r) => r.folder))].sort();
+
+  for (const folder of folders) {
+    if (!chapters.has(folder)) out.push(`${folder}：地圖資料夾沒有對應的章節檔 content/chapters/${folder}.json`);
+  }
+  for (const [id, chapter] of [...chapters].sort(([a], [b]) => a.localeCompare(b))) {
+    const file = `content/chapters/${id}.json`;
+    const inChapter = rooms.filter((r) => r.folder === id);
+    if (inChapter.length === 0) {
+      out.push(`${file}：沒有對應的地圖資料夾 ${id}`);
+      continue;
+    }
+
+    for (const r of inChapter) {
+      const doors = doorsOf(r.room);
+      for (const d of doors.filter((x) => x.name.trim() === '')) out.push(`${r.path} 物件 #${d.id}（Door）：沒有名字；章節檔靠 Tiled 的物件名稱找門，請在 Name 欄填上，例如 door-n`);
+      const names = doors.map((d) => d.name).filter((n) => n !== '');
+      for (const n of new Set(names.filter((x, i) => names.indexOf(x) !== i))) out.push(`${r.path}：有不只一扇門叫「${n}」，門的名字在同一間房裡不能重複`);
+      if (!r.room.objects.some((o) => o.kind === 'PlayerStart' && o.variant === undefined)) {
+        out.push(`${r.path}：缺少 PlayerStart；強制下班而還沒打過卡時，營運長會回到這裡`);
+      }
+      // A chapter file cannot name a door inside a variant, yet the game still lets the operator walk through it.
+      for (const d of doors.filter((x) => x.variant !== undefined && x.props['lock'] === 'none')) {
+        out.push(`${r.path} 物件 #${d.id}（Door）：變體圖層裡的門沒辦法在章節檔接到別的房間；請把 lock 設成上鎖，或把門移到變體圖層之外`);
+      }
+    }
+
+    if (!byPath.has(chapter.start) || byPath.get(chapter.start)!.folder !== id) out.push(`${file}：start「${chapter.start}」不是這一章的房間`);
+    if (chapter.id !== id) out.push(`${file}：id「${chapter.id}」必須與地圖資料夾 ${id} 相同`);
+
+    const used = new Map<string, number>();
+    const graph = new Map<string, Set<string>>(inChapter.map((r) => [r.path, new Set()]));
+    chapter.links.forEach((link, i) => {
+      const at = `${file} links[${i}]`;
+      const ends = [link.a, link.b].map((end) => {
+        const [roomPath = '', doorName = ''] = end.split('#');
+        const r = byPath.get(roomPath);
+        if (!r || r.folder !== id) { out.push(`${at}：${end} 的房間「${roomPath}」不在這一章的資料夾裡`); return undefined; }
+        const door = doorsOf(r.room).find((d) => d.name === doorName && d.variant === undefined);
+        if (!door) { out.push(`${at}：房間 ${roomPath} 沒有名叫「${doorName}」的門`); return undefined; }
+        used.set(end, (used.get(end) ?? 0) + 1);
+        return { r, door, end };
+      });
+      const [a, b] = ends;
+      if (!a || !b) return;
+      // A door that is not unlocked cannot be walked through yet, so it is no way across.
+      if (a.door.props['lock'] === 'none') graph.get(a.r.path)!.add(b.r.path);
+      if (b.door.props['lock'] === 'none') graph.get(b.r.path)!.add(a.r.path);
+      if (OPPOSITE[String(a.door.props['socket'])] !== String(b.door.props['socket'])) {
+        out.push(`${at}：${a.end}（${SOCKET_NAME[String(a.door.props['socket'])]}門）和 ${b.end}（${SOCKET_NAME[String(b.door.props['socket'])]}門）必須一個朝北一個朝南，或一個朝東一個朝西`);
+      }
+      for (const [from, to] of [[a, b], [b, a]] as const) {
+        const p = arrivalPoint(to.door, OPERATOR_BODY);
+        if (bodyOverlapsSolid(to.r.room.grid, OPERATOR_BODY, p.x, p.y)) out.push(`${at}：從 ${from.end} 走到 ${to.end} 會站在牆裡，請檢查那扇門的位置與牆`);
+      }
+    });
+    for (const [end, n] of used) if (n > 1) out.push(`${file}：門 ${end} 被接了 ${n} 次，一扇門只能通往一個地方`);
+    for (const r of inChapter) {
+      for (const d of doorsOf(r.room).filter((x) => x.name !== '' && x.variant === undefined)) {
+        if (!used.has(`${r.path}#${d.name}`) && d.props['lock'] === 'none') out.push(`${r.path} 物件 #${d.id}（Door）：門「${d.name}」沒有接到任何房間，也沒有上鎖；請在章節檔連起來，或把 lock 設成上鎖`);
+      }
+    }
+
+    const seen = new Set<string>();
+    const queue = byPath.has(chapter.start) ? [chapter.start] : [];
+    while (queue.length > 0) {
+      const cur = queue.pop()!;
+      if (seen.has(cur)) continue;
+      seen.add(cur);
+      for (const next of graph.get(cur) ?? []) queue.push(next);
+    }
+    if (byPath.has(chapter.start)) for (const r of inChapter) if (!seen.has(r.path)) out.push(`${file}：房間 ${r.path} 從起點 ${chapter.start} 走不到，請在章節檔接上它；上鎖的門目前打不開，不算通路`);
+  }
+  return out;
+}
+
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const dir = process.argv[2] ?? join(ROOT, 'public', 'assets', 'maps');
-  const problems = checkMaps(dir);
+  const content = loadMapContent();
+  const problems = [...checkMaps(dir, content), ...checkChapters(dir, content)];
   for (const p of problems) console.log(p);
   console.log(`map check: ${problems.length} problem(s) in ${relative(process.cwd(), resolve(dir)) || '.'}`);
   process.exit(problems.length ? 1 : 0);

@@ -1,0 +1,2 @@
+dialogueId,order,speaker,expression,text,condition,effect,next,fact
+greybox.liver.hello,1,liver,normal,歡迎。,,,,

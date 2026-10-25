@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "greybox",
+  "start": "greybox/greybox-room",
+  "links": [
+    { "a": "greybox/greybox-room#door-s", "b": "greybox/rest-room#door-n" },
+    { "a": "greybox/rest-room#door-e", "b": "greybox/brain-corridor#door-w" },
+    { "a": "greybox/brain-corridor#door-e", "b": "greybox/caffeine-arena#door-w" }
+  ]
+}

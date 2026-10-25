@@ -27,6 +27,7 @@ const RULES: ReadonlyArray<readonly [RegExp, SchemaName]> = [
   [/^strings\/[a-z]{2}(-[A-Z]{2})?\.json$/, 'strings'],
   [/^cards\/schedule\.json$/, 'scheduleCards'],
   [/^bosses\/[a-z0-9_]+\.json$/, 'boss'],
+  [/^chapters\/[a-z][a-z0-9-]*\.json$/, 'chapter'],
 ];
 
 const TYPE_NAME: Record<string, string> = {
@@ -128,6 +129,14 @@ export function checkContent(contentDir: string): string[] {
     const keys = Object.keys(params.value.defaults);
     for (const k of keys) if (!(k in params.value.notes)) out.push(`${params.file} notes：參數「${k}」沒有來源說明（DOC、ASSUME 等）`);
     for (const k of Object.keys(params.value.notes)) if (!keys.includes(k)) out.push(`${params.file} notes：「${k}」不是 defaults 中的參數`);
+  }
+
+  // A chapter's id names its map folder and its file; three spellings of one name must not drift apart.
+  for (const [rel, v] of valid) {
+    if (v.schema !== 'chapter') continue;
+    const stem = rel.replace(/^chapters\//, '').replace(/\.json$/, '');
+    const { id } = v.value as ContentTypes['chapter'];
+    if (id !== stem) out.push(`${v.file}：id「${id}」必須與檔名「${stem}」相同`);
   }
 
   const cards = get<'scheduleCards'>('cards/schedule.json');
