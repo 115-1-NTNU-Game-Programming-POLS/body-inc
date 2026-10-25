@@ -70,8 +70,7 @@ export function bedAfter(ctx: ChapterContent, tags: TagState): number | undefine
 
 /** See ComboReport.sight. */
 export function sightOver(ctx: ChapterContent, tags: TagState, clock: RuleClock): number {
-  const day = Math.floor(clock.minute / MINUTES_PER_DAY) * MINUTES_PER_DAY;
-  const span = day + DAY_ENDS_HOUR * 60 - clock.minute;
+  const span = (clock.day - 1) * MINUTES_PER_DAY + DAY_ENDS_HOUR * 60 - clock.minute;
   const at = (t: number) => {
     const cap = senseCap(caffeineOf(metabolise(tags, ctx.dict, t, ctx.params), ctx.dict));
     return cap === undefined ? 1 : Math.min(1, cap / CLING.senseRangePx);
@@ -97,7 +96,7 @@ export function comboReports(ctx: ChapterContent, deck: Deck, clock: RuleClock):
       try {
         const s = startChapter(ctx, { room, tags: opening.tags, clock: opening.clock });
         enemies += s.game.enemies.length;
-        clinging += s.game.enemies.filter((e) => ctx.enemies.enemies.get(e.type)?.clings === true).length;
+        clinging += s.game.enemies.filter((e) => e.clings).length;
         p = s.game.p;
       } catch (e) {
         problems.push({ code: 'room', room, message: errorText(e) });
@@ -133,10 +132,14 @@ export function optionPressure(deck: Deck, reports: readonly ComboReport[]): { c
   }));
 }
 
+/** The easiest and hardest playable combinations by pressure; one with no pressure has no ratio. */
+export function spreadEnds(reports: readonly ComboReport[]): { easiest: ComboReport; hardest: ComboReport } | undefined {
+  const ok = reports.filter((r) => r.problems.length === 0 && r.pressure > 0).sort((a, b) => a.pressure - b.pressure);
+  return ok.length ? { easiest: ok[0]!, hardest: ok.at(-1)! } : undefined;
+}
+
 /** How much harder the hardest combination is than the easiest, by pressure: 0.3 is 30%. */
 export function worstSpread(reports: readonly ComboReport[]): number {
-  const ok = reports.filter((r) => r.problems.length === 0 && r.pressure > 0);
-  if (ok.length === 0) return 0;
-  const min = Math.min(...ok.map((r) => r.pressure));
-  return Math.max(...ok.map((r) => r.pressure)) / min - 1;
+  const ends = spreadEnds(reports);
+  return ends ? ends.hardest.pressure / ends.easiest.pressure - 1 : 0;
 }
