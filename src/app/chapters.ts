@@ -2,7 +2,7 @@ import {
   ChapterError, GameSetupError, parseRoom, resumeChapter, stepChapter,
   type ChapterContent, type ChapterFile, type ChapterState, type Checkpoint, type GameEvent, type TiledMap,
 } from '../core/index.ts';
-import { BOSSES, ENEMIES, PARAMS, TAGS } from './content.ts';
+import { BOSSES, DIALOGUES, ENEMIES, PARAMS, TAGS } from './content.ts';
 import { FixedStepLoop } from './loop.ts';
 
 /** Parses the loaded Tiled files of a chapter into the content `stepChapter` needs. */
@@ -10,6 +10,7 @@ export function chapterContent(chapter: ChapterFile, maps: ReadonlyMap<string, T
   return {
     chapter,
     rooms: new Map([...maps].map(([path, map]) => [path, parseRoom(path, map, TAGS)] as const)),
+    dialogues: DIALOGUES,
     dict: TAGS,
     enemies: ENEMIES,
     bosses: BOSSES,

@@ -1,9 +1,11 @@
-import { advance, startClock, type RuleClock } from '../clock.ts';
+import { advance, startClock, wholeMinutes, type RuleClock } from '../clock.ts';
 import type { BossTable } from '../combat/bosses/boss.ts';
 import type { EnemyTable } from '../combat/enemies.ts';
 import { BASE_HALVES } from '../combat/frames.ts';
 import { OPERATOR_BODY, type TickInput } from '../combat/operator.ts';
 import type { ChapterFile } from '../content/generated.ts';
+import type { DialogueState } from '../dialogue/runner.ts';
+import type { DialogueTable } from '../dialogue/lines.ts';
 import { createGame, sendStacksHome, step, type DomainEvent, type GameState } from '../game.ts';
 import { enterRoom } from '../rooms/entry.ts';
 import { arrivalPoint } from '../rooms/interact.ts';
@@ -12,6 +14,7 @@ import type { Checkpoint, StoryData } from '../save/slots.ts';
 import { spiritAtEntry, type SleepCoefficients } from '../spirit.ts';
 import type { TagDictionary } from '../tags/dictionary.ts';
 import { EMPTY_TAGS, holds, type TagState } from '../tags/store.ts';
+import { openTalk, stepTalk } from './talk.ts';
 
 /**
  * A story chapter in play (build plan P0): the room being fought in plus what outlives a room.
@@ -41,12 +44,17 @@ export interface Run {
 export interface ChapterState {
   readonly run: Run;
   readonly game: GameState;
+  /** The conversation on screen, or null. While one is open the room is frozen and only it takes input. */
+  readonly dialogue: DialogueState | null;
 }
 
 /** What the chapter itself reports on top of a room's events. */
 export type ChapterEvent =
   | { readonly type: 'roomChanged'; readonly from: string; readonly to: string }
   | { readonly type: 'dialogueOpened'; readonly dialogueId: string }
+  | { readonly type: 'dialogueClosed'; readonly dialogueId: string }
+  /** A line unlocked a handbook page; nothing keeps the page yet (the handbook slot is not built). */
+  | { readonly type: 'handbookUnlocked'; readonly id: string }
   | { readonly type: 'bedRefused'; readonly object: number; readonly bedType: string }
   | { readonly type: 'napped'; readonly minutes: number }
   | { readonly type: 'checkpointSaved'; readonly room: string }
@@ -63,6 +71,8 @@ export interface ChapterContent {
   readonly chapter: ChapterFile;
   /** Every room of the chapter, by room path. */
   readonly rooms: ReadonlyMap<string, RoomModel>;
+  /** Every conversation of the game; Tiled names them by id. */
+  readonly dialogues: DialogueTable;
   readonly dict: TagDictionary;
   readonly enemies: EnemyTable;
   readonly bosses: BossTable;
@@ -86,13 +96,8 @@ interface Carry {
   readonly stacks: number;
 }
 
-/**
- * Whole minutes written in a clock_advance trigger's eventId, or undefined for anything else.
- * Number() would also take '', ' ', '1e1' and '0x10', so the map check and the rule share this.
- */
-export function triggerMinutes(eventId: string): number | undefined {
-  return /^[0-9]{1,4}$/.test(eventId) ? Number(eventId) : undefined;
-}
+/** Whole minutes written in a clock_advance trigger's eventId, or undefined for anything else. */
+export const triggerMinutes = wholeMinutes;
 
 function build(ctx: ChapterContent, run: Run, place: Place, carry: Carry): GameState {
   const model = ctx.rooms.get(run.roomId);
@@ -138,7 +143,7 @@ export function startChapter(ctx: ChapterContent, options: StartOptions = {}): C
   const game = build(ctx, run, { kind: 'start' }, {
     clock: options.clock ?? startClock(1, 8), gauge: options.gauge ?? 0, halves: options.halves ?? BASE_HALVES, stacks: 0,
   });
-  return { run, game };
+  return { run, game, dialogue: null };
 }
 
 /** Continue from a saved checkpoint: its room and place, its tags and clock, full hearts. */
@@ -148,7 +153,7 @@ export function resumeChapter(ctx: ChapterContent, saved: Checkpoint, seed = 1):
     chapter: saved.chapter, roomId: saved.roomId, tags: saved.tags, fired: saved.fired, checkpoint: saved, seed, entries: 1,
   };
   const game = build(ctx, run, { kind: 'at', x: saved.x, y: saved.y }, { clock: saved.clock, gauge: 0, halves: BASE_HALVES, stacks: 0 });
-  return { run, game };
+  return { run, game, dialogue: null };
 }
 
 /** Every room the chapter file names, start first; the rooms the app must have loaded before play. */
@@ -177,6 +182,8 @@ interface Applied {
   readonly run: Run;
   readonly game: GameState;
   readonly events: readonly ChapterEvent[];
+  /** The id of a dialogue trigger; the conversation opens once the tick's other events are settled. */
+  readonly dialogue?: string;
 }
 
 function onTrigger(ctx: ChapterContent, run: Run, game: GameState, e: Extract<DomainEvent, { type: 'triggerEntered' }>): Applied {
@@ -208,7 +215,7 @@ function onTrigger(ctx: ChapterContent, run: Run, game: GameState, e: Extract<Do
       return { run, game: { ...game, clock: advance(game.clock, minutes) }, events: [{ type: 'clockAdvanced', minutes }] };
     }
     case 'dialogue':
-      return { run, game, events: [{ type: 'dialogueOpened', dialogueId: e.eventId }] };
+      return { run, game, events: [], dialogue: e.eventId };
     default:
       return { run, game, events: [{ type: 'outerRequested', kind: e.trigger, eventId: e.eventId }] };
   }
@@ -237,11 +244,14 @@ const isBed = (ctx: ChapterContent, key: string): boolean => {
 };
 
 export function stepChapter(ctx: ChapterContent, state: ChapterState, input: TickInput): ChapterResult {
+  if (state.dialogue) return stepTalk(ctx, state, input);
   const r = step(state.game, input);
   let { run } = state;
   let game = r.state;
   const extra: ChapterEvent[] = [];
   let through: Extract<DomainEvent, { type: 'doorEntered' }> | undefined;
+  /** The first conversation asked for this tick; one at a time, so a second request is dropped. */
+  let opening: string | undefined;
   const done = (next: ChapterState, more: readonly ChapterEvent[]): ChapterResult => ({ state: next, events: [...r.events, ...extra, ...more] });
 
   for (const e of r.events) {
@@ -262,15 +272,16 @@ export function stepChapter(ctx: ChapterContent, state: ChapterState, input: Tic
         const built = build(ctx, next, { kind: 'at', x: cp.x, y: cp.y }, {
           clock: cp.clock, gauge: game.operator.gauge, halves: game.operator.maxHalves, stacks: game.operator.stacks,
         });
-        return done({ run: next, game: built }, [{ type: 'returnedToCheckpoint', room: cp.roomId }]);
+        return done({ run: next, game: built, dialogue: null }, [{ type: 'returnedToCheckpoint', room: cp.roomId }]);
       }
       case 'talk':
-        extra.push({ type: 'dialogueOpened', dialogueId: e.dialogueId });
+        opening ??= e.dialogueId;
         break;
       case 'triggerEntered': {
         const a = onTrigger(ctx, run, game, e);
         ({ run, game } = a);
         extra.push(...a.events);
+        if (a.dialogue !== undefined) opening ??= a.dialogue;
         break;
       }
       case 'bedUse': {
@@ -284,6 +295,16 @@ export function stepChapter(ctx: ChapterContent, state: ChapterState, input: Tic
     }
   }
 
+  if (opening !== undefined) {
+    if (!ctx.dialogues.has(opening)) throw new ChapterError(`${run.roomId}: dialogue "${opening}" does not exist (the map check should have caught this)`);
+    const talk = openTalk(ctx, run, game, opening);
+    if (talk) {
+      // A door crossed on the same tick waits: it is forgotten as touched, so it fires again once the conversation is over.
+      const touching = through ? talk.game.touching.filter((id) => id !== through!.object) : talk.game.touching;
+      return done({ run: talk.run, game: { ...talk.game, touching }, dialogue: talk.dialogue }, talk.events);
+    }
+  }
+
   if (through) {
     const dest = across(ctx.chapter, run.roomId, through.door);
     if (!dest) throw new ChapterError(`${run.roomId}: door "${through.door}" leads nowhere in chapter ${ctx.chapter.id} (the map check should have caught this)`);
@@ -292,7 +313,7 @@ export function stepChapter(ctx: ChapterContent, state: ChapterState, input: Tic
     const built = build(ctx, next, { kind: 'door', door: dest.door }, {
       clock: game.clock, gauge: game.operator.gauge, halves: game.operator.halves, stacks: game.operator.stacks,
     });
-    return done({ run: next, game: built }, [{ type: 'roomChanged', from: run.roomId, to: dest.room }]);
+    return done({ run: next, game: built, dialogue: null }, [{ type: 'roomChanged', from: run.roomId, to: dest.room }]);
   }
-  return done({ run, game }, []);
+  return done({ run, game, dialogue: null }, []);
 }
