@@ -48,6 +48,8 @@ export interface Line {
 
 export interface Dialogue {
   readonly id: string;
+  /** The file the conversation was read from, for messages. */
+  readonly file: string;
   /** Sorted by order. */
   readonly lines: readonly Line[];
 }
@@ -298,7 +300,7 @@ export function readDialogues(files: readonly DialogueFile[], dict: TagDictionar
         problems.push({ code: 'duplicate-dialogue', file, row: sorted[0]!.row, dialogueId: id, detail: other });
         continue;
       }
-      const d: Dialogue = { id, lines: sorted };
+      const d: Dialogue = { id, file, lines: sorted };
       const before = problems.length;
       flowProblems(file, d, problems);
       owner.set(id, file);

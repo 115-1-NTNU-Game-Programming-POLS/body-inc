@@ -525,6 +525,26 @@ describe('a conversation inside a chapter', () => {
     expect(r.events.filter((e) => e.type === 'dialogueOpened')).toHaveLength(1);
   });
 
+  it('an NPC pressed on the tick a trigger fires loses to the trigger: the first request of a tick wins', () => {
+    const c = chapter([row('one', 1, 'brain', 'a'), row('two', 1, 'brain', 'b')], [trigger(3, 'one', 288, 200), npc('two')]);
+    const r = step(c, place(startChapter(c), 320, 232), PRESS);
+    expect(r.state.dialogue?.id).toBe('one');
+    expect(r.events.filter((e) => e.type === 'dialogueOpened')).toEqual([{ type: 'dialogueOpened', dialogueId: 'one' }]);
+  });
+
+  it('a line after a reply is judged by the tags the reply has just set', () => {
+    const c = chapter([
+      row('c', 1, 'brain', 'q'),
+      row('c', 2, 'operator', 'yes', { effect: 'tag:deadline', next: 10 }),
+      row('c', 3, 'operator', 'no', { next: 10 }),
+      row('c', 10, 'brain', 'only with the deadline', { condition: 'deadline', next: 'end' }),
+      row('c', 11, 'brain', 'otherwise'),
+    ], [npc('c')]);
+    const choice = press(c, step(c, place(startChapter(c), 320, 240), PRESS).state).state;
+    expect(selectDialogue(c.dialogues, press(c, choice).state.dialogue)!.line!.text).toBe('only with the deadline');
+    expect(selectDialogue(c.dialogues, press(c, press(c, choice, { ...NONE, menuStep: 1 }).state).state.dialogue)!.line!.text).toBe('otherwise');
+  });
+
   it('the same inputs replay to the same state, and another choice to another', () => {
     const play = (menu: -1 | 0 | 1) => {
       const { c, s } = talking();

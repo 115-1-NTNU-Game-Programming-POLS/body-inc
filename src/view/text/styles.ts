@@ -39,3 +39,41 @@ export const DIALOGUE = {
     return Math.min(this.maxEm * this.fontSize * scale, this.boxInnerWidth);
   },
 };
+
+/** The two text-size settings (design doc 12); every text area must hold its text at both. */
+export const TEXT_SCALES: readonly number[] = [1, 1.25];
+
+/**
+ * The player's reply notes. The art direction gives 2 to 3 sticky notes sliding in from the
+ * right and the hand-written body size (22 px, line height 1.5) but no note size; 420 px wide
+ * with 16 px padding is an assumption until the dialogue scene is reviewed.
+ */
+export const REPLY = {
+  role: 'hand' as FontRole,
+  weight: 400,
+  fontSize: 22,
+  lineHeight: 1.5,
+  maxEm: 17,
+  maxLines: 2,
+  noteWidth: 420,
+  padding: 16,
+  maxWidth(scale: number): number {
+    return Math.min(this.maxEm * this.fontSize * scale, this.noteWidth - 2 * this.padding);
+  },
+};
+
+/** The liver's sticky note: 320 x 160 at center right, no dialogue box (art direction 6.2). */
+export const MEMO = {
+  role: 'hand' as FontRole,
+  weight: 400,
+  fontSize: 22,
+  lineHeight: 1.5,
+  maxEm: 13,
+  maxLines: 3,
+  noteWidth: 320,
+  noteHeight: 160,
+  padding: 16,
+  maxWidth(scale: number): number {
+    return Math.min(this.maxEm * this.fontSize * scale, this.noteWidth - 2 * this.padding);
+  },
+};

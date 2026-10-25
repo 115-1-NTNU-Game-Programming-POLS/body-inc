@@ -1347,6 +1347,51 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
       }
     }
   },
+  "speakers": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "SpeakersFile",
+    "description": "Who can speak in a dialogue CSV and how they are shown (build plan P5). The key is the speaker column of the CSV; the display name is the string \"speaker.<key>\" in content/strings. The operator is not listed: it only replies, with no portrait.",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "version",
+      "speakers"
+    ],
+    "properties": {
+      "version": {
+        "const": 1
+      },
+      "speakers": {
+        "type": "object",
+        "additionalProperties": {
+          "$ref": "#/$defs/Speaker"
+        }
+      }
+    },
+    "$defs": {
+      "Speaker": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "style",
+          "portrait"
+        ],
+        "properties": {
+          "style": {
+            "description": "box: the dialogue box with a name tag. memo: a sticky note and no box, for the liver who never speaks aloud (art direction 6.2).",
+            "enum": [
+              "box",
+              "memo"
+            ]
+          },
+          "portrait": {
+            "description": "True when public/assets/portraits/portrait-<key>-<expression>.png exists for every expression the CSV uses; false for a speaker shown by name tag alone.",
+            "type": "boolean"
+          }
+        }
+      }
+    }
+  },
   "strings": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "title": "StringsFile",
@@ -1514,7 +1559,7 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
   }
 };
 
-export type SchemaName = "boss" | "chapter" | "enemies" | "feedback" | "params" | "scheduleCards" | "strings" | "tags";
+export type SchemaName = "boss" | "chapter" | "enemies" | "feedback" | "params" | "scheduleCards" | "speakers" | "strings" | "tags";
 
 export interface ContentTypes {
   readonly boss: BossFile;
@@ -1523,6 +1568,7 @@ export interface ContentTypes {
   readonly feedback: FeedbackFile;
   readonly params: ParamsFile;
   readonly scheduleCards: ScheduleCardsFile;
+  readonly speakers: SpeakersFile;
   readonly strings: StringsFile;
   readonly tags: TagsFile;
 }
@@ -1871,6 +1917,19 @@ export interface ScheduleCard {
   readonly unlockedBy?: string | null;
   /** Handbook page id the card links to. */
   readonly handbook?: string;
+}
+
+/** Who can speak in a dialogue CSV and how they are shown (build plan P5). The key is the speaker column of the CSV; the display name is the string "speaker.<key>" in content/strings. The operator is not listed: it only replies, with no portrait. */
+export interface SpeakersFile {
+  readonly version: 1;
+  readonly speakers: Readonly<Record<string, Speaker>>;
+}
+
+export interface Speaker {
+  /** box: the dialogue box with a name tag. memo: a sticky note and no box, for the liver who never speaks aloud (art direction 6.2). */
+  readonly style: "box" | "memo";
+  /** True when public/assets/portraits/portrait-<key>-<expression>.png exists for every expression the CSV uses; false for a speaker shown by name tag alone. */
+  readonly portrait: boolean;
 }
 
 /** Player-facing text for one language, keyed by string id. */

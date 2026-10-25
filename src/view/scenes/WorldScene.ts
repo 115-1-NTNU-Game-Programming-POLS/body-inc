@@ -170,9 +170,9 @@ export class WorldScene extends Phaser.Scene {
         this.registry.set('story', story);
         break;
       }
-      case 'dialogueOpened':
-        // The dialogue box is build plan P5; until then the id shows, so a wired NPC is visibly wired.
-        this.note(STRINGS.strings['dialogue.placeholder']!.text.replace('{id}', e.dialogueId));
+      case 'handbookUnlocked':
+        // No handbook screen exists yet (build plan P6), so the note is the only sign of the unlock.
+        this.note(STRINGS.strings['handbook.unlocked']!.text);
         break;
       case 'roomChanged':
         this.leave(() => this.scene.restart());

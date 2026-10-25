@@ -16,6 +16,7 @@ import { bodyOverlapsSolid } from '../src/core/collision/grid.ts';
 import { OPERATOR_BODY } from '../src/core/combat/operator.ts';
 import { loadEnemyTable, type EnemyTable } from '../src/core/combat/enemies.ts';
 import { schemaProblems } from '../src/core/content/read.ts';
+import { parseCsv } from '../src/core/dialogue/csv.ts';
 import type { ChapterFile } from '../src/core/content/generated.ts';
 import { triggerMinutes } from '../src/core/chapter/chapter.ts';
 import { arrivalPoint } from '../src/core/rooms/interact.ts';
@@ -27,13 +28,6 @@ import { schemaMessage } from './check-content.ts';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 
-/**
- * Columns of a dialogue CSV, in order (design doc 13.2; docs/authoring/rooms-and-dialogue.md).
- * Only the header and the shape of each row are checked here; what a line may say and do is
- * the dialogue package's (build plan P5).
- */
-export const DIALOGUE_COLUMNS = ['dialogueId', 'order', 'speaker', 'expression', 'text', 'condition', 'effect', 'next', 'fact'] as const;
-
 export interface MapContent {
   readonly dict: TagDictionary;
   readonly enemies: EnemyTable;
@@ -41,57 +35,21 @@ export interface MapContent {
   readonly handbookIds: ReadonlySet<string>;
   /** Chapter files by chapter id; a file that fails to parse or its schema is left out and reported in `problems`. */
   readonly chapters?: ReadonlyMap<string, ChapterFile>;
-  /** Problems found while reading content (a malformed dialogue CSV), reported first. */
+  /** Problems found while reading content (a chapter file that does not parse), reported first. */
   readonly problems?: readonly string[];
-}
-
-/** Minimal RFC 4180 reader: quoted fields may hold commas, newlines and doubled quotes. */
-export function parseCsv(text: string): string[][] {
-  const rows: string[][] = [];
-  let row: string[] = [];
-  let field = '';
-  let quoted = false;
-  for (let i = 0; i < text.length; i++) {
-    const c = text[i]!;
-    if (quoted) {
-      if (c === '"' && text[i + 1] === '"') { field += '"'; i++; } else if (c === '"') quoted = false; else field += c;
-    } else if (c === '"') quoted = true;
-    else if (c === ',') { row.push(field); field = ''; }
-    else if (c === '\n' || c === '\r') {
-      if (c === '\r' && text[i + 1] === '\n') i++;
-      row.push(field); rows.push(row); row = []; field = '';
-    } else field += c;
-  }
-  if (field !== '' || row.length > 0) { row.push(field); rows.push(row); }
-  return rows.filter((r) => r.some((f) => f.trim() !== ''));
-}
-
-/** Header and row-shape problems of one dialogue CSV, in Chinese for the people who write it. */
-export function dialogueProblems(file: string, table: readonly (readonly string[])[]): string[] {
-  const [header = [], ...rows] = table;
-  const want = DIALOGUE_COLUMNS.join(',');
-  if (header.map((h) => h.trim()).join(',') !== want) return [`${file}：表頭必須依序是 ${want}，目前是 ${header.join(',') || '（空的）'}`];
-  const out: string[] = [];
-  rows.forEach((r, i) => {
-    const at = `${file} 第 ${i + 2} 列`;
-    if (r.length !== header.length) out.push(`${at}：有 ${r.length} 欄，應為 ${header.length} 欄；台詞裡有逗號時整格要用雙引號包起來`);
-    else if (r[0]!.trim() === '') out.push(`${at}：dialogueId 是空的`);
-    else if (!/^[1-9][0-9]*$/.test(r[1]!.trim())) out.push(`${at}：order 必須是從 1 開始的整數，目前是「${r[1]}」`);
-  });
-  return out;
 }
 
 export function loadMapContent(contentDir = join(ROOT, 'content')): MapContent {
   const json = (name: string) => JSON.parse(readFileSync(join(contentDir, name), 'utf8')) as unknown;
   const problems: string[] = [];
+  // Ids are read loosely: a map names a conversation that exists, and what is wrong inside it
+  // is check-dialogue's to say, once, rather than again as a missing id here.
   const dialogueIds = new Set<string>();
   const dialogueDir = join(contentDir, 'dialogue');
   if (existsSync(dialogueDir)) {
     for (const f of readdirSync(dialogueDir).filter((n) => n.endsWith('.csv')).sort()) {
-      const table = parseCsv(readFileSync(join(dialogueDir, f), 'utf8').replace(/^﻿/, ''));
-      const found = dialogueProblems(`content/dialogue/${f}`, table);
-      problems.push(...found);
-      if (found.length === 0) for (const r of table.slice(1)) dialogueIds.add(r[0]!.trim());
+      const [, ...rows] = parseCsv(readFileSync(join(dialogueDir, f), 'utf8').replace(/^﻿/, ''));
+      for (const r of rows) if ((r[0] ?? '').trim() !== '') dialogueIds.add(r[0]!.trim());
     }
   }
   const handbookFile = join(contentDir, 'handbook.json');

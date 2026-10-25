@@ -6,7 +6,8 @@ import { afterAll, describe, expect, it } from 'vitest';
 import { TAGS } from '../../src/app/content.ts';
 import { OBJECT_CLASSES } from '../../src/core/rooms/classes.ts';
 import { readRoom, type RoomProblemCode, type TiledMap, type TiledObject } from '../../src/core/rooms/tiled.ts';
-import { checkChapters, checkMaps, DIALOGUE_COLUMNS, dialogueProblems, loadMapContent, parseCsv } from '../../tools/check-maps.ts';
+import { parseCsv } from '../../src/core/dialogue/csv.ts';
+import { checkChapters, checkMaps, loadMapContent } from '../../tools/check-maps.ts';
 import { buildProject } from '../../tools/maps/make-tiled-project.ts';
 
 type Prop = { name: string; value: string | number | boolean };
@@ -355,28 +356,21 @@ describe('chapter check (build plan P0)', () => {
   });
 });
 
-describe('dialogue CSV format', () => {
-  const header = DIALOGUE_COLUMNS.join(',');
-  const problems = (text: string) => dialogueProblems('x.csv', parseCsv(text));
-
-  it('accepts the shipped file and a minimal row', () => {
-    expect(loadMapContent().problems).toEqual([]);
-    expect(problems(`${header}\nhello,1,liver,normal,歡迎。,,,,\n`)).toEqual([]);
+describe('dialogue ids for the map check', () => {
+  it('are read from every row of every CSV, even a conversation check-dialogue rejects', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ids-'));
+    try {
+      mkdirSync(join(dir, 'dialogue'));
+      for (const f of ['tags.json', 'enemies.json']) cpSync(join('content', f), join(dir, f));
+      writeFileSync(join(dir, 'dialogue', 'a.csv'), 'dialogueId,order,speaker,expression,text,condition,effect,next,fact\nfine,1,liver,normal,好,,,,\nbroken,0,liver,normal,壞,,,,\n,1,liver,normal,沒有編號,,,,\n');
+      expect([...loadMapContent(dir).dialogueIds].sort()).toEqual(['broken', 'fine']);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 
-  it('a wrong or reordered header fails', () => {
-    expect(problems('dialogueId,order,speaker\nhello,1,liver\n')).toEqual([expect.stringContaining('表頭必須依序是')]);
-    expect(problems(`${header.replace('speaker,expression', 'expression,speaker')}\n`)).toEqual([expect.stringContaining('表頭必須依序是')]);
-  });
-
-  it('a row with a stray comma, no id or a bad order fails with its line number', () => {
-    expect(problems(`${header}\nhello,1,liver,normal,好,的,,,,\n`)).toEqual([expect.stringContaining('x.csv 第 2 列：有 10 欄，應為 9 欄')]);
-    expect(problems(`${header}\n,1,liver,normal,好,,,,\n`)).toEqual([expect.stringContaining('第 2 列：dialogueId 是空的')]);
-    expect(problems(`${header}\nhello,0,liver,normal,好,,,,\n`)).toEqual([expect.stringContaining('第 2 列：order 必須是從 1 開始的整數')]);
-  });
-
-  it('quoted fields may hold commas', () => {
-    expect(problems(`${header}\nhello,1,liver,normal,"好,的",,,,\n`)).toEqual([]);
+  it('include the shipped conversations', () => {
+    expect(loadMapContent().dialogueIds.has('greybox.liver.hello')).toBe(true);
   });
 });
 
