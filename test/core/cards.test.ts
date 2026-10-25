@@ -5,7 +5,7 @@ import { missingCards } from '../../src/app/decks.ts';
 import { tagsFromQuery } from '../../src/app/session.ts';
 import {
   amount, BED_SEARCH_MINUTES, caffeineOf, CHAPTER_OPENS, CLOAK, comboReports, LOCK_TICKS, metabolise, openingCombos, optionPressure, OuterError, parseRoom,
-  playOpening, readContent, readDeck, senseCap, sightOver, startChapter, stepChapter, ticksPerMinute, TILE, worstSpread,
+  playOpening, readContent, readDeck, senseCap, sightOver, spreadEnds, startChapter, stepChapter, ticksPerMinute, TILE, worstSpread,
   type ChapterContent, type ChapterState, type Deck, type GameEvent, type TickInput, type TiledMap,
 } from '../../src/core/index.ts';
 
@@ -297,6 +297,20 @@ describe('every opening combination gives a playable chapter (build plan P1 done
     expect(sightOver(ctx, tags('caffeine:100'), late)).toBe(0);
     expect(sightOver(ctx, tags('caffeine:30'), late)).toBeCloseTo(0.4, 9);
     expect(sightOver(ctx, tags(''), late)).toBe(1);
+    // Past midnight is still the same logical day, not the start of a fresh one.
+    expect(sightOver(ctx, tags('caffeine:30'), { day: 1, minute: 24 * 60 + 30 })).toBeCloseTo(0.4, 9);
+    expect(sightOver(ctx, tags('caffeine:30'), { day: 2, minute: 24 * 60 + 22 * 60 + 59 })).toBeCloseTo(0.4, 9);
+  });
+
+  it('names the same easiest combination the spread is measured against, skipping one with no pressure', () => {
+    const reports = comboReports(ctx, DECK, CHAPTER_OPENS);
+    const empty = { ...reports[0]!, enemies: 0, clinging: 0, pressure: 0 };
+    const withEmpty = [empty, ...reports];
+    const ends = spreadEnds(withEmpty)!;
+    expect(ends.easiest.pressure).toBeGreaterThan(0);
+    expect(worstSpread(withEmpty)).toBeCloseTo(ends.hardest.pressure / ends.easiest.pressure - 1, 9);
+    expect(worstSpread(withEmpty)).toBe(worstSpread(reports));
+    expect(spreadEnds([empty])).toBeUndefined();
   });
 
   it('lists each opening option by the mean pressure of the combinations that include it', () => {

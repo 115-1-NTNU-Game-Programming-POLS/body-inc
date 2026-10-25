@@ -12,7 +12,7 @@ import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   cardText, comboReports, loadBossTable, loadDialogueTable, loadEnemyTable, parseRoom, readContent, readDeck, roomsOf,
-  CHAPTER_OPENS, optionPressure, worstSpread, type ChapterContent, type ComboReport, type Deck, type DeckProblem, type PlayProblem, type StringsFile,
+  CHAPTER_OPENS, optionPressure, spreadEnds, worstSpread, type ChapterContent, type ComboReport, type Deck, type DeckProblem, type PlayProblem, type StringsFile,
   type TagDictionary, type TiledMap,
 } from '../src/core/index.ts';
 import { loadDictionary } from '../src/core/tags/dictionary.ts';
@@ -171,13 +171,13 @@ export function checkDecks(opts: DeckCheckOptions = {}): DeckCheck {
       report.push(`  ${comboName(r)}：敵人 ${r.enemies}（會黏人的 ${r.clinging}${sight}），P ${r.p.toFixed(3)}，壓力 ${r.pressure.toFixed(2)}，${bed}`);
     }
     report.push('  各選項的影響（含該選項的組合平均壓力）：');
+    const options = optionPressure(deck, reports);
     for (const card of deck.opening) {
-      const row = optionPressure(deck, reports).filter((o) => o.card === card.id).map((o) => `${o.option} ${Number.isNaN(o.pressure) ? '無可玩組合' : o.pressure.toFixed(2)}`);
+      const row = options.filter((o) => o.card === card.id).map((o) => `${o.option} ${Number.isNaN(o.pressure) ? '無可玩組合' : o.pressure.toFixed(2)}`);
       report.push(`    ${card.id}：${row.join('，')}`);
     }
-    const ok = reports.filter((r) => r.problems.length === 0).sort((a, b) => a.pressure - b.pressure);
-    const [best, worst] = [ok[0], ok.at(-1)];
-    const ends = best && worst ? `（最難 ${comboName(worst)}，最易 ${comboName(best)}）` : '';
+    const pair = spreadEnds(reports);
+    const ends = pair ? `（最難 ${comboName(pair.hardest)}，最易 ${comboName(pair.easiest)}）` : '';
     report.push(`  最差組合比最好組合難 ${(worstSpread(reports) * 100).toFixed(0)}%${ends}；設計文件 4.2 的目標約 30%`);
   }
   return { problems, report };
