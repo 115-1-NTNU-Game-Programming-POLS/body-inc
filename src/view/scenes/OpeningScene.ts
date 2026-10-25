@@ -97,7 +97,7 @@ export class OpeningScene extends Phaser.Scene {
     this.time.delayedCall(CHOSEN_MS, () => {
       this.busy = false;
       if (this.picks.length < this.ctx.deck!.opening.length) return this.deal();
-      const opening = playOpening(this.ctx.deck!, this.ctx.dict, this.picks, CHAPTER_OPENS);
+      const opening = playOpening(this.ctx.deck!, this.ctx.dict, this.picks, CHAPTER_OPENS, this.ctx.params);
       this.busy = true;
       beginRun(this, this.ctx, startChapter(this.ctx, { tags: opening.tags, clock: opening.clock }));
     });
