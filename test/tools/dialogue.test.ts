@@ -153,6 +153,15 @@ describe('dialogue check: speakers and portraits', () => {
     rmSync(join(s.contentDir, 'speakers.json'));
     expect(s.check()[0]).toContain('找不到說話者登錄檔');
   });
+
+  it('a registry or handbook that is not valid JSON is said, not thrown', () => {
+    const s = build({ 'a.csv': csv(row('x', 1, 'brain', 'normal', '好')) });
+    writeFileSync(join(s.contentDir, 'speakers.json'), '{ "version": 1, }');
+    writeFileSync(join(s.contentDir, 'handbook.json'), '{ "pages": [ }');
+    const found = s.check();
+    expect(found.some((m) => m.includes('speakers.json') && m.includes('格式不符'))).toBe(true);
+    expect(found.some((m) => m.includes('handbook.json') && m.includes('不是有效的 JSON'))).toBe(true);
+  });
 });
 
 describe('dialogue check: text must fit', () => {

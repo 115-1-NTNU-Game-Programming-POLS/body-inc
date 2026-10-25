@@ -55,6 +55,7 @@ export class DialogueScene extends Phaser.Scene {
 
   create(): void {
     this.keys = sharedKeys(this.registry, window);
+    this.keys.ignoreMouse(false);
     this.layer = this.add.container(0, 0);
     this.shown = '';
     this.spoken = '';
@@ -73,6 +74,7 @@ export class DialogueScene extends Phaser.Scene {
         this.clear();
         this.shown = '';
         this.spoken = '';
+        this.keys.ignoreMouse(false);
       }
       return;
     }
@@ -118,6 +120,8 @@ export class DialogueScene extends Phaser.Scene {
       else this.box(line.speaker, line.text, scale);
     }
     const choosing = view.options.length > 0;
+    // Replies appear behind the input lock, so this is in place before a click could count.
+    this.keys.ignoreMouse(choosing);
     if (choosing) this.replies(view.options, memo ? MEMO.replyBottom : BOX.y - 16, scale);
     else if (line && !memo) this.continueMark();
     this.put(addText(this, BOX.x + BOX.w, this.scale.height - 2, str(choosing ? 'dialogue.hint_choose' : 'dialogue.hint'), {

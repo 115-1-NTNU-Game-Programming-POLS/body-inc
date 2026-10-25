@@ -89,6 +89,16 @@ function textProblem(l: Line, speaker: Speakers[string] | undefined): string | u
   return undefined;
 }
 
+/** The parsed file, or undefined when it is not valid JSON; check-content reports the details. */
+function readJson(file: string): unknown {
+  try {
+    return JSON.parse(readFileSync(file, 'utf8').replace(/^﻿/, '')) as unknown;
+  } catch (e) {
+    if (e instanceof SyntaxError) return undefined;
+    throw e;
+  }
+}
+
 export function checkDialogue(opts: DialogueCheckOptions = {}): string[] {
   const contentDir = resolve(opts.contentDir ?? join(ROOT, 'content'));
   const portraitDir = resolve(opts.portraitDir ?? join(ROOT, 'public', 'assets', 'portraits'));
@@ -116,13 +126,18 @@ export function checkDialogue(opts: DialogueCheckOptions = {}): string[] {
   if (!existsSync(speakersFile)) {
     out.push(`${here(speakersFile)}：找不到說話者登錄檔；對話裡的 speaker 都要登記在這裡`);
   } else {
-    const value: unknown = JSON.parse(readFileSync(speakersFile, 'utf8').replace(/^﻿/, ''));
-    if (schemaProblems('speakers', value).length > 0) out.push(`${here(speakersFile)}：格式不符，請先修正 node tools/check-content.ts 回報的問題`);
+    const value = readJson(speakersFile);
+    if (value === undefined || schemaProblems('speakers', value).length > 0) out.push(`${here(speakersFile)}：格式不符，請先修正 node tools/check-content.ts 回報的問題`);
     else speakers = (value as ContentTypes['speakers']).speakers;
   }
 
   const handbookFile = join(contentDir, 'handbook.json');
-  const handbook = existsSync(handbookFile) ? (JSON.parse(readFileSync(handbookFile, 'utf8')) as { pages?: { id: string }[] }).pages ?? [] : [];
+  let handbook: { id: string }[] = [];
+  if (existsSync(handbookFile)) {
+    const value = readJson(handbookFile) as { pages?: { id: string }[] } | undefined;
+    if (value === undefined) out.push(`${here(handbookFile)}：不是有效的 JSON，請先修正 node tools/check-content.ts 回報的問題`);
+    else handbook = value.pages ?? [];
+  }
   const pages = new Set(handbook.map((p) => p.id));
 
   // One message per unknown speaker per file: the rest of its lines are the same fix.

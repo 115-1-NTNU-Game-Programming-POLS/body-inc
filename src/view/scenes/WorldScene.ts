@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import type { Manifest, ManifestEntry } from '../../app/assets.ts';
 import { FEEDBACK, STRINGS } from '../../app/content.ts';
+import { releaseKeysOnClose } from '../../app/dialogue.ts';
 import { sharedKeys, type KeyboardInput } from '../../app/input.ts';
 import type { FixedStepLoop } from '../../app/loop.ts';
 import type { SaveStore } from '../../app/storage.ts';
@@ -104,7 +105,11 @@ export class WorldScene extends Phaser.Scene {
     // keyboard's own auto-repeat started.
     this.input_ = sharedKeys(this.registry, window);
     this.input_.clearPresses();
-    this.events.once(Phaser.Scenes.Events.SHUTDOWN, off);
+    const offRelease = releaseKeysOnClose(this.loop, this.input_);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      off();
+      offRelease();
+    });
     // Without a capture Phaser does not preventDefault, and F1 also opens the browser's help page.
     this.input.keyboard?.addCapture('F1');
     this.input.keyboard?.on('keydown-F1', () => this.overlay.toggle());

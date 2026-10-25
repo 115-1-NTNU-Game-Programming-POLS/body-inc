@@ -251,9 +251,18 @@ export function stepChapter(ctx: ChapterContent, state: ChapterState, input: Tic
   let through: Extract<DomainEvent, { type: 'doorEntered' }> | undefined;
   /** The first conversation asked for this tick; one at a time, so a second request is dropped. */
   let opening: { readonly id: string; readonly spent?: string } | undefined;
-  /** A once-trigger whose conversation is not shown has not been seen, so it can fire again. */
+  /**
+   * A once-trigger whose conversation is not shown has not been seen, so it can fire again. A
+   * checkpoint punched later in the same tick already copied the key, so it is taken back there too.
+   */
   const giveBack = (key: string | undefined) => {
-    if (key !== undefined) run = { ...run, fired: run.fired.filter((k) => k !== key) };
+    if (key === undefined) return;
+    const cp = run.checkpoint;
+    run = {
+      ...run,
+      fired: run.fired.filter((k) => k !== key),
+      checkpoint: cp?.fired.includes(key) ? { ...cp, fired: cp.fired.filter((k) => k !== key) } : cp,
+    };
   };
   const done = (next: ChapterState, more: readonly ChapterEvent[]): ChapterResult => ({ state: next, events: [...r.events, ...extra, ...more] });
 
