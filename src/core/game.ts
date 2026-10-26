@@ -15,8 +15,8 @@ import {
 import { advance, startClock, type RuleClock } from './clock.ts';
 import { seedStreams, type RngStreams } from './rng.ts';
 import {
-  advanceSlide, beltAt, boxAhead, boxPixel, canEnter, CONVEYOR_TICKS, conveyorRunning, conveyorsOf, directionOf, PUSH, pushDirection,
-  settleBoxes, startSlide, tileAt, tileBox, withBoxes, type BoxState, type Occupants, type Tile,
+  advanceSlide, beltAt, boxAhead, boxPixel, canEnter, CONVEYOR_TICKS, conveyorRunning, conveyorsOf, directionOf, filledPorts, onPort,
+  portOf, PUSH, pushDirection, settleBoxes, startSlide, tileAt, tileBox, withBoxes, type BoxState, type Occupants, type Tile,
 } from './rooms/boxes.ts';
 import type { EnteredRoom } from './rooms/entry.ts';
 import { leverAt, objectBox, platesUnder, reachableObject, touchedObjects } from './rooms/interact.ts';
@@ -84,6 +84,10 @@ export interface GameState {
   readonly boxes: readonly BoxState[];
   /** The box the operator is pressing against and for how many ticks, up to PUSH.delayTicks; null when none. */
   readonly push: PushState | null;
+  /** Boxes a Port has taken, in id order: gone from the room for good, and what the port counts. */
+  readonly delivered: readonly number[];
+  /** Set until the chairman hands over the stamp (design doc 5.4): the stamp key does nothing. */
+  readonly stampLocked?: true;
   /**
    * How far clinging enemies can see the operator, when the caffeine cloak cuts it below
    * CLING.senseRangePx (design doc 7.4); 0 means they cannot see the operator at all. The chapter
@@ -130,6 +134,10 @@ export type DomainEvent =
   | { readonly type: 'switchChanged'; readonly object: number; readonly on: boolean; readonly mode: string; readonly by: 'interact' | 'staple' | 'step' | 'box' }
   /** A box started sliding to this tile, pushed by the operator or carried by a conveyor. */
   | { readonly type: 'boxMoved'; readonly object: number; readonly col: number; readonly row: number; readonly by: 'push' | 'conveyor' }
+  /** A box came to rest on a Port, which took it; `count` is how many the port holds now. */
+  | { readonly type: 'boxDelivered'; readonly object: number; readonly port: number; readonly count: number; readonly need: number }
+  /** A Port took its last needed box: it now counts as a switch that is on, for good. */
+  | { readonly type: 'portFilled'; readonly object: number }
   | { readonly type: 'triggerEntered'; readonly object: number; readonly trigger: string; readonly eventId: string }
   /** The operator took an item; what it does beyond leaving the room (and opening a key lock) is the chapter's. */
   | { readonly type: 'pickedUp'; readonly object: number; readonly itemType: string; readonly itemId: string }
@@ -219,6 +227,10 @@ export interface GameOptions {
   readonly taken?: readonly number[];
   /** Where boxes were left on an earlier visit; settleBoxes decides which of them stay there. */
   readonly boxes?: ReadonlyMap<number, Tile>;
+  /** Boxes a Port took on an earlier visit; ids that are not boxes of this room are ignored. */
+  readonly delivered?: readonly number[];
+  /** The stamp is not handed over yet. */
+  readonly stampLocked?: boolean;
 }
 
 const switchMode = (room: EnteredRoom, id: number): string | undefined => {
@@ -269,11 +281,13 @@ export function createGame(room: EnteredRoom, seed: number, table: EnemyTable, o
   const spawned = spawnEnemies(room, table, options.bosses, 1);
   const operator = { ...newOperator(start.x, start.y, BASE_HALVES, gauge), halves, stacks: carried };
   const body = boxAt(OPERATOR_BODY, operator.x, operator.y);
-  const boxes = settleBoxes(room, options.boxes ?? new Map(), occupantsOf(operator, spawned.enemies).bodies);
+  const delivered = ascending((options.delivered ?? []).filter((id) => room.objects.some((o) => o.id === id && o.kind === 'Box')));
+  const boxes = settleBoxes(room, options.boxes ?? new Map(), occupantsOf(operator, spawned.enemies).bodies, delivered);
   const switches = ascending([
     ...(options.switches ?? []).filter((id) => switchMode(room, id) === 'toggle'),
     ...platesUnder(room, body),
     ...platesUnderBoxes(room, boxes),
+    ...filledPorts(room, delivered),
   ]);
   const unlocked = ascending(options.unlocked ?? []);
   const taken = ascending((options.taken ?? []).filter((id) => room.objects.some((o) => o.id === id && o.kind === 'Pickup')));
@@ -300,6 +314,8 @@ export function createGame(room: EnteredRoom, seed: number, table: EnemyTable, o
     taken,
     boxes,
     push: null,
+    delivered,
+    ...(options.stampLocked ? { stampLocked: true as const } : {}),
   };
 }
 
@@ -342,9 +358,10 @@ function forcedLeave(state: GameState): GameState {
   const operator = withStacks(newOperator(start.x, start.y, state.operator.maxHalves, state.operator.gauge), enemies, state.carried);
   // A solved switch stays solved (design doc 5.6); a plate is only down while someone or a box is on it.
   const body = boxAt(OPERATOR_BODY, operator.x, operator.y);
-  const boxes = settleBoxes(state.room, new Map(state.boxes.map((b) => [b.id, { col: b.col, row: b.row }])), occupantsOf(operator, enemies).bodies);
+  const boxes = settleBoxes(state.room, new Map(state.boxes.map((b) => [b.id, { col: b.col, row: b.row }])), occupantsOf(operator, enemies).bodies, state.delivered);
   const switches = ascending([
     ...state.switches.filter((id) => switchMode(state.room, id) === 'toggle'), ...platesUnder(state.room, body), ...platesUnderBoxes(state.room, boxes),
+    ...filledPorts(state.room, state.delivered),
   ]);
   return {
     ...state,
@@ -419,13 +436,27 @@ function interactionOf(o: RoomObject): DomainEvent {
  * tick. The switches are last tick's: a lever thrown this tick starts its conveyor on the next.
  * The array is kept when nothing moves, so the solid grid built from it stays cached.
  */
-function moveBoxes(state: GameState, op: OperatorState, input: TickInput): { boxes: readonly BoxState[]; push: PushState | null; events: DomainEvent[] } {
-  if (state.boxes.length === 0) return { boxes: state.boxes, push: null, events: [] };
+function moveBoxes(state: GameState, op: OperatorState, input: TickInput): MovedBoxes {
+  if (state.boxes.length === 0) return { boxes: state.boxes, push: null, events: [], delivered: state.delivered };
   const room = state.room;
   const events: DomainEvent[] = [];
   const occupants = occupantsOf(op, state.enemies);
   let boxes = state.boxes.some((b) => b.left > 0) ? state.boxes.map((b) => (b.left > 0 ? advanceSlide(b) : b)) : state.boxes;
   const replace = (next: BoxState) => { boxes = boxes.map((b) => (b.id === next.id ? next : b)); };
+
+  // A box that has come to rest on the port is taken in before belts or a push could move it on.
+  const port = portOf(room);
+  let delivered = state.delivered;
+  if (port) {
+    const need = Number(port.props['need']);
+    for (const b of boxes.filter((x) => x.left === 0 && onPort(port, x))) {
+      boxes = boxes.filter((x) => x.id !== b.id);
+      delivered = ascending([...delivered, b.id]);
+      events.push({ type: 'boxDelivered', object: b.id, port: port.id, count: delivered.length, need });
+      if (delivered.length === need) events.push({ type: 'portFilled', object: port.id });
+    }
+  }
+  const out = (push: PushState | null): MovedBoxes => ({ boxes, push, events, delivered });
 
   for (const b of [...boxes]) {
     if (b.left > 0) continue;
@@ -439,12 +470,12 @@ function moveBoxes(state: GameState, op: OperatorState, input: TickInput): { box
   }
 
   const dir = op.action.kind === 'free' ? pushDirection(input.move) : undefined;
-  if (!dir) return { boxes, push: null, events };
+  if (!dir) return out(null);
   const same = state.push && state.push.dir.col === dir.col && state.push.dir.row === dir.row ? state.push : null;
   const ahead = boxAhead(boxes, boxAt(OPERATOR_BODY, op.x, op.y), dir);
   // Still pressing the same way while the box slides off and the operator catches up: the next
   // push follows without a fresh wait. Only that box gets the head start.
-  if (!ahead) return { boxes, push: same, events };
+  if (!ahead) return out(same);
   const ticks = Math.min(PUSH.delayTicks, same?.box === ahead.id ? same.ticks + 1 : 1);
   if (ticks >= PUSH.delayTicks) {
     const to = { col: ahead.col + dir.col, row: ahead.row + dir.row };
@@ -453,12 +484,20 @@ function moveBoxes(state: GameState, op: OperatorState, input: TickInput): { box
       events.push({ type: 'boxMoved', object: ahead.id, ...to, by: 'push' });
     }
   }
-  return { boxes, push: { box: ahead.id, dir, ticks }, events };
+  return out({ box: ahead.id, dir, ticks });
 }
 
-export function step(state: GameState, input: TickInput): StepResult {
+interface MovedBoxes {
+  readonly boxes: readonly BoxState[];
+  readonly push: PushState | null;
+  readonly events: DomainEvent[];
+  readonly delivered: readonly number[];
+}
+
+export function step(state: GameState, pressed: TickInput): StepResult {
   const now = state.tick;
   const events: DomainEvent[] = [];
+  const input = state.stampLocked && pressed.stampPressed ? { ...pressed, stampPressed: false } : pressed;
 
   if (state.freeze > 0) {
     return { state: { ...state, tick: now + 1, freeze: state.freeze - 1, operator: bufferInput(state.operator, input, now) }, events };
@@ -517,7 +556,7 @@ export function step(state: GameState, input: TickInput): StepResult {
     const byBox = on ? !stoodOn.includes(id) : boxWasOn.includes(id);
     events.push({ type: 'switchChanged', object: id, on, mode: 'hold', by: byBox ? 'box' : 'step' });
   }
-  let switches = ascending([...levers, ...plates]);
+  let switches = ascending([...levers, ...plates, ...filledPorts(state.room, moved.delivered)]);
   const doorsOpenNow = openDoors(state.room, switches, state.unlocked, taken);
 
   // Doors and triggers fire on the tick the operator steps onto them, not while standing there;
@@ -747,7 +786,7 @@ export function step(state: GameState, input: TickInput): StepResult {
     shots: movedShots, zones: [...zones.values()].sort((a, b) => a.id - b.id), nextId, freeze,
     // What the door check saw, not a fresh count: a lever pinned by a staple after the check must
     // still count as newly opened next tick for an operator already pressed against its door.
-    touching: onNow.map((o) => o.id), carried, switches, doorsOpen: doorsOpenNow, taken, boxes, push,
+    touching: onNow.map((o) => o.id), carried, switches, doorsOpen: doorsOpenNow, taken, boxes, push, delivered: moved.delivered,
   };
   // A forced leave clears the freeze, so the freeze event is only emitted when it will happen.
   if (op.halves <= 0) {
@@ -802,6 +841,12 @@ export function selectBoxes(s: GameState): readonly { readonly object: number; r
   });
 }
 /** Every conveyor and whether it runs now, by the rule the step uses. */
+/** The room's port, if any, with how many boxes it holds of the ones it needs. */
+export function selectPort(s: GameState): { readonly object: number; readonly count: number; readonly need: number } | undefined {
+  const port = portOf(s.room);
+  return port ? { object: port.id, count: s.delivered.length, need: Number(port.props['need']) } : undefined;
+}
+
 export function selectConveyors(s: GameState): readonly { readonly object: number; readonly direction: string; readonly speed: string; readonly running: boolean }[] {
   return conveyorsOf(s.room).map((o) => ({
     object: o.id, direction: String(o.props['direction']), speed: String(o.props['speed']), running: conveyorRunning(s.room.objects, o, s.switches),

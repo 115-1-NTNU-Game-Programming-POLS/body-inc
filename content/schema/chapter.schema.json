@@ -9,7 +9,16 @@
     "version": { "const": 1 },
     "id": { "description": "Same as the folder under public/assets/maps that holds the chapter's rooms.", "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
     "start": { "description": "Room a new game opens in, as folder/map without the .tmj extension.", "type": "string", "pattern": "^[a-z0-9-]+/[a-z0-9-]+$" },
-    "links": { "type": "array", "items": { "$ref": "#/$defs/ChapterLink" } }
+    "links": { "type": "array", "items": { "$ref": "#/$defs/ChapterLink" } },
+    "next": { "description": "The chapter that follows once this one ends, after its closing cards. Absent: the game returns to the title.", "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+    "intro": { "description": "A conversation that opens as a new game of this chapter starts (the prologue's interview). Not replayed on continue.", "type": "string", "minLength": 1 },
+    "tools": {
+      "description": "Tools the operator has from the start of this chapter. Absent means every tool; the prologue lists none, since the chairman hands over the stamp at its end (design doc 5.4). Tools granted earlier in the run are kept.",
+      "type": "array",
+      "items": { "enum": ["stamp"] },
+      "uniqueItems": true
+    },
+    "glucose": { "description": "Shows the blood glucose meter and runs its rules in this chapter (design doc 7.3).", "type": "boolean" }
   },
   "$defs": {
     "ChapterLink": {

@@ -7,7 +7,7 @@ import { OBJECT_CLASSES, ROOM_CLASS, VARIANT_PREFIX, type ClassSpec, type RefKin
 import { KEEP_CLEAR, tileBox, tileOf } from './boxes.ts';
 import { canMeet } from './entry.ts';
 import { objectBox } from './interact.ts';
-import { keyOf, keysFor, parseClockWindow, switchesFor } from './locks.ts';
+import { keyOf, keysFor, parseClockWindow, SWITCH_KINDS, switchesFor } from './locks.ts';
 
 /**
  * Tiled JSON (.tmj) to room model. Core only needs structure, not art: which cells are solid,
@@ -97,7 +97,7 @@ export type RoomProblemCode =
   | 'variant-when' | 'variant-duplicate'
   /** A clock or resource lock whose lockParam is empty or not a time window. */
   | 'lock-param'
-  /** A Switch aimed at something other than a door with a switch lock or a conveyor. */
+  /** A Switch or Port aimed at something other than a door with a switch lock or a conveyor. */
   | 'switch-target-kind'
   /** A Box that starts on a wall tile. */
   | 'box-wall'
@@ -115,7 +115,13 @@ export type RoomProblemCode =
    * A Pickup that opens a key lock but sits in a variant layer or has a `when`. On a later visit
    * with other tags it would not be in the room, and the door it opened would lock again.
    */
-  | 'key-conditional';
+  | 'key-conditional'
+  /** A Port drawn as a point; it needs a rectangle to say which tiles take boxes in. */
+  | 'port-shape'
+  /** More than one Port in a room; the game delivers to the first only. */
+  | 'port-multiple'
+  /** A Port that needs more boxes than the room always has (base layer, no `when`), so it could never fill. */
+  | 'port-need';
 
 export interface RoomProblem {
   readonly code: RoomProblemCode;
@@ -360,23 +366,31 @@ export function readRoom(id: string, map: TiledMap, dict: TagDictionary): ReadRe
       }
     }
     const target = o.props['target'];
-    if (o.kind === 'Switch' && typeof target === 'number' && target !== 0) {
+    if (SWITCH_KINDS.has(o.kind) && typeof target === 'number' && target !== 0) {
       const t = byId.get(target);
       if (!t) problems.push({ code: 'switch-target', object: o.id, args: { target } });
       else if (t.kind !== 'Conveyor' && (t.kind !== 'Door' || t.props['lock'] !== 'switch')) problems.push({ code: 'switch-target-kind', object: o.id, args: { target } });
     }
     if (o.kind === 'Conveyor' && (o.width <= 0 || o.height <= 0)) problems.push({ code: 'conveyor-shape', object: o.id });
+    if (o.kind === 'Port' && (o.width <= 0 || o.height <= 0)) problems.push({ code: 'port-shape', object: o.id });
   }
   const boxes = objects.filter((o) => o.kind === 'Box').sort((a, b) => a.id - b.id);
   // Two objects that can never be in the room on the same visit do not clash.
   const together = (a: RoomObject, b: RoomObject) => canMeet(variants, a, b);
+  const ports = objects.filter((o) => o.kind === 'Port').sort((a, b) => a.id - b.id);
+  if (ports.length > 1) problems.push({ code: 'port-multiple', object: ports[1]!.id });
+  const sure = boxes.filter((b) => b.variant === undefined && String(b.props['when']).trim() === '').length;
+  for (const p of ports) {
+    const need = Number(p.props['need']);
+    if (sure < need) problems.push({ code: 'port-need', object: p.id, args: { need, boxes: sure } });
+  }
   for (const [i, b] of boxes.entries()) {
     const t = tileOf(b);
     const tb = tileBox(t);
     if (isSolid({ cols: map.width, rows: map.height, solid }, t.col, t.row)) problems.push({ code: 'box-wall', object: b.id, args: { col: t.col, row: t.row } });
     const twin = boxes.slice(0, i).find((x) => { const u = tileOf(x); return u.col === t.col && u.row === t.row && together(b, x); });
     if (twin) problems.push({ code: 'box-stack', object: b.id, args: { other: twin.id } });
-    const blocked = objects.find((x) => KEEP_CLEAR.has(x.kind) && overlaps(tb, objectBox(x)) && together(b, x));
+    const blocked = objects.find((x) => (KEEP_CLEAR.has(x.kind) || x.kind === 'Port') && overlaps(tb, objectBox(x)) && together(b, x));
     if (blocked) problems.push({ code: 'box-blocked', object: b.id, args: { other: blocked.id, kind: blocked.kind } });
   }
 

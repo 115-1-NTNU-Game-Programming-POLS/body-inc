@@ -36,6 +36,7 @@ node tools/maps/make-brain-corridor.ts  # 重新產生灰盒大腦走廊（狀�
 node tools/maps/make-caffeine-arena.ts  # 重新產生咖啡因 Boss 灰盒場地
 node tools/maps/make-rest-room.ts       # 重新產生灰盒休息室（打卡機、午睡與就寢的床、NPC）
 node tools/maps/make-lock-rooms.ts      # 重新產生門鎖示範的灰盒大廳、檔案室、儲藏室與裝卸區（時段鎖、條件鎖、鑰匙鎖、道具、推箱與輸送帶）
+node tools/maps/make-prologue.ts        # 重新產生灰盒序章（第一章範本：調度口、血糖、駁回印章、下班打卡）
 node tools/maps/make-room-template.ts   # 重新產生給內容組複製的房間範本
 ```
 
@@ -55,9 +56,9 @@ node tools/maps/make-room-template.ts   # 重新產生給內容組複製的房�
 
 ### 章節、打卡機與存檔
 
-一個地圖資料夾是一章，章內房間怎麼接在一起寫在 `content/chapters/<章>.json`：每個 `links` 項目把兩扇名字對得上的門（Tiled 物件的 Name 欄）接起來，兩端 socket 必須相對。`node tools/check-maps.ts` 檢查兩端存在、socket 相對、沒有接兩次、沒有接去哪裡卻打得開的門、全章從起點可達、每間房有 PlayerStart、走過門後不會站在牆裡。新章節還要登記在 `src/app/content.ts` 的 `CHAPTER_FILES`，Boot 才會載入它的房間，漏掉時 `npm test` 會失敗。門鎖的規則都在 `src/core/rooms/locks.ts`：`switch` 鎖由同房的 Switch 打開（拉桿的狀態存在 `Run.switches`，打卡時寫進存檔），`clock` 與 `resource` 鎖由章節每一刻依時鐘與標籤判斷後交給房間；`key` 鎖目前打不開，不算通路，也是「這扇門暫時不用」的寫法。`variant:` 圖層裡的門無法串接，`lock` 必須是 `key`。各種鎖的寫法見製作說明。
+一個地圖資料夾是一章，章內房間怎麼接在一起寫在 `content/chapters/<章>.json`：每個 `links` 項目把兩扇名字對得上的門（Tiled 物件的 Name 欄）接起來，兩端 socket 必須相對。`node tools/check-maps.ts` 檢查兩端存在、socket 相對、沒有接兩次、沒有接去哪裡卻打得開的門、全章從起點可達、每間房有 PlayerStart、走過門後不會站在牆裡。新章節還要登記在 `src/app/content.ts` 的 `CHAPTER_FILES`，Boot 才會載入它的房間，漏掉時 `npm test` 會失敗。門鎖的規則都在 `src/core/rooms/locks.ts`：`switch` 鎖由同房的 Switch 打開（拉桿的狀態存在 `Run.switches`，打卡時寫進存檔），`clock` 與 `resource` 鎖由章節每一刻依時鐘與標籤判斷後交給房間；`key` 鎖在同房的同名道具被撿起後打開，`lockParam` 留空時永遠不開，是「這扇門暫時不用」的寫法；調度口（Port）收滿箱子後也算打開的開關。`variant:` 圖層裡的門無法串接，`lock` 必須是 `key`。各種鎖的寫法見製作說明。
 
-房間之間的狀態由 `src/core/chapter/` 管：標籤、章內時鐘、血量與駁回量表、用掉的一次性觸發點、最近的打卡機。Trigger 的 `checkpoint` 是打卡機，存檔寫進 `hbc.v1.story`；強制下班會回到最近的打卡機，已用掉的觸發點保留，標籤與時鐘回到打卡時的狀態，黏身的腺苷層數跟著回來（只有睡覺會清），打卡之後用掉的午睡沙發隨時鐘還原而恢復可用。腺苷也會跟著過門，只有睡覺清得掉。午睡沙發（Bed 的 `nap`）每張只能用一次；就寢門（`sleep`）條件成立時結束這一章。NPC 與 `dialogue` 類的 Trigger 會開啟對話：對話開著時房間凍結，只有對話自己的輸入有效，狀態在 `ChapterState.dialogue`，所以對話和其他規則一樣可以重播。對話的寫法與檢查見上述製作說明；程式端的重點是讀檔與走法都在 `src/core/dialogue/`，標籤、時鐘與手冊頁的變動在 `src/core/chapter/talk.ts`，畫面在 `src/view/scenes/DialogueScene.ts`，說話者與版面登記在 `content/speakers.json`。`node tools/check-dialogue.ts` 已包含在 `npm run check`，`npm run check:release` 另外擋下 `fact` 還是 `pending` 的台詞。
+房間之間的狀態由 `src/core/chapter/` 管：標籤、章內時鐘、血量與駁回量表、用掉的一次性觸發點、最近的打卡機。Trigger 的 `checkpoint` 是打卡機，存檔寫進 `hbc.v1.story`；強制下班會回到最近的打卡機，已用掉的觸發點保留，標籤與時鐘回到打卡時的狀態，黏身的腺苷層數跟著回來（只有睡覺會清），打卡之後用掉的午睡沙發隨時鐘還原而恢復可用。腺苷也會跟著過門，只有睡覺清得掉。午睡沙發（Bed 的 `nap`）每張只能用一次；就寢門（`sleep`）條件成立時，或踩到 `end` 類的 Trigger 時，結束這一章；章節檔有 `next` 時接著翻章末卡（`OpeningScene` 的 closing 模式），把標籤與工具帶進下一章，並把進下一章的入口寫進存檔的 `entry`。章節檔的 `tools` 決定開場有沒有駁回印章，沒有時由對話的 `grant:stamp` 交給營運長。NPC 與 `dialogue` 類的 Trigger 會開啟對話：對話開著時房間凍結，只有對話自己的輸入有效，狀態在 `ChapterState.dialogue`，所以對話和其他規則一樣可以重播。對話的寫法與檢查見上述製作說明；程式端的重點是讀檔與走法都在 `src/core/dialogue/`，標籤、時鐘與手冊頁的變動在 `src/core/chapter/talk.ts`，畫面在 `src/view/scenes/DialogueScene.ts`，說話者與版面登記在 `content/speakers.json`。`node tools/check-dialogue.ts` 已包含在 `npm run check`，`npm run check:release` 另外擋下 `fact` 還是 `pending` 的台詞。
 
 ### 編輯內容資料
 

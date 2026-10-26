@@ -263,6 +263,30 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
         "items": {
           "$ref": "#/$defs/ChapterLink"
         }
+      },
+      "next": {
+        "description": "The chapter that follows once this one ends, after its closing cards. Absent: the game returns to the title.",
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9-]*$"
+      },
+      "intro": {
+        "description": "A conversation that opens as a new game of this chapter starts (the prologue's interview). Not replayed on continue.",
+        "type": "string",
+        "minLength": 1
+      },
+      "tools": {
+        "description": "Tools the operator has from the start of this chapter. Absent means every tool; the prologue lists none, since the chairman hands over the stamp at its end (design doc 5.4). Tools granted earlier in the run are kept.",
+        "type": "array",
+        "items": {
+          "enum": [
+            "stamp"
+          ]
+        },
+        "uniqueItems": true
+      },
+      "glucose": {
+        "description": "Shows the blood glucose meter and runs its rules in this chapter (design doc 7.3).",
+        "type": "boolean"
       }
     },
     "$defs": {
@@ -319,6 +343,14 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
       "events": {
         "description": "Shown when the operator steps on a Trigger whose event is card and whose eventId is the card id.",
         "type": "array",
+        "items": {
+          "$ref": "#/$defs/Card"
+        }
+      },
+      "closing": {
+        "description": "Played in order after the chapter ends, before the next chapter (design doc 7.3: the prologue ends on \"what time tonight?\"). Their effects are what the run carries into the next chapter, which then skips its own opening cards of the same id.",
+        "type": "array",
+        "maxItems": 3,
         "items": {
           "$ref": "#/$defs/Card"
         }
@@ -1787,6 +1819,14 @@ export interface ChapterFile {
   /** Room a new game opens in, as folder/map without the .tmj extension. */
   readonly start: string;
   readonly links: readonly ChapterLink[];
+  /** The chapter that follows once this one ends, after its closing cards. Absent: the game returns to the title. */
+  readonly next?: string;
+  /** A conversation that opens as a new game of this chapter starts (the prologue's interview). Not replayed on continue. */
+  readonly intro?: string;
+  /** Tools the operator has from the start of this chapter. Absent means every tool; the prologue lists none, since the chairman hands over the stamp at its end (design doc 5.4). Tools granted earlier in the run are kept. */
+  readonly tools?: readonly "stamp"[];
+  /** Shows the blood glucose meter and runs its rules in this chapter (design doc 7.3). */
+  readonly glucose?: boolean;
 }
 
 /** Two doors that open onto each other. Each end is room#door, where door is the Door object's name in Tiled. The sockets must face each other (N with S, E with W). */
@@ -1804,6 +1844,8 @@ export interface DeckFile {
   readonly opening: readonly Card[];
   /** Shown when the operator steps on a Trigger whose event is card and whose eventId is the card id. */
   readonly events: readonly Card[];
+  /** Played in order after the chapter ends, before the next chapter (design doc 7.3: the prologue ends on "what time tonight?"). Their effects are what the run carries into the next chapter, which then skips its own opening cards of the same id. */
+  readonly closing?: readonly Card[];
 }
 
 export interface Card {

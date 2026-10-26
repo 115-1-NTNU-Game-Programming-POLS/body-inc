@@ -104,6 +104,22 @@ export function flag(state: TagState, dict: TagDictionary, name: string): boolea
   return state.values[name] !== undefined;
 }
 
+/**
+ * Takes `delta` off a number tag, as the walk drains the glucose meter. Like decay, a decrease
+ * needs no source and the tag keeps its log entry; at 0 the tag is gone.
+ */
+export function lowerAmount(state: TagState, dict: TagDictionary, name: string, delta: number): TagState {
+  if (def(dict, name).type !== 'number') throw new TagError(`"${name}" is a boolean tag`);
+  if (!(delta >= 0)) throw new TagError(`lowerAmount takes a delta of 0 or more, got ${delta}`);
+  const e = state.values[name];
+  if (typeof e?.value !== 'number' || delta === 0) return state;
+  const value = Math.round((e.value - delta) * 1e6) / 1e6;
+  const values = { ...state.values };
+  if (value <= 0) delete values[name];
+  else values[name] = { ...e, value };
+  return { ...state, values };
+}
+
 /** Below this a decaying amount counts as gone, so a residual does not linger as 0.000001 forever. */
 const DECAY_FLOOR = 0.01;
 

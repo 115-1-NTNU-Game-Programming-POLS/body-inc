@@ -2,6 +2,7 @@ import type { RuleClock } from '../clock.ts';
 import type { TagState } from '../tags/store.ts';
 import { isRecord, type Schema } from '../content/schema.ts';
 import type { SlotDef } from './save.ts';
+import { TOOLS, type Tool } from '../tools.ts';
 
 /**
  * Player settings. Text scale is the 100% / 125% choice of art direction 8.2; game speed 0.8
@@ -47,6 +48,8 @@ export interface Checkpoint {
   readonly switches: readonly string[];
   /** Where boxes were last left, by `roomId#objectId`; entering a room settles them (core/rooms/boxes.ts). */
   readonly boxes: readonly BoxPlace[];
+  /** Tools held at the punch; the prologue punches before the stamp is handed over. */
+  readonly tools: readonly Tool[];
 }
 
 export interface BoxPlace {
@@ -55,8 +58,21 @@ export interface BoxPlace {
   readonly row: number;
 }
 
+/**
+ * Where the next chapter of the story starts when nothing has been punched in it yet: the tags the
+ * last chapter's closing cards left and the tools carried over. "Continue" plays its opening cards
+ * not yet answered, then starts it.
+ */
+export interface ChapterEntry {
+  readonly chapter: string;
+  readonly tags: TagState;
+  readonly tools: readonly Tool[];
+}
+
 export interface StoryData {
   readonly checkpoint: Checkpoint | null;
+  /** Set between chapters; a punch in the new chapter replaces it with the checkpoint. */
+  readonly entry: ChapterEntry | null;
 }
 
 const INT = { type: 'integer', minimum: 0 } as const satisfies Schema;
@@ -91,24 +107,36 @@ const CAUSAL_NODE: Schema = {
   },
 };
 
+const TAGS: Schema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['values', 'log'],
+  properties: {
+    values: { type: 'object', additionalProperties: TAG_ENTRY },
+    log: { type: 'object', additionalProperties: false, required: ['nodes'], properties: { nodes: { type: 'array', items: CAUSAL_NODE } } },
+  },
+};
+
+const TOOL_LIST: Schema = { type: 'array', uniqueItems: true, items: { enum: [...TOOLS] } };
+
+const ENTRY: Schema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['chapter', 'tags', 'tools'],
+  properties: { chapter: { type: 'string', minLength: 1 }, tags: TAGS, tools: TOOL_LIST },
+};
+
 const CHECKPOINT: Schema = {
   type: 'object',
   additionalProperties: false,
-  required: ['chapter', 'roomId', 'x', 'y', 'tags', 'clock', 'fired', 'switches', 'boxes'],
+  required: ['chapter', 'roomId', 'x', 'y', 'tags', 'clock', 'fired', 'switches', 'boxes', 'tools'],
   properties: {
     chapter: { type: 'string', minLength: 1 },
     roomId: { type: 'string', minLength: 1 },
     x: { type: 'number' },
     y: { type: 'number' },
-    tags: {
-      type: 'object',
-      additionalProperties: false,
-      required: ['values', 'log'],
-      properties: {
-        values: { type: 'object', additionalProperties: TAG_ENTRY },
-        log: { type: 'object', additionalProperties: false, required: ['nodes'], properties: { nodes: { type: 'array', items: CAUSAL_NODE } } },
-      },
-    },
+    tags: TAGS,
+    tools: TOOL_LIST,
     clock: { type: 'object', additionalProperties: false, required: ['day', 'minute'], properties: { day: { type: 'integer', minimum: 1 }, minute: INT } },
     fired: { type: 'array', items: STR },
     switches: { type: 'array', items: STR },
@@ -119,17 +147,17 @@ const CHECKPOINT: Schema = {
   },
 };
 
-/** Story progress: the checkpoint of the chapter being played, or none before the first punch. */
+/** Story progress: the checkpoint of the chapter being played, or the entry of the next one, or neither on a fresh save. */
 export const STORY: SlotDef<StoryData> = {
   name: 'story',
-  version: 3,
+  version: 4,
   schema: {
     type: 'object',
     additionalProperties: false,
-    required: ['checkpoint'],
-    properties: { checkpoint: { anyOf: [{ type: 'null' }, CHECKPOINT] } },
+    required: ['checkpoint', 'entry'],
+    properties: { checkpoint: { anyOf: [{ type: 'null' }, CHECKPOINT] }, entry: { anyOf: [{ type: 'null' }, ENTRY] } },
   },
-  defaults: () => ({ checkpoint: null }),
+  defaults: () => ({ checkpoint: null, entry: null }),
   migrations: {
     // Version 2 keeps the toggle switches; a version-1 checkpoint was punched before any existed.
     1: (data) => {
@@ -140,6 +168,12 @@ export const STORY: SlotDef<StoryData> = {
     2: (data) => {
       if (!isRecord(data) || !isRecord(data['checkpoint'])) return data;
       return { ...data, checkpoint: { ...data['checkpoint'], boxes: [] } };
+    },
+    // Version 4 keeps tools and the next chapter's entry. Before it every chapter started with the stamp.
+    3: (data) => {
+      if (!isRecord(data)) return data;
+      const cp = data['checkpoint'];
+      return { ...data, entry: null, checkpoint: isRecord(cp) ? { ...cp, tools: [...TOOLS] } : cp };
     },
   },
 };

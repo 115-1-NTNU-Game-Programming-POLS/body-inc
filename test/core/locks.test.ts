@@ -221,7 +221,7 @@ describe('switch locks', () => {
     const thrown = run(c, place(startChapter(c), 200, 220), INTERACT).state;
     const punched = run(c, place(thrown, 112, 120), NONE).state;
     expect(punched.run.checkpoint?.switches).toEqual(['lab/a#3']);
-    const saved = decode(STORY, encode(STORY, { checkpoint: punched.run.checkpoint }));
+    const saved = decode(STORY, encode(STORY, { checkpoint: punched.run.checkpoint, entry: null }));
     expect(saved.kind).toBe('ok');
     const resumed = resumeChapter(c, saved.data.checkpoint!);
     expect(resumed.game.switches).toEqual([3]);
@@ -322,14 +322,14 @@ describe('story save', () => {
     const d = decode(STORY, v1);
     expect(d.kind).toBe('migrated');
     expect(d.data.checkpoint).toMatchObject({ fired: ['a#1'], switches: [] });
-    expect(decode(STORY, JSON.stringify({ schema: 1, data: { checkpoint: null } })).data).toEqual({ checkpoint: null });
+    expect(decode(STORY, JSON.stringify({ schema: 1, data: { checkpoint: null } })).data).toEqual({ checkpoint: null, entry: null });
   });
 
   it('a checkpoint naming a switch that is gone continues without it', () => {
     const c = chapter(southDoor('switch'), [lever(3, 200, 200)]);
     const s = startChapter(c);
     const resumed = resumeChapter(c, {
-      chapter: 'lab', roomId: 'lab/a', x: 320, y: 200, tags: s.run.tags, clock: s.game.clock, fired: [], switches: ['lab/a#3', 'lab/a#77', 'lab/a#2'], boxes: [],
+      chapter: 'lab', roomId: 'lab/a', x: 320, y: 200, tags: s.run.tags, clock: s.game.clock, fired: [], switches: ['lab/a#3', 'lab/a#77', 'lab/a#2'], boxes: [], tools: ['stamp'] as const,
     });
     expect(resumed.game.switches).toEqual([3]);
   });

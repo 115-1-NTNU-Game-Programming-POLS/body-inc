@@ -319,7 +319,7 @@ describe('boxes between visits', () => {
     const c = chapter([box(3, 6, 6), plate(4, 2, 11, 2)], southDoor('switch'));
     const s0 = startChapter(c);
     const cp = {
-      chapter: 'lab', roomId: 'lab/a', x: 64, y: 360, tags: s0.run.tags, clock: s0.game.clock, fired: [], switches: [],
+      chapter: 'lab', roomId: 'lab/a', x: 64, y: 360, tags: s0.run.tags, clock: s0.game.clock, fired: [], switches: [], tools: ['stamp'] as const,
       boxes: [{ key: 'lab/a#3', col: 2, row: 11 }],
     };
     expect(tiles(resumeChapter(c, cp))).toEqual([[3, 6, 6]]);
@@ -340,7 +340,7 @@ describe('boxes between visits', () => {
     const c = chapter([box(3, 10, 6), box(5, 11, 6), plate(4, 11, 6, 2)], southDoor('switch'));
     const s0 = startChapter(c);
     const cp = {
-      chapter: 'lab', roomId: 'lab/a', x: 208, y: 212, tags: s0.run.tags, clock: s0.game.clock, fired: [], switches: [],
+      chapter: 'lab', roomId: 'lab/a', x: 208, y: 212, tags: s0.run.tags, clock: s0.game.clock, fired: [], switches: [], tools: ['stamp'] as const,
       boxes: [{ key: 'lab/a#3', col: 11, row: 6 }, { key: 'lab/a#5', col: 6, row: 6 }],
     };
     expect(tiles(resumeChapter(c, cp))).toEqual([[3, 11, 6], [5, 11, 5]]);
@@ -350,7 +350,7 @@ describe('boxes between visits', () => {
     const c = chapter([box(3, 6, 6), plate(4, 2, 11, 2)], southDoor('switch'));
     const s0 = startChapter(c);
     const cp = {
-      chapter: 'lab', roomId: 'lab/a', x: 64, y: 360, tags: s0.run.tags, clock: s0.game.clock, fired: [], switches: [],
+      chapter: 'lab', roomId: 'lab/a', x: 64, y: 360, tags: s0.run.tags, clock: s0.game.clock, fired: [], switches: [], tools: ['stamp'] as const,
       boxes: [{ key: 'lab/a#3', col: 2, row: 11 }],
     };
     expect(resumeChapter(c, cp).run.boxes).toEqual([{ key: 'lab/a#3', col: 6, row: 6 }]);
@@ -375,7 +375,7 @@ describe('boxes between visits', () => {
     const settled = run(c, pushed, NONE, PUSH.slideTicks).state;
     const punched = run(c, place(settled, 48, 120), NONE).state;
     expect(punched.run.checkpoint?.boxes).toEqual([{ key: 'lab/a#3', col: 11, row: 6 }]);
-    const saved = decode(STORY, encode(STORY, { checkpoint: punched.run.checkpoint }));
+    const saved = decode(STORY, encode(STORY, { checkpoint: punched.run.checkpoint, entry: null }));
     expect(tiles(resumeChapter(c, saved.data.checkpoint!))).toEqual([[3, 11, 6]]);
   });
 

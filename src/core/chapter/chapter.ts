@@ -17,10 +17,12 @@ import { spiritAtEntry, type SleepCoefficients } from '../spirit.ts';
 import type { TagDictionary } from '../tags/dictionary.ts';
 import { EMPTY_TAGS, holds, type TagState } from '../tags/store.ts';
 import { TICK_HZ } from '../time.ts';
+import { isTool, TOOLS, type Tool } from '../tools.ts';
 import { caffeineOf, metabolise, senseCap, type MetabolismParams } from '../outer/caffeine.ts';
 import type { Deck } from '../outer/deck.ts';
 import { openCard, stepCard, type CardState } from './cards.ts';
 import { applyEffects } from './effects.ts';
+import { openGlucose, stepGlucose, type GlucoseEvent } from './glucose.ts';
 import { openTalk, stepTalk } from './talk.ts';
 
 /**
@@ -58,6 +60,10 @@ export interface Run {
    * room, so the part of a minute walked before a door is not lost when the next room starts.
    */
   readonly explored: number;
+  /** Walking ticks since the blood glucose meter last dropped; carried across doors like `explored`. */
+  readonly walked: number;
+  /** Tools the operator holds. A chapter can start without the stamp and hand it over in a conversation. */
+  readonly tools: readonly Tool[];
 }
 
 export interface ChapterState {
@@ -67,6 +73,11 @@ export interface ChapterState {
   readonly dialogue: DialogueState | null;
   /** The event card on screen, or null; like a conversation it freezes the room. */
   readonly card: CardState | null;
+  /**
+   * A conversation to open on the next tick, before the room moves: the chapter's intro. It waits
+   * for a tick so its events (a handbook page, say) reach the app like any other conversation's.
+   */
+  readonly pending?: string;
 }
 
 /** What the chapter itself reports on top of a room's events. */
@@ -85,6 +96,9 @@ export type ChapterEvent =
   /** A cutscene trigger fired; the cutscene player picks it up when it exists. */
   | { readonly type: 'outerRequested'; readonly kind: string; readonly eventId: string }
   | { readonly type: 'returnedToCheckpoint'; readonly room: string }
+  /** A conversation handed the operator a tool; the HUD shows it from now on. */
+  | { readonly type: 'toolGranted'; readonly tool: Tool }
+  | GlucoseEvent
   | { readonly type: 'chapterEnded' };
 
 export type GameEvent = DomainEvent | ChapterEvent;
@@ -152,7 +166,10 @@ function build(ctx: ChapterContent, run: Run, place: Place, carry: Carry): GameS
     unlocked: openByState(room.objects, run.tags, ctx.dict, carry.clock),
     // `fired` also holds triggers and beds; the room keeps only the ids that are its pickups.
     taken: idsHere(run, run.fired),
+    // A delivered box is spent like a pickup, so its key sits in `fired` as well.
+    delivered: idsHere(run, run.fired),
     boxes: boxesHere(run),
+    stampLocked: !run.tools.includes('stamp'),
     ...(start ? { start } : {}),
   });
 }
@@ -198,13 +215,23 @@ export interface StartOptions {
   readonly gauge?: number;
   readonly halves?: number;
   readonly clock?: RuleClock;
+  /** Tools carried in from an earlier chapter; added to the ones this chapter hands out at its start. */
+  readonly tools?: readonly Tool[];
+}
+
+/** The tools a chapter starts with: what was carried in, plus its own list (every tool when it has none). */
+export function toolsAtStart(chapter: ChapterFile, carried: readonly Tool[] = []): Tool[] {
+  const own = (chapter.tools ?? TOOLS).filter(isTool);
+  return TOOLS.filter((t) => carried.includes(t) || own.includes(t));
 }
 
 export function startChapter(ctx: ChapterContent, options: StartOptions = {}): ChapterState {
+  const clock = options.clock ?? CHAPTER_OPENS;
+  const tags = options.tags ?? EMPTY_TAGS;
   const run: Run = {
     chapter: ctx.chapter.id,
     roomId: options.room ?? ctx.chapter.start,
-    tags: options.tags ?? EMPTY_TAGS,
+    tags: ctx.chapter.glucose === true ? openGlucose(ctx.dict, tags, clock.minute) : tags,
     fired: [],
     switches: [],
     boxes: [],
@@ -212,18 +239,23 @@ export function startChapter(ctx: ChapterContent, options: StartOptions = {}): C
     seed: options.seed ?? 1,
     entries: 1,
     explored: 0,
+    walked: 0,
+    tools: toolsAtStart(ctx.chapter, options.tools),
   };
   const game = build(ctx, run, { kind: 'start' }, {
-    clock: options.clock ?? CHAPTER_OPENS, gauge: options.gauge ?? 0, halves: options.halves ?? BASE_HALVES, stacks: 0,
+    clock, gauge: options.gauge ?? 0, halves: options.halves ?? BASE_HALVES, stacks: 0,
   });
-  return { run: remember(run, game), game, dialogue: null, card: null };
+  // Only a start at the chapter's own start room is the story's start; a dev build may open anywhere.
+  const intro = run.roomId === ctx.chapter.start ? ctx.chapter.intro : undefined;
+  return { run: remember(run, game), game, dialogue: null, card: null, ...(intro !== undefined ? { pending: intro } : {}) };
 }
 
-/** Continue from a saved checkpoint: its room and place, its tags and clock, full hearts. */
+/** Continue from a saved checkpoint: its room and place, its tags and clock, full hearts. The intro is not played again. */
 export function resumeChapter(ctx: ChapterContent, saved: Checkpoint, seed = 1): ChapterState {
   if (saved.chapter !== ctx.chapter.id) throw new ChapterError(`checkpoint belongs to chapter "${saved.chapter}", not "${ctx.chapter.id}"`);
   const run: Run = {
     chapter: saved.chapter, roomId: saved.roomId, tags: saved.tags, fired: saved.fired, switches: saved.switches, boxes: saved.boxes, checkpoint: saved, seed, entries: 1, explored: 0,
+    walked: 0, tools: saved.tools.filter(isTool),
   };
   const game = build(ctx, run, { kind: 'at', x: saved.x, y: saved.y }, { clock: saved.clock, gauge: 0, halves: BASE_HALVES, stacks: 0 });
   return { run: remember(run, game), game, dialogue: null, card: null };
@@ -236,8 +268,8 @@ export function roomsOf(chapter: ChapterFile): string[] {
   return [...out];
 }
 
-/** What the story slot should hold for this run. */
-export const storyOf = (run: Run): StoryData => ({ checkpoint: run.checkpoint });
+/** What the story slot should hold for this run. Once a room has a punch, it is where "continue" starts, not the chapter's entry. */
+export const storyOf = (run: Run): StoryData => ({ checkpoint: run.checkpoint, entry: null });
 
 /** The other end of the door `door` in `room`, or undefined when the chapter file does not link it. */
 export function across(chapter: ChapterFile, room: string, door: string): { room: string; door: string } | undefined {
@@ -276,7 +308,7 @@ function onTrigger(ctx: ChapterContent, run: Run, game: GameState, e: Extract<Do
     case 'checkpoint': {
       const checkpoint: Checkpoint = {
         chapter: run.chapter, roomId: run.roomId, x: game.operator.x, y: game.operator.y, tags: run.tags, clock: game.clock, fired: run.fired,
-        switches: run.switches, boxes: run.boxes,
+        switches: run.switches, boxes: run.boxes, tools: run.tools,
       };
       // The tea room sits beside the time clock (design doc 5.6), so punching in also restores the hearts.
       return {
@@ -293,6 +325,8 @@ function onTrigger(ctx: ChapterContent, run: Run, game: GameState, e: Extract<Do
     case 'dialogue':
     case 'card':
       return { run, game, events: [], opens: { kind: e.trigger, id: e.eventId }, ...(once ? { spent: key } : {}) };
+    case 'end':
+      return { run, game, events: [{ type: 'chapterEnded' }] };
     default:
       return { run, game, events: [{ type: 'outerRequested', kind: e.trigger, eventId: e.eventId }] };
   }
@@ -358,7 +392,16 @@ export interface Modal {
  * can.
  */
 export function stepChapter(ctx: ChapterContent, state: ChapterState, input: TickInput): ChapterResult {
+  if (state.pending !== undefined) return openPending(ctx, state);
   return state.dialogue ? stepTalk(ctx, state, input) : state.card ? stepCard(ctx, state, input) : stepRoom(ctx, state, input);
+}
+
+function openPending(ctx: ChapterContent, state: ChapterState): ChapterResult {
+  const { pending: id, ...rest } = state;
+  if (!ctx.dialogues.has(id!)) throw new ChapterError(`${ctx.chapter.id}: intro dialogue "${id}" does not exist (the content check should have caught this)`);
+  const talk = openTalk(ctx, rest.run, rest.game, id!);
+  if (!talk) return { state: rest, events: [] };
+  return { state: { ...rest, run: talk.run, game: talk.game, dialogue: talk.dialogue }, events: talk.events };
 }
 
 /** The room as the cloak leaves it: adenosine sees less while the residual is high (design doc 7.4). */
@@ -388,6 +431,13 @@ function stepRoom(ctx: ChapterContent, state: ChapterState, input: TickInput): C
   if (explored < ticksPerMinute(ctx.params)) run = { ...run, explored };
   else ({ run, game } = passTime(ctx, { ...run, explored: 0 }, game, 1));
   const extra: ChapterEvent[] = [];
+  if (ctx.chapter.glucose === true) {
+    const was = state.game.operator;
+    const walking = game.operator.x !== was.x || game.operator.y !== was.y;
+    const g = stepGlucose(ctx.dict, run.tags, run.walked, walking, game.clock.minute);
+    run = { ...run, tags: g.tags, walked: g.walked };
+    extra.push(...g.events);
+  }
   let through: Extract<DomainEvent, { type: 'doorEntered' }> | undefined;
   /** The first conversation or card asked for this tick; one at a time, so a second request is dropped. */
   let opening: (Modal & { readonly spent?: string }) | undefined;
@@ -419,6 +469,18 @@ function stepRoom(ctx: ChapterContent, state: ChapterState, input: TickInput): C
         // Like a lever, a box outlives the visit and the forced leave; settleBoxes decides on entry what stays.
         const key = `${run.roomId}#${e.object}`;
         run = { ...run, boxes: [...run.boxes.filter((b) => b.key !== key), { key, col: e.col, row: e.row }] };
+        break;
+      }
+      case 'boxDelivered': {
+        // Taken in for good: spent like a pickup, and no longer a box the room has to place.
+        const key = `${run.roomId}#${e.object}`;
+        run = { ...run, fired: [...run.fired, key], boxes: run.boxes.filter((b) => b.key !== key) };
+        break;
+      }
+      case 'portFilled': {
+        const port = game.room.objects.find((o) => o.id === e.object);
+        const id = String(port?.props['dialogueId'] ?? '').trim();
+        if (id !== '') opening ??= { kind: 'dialogue', id };
         break;
       }
       case 'doorEntered':

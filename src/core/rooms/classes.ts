@@ -64,7 +64,7 @@ export const OBJECT_CLASSES: Readonly<Record<string, ClassSpec>> = {
     facing: enumOf('Facing', ['down', 'up', 'left', 'right']),
   },
   Trigger: {
-    event: enumOf('TriggerEvent', ['dialogue', 'card', 'cutscene', 'checkpoint', 'clock_advance']),
+    event: enumOf('TriggerEvent', ['dialogue', 'card', 'cutscene', 'checkpoint', 'clock_advance', 'end']),
     eventId: { type: 'string', default: '' },
     once: { type: 'bool', default: true },
     when: { type: 'condition' },
@@ -89,6 +89,17 @@ export const OBJECT_CLASSES: Readonly<Record<string, ClassSpec>> = {
   Box: {
     boxType: enumOf('BoxType', ['crate', 'glucose', 'acetaldehyde', 'food']),
     when: { type: 'condition' },
+  },
+  /**
+   * Where boxes are delivered, such as the prologue's blood glucose dispatch (design doc 7.3): a
+   * box that comes to rest on it is taken in for good. Once it holds `need` boxes it counts as a
+   * switch that is on, for the door or conveyor it targets, and opens its conversation once. Not
+   * in design doc 13.3's table either. One per room.
+   */
+  Port: {
+    need: { type: 'int', default: 1, min: 1 },
+    target: { type: 'object', required: false },
+    dialogueId: { type: 'ref', ref: 'dialogue', required: false },
   },
   Hazard: {
     hazardType: enumOf('HazardType', ['red_fog', 'water', 'syrup']),

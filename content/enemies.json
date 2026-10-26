@@ -12,6 +12,7 @@
     { "id": "flyer", "category": "defeatable", "archetype": "flyer", "performance": 3 },
     { "id": "energy_seller", "category": "defeatable", "archetype": "salesman", "performance": 4 },
     { "id": "cheers", "category": "defeatable" },
+    { "id": "dummy", "category": "defeatable", "performance": 6 },
     { "id": "deadline_imp", "category": "defeatable" },
     { "id": "caffeine", "category": "defeatable", "boss": "caffeine" },
     { "id": "adenosine", "category": "reforming", "solution": "sleep", "clings": true },

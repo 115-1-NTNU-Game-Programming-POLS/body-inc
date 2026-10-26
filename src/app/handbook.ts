@@ -40,7 +40,7 @@ export function missingPages(rooms: ReadonlyMap<string, RoomModel>, dialogues: D
   for (const [id, d] of dialogues) {
     for (const l of d.lines) for (const e of l.effects) if (e.kind === 'unlock' && !pages.has(e.id)) out.push(`dialogue ${id}: handbook page "${e.id}"`);
   }
-  for (const c of deck ? [...deck.opening, ...deck.events.values()] : []) {
+  for (const c of deck ? [...deck.opening, ...deck.events.values(), ...deck.closing] : []) {
     for (const o of c.options) for (const e of o.effects) if (e.kind === 'unlock' && !pages.has(e.id)) out.push(`card ${c.id}/${o.id}: handbook page "${e.id}"`);
   }
   return out;

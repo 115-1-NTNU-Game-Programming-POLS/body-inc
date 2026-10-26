@@ -150,10 +150,12 @@ function problemMessage(p: RoomProblem): string {
       return `${SOCKET_NAME[s]}門必須在${SOCKET_PLACE[s]}，目前在第 ${range(a['cols'])} 欄、第 ${range(a['rows'])} 列`;
     }
     case 'switch-target': return `開關的目標物件 #${a['target']} 不存在`;
-    case 'switch-target-kind': return `開關的目標物件 #${a['target']} 不是 lock 為 switch 的門，也不是輸送帶（Conveyor）；開關只能開門或開關輸送帶`;
+    case 'switch-target-kind': return `開關或調度口的目標物件 #${a['target']} 不是 lock 為 switch 的門，也不是輸送帶（Conveyor）；開關只能開門或開關輸送帶`;
     case 'box-wall': return `箱子放在牆上（第 ${a['col']} 欄、第 ${a['row']} 列）；箱子要放在地板上`;
     case 'box-stack': return `箱子和箱子 #${a['other']} 放在同一格；一格只能放一個箱子`;
-    case 'box-blocked': return `箱子壓在物件 #${a['other']}（${a['kind']}）上；箱子不能放在門、NPC、床、道具或觸發區上，也推不進這些格子`;
+    case 'box-blocked': return a['kind'] === 'Port'
+      ? `箱子一開始就壓在調度口 #${a['other']} 上；箱子要推進調度口才算數，請放在調度口外`
+      : `箱子壓在物件 #${a['other']}（${a['kind']}）上；箱子不能放在門、NPC、床、道具或觸發區上，也推不進這些格子`;
     case 'conveyor-shape': return '輸送帶必須畫成矩形，蓋住它佔的格子；點不知道佔哪些格子';
     case 'switch-missing': return 'lock 是 switch，但房間裡沒有任何開關（Switch）的 target 指向這扇門，門永遠打不開';
     case 'key-missing': return `lock 是 key，lockParam 是「${a['key']}」，但房間裡沒有 itemId 為「${a['key']}」的道具（Pickup），門永遠打不開；不打算開的門請把 lockParam 留空`;
@@ -165,6 +167,9 @@ function problemMessage(p: RoomProblem): string {
     case 'missing-start': return '地圖中沒有 PlayerStart';
     case 'variant-when': return '變體圖層缺少 when 條件式';
     case 'variant-duplicate': return '變體圖層名稱重複';
+    case 'port-shape': return '調度口（Port）必須畫成矩形，蓋住收箱子的格子；點不知道佔哪些格子';
+    case 'port-multiple': return '一個房間只能有一個調度口（Port）；遊戲只會收進第一個';
+    case 'port-need': return `調度口要收 ${a['need']} 個箱子，但房間裡一定在場的箱子（objects 圖層、when 留空）只有 ${a['boxes']} 個，永遠收不滿`;
   }
 }
 
@@ -336,6 +341,7 @@ function passable(room: RoomModel, door: RoomObject): boolean {
     case 'switch': {
       const aimed = switchesFor(room.objects, door.id);
       const boxed = room.objects.some((o) => o.kind === 'Box' && o.variant === undefined && String(o.props['when']).trim() === '');
+      // A Port stays on once filled, and like a plate it needs a box that is always there, which port-need already demands.
       return aimed.some((s) => s.variant === undefined) && aimed.every((s) => s.props['mode'] === 'toggle' || boxed);
     }
     case 'key':
@@ -386,6 +392,9 @@ export function checkChapters(mapsDir: string, content: MapContent = loadMapCont
 
     if (!byPath.has(chapter.start) || byPath.get(chapter.start)!.folder !== id) out.push(`${file}：start「${chapter.start}」不是這一章的房間`);
     if (chapter.id !== id) out.push(`${file}：id「${chapter.id}」必須與地圖資料夾 ${id} 相同`);
+    if (chapter.next !== undefined && !chapters.has(chapter.next)) out.push(`${file}：next「${chapter.next}」不是任何一章的 id（content/chapters/*.json）`);
+    if (chapter.next === id) out.push(`${file}：next 不能是自己這一章`);
+    if (chapter.intro !== undefined && !content.dialogueIds.has(chapter.intro)) out.push(`${file}：intro「${chapter.intro}」不存在於對話（content/dialogue/*.csv）`);
 
     const used = new Map<string, number>();
     const graph = new Map<string, Set<string>>(inChapter.map((r) => [r.path, new Set()]));

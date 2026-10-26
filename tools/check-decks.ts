@@ -41,12 +41,12 @@ const EFFECT_FORMS = '可寫 tag:標籤、tag:標籤=數字、tag:標籤+數字�
 
 function deckMessage(file: string, p: DeckProblem): string {
   if (p.code === 'schema') return `${file} ${p.schema!.path || '（整個檔案）'}：${schemaMessage(p.schema!)}`;
-  const at = `${file} ${p.section === 'opening' ? '章首卡' : '事件卡'}「${p.card}」${p.option ? `的選項「${p.option}」` : ''}`;
+  const at = `${file} ${SECTION_NAME[p.section ?? 'opening']}「${p.card}」${p.option ? `的選項「${p.option}」` : ''}`;
   const part = p.part ?? '';
   const tag = /^tag:([a-z0-9_.]+)/.exec(part)?.[1] ?? part;
-  const who = p.section === 'opening' ? '章首卡只能設定 sources 含 card 的標籤' : '事件卡只能設定 sources 含 event 的標籤';
+  const who = p.section === 'events' ? '事件卡只能設定 sources 含 event 的標籤' : '章首卡與章末卡只能設定 sources 含 card 的標籤';
   switch (p.code) {
-    case 'card-duplicate': return `${at}：卡片 id 重複；章首卡與事件卡共用一套 id，因為卡面文字以 id 為鍵`;
+    case 'card-duplicate': return `${at}：卡片 id 重複；章首卡、事件卡與章末卡共用一套 id，因為卡面文字以 id 為鍵`;
     case 'option-duplicate': return `${at}：同一張卡的選項 id 重複`;
     case 'effect':
       switch (p.effect) {
@@ -55,11 +55,14 @@ function deckMessage(file: string, p: DeckProblem): string {
         case 'alias': return `${at}：effect 的「${tag}」是修飾器，由標籤條件算出來，不能直接設定`;
         case 'tag-source': return `${at}：effect 的標籤「${tag}」不能由這種卡設定；${who}`;
         case 'tag-form': return `${at}：effect「${part}」寫法和標籤型別不符：布林標籤寫 tag:${tag}，數值標籤寫 tag:${tag}=數字 或 tag:${tag}+數字`;
+        case 'tool': return `${at}：effect「${part}」不行；grant:stamp 只能寫在對話或事件卡，章首卡與章末卡不能發工具`;
         case 'minutes': return `${at}：effect「${part}」的 clock: 後面必須是分鐘數，1 到 4 位數的整數`;
         default: return `${at}：effect「${part}」有誤`;
       }
   }
 }
+
+const SECTION_NAME: Record<string, string> = { opening: '章首卡', events: '事件卡', closing: '章末卡' };
 
 const comboName = (r: ComboReport) => r.picks.map((x) => `${x.card}=${x.option}`).join('，') || '（沒有章首卡）';
 
@@ -67,7 +70,7 @@ function playMessage(file: string, r: ComboReport, p: PlayProblem): string {
   const at = `${file} 組合「${comboName(r)}」`;
   switch (p.code) {
     case 'room': return `${at}：房間 ${p.room} 無法以這組標籤進入（${p.message}）`;
-    case 'no-bed': return `${at}：這一章沒有任何 bedType 為 sleep 的床，章節無法結束`;
+    case 'no-bed': return `${at}：這一章沒有任何 bedType 為 sleep 的床，也沒有 event 為 end 的觸發區，章節無法結束`;
     case 'bed-never': return p.event
       ? `${at}：再選事件卡「${p.event.card}」的「${p.event.option}」後，等 24 小時也沒有一張睡覺床的 requires 成立，章節無法結束`
       : `${at}：等 24 小時也沒有一張睡覺床的 requires 成立，章節無法結束`;
@@ -80,7 +83,7 @@ const linesAt = (text: string, preset: { fontSize: number; maxWidth(scale: numbe
 
 function textProblems(file: string, deck: Deck, strings: StringsFile, stringsFile: string): string[] {
   const out: string[] = [];
-  const cards = [...deck.opening, ...deck.events.values()];
+  const cards = [...deck.opening, ...deck.events.values(), ...deck.closing];
   const need = (key: string, preset: (typeof CARD)['title'], what: string) => {
     const s = strings.strings[key];
     if (!s) { out.push(`${file}：${stringsFile} 沒有「${key}」（${what}）`); return; }
@@ -165,7 +168,7 @@ export function checkDecks(opts: DeckCheckOptions = {}): DeckCheck {
     if (!read.deck) continue;
     const deck = read.deck;
     problems.push(...textProblems(file, deck, strings, here(stringsPath)));
-    for (const c of [...deck.opening, ...deck.events.values()]) {
+    for (const c of [...deck.opening, ...deck.events.values(), ...deck.closing]) {
       for (const o of c.options) {
         for (const e of o.effects) {
           if (e.kind === 'unlock' && !pages.has(e.id)) problems.push(`${file} 卡片「${c.id}」的選項「${o.id}」：effect 的 unlock:${e.id} 不存在於手冊頁（content/handbook.json）`);

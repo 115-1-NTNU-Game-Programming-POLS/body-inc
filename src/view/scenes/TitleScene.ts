@@ -2,8 +2,9 @@ import Phaser from 'phaser';
 import { tryResume } from '../../app/chapters.ts';
 import { str } from '../../app/content.ts';
 import { sharedKeys } from '../../app/input.ts';
-import { startChapter, type ChapterContent, type ChapterState, type StoryData } from '../../core/index.ts';
+import { startChapter, type ChapterContent, type ChapterEntry, type ChapterState, type StoryData } from '../../core/index.ts';
 import { addText } from '../text/fonts.ts';
+import type { CardsData } from './OpeningScene.ts';
 import { beginRun } from './run.ts';
 
 const PAPER = '#f4efe4';
@@ -17,8 +18,9 @@ interface Item {
 }
 
 /**
- * Title screen: a new game, or continue from the latest time clock. The first bundled chapter is
- * the new game; "continue" needs a checkpoint that still fits the bundled content.
+ * Title screen: a new game, or continue from the latest time clock, or from the start of the next
+ * chapter when the last one ended with no punch since. The first bundled chapter is the new game;
+ * "continue" needs a save that still fits the bundled content.
  */
 export class TitleScene extends Phaser.Scene {
   private items: Item[] = [];
@@ -39,6 +41,9 @@ export class TitleScene extends Phaser.Scene {
     const checkpoint = story.checkpoint;
     const saved = checkpoint ? chapters.get(checkpoint.chapter) : undefined;
     const resumed = saved && checkpoint ? tryResume(saved, checkpoint) : undefined;
+    // Between chapters there is no punch yet, only where the next chapter starts.
+    const entry = checkpoint ? null : story.entry;
+    const entered = entry && chapters.has(entry.chapter) ? entry : undefined;
     // From here on the tracker sees every key, so `play` knows which ones are still down.
     sharedKeys(this.registry, window);
 
@@ -56,9 +61,9 @@ export class TitleScene extends Phaser.Scene {
     });
     this.items = [
       make(420, 'title.new', true, () => this.newGame(first)),
-      make(490, 'title.continue', resumed !== undefined, () => this.play(saved!, resumed!)),
+      make(490, 'title.continue', resumed !== undefined || entered !== undefined, () => (resumed ? this.play(saved!, resumed) : this.enter(entered!))),
     ];
-    if (checkpoint && resumed === undefined) {
+    if ((checkpoint && resumed === undefined) || (entry && entered === undefined)) {
       addText(this, w / 2, 556, str('title.stale'), { role: 'print', weight: 400, size: 20, color: DIM }).setOrigin(0.5);
     }
     this.index = 0;
@@ -105,9 +110,18 @@ export class TitleScene extends Phaser.Scene {
   /** A new game opens on the chapter's opening cards when its deck has any (build plan P1). */
   private newGame(ctx: ChapterContent): void {
     if (!ctx.deck || ctx.deck.opening.length === 0) return this.play(ctx, startChapter(ctx));
+    this.cards({ chapter: ctx.chapter.id });
+  }
+
+  /** The next chapter of a save made between chapters: its opening cards not yet answered, then its first room. */
+  private enter(entry: ChapterEntry): void {
+    this.cards({ chapter: entry.chapter, mode: 'opening', tags: entry.tags, tools: entry.tools });
+  }
+
+  private cards(data: CardsData): void {
     if (this.starting) return;
     this.starting = true;
     // Deferred for the same reason as in beginRun: the confirming key must reach the tracker first.
-    window.setTimeout(() => this.scene.start('Opening', { chapter: ctx.chapter.id }), 0);
+    window.setTimeout(() => this.scene.start('Opening', data), 0);
   }
 }

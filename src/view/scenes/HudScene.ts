@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import type { FixedStepLoop } from '../../app/loop.ts';
 import {
-  MINUTES_PER_DAY, selectBoss, selectClock, selectGauge, selectHearts, selectInteractable, selectTick, TICK_HZ,
+  GLUCOSE as METER, glucoseOf, MINUTES_PER_DAY, selectBoss, selectClock, selectGauge, selectHearts, selectInteractable, selectTick, TICK_HZ,
   type BossSummary, type ChapterState, type GameEvent, type GameState,
 } from '../../core/index.ts';
 import { str } from '../../app/content.ts';
@@ -29,6 +29,8 @@ const PLATE = { x: 400, y: 16, w: 480, h: 72 } as const;
 /** Caffeine's residue curve inside the plate: 160 x 32, the last 40 s sampled every 0.25 s. */
 const CURVE = { x: 708, y: 24, w: 160, h: 32, samples: 160, everyMs: 250 } as const;
 const PAPER = 0xf4efe4;
+/** Glucose meter, beside the stamp pad on the same row. Not in art direction 8.3, which predates the prologue rules. */
+const GLUCOSE = { x: GAUGE_X + GAUGE_W + 20, w: 160 } as const;
 
 interface Plate {
   readonly g: Phaser.GameObjects.Graphics;
@@ -47,6 +49,9 @@ export class HudScene extends Phaser.Scene {
   private clock!: Phaser.GameObjects.Text;
   private hearts!: Phaser.GameObjects.Graphics;
   private gauge!: Phaser.GameObjects.Graphics;
+  private glucose!: Phaser.GameObjects.Graphics;
+  private glucoseLabel!: Phaser.GameObjects.Text;
+  private shownGlucose = '';
   private plate: Plate | undefined;
   private shownHalves = -1;
   private shownGauge = '';
@@ -69,6 +74,11 @@ export class HudScene extends Phaser.Scene {
     this.noticeBottom = this.scale.height - 12;
     this.hearts = this.add.graphics();
     this.gauge = this.add.graphics();
+    this.glucose = this.add.graphics();
+    this.shownGlucose = '';
+    this.glucoseLabel = addText(this, GLUCOSE.x + GLUCOSE.w + 12, GAUGE_Y + GAUGE_H / 2 + 2, '', {
+      role: 'print', weight: 700, size: 16, color: '#e8edf5', backgroundColor: 'rgba(12, 45, 94, 0.82)', padding: { x: 6, y: 2 },
+    }).setOrigin(0, 0.5).setVisible(false);
     // The HUD sits over the north wall (art direction 7.2), so light text needs its own plate to
     // stay readable over pale walls and wall props.
     const plate = { backgroundColor: 'rgba(12, 45, 94, 0.82)', padding: { x: 6, y: 2 } } as const;
@@ -141,6 +151,26 @@ export class HudScene extends Phaser.Scene {
     g.fillStyle(INK, 0.82).fillRect(GAUGE_X, GAUGE_Y, GAUGE_W + 4, GAUGE_H + 4);
     g.fillStyle(lit ? 0xffffff : STAMP_RED).fillRect(GAUGE_X + 2, GAUGE_Y + 2, Math.round((GAUGE_W * value) / max), GAUGE_H);
     g.fillStyle(0xe8edf5).fillRect(GAUGE_X + 2 + GAUGE_W / 2, GAUGE_Y + 2, 1, GAUGE_H);
+  }
+
+  /**
+   * The prologue's blood glucose meter (design doc 7.3), right of the stamp pad: the normal band
+   * shaded, the value as an ink bar. Absent in a chapter without the meter.
+   */
+  private renderGlucose(value: number | undefined): void {
+    const key = value === undefined ? '' : String(Math.round(value));
+    if (key === this.shownGlucose) return;
+    this.shownGlucose = key;
+    const g = this.glucose.clear();
+    this.glucoseLabel.setVisible(value !== undefined);
+    if (value === undefined) return;
+    const x = GLUCOSE.x;
+    const y = GAUGE_Y;
+    const at = (v: number) => Math.round((GLUCOSE.w * v) / METER.max);
+    g.fillStyle(INK, 0.82).fillRect(x, y, GLUCOSE.w + 4, GAUGE_H + 4);
+    g.fillStyle(0x4f7a5a).fillRect(x + 2 + at(METER.band.low), y + 2, at(METER.band.high) - at(METER.band.low), GAUGE_H);
+    g.fillStyle(PAPER).fillRect(x + 2, y + 2 + GAUGE_H / 2 - 2, at(Math.min(value, METER.max)), 4);
+    updateText(this.glucoseLabel, str('hud.glucose').replace('{value}', key));
   }
 
   /** Nameplate of the room's boss; made on first sight, since the Hud can start before World. */
@@ -230,11 +260,15 @@ export class HudScene extends Phaser.Scene {
     }
     const { value, max } = selectGauge(game);
     const lit = value >= max && time % FULL_PULSE_MS < 120;
-    const gaugeKey = `${value}/${lit}`;
+    // Before the stamp is handed over there is no pad to fill, so none is drawn.
+    const locked = game.stampLocked === true;
+    const gaugeKey = `${value}/${lit}/${locked}`;
     if (gaugeKey !== this.shownGauge) {
       this.shownGauge = gaugeKey;
-      this.drawGauge(value, max, lit);
+      if (locked) this.gauge.clear();
+      else this.drawGauge(value, max, lit);
     }
+    this.renderGlucose(glucoseOf(loop.state.run.tags));
     this.renderBoss(game, time);
     this.prompt.setVisible(loop.state.dialogue === null && loop.state.card === null &&selectInteractable(game) !== undefined);
     const seconds = (selectTick(game) / TICK_HZ).toFixed(1);

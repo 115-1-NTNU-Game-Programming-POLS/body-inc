@@ -122,7 +122,7 @@ describe('fixed-step loop', () => {
     const chapter = CHAPTERS.get('greybox')!;
     const maps = new Map(roomsOf(chapter).map((p) => [p, JSON.parse(readFileSync(`public/assets/maps/${p}.tmj`, 'utf8')) as TiledMap]));
     const ctx = chapterContent(chapter, maps);
-    const saved = { chapter: 'greybox', roomId: 'greybox/rest-room', x: 128, y: 230, tags: EMPTY_TAGS, clock: startClock(1, 9), fired: [], switches: [], boxes: [] };
+    const saved = { chapter: 'greybox', roomId: 'greybox/rest-room', x: 128, y: 230, tags: EMPTY_TAGS, clock: startClock(1, 9), fired: [], switches: [], boxes: [], tools: ['stamp'] as const };
     expect(tryResume(ctx, saved)?.run.roomId).toBe('greybox/rest-room');
     expect(tryResume(ctx, { ...saved, roomId: 'greybox/renamed-since' })).toBeUndefined();
     expect(tryResume(ctx, { ...saved, chapter: 'brain' })).toBeUndefined();

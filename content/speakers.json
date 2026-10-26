@@ -4,11 +4,14 @@
     "adenosine": { "style": "box", "portrait": true },
     "brain": { "style": "box", "portrait": true },
     "caffeine": { "style": "box", "portrait": true },
+    "consultant": { "style": "box", "portrait": false },
     "exam": { "style": "box", "portrait": true },
     "gut": { "style": "box", "portrait": true },
+    "hr": { "style": "box", "portrait": false },
     "immune": { "style": "box", "portrait": true },
     "liver": { "style": "memo", "portrait": true },
     "muscle": { "style": "box", "portrait": true },
+    "narrator": { "style": "box", "portrait": false },
     "stomach": { "style": "box", "portrait": true },
     "toast-boss": { "style": "box", "portrait": true }
   }

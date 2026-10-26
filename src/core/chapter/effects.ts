@@ -4,12 +4,15 @@ import { metabolise, type MetabolismParams } from '../outer/caffeine.ts';
 import { record, type SourceNodeKind } from '../tags/causal.ts';
 import type { TagDictionary } from '../tags/dictionary.ts';
 import { addAmount, setAmount, setFlag, type TagState } from '../tags/store.ts';
+import type { Tool } from '../tools.ts';
 
 /** What applying effects reports; a subset of the chapter's events. */
 export type EffectEvent =
   | { readonly type: 'clockAdvanced'; readonly minutes: number }
   /** A handbook page was unlocked; the app keeps it in the progress slot. */
-  | { readonly type: 'handbookUnlocked'; readonly id: string };
+  | { readonly type: 'handbookUnlocked'; readonly id: string }
+  /** A tool was handed over; the chapter keeps it on the run. */
+  | { readonly type: 'toolGranted'; readonly tool: Tool };
 
 export interface EffectSource {
   readonly kind: SourceNodeKind;
@@ -56,6 +59,11 @@ export function applyEffects(
         [log] = record(tags.log, { kind: 'effect', key: `unlock.${e.id}`, at: clock.minute, causes: [cause] });
         tags = { ...tags, log };
         events.push({ type: 'handbookUnlocked', id: e.id });
+        break;
+      case 'grant':
+        [log] = record(tags.log, { kind: 'effect', key: `grant.${e.tool}`, at: clock.minute, causes: [cause] });
+        tags = { ...tags, log };
+        events.push({ type: 'toolGranted', tool: e.tool });
         break;
     }
   }
