@@ -279,6 +279,17 @@ describe('map check', () => {
       expect(check({ a: map([keyDoor]) })).toEqual(['lock 是 key，lockParam 是「k」，但房間裡沒有 itemId 為「k」的道具（Pickup），門永遠打不開；不打算開的門請把 lockParam 留空']);
       expect(check({ a: map([keyDoor, key('breakfast')]) })).toEqual([expect.stringContaining('這個道具是門 #2 的鑰匙，必須放在 objects 圖層、when 留空')]);
     });
+
+    it('a box may not start where the operator appears or an enemy comes back to', () => {
+      const crate = (col: number, row: number) => ({ type: 'Box', x: col * 32 + 16, y: row * 32 + 16, properties: [] });
+      const start = { type: 'PlayerStart', x: 320, y: 256 };
+      const southDoor = { type: 'Door', x: 288, y: 352, width: 64, height: 32, properties: [prop('socket', 'S')] };
+      const salesman = { type: 'Spawn', x: 200, y: 200, properties: [prop('enemyType', 'salesman')] };
+      expect(check({ a: map([start, southDoor, salesman, crate(4, 4)]) })).toEqual([]);
+      expect(check({ a: map([start, crate(9, 7)]) })).toEqual([expect.stringContaining('箱子壓到PlayerStart')]);
+      expect(check({ a: map([southDoor, crate(9, 10)]) })).toEqual([expect.stringContaining('箱子壓到門 #1 進房時營運長站的位置')]);
+      expect(check({ a: map([salesman, crate(6, 5)]) })).toEqual([expect.stringContaining('箱子壓到Spawn #1 敵人出現的位置')]);
+    });
   });
 });
 

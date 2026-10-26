@@ -199,6 +199,12 @@ describe('boxes on plates', () => {
     expect(r.events).toContainEqual({ type: 'switchChanged', object: 4, on: true, mode: 'hold', by: 'box' });
   });
 
+  it('says the box let it up when the box is pushed off', () => {
+    const c = chapter([box(3, 11, 6), plate(4, 11, 6, 2)], southDoor('switch'));
+    const r = run(c, place(startChapter(c), 11 * 32 - 7, 215), RIGHT, PUSH.delayTicks + 2);
+    expect(r.events).toContainEqual({ type: 'switchChanged', object: 4, on: false, mode: 'hold', by: 'box' });
+  });
+
   it('a box that starts on a plate holds it from the first tick', () => {
     const c = chapter([box(3, 11, 6), plate(4, 11, 6, 2)], southDoor('switch'));
     expect(startChapter(c).game.doorsOpen).toEqual([2]);
@@ -233,6 +239,28 @@ describe('conveyors', () => {
     const s = run(c, place(startChapter(c), 160, 280), NONE, 30).state;
     expect(s.game.operator.x).toBeCloseTo(160 + 30 * (32 / CONVEYOR_TICKS['fast']!), 5);
     expect(s.game.operator.y).toBe(280);
+  });
+
+  it('a carried box keeps the tile it left solid until it arrives, so no one walks into it', () => {
+    const c = chapter([belt(3, 14, 4, 4, 'E', 'slow'), box(4, 14, 4)]);
+    // Flush against the box's left side, walking right as the belt starts to carry it.
+    const s = run(c, place(startChapter(c), 14 * 32 - 7, 148), RIGHT, 30).state;
+    expect(s.game.boxes[0]!.left).toBeGreaterThan(0);
+    expect(s.game.operator.x).toBeLessThanOrEqual(14 * 32 - 7);
+    // The control: once it has arrived the operator follows.
+    const later = run(c, s, RIGHT, 40).state;
+    expect(later.game.operator.x).toBeGreaterThan(14 * 32);
+  });
+
+  it('a line of boxes on a belt moves the same whatever their ids', () => {
+    const lineOf = (upstream: number, downstream: number) => {
+      const c = chapter([belt(9, 4, 4, 12), box(upstream, 5, 4), box(downstream, 6, 4)]);
+      const s = run(c, startChapter(c), NONE, 40).state;
+      return s.game.boxes.map((b) => [b.col, b.row, b.left]).sort((a, b) => a[0]! - b[0]!);
+    };
+    expect(lineOf(3, 4)).toEqual(lineOf(4, 3));
+    // Both start their second slide on tick 31, once the front box has left the tile behind it, so a tile stays between them.
+    expect(lineOf(3, 4)).toEqual([[6, 4, 21], [8, 4, 21]]);
   });
 
   it('a carried box waits while the operator stands in its way', () => {
@@ -297,6 +325,48 @@ describe('boxes between visits', () => {
     expect(tiles(resumeChapter(c, cp))).toEqual([[3, 6, 6]]);
     // The control: stood elsewhere, the same box stays on its plate.
     expect(tiles(resumeChapter(c, { ...cp, x: 320, y: 200 }))).toEqual([[3, 2, 11]]);
+  });
+
+  it('a box whose home is under the operator is set down on the nearest free tile, not on them', () => {
+    // The PlayerStart at (64, 360) covers tiles (1..2, 10..11).
+    const c = chapter([box(3, 2, 11)]);
+    const s = startChapter(c);
+    expect(tiles(s)).toEqual([[3, 3, 11]]);
+    expect(s.run.boxes).toEqual([{ key: 'lab/a#3', col: 3, row: 11 }]);
+  });
+
+  it('a box that can go neither home nor where it was is never put on another box', () => {
+    // Box 3 kept on the plate, which is box 5's home; box 5 was left where the operator now stands.
+    const c = chapter([box(3, 10, 6), box(5, 11, 6), plate(4, 11, 6, 2)], southDoor('switch'));
+    const s0 = startChapter(c);
+    const cp = {
+      chapter: 'lab', roomId: 'lab/a', x: 208, y: 212, tags: s0.run.tags, clock: s0.game.clock, fired: [], switches: [],
+      boxes: [{ key: 'lab/a#3', col: 11, row: 6 }, { key: 'lab/a#5', col: 6, row: 6 }],
+    };
+    expect(tiles(resumeChapter(c, cp))).toEqual([[3, 11, 6], [5, 11, 5]]);
+  });
+
+  it('the run remembers where settling put a box, so a later visit and the saved checkpoint agree with the room', () => {
+    const c = chapter([box(3, 6, 6), plate(4, 2, 11, 2)], southDoor('switch'));
+    const s0 = startChapter(c);
+    const cp = {
+      chapter: 'lab', roomId: 'lab/a', x: 64, y: 360, tags: s0.run.tags, clock: s0.game.clock, fired: [], switches: [],
+      boxes: [{ key: 'lab/a#3', col: 2, row: 11 }],
+    };
+    expect(resumeChapter(c, cp).run.boxes).toEqual([{ key: 'lab/a#3', col: 6, row: 6 }]);
+  });
+
+  it('a box cannot be pushed onto the home of a closed enemy, which would come back inside it', () => {
+    const salesman = (x: number, y: number) => ({ id: 6, type: 'Spawn', x, y, properties: [p('enemyType', 'salesman'), p('respawnSeconds', 5)] });
+    const pushInto = (spawn: object) => {
+      const c = chapter([box(3, 10, 6), spawn]);
+      const s0 = startChapter(c);
+      const closed = { ...s0, game: { ...s0.game, enemies: s0.game.enemies.map((e) => ({ ...e, phase: 'closed' as const, phaseTicks: 0 })) } };
+      return types(run(c, leftOf10(closed), RIGHT, 30).events);
+    };
+    // Home in tile (11, 6), the tile the box would move to.
+    expect(pushInto(salesman(368, 212))).not.toContain('boxMoved');
+    expect(pushInto(salesman(500, 300))).toContain('boxMoved');
   });
 
   it('the time clock saves where boxes were left, through save and continue', () => {

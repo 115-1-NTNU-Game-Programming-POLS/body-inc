@@ -7,6 +7,7 @@ import type { ChapterFile } from '../content/generated.ts';
 import type { DialogueState } from '../dialogue/runner.ts';
 import type { DialogueTable, Effect } from '../dialogue/lines.ts';
 import { createGame, sendStacksHome, step, type DomainEvent, type GameState } from '../game.ts';
+import { tileOf } from '../rooms/boxes.ts';
 import { enterRoom } from '../rooms/entry.ts';
 import { arrivalPoint } from '../rooms/interact.ts';
 import { openByState } from '../rooms/locks.ts';
@@ -156,6 +157,24 @@ function build(ctx: ChapterContent, run: Run, place: Place, carry: Carry): GameS
   });
 }
 
+/**
+ * The run's box memory brought in line with where the room put its boxes. Settling can move a box
+ * off its remembered tile (a body stood there) without any event; without this the run, and so the
+ * next visit and the saved checkpoint, would still have it where it no longer is.
+ */
+function remember(run: Run, game: GameState): Run {
+  const prefix = `${run.roomId}#`;
+  const known = boxesHere(run);
+  const homes = new Map(game.room.objects.filter((o) => o.kind === 'Box').map((o) => [o.id, tileOf(o)]));
+  const moved = game.boxes.filter((b) => {
+    const was = known.get(b.id) ?? homes.get(b.id);
+    return !was || was.col !== b.col || was.row !== b.row;
+  });
+  if (moved.length === 0) return run;
+  const keys = new Set(moved.map((b) => `${prefix}${b.id}`));
+  return { ...run, boxes: [...run.boxes.filter((b) => !keys.has(b.key)), ...moved.map((b) => ({ key: `${prefix}${b.id}`, col: b.col, row: b.row }))] };
+}
+
 /** The run's remembered boxes of its current room, by object id. */
 function boxesHere(run: Run): Map<number, { col: number; row: number }> {
   const prefix = `${run.roomId}#`;
@@ -197,7 +216,7 @@ export function startChapter(ctx: ChapterContent, options: StartOptions = {}): C
   const game = build(ctx, run, { kind: 'start' }, {
     clock: options.clock ?? CHAPTER_OPENS, gauge: options.gauge ?? 0, halves: options.halves ?? BASE_HALVES, stacks: 0,
   });
-  return { run, game, dialogue: null, card: null };
+  return { run: remember(run, game), game, dialogue: null, card: null };
 }
 
 /** Continue from a saved checkpoint: its room and place, its tags and clock, full hearts. */
@@ -207,7 +226,7 @@ export function resumeChapter(ctx: ChapterContent, saved: Checkpoint, seed = 1):
     chapter: saved.chapter, roomId: saved.roomId, tags: saved.tags, fired: saved.fired, switches: saved.switches, boxes: saved.boxes, checkpoint: saved, seed, entries: 1, explored: 0,
   };
   const game = build(ctx, run, { kind: 'at', x: saved.x, y: saved.y }, { clock: saved.clock, gauge: 0, halves: BASE_HALVES, stacks: 0 });
-  return { run, game, dialogue: null, card: null };
+  return { run: remember(run, game), game, dialogue: null, card: null };
 }
 
 /** Every room the chapter file names, start first; the rooms the app must have loaded before play. */
@@ -409,7 +428,10 @@ function stepRoom(ctx: ChapterContent, state: ChapterState, input: TickInput): C
       case 'forcedLeave': {
         const cp = run.checkpoint;
         // Without a checkpoint the room has already restarted at its start, which is all there is to return to.
-        if (!cp) break;
+        if (!cp) {
+          run = remember(run, game);
+          break;
+        }
         // Everything else spent stays spent.
         const fired = run.fired.filter((k) => cp.fired.includes(k) || !undoneByReturn(ctx, k));
         const next: Run = { ...run, roomId: cp.roomId, tags: cp.tags, fired, entries: run.entries + 1 };
@@ -417,7 +439,7 @@ function stepRoom(ctx: ChapterContent, state: ChapterState, input: TickInput): C
         const built = build(ctx, next, { kind: 'at', x: cp.x, y: cp.y }, {
           clock: cp.clock, gauge: game.operator.gauge, halves: game.operator.maxHalves, stacks: game.operator.stacks,
         });
-        return done(plain(next, built), [{ type: 'returnedToCheckpoint', room: cp.roomId }]);
+        return done(plain(remember(next, built), built), [{ type: 'returnedToCheckpoint', room: cp.roomId }]);
       }
       case 'talk':
         opening ??= { kind: 'dialogue', id: e.dialogueId };
@@ -469,7 +491,7 @@ function stepRoom(ctx: ChapterContent, state: ChapterState, input: TickInput): C
     const built = build(ctx, next, { kind: 'door', door: dest.door }, {
       clock: game.clock, gauge: game.operator.gauge, halves: game.operator.halves, stacks: game.operator.stacks,
     });
-    return done(plain(next, built), [{ type: 'roomChanged', from: run.roomId, to: dest.room }]);
+    return done(plain(remember(next, built), built), [{ type: 'roomChanged', from: run.roomId, to: dest.room }]);
   }
   return done(plain(run, game), []);
 }

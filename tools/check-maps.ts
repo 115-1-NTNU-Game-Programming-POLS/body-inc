@@ -12,8 +12,12 @@
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { basename, dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { boxAt, overlaps } from '../src/core/collision/boxes.ts';
 import { bodyOverlapsSolid } from '../src/core/collision/grid.ts';
+import { ENEMY_BODY } from '../src/core/combat/actors.ts';
 import { OPERATOR_BODY } from '../src/core/combat/operator.ts';
+import { spawnHomes } from '../src/core/game.ts';
+import { tileBox, tileOf } from '../src/core/rooms/boxes.ts';
 import { loadEnemyTable, type EnemyTable } from '../src/core/combat/enemies.ts';
 import { schemaProblems } from '../src/core/content/read.ts';
 import { parseCsv } from '../src/core/dialogue/csv.ts';
@@ -235,6 +239,19 @@ export function checkMaps(mapsDir: string, content: MapContent = loadMapContent(
       if (o.kind === 'Pickup' && o.props['itemType'] === 'handbook' && !content.handbookIds.has(id.trim())) {
         out.push(`${file} ${where(room, { object: o.id })}：itemId「${id.trim()}」不存在於手冊頁（content/handbook.json）`);
       }
+    }
+    // The game moves a box off a body as the room starts, so a box drawn there would not be where the author put it.
+    const bodies = [
+      ...room.objects.filter((o) => o.kind === 'PlayerStart').map((o) => ({ what: 'PlayerStart（出生點）', box: boxAt(OPERATOR_BODY, o.x, o.y) })),
+      ...room.objects.filter((o) => o.kind === 'Door').map((o) => {
+        const p = arrivalPoint(o, OPERATOR_BODY);
+        return { what: `門 #${o.id} 進房時營運長站的位置`, box: boxAt(OPERATOR_BODY, p.x, p.y) };
+      }),
+      ...room.objects.filter((o) => o.kind === 'Spawn').flatMap((o) => spawnHomes(o).map((p) => ({ what: `Spawn #${o.id} 敵人出現的位置`, box: boxAt(ENEMY_BODY, p.x, p.y) }))),
+    ];
+    for (const b of room.objects.filter((o) => o.kind === 'Box')) {
+      const hit = bodies.find((x) => overlaps(tileBox(tileOf(b)), x.box));
+      if (hit) out.push(`${file} ${where(room, { object: b.id })}：箱子壓到${hit.what}；遊戲開始時箱子會被移開，請把箱子放到別格`);
     }
     const props = listProps({ ...map, tilesets: (map as Partial<TiledMapFile>).tilesets ?? [] });
     for (const p of props.problems) out.push(`${file}：${propMessage(p)}`);

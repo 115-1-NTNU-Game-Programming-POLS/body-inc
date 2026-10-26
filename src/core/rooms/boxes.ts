@@ -9,9 +9,11 @@ import type { RoomModel, RoomObject } from './tiled.ts';
  * no class for boxes; the rules chosen here are written up in docs/authoring/rooms-and-dialogue.md).
  *
  * A box sits on one whole tile and moves a tile at a time, so a puzzle reads like a grid even
- * though the operator moves freely. While it slides it already owns the tile it is going to, and
- * the tile it left is free at once: the operator walking behind it never waits, and the slide is
- * faster than walking so the two never overlap on screen.
+ * though the operator moves freely. While it slides it already owns the tile it is going to. A
+ * pushed box frees the tile it left at once, so the operator pushing it never waits: a push slide
+ * is faster than walking, so the two do not overlap on screen. A belt carries a box slower than
+ * walking, so a carried box keeps the tile it left solid until it arrives, or the operator would
+ * walk into it. Either way no other box enters the tile a box is leaving until it has left.
  */
 
 export interface Tile {
@@ -28,6 +30,8 @@ export interface BoxState extends Tile {
   readonly left: number;
   /** Ticks the whole slide takes, for drawing it. */
   readonly ticks: number;
+  /** Set while a belt carries it: the tile it left stays solid until it arrives. */
+  readonly carried?: true;
 }
 
 /** The operator presses against a box this many ticks before it moves; a brush past one does not shove it. */
@@ -116,7 +120,11 @@ export function withBoxes(grid: SolidGrid, boxes: readonly BoxState[]): SolidGri
   let g = gridCache.get(boxes);
   if (!g || g.cols !== grid.cols) {
     const solid = [...grid.solid];
-    for (const b of boxes) if (b.col >= 0 && b.row >= 0 && b.col < grid.cols && b.row < grid.rows) solid[b.row * grid.cols + b.col] = true;
+    const mark = (t: Tile) => { if (t.col >= 0 && t.row >= 0 && t.col < grid.cols && t.row < grid.rows) solid[t.row * grid.cols + t.col] = true; };
+    for (const b of boxes) {
+      mark(b);
+      if (b.carried && b.from) mark(b.from);
+    }
     g = { ...grid, solid };
     gridCache.set(boxes, g);
   }
@@ -128,10 +136,17 @@ export interface Occupants {
   readonly bodies: readonly Box[];
 }
 
-/** Whether a box may move onto the tile: floor, no box, no fixed object it must keep clear, no one standing there. */
+const holds = (b: BoxState, t: Tile): boolean =>
+  (b.col === t.col && b.row === t.row) || (b.left > 0 && b.from !== undefined && b.from.col === t.col && b.from.row === t.row);
+
+/**
+ * Whether a box may move onto the tile: floor, no box arriving or leaving, no fixed object it must
+ * keep clear, no one standing there. Counting a tile being left as taken keeps two boxes from
+ * overlapping on screen, and makes a line of boxes on a belt move the same whatever their ids.
+ */
 export function canEnter(room: RoomModel, boxes: readonly BoxState[], t: Tile, occupants: Occupants): boolean {
   if (isSolid(room.grid, t.col, t.row)) return false;
-  if (boxes.some((b) => b.col === t.col && b.row === t.row)) return false;
+  if (boxes.some((b) => holds(b, t))) return false;
   const tb = tileBox(t);
   return !indexOf(room).keepClear.some((k) => overlaps(tb, k)) && !occupants.bodies.some((b) => overlaps(tb, b));
 }
@@ -143,13 +158,14 @@ export const onPlate = (room: RoomModel, t: Tile): boolean => platesUnder(room, 
  * Where the boxes are as the room is entered or restarted. A box resting on a plate stays: the
  * puzzle it solved stays solved (design doc 5.6). Every other box goes back to where the map put
  * it, so a box pushed into a corner can never leave a room unsolvable. A box that cannot go home
- * because a kept box is there stays where it was, and no box is put under the operator.
+ * stays where it was, or failing that takes the nearest free floor tile: no box is ever put on
+ * another, or on any body in `clear` (the operator and every enemy's home, where enemies reappear).
  */
-export function settleBoxes(room: RoomModel, remembered: ReadonlyMap<number, Tile>, clear: Box): BoxState[] {
+export function settleBoxes(room: RoomModel, remembered: ReadonlyMap<number, Tile>, clear: readonly Box[]): BoxState[] {
   const objects = room.objects.filter((o) => o.kind === 'Box').sort((a, b) => a.id - b.id);
   const placed = new Map<number, Tile>();
   const taken = (t: Tile) => [...placed.values()].some((p) => p.col === t.col && p.row === t.row);
-  const free = (t: Tile) => !taken(t) && !overlaps(tileBox(t), clear);
+  const free = (t: Tile) => !taken(t) && !clear.some((c) => overlaps(tileBox(t), c));
   for (const o of objects) {
     const t = remembered.get(o.id);
     if (t && onPlate(room, t) && free(t)) placed.set(o.id, t);
@@ -158,14 +174,33 @@ export function settleBoxes(room: RoomModel, remembered: ReadonlyMap<number, Til
     if (placed.has(o.id)) continue;
     const home = tileOf(o);
     const t = remembered.get(o.id);
-    placed.set(o.id, free(home) || !t || !free(t) ? home : t);
+    const spot = [home, t].find((x): x is Tile => x !== undefined && free(x))
+      ?? nearest(room, home, (x) => free(x) && !indexOf(room).keepClear.some((k) => overlaps(tileBox(x), k)));
+    placed.set(o.id, spot ?? home);
   }
   return objects.map((o) => ({ id: o.id, ...placed.get(o.id)!, left: 0, ticks: 0 }));
 }
 
+/** The closest floor tile to `from` that passes `ok`, walking through floor only, in N, S, W, E order. */
+function nearest(room: RoomModel, from: Tile, ok: (t: Tile) => boolean): Tile | undefined {
+  const seen = new Set([at(from)]);
+  const queue = [from];
+  for (let i = 0; i < queue.length; i++) {
+    const t = queue[i]!;
+    if (ok(t)) return t;
+    for (const d of [STEP['N']!, STEP['S']!, STEP['W']!, STEP['E']!]) {
+      const n = { col: t.col + d.col, row: t.row + d.row };
+      if (seen.has(at(n)) || isSolid(room.grid, n.col, n.row)) continue;
+      seen.add(at(n));
+      queue.push(n);
+    }
+  }
+  return undefined;
+}
+
 /** A box starting a slide of `ticks` to the next tile in `dir`. */
-export const startSlide = (b: BoxState, dir: Tile, ticks: number): BoxState =>
-  ({ id: b.id, col: b.col + dir.col, row: b.row + dir.row, from: { col: b.col, row: b.row }, left: ticks, ticks });
+export const startSlide = (b: BoxState, dir: Tile, ticks: number, carried = false): BoxState =>
+  ({ id: b.id, col: b.col + dir.col, row: b.row + dir.row, from: { col: b.col, row: b.row }, left: ticks, ticks, ...(carried ? { carried: true as const } : {}) });
 
 /** One tick of a slide; the box rests once it runs out. */
 export function advanceSlide(b: BoxState): BoxState {

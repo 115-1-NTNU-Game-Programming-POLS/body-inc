@@ -145,6 +145,13 @@ export class GameSetupError extends Error {}
 
 /** Spawn copies sit side by side so a count of 3 does not stack three sprites on one point. */
 const COPY_SPACING = 20;
+
+/** Where a Spawn's enemies stand at entry and come back to: their homes. */
+export function spawnHomes(o: RoomObject): { x: number; y: number }[] {
+  const count = Number(o.props['count']);
+  return Array.from({ length: count }, (_, i) => ({ x: o.x + (i - (count - 1) / 2) * COPY_SPACING, y: o.y }));
+}
+
 const STAPLE_HALF = 2;
 const STAPLE_LIFE = Math.ceil(STAPLER.rangePx / STAPLER.speed);
 
@@ -179,9 +186,7 @@ function spawnEnemies(room: EnteredRoom, table: EnemyTable, bosses: BossTable | 
     if (!boss && def.category === 'defeatable' && def.performance === undefined) {
       throw new GameSetupError(`${room.id}: enemy "${type}" has no performance in content/enemies.json, so it cannot be fought yet`);
     }
-    const count = Number(o.props['count']);
-    for (let i = 0; i < count; i++) {
-      const x = o.x + (i - (count - 1) / 2) * COPY_SPACING;
+    for (const { x } of spawnHomes(o)) {
       const respawn = Math.round(Number(o.props['respawnSeconds']) * TICK_HZ);
       if (boss) {
         used[boss.id] = boss;
@@ -227,10 +232,16 @@ const ascending = (ids: Iterable<number>): number[] => [...new Set(ids)].sort((a
 const platesUnderBoxes = (room: EnteredRoom, boxes: readonly BoxState[]): number[] =>
   boxes.filter((b) => b.left === 0).flatMap((b) => platesUnder(room, tileBox(b)));
 
-/** Bodies a box must not slide into: the operator and every enemy still standing in the room. */
+/**
+ * Bodies a box must not slide into or settle on: the operator, every enemy still standing in the
+ * room, and every enemy's home, since enemies reappear there (respawn, reform, a nap, a forced leave).
+ */
 function occupantsOf(op: OperatorState, enemies: Iterable<EnemyState>): Occupants {
   const bodies = [boxAt(OPERATOR_BODY, op.x, op.y)];
-  for (const e of enemies) if (e.phase !== 'attached' && e.phase !== 'closed') bodies.push(boxAt(ENEMY_BODY, e.x, e.y));
+  for (const e of enemies) {
+    if (e.phase !== 'attached' && e.phase !== 'closed') bodies.push(boxAt(ENEMY_BODY, e.x, e.y));
+    bodies.push(boxAt(ENEMY_BODY, e.homeX, e.homeY));
+  }
   return { bodies };
 }
 
@@ -258,7 +269,7 @@ export function createGame(room: EnteredRoom, seed: number, table: EnemyTable, o
   const spawned = spawnEnemies(room, table, options.bosses, 1);
   const operator = { ...newOperator(start.x, start.y, BASE_HALVES, gauge), halves, stacks: carried };
   const body = boxAt(OPERATOR_BODY, operator.x, operator.y);
-  const boxes = settleBoxes(room, options.boxes ?? new Map(), body);
+  const boxes = settleBoxes(room, options.boxes ?? new Map(), occupantsOf(operator, spawned.enemies).bodies);
   const switches = ascending([
     ...(options.switches ?? []).filter((id) => switchMode(room, id) === 'toggle'),
     ...platesUnder(room, body),
@@ -331,7 +342,7 @@ function forcedLeave(state: GameState): GameState {
   const operator = withStacks(newOperator(start.x, start.y, state.operator.maxHalves, state.operator.gauge), enemies, state.carried);
   // A solved switch stays solved (design doc 5.6); a plate is only down while someone or a box is on it.
   const body = boxAt(OPERATOR_BODY, operator.x, operator.y);
-  const boxes = settleBoxes(state.room, new Map(state.boxes.map((b) => [b.id, { col: b.col, row: b.row }])), body);
+  const boxes = settleBoxes(state.room, new Map(state.boxes.map((b) => [b.id, { col: b.col, row: b.row }])), occupantsOf(operator, enemies).bodies);
   const switches = ascending([
     ...state.switches.filter((id) => switchMode(state.room, id) === 'toggle'), ...platesUnder(state.room, body), ...platesUnderBoxes(state.room, boxes),
   ]);
@@ -405,15 +416,15 @@ function interactionOf(o: RoomObject): DomainEvent {
 /**
  * Boxes for this tick, in three passes: slides already under way move on, belts carry the boxes
  * resting on them, then the operator's push, so a box shoved onto a belt is carried from the next
- * tick. Everything runs in box id order. The switches are last tick's: a lever thrown this tick
- * starts its conveyor on the next.
+ * tick. The switches are last tick's: a lever thrown this tick starts its conveyor on the next.
+ * The array is kept when nothing moves, so the solid grid built from it stays cached.
  */
 function moveBoxes(state: GameState, op: OperatorState, input: TickInput): { boxes: readonly BoxState[]; push: PushState | null; events: DomainEvent[] } {
   if (state.boxes.length === 0) return { boxes: state.boxes, push: null, events: [] };
   const room = state.room;
   const events: DomainEvent[] = [];
   const occupants = occupantsOf(op, state.enemies);
-  let boxes = state.boxes.map((b) => (b.left > 0 ? advanceSlide(b) : b));
+  let boxes = state.boxes.some((b) => b.left > 0) ? state.boxes.map((b) => (b.left > 0 ? advanceSlide(b) : b)) : state.boxes;
   const replace = (next: BoxState) => { boxes = boxes.map((b) => (b.id === next.id ? next : b)); };
 
   for (const b of [...boxes]) {
@@ -423,7 +434,7 @@ function moveBoxes(state: GameState, op: OperatorState, input: TickInput): { box
     const dir = directionOf(belt);
     const to = { col: b.col + dir.col, row: b.row + dir.row };
     if (!canEnter(room, boxes, to, occupants)) continue;
-    replace(startSlide(b, dir, CONVEYOR_TICKS[String(belt.props['speed'])]!));
+    replace(startSlide(b, dir, CONVEYOR_TICKS[String(belt.props['speed'])]!, true));
     events.push({ type: 'boxMoved', object: b.id, ...to, by: 'conveyor' });
   }
 
@@ -463,7 +474,8 @@ export function step(state: GameState, input: TickInput): StepResult {
   if (s.dodged) events.push({ type: 'dodge' });
   if (s.stampRaised) events.push({ type: 'stampRaised' });
 
-  // A running belt under the feet carries the operator along; walking against it is slower, never stopped.
+  // A running belt under the feet carries the operator along. Walking against it is slower; a fast
+  // belt (4 tiles/s) outruns an operator slowed below that, by held fire or clinging stacks.
   const underfoot = beltAt(room, tileAt(op.x, op.y - 1), state.switches);
   if (underfoot) {
     const d = directionOf(underfoot);
@@ -497,9 +509,13 @@ export function step(state: GameState, input: TickInput): StepResult {
   const stoodOn = platesUnder(state.room, body);
   const plates = ascending([...stoodOn, ...platesUnderBoxes(state.room, boxes)]);
   const wasDown = state.switches.filter((id) => switchMode(state.room, id) === 'hold');
+  const boxWasOn = platesUnderBoxes(state.room, state.boxes);
   for (const id of ascending([...plates, ...wasDown])) {
     if (plates.includes(id) === wasDown.includes(id)) continue;
-    events.push({ type: 'switchChanged', object: id, on: plates.includes(id), mode: 'hold', by: stoodOn.includes(id) || !plates.includes(id) ? 'step' : 'box' });
+    const on = plates.includes(id);
+    // Down: the operator wins when both arrive. Up: a box was holding it, so the box left.
+    const byBox = on ? !stoodOn.includes(id) : boxWasOn.includes(id);
+    events.push({ type: 'switchChanged', object: id, on, mode: 'hold', by: byBox ? 'box' : 'step' });
   }
   let switches = ascending([...levers, ...plates]);
   const doorsOpenNow = openDoors(state.room, switches, state.unlocked, taken);
