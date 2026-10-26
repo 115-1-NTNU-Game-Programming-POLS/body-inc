@@ -167,7 +167,8 @@ function problemMessage(p: RoomProblem): string {
     case 'missing-start': return '地圖中沒有 PlayerStart';
     case 'variant-when': return '變體圖層缺少 when 條件式';
     case 'variant-duplicate': return '變體圖層名稱重複';
-    case 'port-shape': return '調度口（Port）必須畫成矩形，蓋住收箱子的格子；點不知道佔哪些格子';
+    case 'port-shape': return '調度口（Port）必須畫成矩形，蓋住收箱子的格子（以格子中心為準）；點或太小的矩形不知道佔哪些格子';
+    case 'port-wall': return '調度口（Port）蓋住的格子全是牆，箱子停不上去，永遠收不滿；要畫在地板上';
     case 'port-multiple': return '一個房間只能有一個調度口（Port）；遊戲只會收進第一個';
     case 'port-need': return `調度口要收 ${a['need']} 個箱子，但房間裡一定在場的箱子（objects 圖層、when 留空）只有 ${a['boxes']} 個，永遠收不滿`;
   }

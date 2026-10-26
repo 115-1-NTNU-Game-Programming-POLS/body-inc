@@ -335,6 +335,18 @@ describe('boxes between visits', () => {
     expect(s.run.boxes).toEqual([{ key: 'lab/a#3', col: 3, row: 11 }]);
   });
 
+  it('a box set down away from its home is never set down on the port, which would take it in unpushed', () => {
+    // (3, 11), the nearest free tile, is the port's.
+    const port = { id: 4, type: 'Port', x: 96, y: 352, width: 32, height: 32, properties: [p('need', 1), p('target', 0)] };
+    const c = chapter([box(3, 2, 11), port]);
+    const s = startChapter(c);
+    expect(tiles(s)).toHaveLength(1);
+    expect(tiles(s)).not.toEqual([[3, 3, 11]]);
+    const later = run(c, s, NONE, 5);
+    expect(types(later.events)).not.toContain('boxDelivered');
+    expect(later.state.game.delivered).toEqual([]);
+  });
+
   it('a box that can go neither home nor where it was is never put on another box', () => {
     // Box 3 kept on the plate, which is box 5's home; box 5 was left where the operator now stands.
     const c = chapter([box(3, 10, 6), box(5, 11, 6), plate(4, 11, 6, 2)], southDoor('switch'));

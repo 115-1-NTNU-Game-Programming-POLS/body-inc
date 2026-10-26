@@ -180,14 +180,15 @@ export const onPlate = (room: RoomModel, t: Tile): boolean => platesUnder(room, 
  * Where the boxes are as the room is entered or restarted. A box resting on a plate stays: the
  * puzzle it solved stays solved (design doc 5.6). Every other box goes back to where the map put
  * it, so a box pushed into a corner can never leave a room unsolvable. A box that cannot go home
- * stays where it was, or failing that takes the nearest free floor tile: no box is ever put on
- * another, or on any body in `clear` (the operator and every enemy's home, where enemies reappear).
+ * stays where it was, or failing that takes the nearest free floor tile off the port: no box is ever
+ * put on another, or on any body in `clear` (the operator and every enemy's home, where enemies reappear).
  */
 export function settleBoxes(room: RoomModel, remembered: ReadonlyMap<number, Tile>, clear: readonly Box[], delivered: readonly number[] = []): BoxState[] {
   const objects = room.objects.filter((o) => o.kind === 'Box' && !delivered.includes(o.id)).sort((a, b) => a.id - b.id);
   const placed = new Map<number, Tile>();
   const taken = (t: Tile) => [...placed.values()].some((p) => p.col === t.col && p.row === t.row);
   const free = (t: Tile) => !taken(t) && !clear.some((c) => overlaps(tileBox(t), c));
+  const { keepClear, port } = indexOf(room);
   for (const o of objects) {
     const t = remembered.get(o.id);
     if (t && onPlate(room, t) && free(t)) placed.set(o.id, t);
@@ -197,7 +198,8 @@ export function settleBoxes(room: RoomModel, remembered: ReadonlyMap<number, Til
     const home = tileOf(o);
     const t = remembered.get(o.id);
     const spot = [home, t].find((x): x is Tile => x !== undefined && free(x))
-      ?? nearest(room, home, (x) => free(x) && !indexOf(room).keepClear.some((k) => overlaps(tileBox(x), k)));
+      // Nor on the port, which would take it in next tick without a push.
+      ?? nearest(room, home, (x) => free(x) && !keepClear.some((k) => overlaps(tileBox(x), k)) && !(port && onPort(port, x)));
     placed.set(o.id, spot ?? home);
   }
   return objects.map((o) => ({ id: o.id, ...placed.get(o.id)!, left: 0, ticks: 0 }));

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { BOSSES, DIALOGUES, ENEMIES, PARAMS, TAGS } from '../../src/app/content.ts';
 import {
   answeredCards, bedAfter, decode, EMPTY_TAGS, encode, GLUCOSE, glucoseOf, loadDialogueTable, openingFor, OuterError, parseRoom, playCards,
-  PUSH, readDeck, resumeChapter, selectPort, setAmount, setFlag, STAMP, startChapter, stepChapter, stepGlucose, STORY, toolsAtStart,
+  PUSH, readDeck, resumeChapter, selectPort, setAmount, setFlag, STAMP, startChapter, stepChapter, stepGlucose, STORY, storyAtEnd, toolsAtStart,
   record, type ChapterContent, type ChapterFile, type ChapterState, type Checkpoint, type DialogueTable, type GameEvent, type TagState, type TickInput, type TiledMap,
 } from '../../src/core/index.ts';
 
@@ -184,6 +184,28 @@ describe('the dispatch port', () => {
     expect(again.dialogue?.id).toBe('lab.hello');
   });
 
+  it('filled on the tick the operator dies, it still opens its conversation once back, and only once', () => {
+    const c = chapter([switchDoor, box(3, 10, 6), port(4, 11, 6, 1, 2, 'lab.port'), timeClock]);
+    let s = leftOf10(run(c, place(startChapter(c), 48, 120), NONE).state);
+    expect(s.run.checkpoint).not.toBeNull();
+    let n = 0;
+    for (let moved = false; !moved && n++ < 100;) {
+      const r = stepChapter(c, s, RIGHT);
+      s = r.state;
+      moved = types(r.events).includes('boxMoved');
+    }
+    while (!types(stepChapter(c, s, NONE).events).includes('boxDelivered') && n++ < 200) s = stepChapter(c, s, NONE).state;
+    expect(n).toBeLessThan(200);
+    const died = stepChapter(c, { ...s, game: { ...s.game, operator: { ...s.game.operator, halves: 0 } } }, NONE);
+    expect(types(died.events)).toEqual(expect.arrayContaining(['boxDelivered', 'portFilled', 'forcedLeave', 'returnedToCheckpoint']));
+    expect(died.state.game.switches).toContain(4);
+    const back = run(c, died.state, NONE, 60);
+    expect(back.events).toContainEqual({ type: 'dialogueOpened', dialogueId: 'lab.port' });
+    const closed = run(c, back.state, { move: { x: 0, y: 0 }, interactPressed: true }).state;
+    expect(closed.dialogue).toBeNull();
+    expect(types(run(c, closed, NONE, 60).events)).not.toContain('dialogueOpened');
+  });
+
   it('opens its conversation once it fills, and only then', () => {
     const c = chapter([switchDoor, box(3, 10, 6), box(5, 4, 9), port(4, 11, 6, 1, 2, 'lab.port')]);
     const { state, events } = pushEast(c, startChapter(c));
@@ -350,6 +372,19 @@ describe('the intro and the end of a chapter', () => {
     expect(types(run(c, withTag, NONE).events)).toContain('chapterEnded');
     const open = chapter([trigger(5, 'end')]);
     expect(types(run(open, place(startChapter(open), 464, 230), NONE).events)).toContain('chapterEnded');
+  });
+
+  it('the story saved as the chapter ends leads into the next chapter, not back to its time clock', () => {
+    const c = chapter([timeClock, trigger(5, 'end')], { tools: [], next: 'greybox' });
+    const punched = run(c, place(startChapter(c), 48, 120), NONE).state;
+    expect(punched.run.checkpoint).not.toBeNull();
+    const ended = run(c, place(punched, 464, 230), NONE);
+    expect(types(ended.events)).toContain('chapterEnded');
+    // Saved before the closing cards, so closing the game on them must not resume this chapter.
+    const story = decode(STORY, encode(STORY, storyAtEnd(ended.state.run, c.chapter.next))).data;
+    expect(story).toEqual({ checkpoint: null, entry: { chapter: 'greybox', tags: EMPTY_TAGS, tools: [] } });
+    // The last chapter leaves nothing to continue.
+    expect(storyAtEnd(ended.state.run, undefined)).toEqual({ checkpoint: null, entry: null });
   });
 
   it('the playable check counts an end trigger as a way out, as it does a sleep bed', () => {
