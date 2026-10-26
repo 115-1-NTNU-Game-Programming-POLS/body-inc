@@ -22,6 +22,8 @@ export const GLUCOSE = {
   max: 100,
 } as const;
 
+const REFILL_KEY = 'liver.refill';
+
 export type GlucoseEvent = { readonly type: 'glucoseRefilled'; readonly from: number; readonly to: number };
 
 export interface GlucoseStep {
@@ -32,7 +34,7 @@ export interface GlucoseStep {
 }
 
 /**
- * One rule tick of the meter. Standing still costs nothing. Each refill is logged as the liver's
+ * One rule tick of the meter. Standing still costs nothing. Refills are logged as the liver's
  * doing (a `rule` source), which is what the close-out report will thank it for.
  */
 export function stepGlucose(dict: TagDictionary, tags: TagState, walked: number, walking: boolean, minute: number): GlucoseStep {
@@ -41,7 +43,10 @@ export function stepGlucose(dict: TagDictionary, tags: TagState, walked: number,
   const lowered = lowerAmount(tags, dict, 'glucose', 1);
   const from = amount(lowered, dict, 'glucose');
   if (from >= GLUCOSE.refillBelow) return { tags: lowered, walked: 0, events: [] };
-  const [log, cause] = record(lowered.log, { kind: 'rule', key: 'liver.refill', at: minute });
+  // One node stands for every refill: a new one each time would grow the log, and every save with
+  // it, for as long as the operator walks.
+  const seen = lowered.log.nodes.findIndex((n) => n.kind === 'rule' && n.key === REFILL_KEY);
+  const [log, cause] = seen >= 0 ? [lowered.log, seen] : record(lowered.log, { kind: 'rule', key: REFILL_KEY, at: minute });
   const refilled = setAmount({ ...lowered, log }, dict, 'glucose', GLUCOSE.refillTo, cause, minute);
   return { tags: refilled, walked: 0, events: [{ type: 'glucoseRefilled', from, to: GLUCOSE.refillTo }] };
 }

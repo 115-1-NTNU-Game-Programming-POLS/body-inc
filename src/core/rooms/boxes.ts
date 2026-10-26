@@ -79,10 +79,19 @@ export function conveyorRunning(objects: readonly RoomObject[], conveyor: RoomOb
 }
 
 /** The room's Port, if it has one; the map check allows one per room, since it counts every box delivered there. */
-export const portOf = (room: RoomModel): RoomObject | undefined => room.objects.find((o) => o.kind === 'Port');
+export const portOf = (room: RoomModel): RoomObject | undefined => indexOf(room).port;
+
+const portTiles = new WeakMap<RoomObject, ReadonlySet<string>>();
 
 /** Whether a box's tile is one of the port's, by the same centre rule as a conveyor. */
-export const onPort = (port: RoomObject, t: Tile): boolean => conveyorTiles(port).some((p) => p.col === t.col && p.row === t.row);
+export function onPort(port: RoomObject, t: Tile): boolean {
+  let tiles = portTiles.get(port);
+  if (!tiles) {
+    tiles = new Set(conveyorTiles(port).map(at));
+    portTiles.set(port, tiles);
+  }
+  return tiles.has(at(t));
+}
 
 /** The port, once it holds as many boxes as it needs: from then on it counts as a switch that is on. */
 export function filledPorts(room: RoomModel, delivered: readonly number[]): number[] {
@@ -95,6 +104,7 @@ interface RoomBoxIndex {
   readonly conveyors: readonly RoomObject[];
   /** The running conveyor's object for each tile, by `col,row`; the lowest id wins where two overlap. */
   readonly belt: ReadonlyMap<string, RoomObject>;
+  readonly port: RoomObject | undefined;
 }
 
 const roomIndexes = new WeakMap<readonly RoomObject[], RoomBoxIndex>();
@@ -107,7 +117,7 @@ function indexOf(room: RoomModel): RoomBoxIndex {
     const conveyors = byId.filter((o) => o.kind === 'Conveyor');
     const belt = new Map<string, RoomObject>();
     for (const c of conveyors) for (const t of conveyorTiles(c)) if (!belt.has(at(t))) belt.set(at(t), c);
-    index = { keepClear: byId.filter((o) => KEEP_CLEAR.has(o.kind)).map(objectBox), conveyors, belt };
+    index = { keepClear: byId.filter((o) => KEEP_CLEAR.has(o.kind)).map(objectBox), conveyors, belt, port: room.objects.find((o) => o.kind === 'Port') };
     roomIndexes.set(room.objects, index);
   }
   return index;

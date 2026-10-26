@@ -1,13 +1,12 @@
 import Phaser from 'phaser';
 import { str } from '../../app/content.ts';
-import type { SaveStore } from '../../app/storage.ts';
 import {
-  CHAPTER_OPENS, cardText, EMPTY_TAGS, openingFor, playCards, startChapter, STORY,
-  type ChapterContent, type DeckCard, type Settings, type StoryData, type TagState, type Tool,
+  CHAPTER_OPENS, cardText, EMPTY_TAGS, openingFor, playCards, startChapter,
+  type ChapterContent, type DeckCard, type Settings, type TagState, type Tool,
 } from '../../core/index.ts';
 import { addText } from '../text/fonts.ts';
 import { CardTable } from '../ui/cardTable.ts';
-import { beginRun } from './run.ts';
+import { beginRun, NO_STORY, saveStory } from './run.ts';
 
 const DIM = '#c9d3e3';
 /** How long a chosen card stays highlighted before the next one, so the choice is seen. */
@@ -142,14 +141,13 @@ export class OpeningScene extends Phaser.Scene {
     const next = this.ctx.chapter.next !== undefined ? chapters.get(this.ctx.chapter.next) : undefined;
     // Deferred like beginRun: the confirming key must reach the input tracker before the next scene reads it.
     if (!next) {
+      // The story is over, so "continue" must not lead back into the chapter just finished.
+      saveStory(this, NO_STORY);
       this.registry.set('ended', true);
       window.setTimeout(() => this.scene.start('Title'), 0);
       return;
     }
-    const story: StoryData = { checkpoint: null, entry: { chapter: next.chapter.id, tags: closing.tags, tools } };
-    const issues = (this.registry.get('saves') as SaveStore).save(STORY, story);
-    if (issues.length > 0) this.game.events.emit('save-issues', issues);
-    this.registry.set('story', story);
+    saveStory(this, { checkpoint: null, entry: { chapter: next.chapter.id, tags: closing.tags, tools } });
     const data: CardsData = { chapter: next.chapter.id, mode: 'opening', tags: closing.tags, tools };
     window.setTimeout(() => this.scene.restart(data), 0);
   }

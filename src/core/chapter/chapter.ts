@@ -166,8 +166,10 @@ function build(ctx: ChapterContent, run: Run, place: Place, carry: Carry): GameS
     unlocked: openByState(room.objects, run.tags, ctx.dict, carry.clock),
     // `fired` also holds triggers and beds; the room keeps only the ids that are its pickups.
     taken: idsHere(run, run.fired),
-    // A delivered box is spent like a pickup, so its key sits in `fired` as well.
-    delivered: idsHere(run, run.fired),
+    // A delivered box is spent like a pickup, so its key sits in `fired` as well. It is judged against
+    // the whole map, not this visit's room: a box from a variant or with a `when` stays delivered
+    // when it would be absent now, or the filled port would empty again.
+    delivered: idsHere(run, run.fired).filter((id) => model.objects.some((o) => o.id === id && o.kind === 'Box')),
     boxes: boxesHere(run),
     stampLocked: !run.tools.includes('stamp'),
     ...(start ? { start } : {}),
@@ -480,6 +482,8 @@ function stepRoom(ctx: ChapterContent, state: ChapterState, input: TickInput): C
       case 'portFilled': {
         const port = game.room.objects.find((o) => o.id === e.object);
         const id = String(port?.props['dialogueId'] ?? '').trim();
+        // A port fills once, so its conversation must not be the one dropped. It cannot be: the
+        // room emits box events before any talk or trigger of the same tick, so this comes first.
         if (id !== '') opening ??= { kind: 'dialogue', id };
         break;
       }
@@ -496,7 +500,9 @@ function stepRoom(ctx: ChapterContent, state: ChapterState, input: TickInput): C
         }
         // Everything else spent stays spent.
         const fired = run.fired.filter((k) => cp.fired.includes(k) || !undoneByReturn(ctx, k));
-        const next: Run = { ...run, roomId: cp.roomId, tags: cp.tags, fired, entries: run.entries + 1 };
+        // Tools go back with the tags, as Continue would restore them: a stamp handed over after the
+        // punch is handed over again by the same conversation, whose condition tag went back too.
+        const next: Run = { ...run, roomId: cp.roomId, tags: cp.tags, tools: cp.tools, fired, entries: run.entries + 1 };
         // Only sleep clears adenosine, so the stacks come back with the operator.
         const built = build(ctx, next, { kind: 'at', x: cp.x, y: cp.y }, {
           clock: cp.clock, gauge: game.operator.gauge, halves: game.operator.maxHalves, stacks: game.operator.stacks,

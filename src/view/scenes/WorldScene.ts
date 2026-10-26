@@ -7,10 +7,11 @@ import { sharedKeys, type KeyboardInput } from '../../app/input.ts';
 import type { FixedStepLoop } from '../../app/loop.ts';
 import type { SaveStore } from '../../app/storage.ts';
 import {
-  listProps, selectEnemies, selectOperator, selectProjectiles, storyOf, STORY, TILE, visibleProps,
-  type ChapterContent, type ChapterState, type EnemyState, type GameEvent, type GameState, type ProgressData, type TiledMapFile,
+  listProps, selectEnemies, selectOperator, selectProjectiles, storyOf, TILE, visibleProps,
+  type ChapterState, type EnemyState, type GameEvent, type GameState, type ProgressData, type TiledMapFile,
 } from '../../core/index.ts';
 import type { CardsData } from './OpeningScene.ts';
+import { saveStory } from './run.ts';
 import { BossView } from '../actors/BossView.ts';
 import { EnemyView, SKINS } from '../actors/EnemyView.ts';
 import { OperatorView } from '../actors/OperatorView.ts';
@@ -181,12 +182,7 @@ export class WorldScene extends Phaser.Scene {
   private react(e: GameEvent): void {
     switch (e.type) {
       case 'checkpointSaved': {
-        const saves = this.registry.get('saves') as SaveStore;
-        const story = storyOf(this.loop.state.run);
-        const issues = saves.save(STORY, story);
-        if (issues.length > 0) this.game.events.emit('save-issues', issues);
-        // The title reads this copy, so it must follow the slot even when the write failed.
-        this.registry.set('story', story);
+        saveStory(this, storyOf(this.loop.state.run));
         break;
       }
       case 'handbookUnlocked': {
@@ -205,15 +201,10 @@ export class WorldScene extends Phaser.Scene {
         break;
       case 'chapterEnded': {
         const { run } = this.loop.state;
-        const chapters = this.registry.get('chapters') as ReadonlyMap<string, ChapterContent>;
-        const ctx = chapters.get(run.chapter);
-        // A chapter that closes on cards or leads on to another goes through the card scene; one that does neither ends at the title.
-        const onward = ctx !== undefined && ((ctx.deck?.closing.length ?? 0) > 0 || ctx.chapter.next !== undefined);
-        if (!onward) this.registry.set('ended', true);
+        // The card scene decides what follows: closing cards if any, then the next chapter or the title.
         this.leave(() => {
           this.scene.stop('Hud');
-          if (onward) this.scene.start('Opening', { chapter: run.chapter, mode: 'closing', tools: run.tools } satisfies CardsData);
-          else this.scene.start('Title');
+          this.scene.start('Opening', { chapter: run.chapter, mode: 'closing', tools: run.tools } satisfies CardsData);
         });
         break;
       }

@@ -142,6 +142,48 @@ describe('the dispatch port', () => {
     expect(fresh.game.doorsOpen).not.toContain(2);
   });
 
+  it('a delivered box with a when stays delivered on a visit where the when fails', () => {
+    const conditional = { ...box(5, 4, 9), properties: [p('when', 'deadline')] };
+    const c = chapter([switchDoor, box(3, 10, 6), conditional, port(4, 11, 6, 1, 2), timeClock]);
+    const s0 = startChapter(c);
+    const cp: Checkpoint = {
+      chapter: 'lab', roomId: 'lab/a', x: 320, y: 200, tags: s0.run.tags, clock: s0.game.clock, fired: ['lab/a#5'], switches: [], boxes: [], tools: ['stamp'],
+    };
+    const back = resumeChapter(c, cp);
+    expect(back.game.delivered).toEqual([5]);
+    expect(back.game.doorsOpen).toContain(2);
+    // Other spent ids of the room, a time clock or a pickup, are not boxes and do not count.
+    expect(resumeChapter(c, { ...cp, fired: ['lab/a#9'] }).game.delivered).toEqual([]);
+  });
+
+  it('on the tick a port fills and an NPC is talked to, the port\'s conversation is the one shown', () => {
+    // Just below the operator's path, within reach of where the push leaves them.
+    const npc = { id: 6, type: 'NPC', x: 300, y: 238, properties: [p('npcId', 'brain'), p('dialogueId', 'lab.hello')] };
+    const c = chapter([switchDoor, box(3, 10, 6), box(5, 4, 9), port(4, 11, 6, 1, 2, 'lab.port'), npc]);
+    let s = leftOf10(startChapter(c));
+    let n = 0;
+    for (let moved = false; !moved && n++ < 100;) {
+      const r = stepChapter(c, s, RIGHT);
+      s = r.state;
+      moved = types(r.events).includes('boxMoved');
+    }
+    expect(n).toBeLessThan(100);
+    // Step to the tick the box comes to rest on the port, and talk to the NPC on that very tick.
+    while (!types(stepChapter(c, s, NONE).events).includes('boxDelivered') && n++ < 200) s = stepChapter(c, s, NONE).state;
+    expect(n).toBeLessThan(200);
+    const both = stepChapter(c, s, { move: { x: 0, y: 0 }, interactPressed: true });
+    // The port fills once and cannot ask again, so it must win: box events come before any talk.
+    const order = types(both.events);
+    expect(order.indexOf('portFilled')).toBeGreaterThanOrEqual(0);
+    expect(order.indexOf('portFilled')).toBeLessThan(order.indexOf('talk'));
+    expect(both.state.dialogue?.id).toBe('lab.port');
+    // The NPC lost nothing: once the port's line is closed it can be talked to.
+    const closed = run(c, run(c, both.state, NONE, 20).state, { move: { x: 0, y: 0 }, interactPressed: true }).state;
+    expect(closed.dialogue).toBeNull();
+    const again = run(c, run(c, closed, NONE, 2).state, { move: { x: 0, y: 0 }, interactPressed: true }).state;
+    expect(again.dialogue?.id).toBe('lab.hello');
+  });
+
   it('opens its conversation once it fills, and only then', () => {
     const c = chapter([switchDoor, box(3, 10, 6), box(5, 4, 9), port(4, 11, 6, 1, 2, 'lab.port')]);
     const { state, events } = pushEast(c, startChapter(c));
@@ -183,7 +225,22 @@ describe('blood glucose (design doc 7.3)', () => {
     expect(stepGlucose(TAGS, tags, 0, false, 480).tags).toBe(tags);
   });
 
-  it('never drops below 35, however long the walk', () => {
+  it('every refill after the first reuses the liver\'s node, so the log does not grow with the walk', () => {
+    let tags = tagged(EMPTY_TAGS, (t, c) => setAmount(t, TAGS, 'glucose', GLUCOSE.start, c, 0));
+    let walked = 0;
+    let refills = 0;
+    for (let t = 0; t < 60 * 60 * 10; t++) {
+      const r = stepGlucose(TAGS, tags, walked, true, t);
+      ({ tags, walked } = r);
+      refills += r.events.length;
+    }
+    expect(refills).toBeGreaterThan(3);
+    expect(tags.log.nodes.filter((n) => n.key === 'liver.refill')).toHaveLength(1);
+    const node = tags.values['glucose']!.node;
+    expect(tags.log.nodes[node]!.causes.map((c) => tags.log.nodes[c.node]!.key)).toContain('liver.refill');
+  });
+
+  it('never rests below 40, however long the walk', () => {
     let tags = tagged(EMPTY_TAGS, (t, c) => setAmount(t, TAGS, 'glucose', GLUCOSE.start, c, 0));
     let walked = 0;
     let low = Infinity;
@@ -236,6 +293,18 @@ describe('the stamp is handed over (design doc 7.3)', () => {
     const saved = decode(STORY, encode(STORY, { checkpoint: punched.run.checkpoint, entry: null })).data.checkpoint!;
     expect(resumeChapter(c, saved).game.stampLocked).toBe(true);
     expect(resumeChapter(c, { ...saved, tools: ['stamp'] }).game.stampLocked).toBeUndefined();
+  });
+
+  it('a forced leave takes the tools back to the punch, as a continue would', () => {
+    const c = chapter([timeClock], { tools: [] });
+    const punched = run(c, place(startChapter(c), 48, 120), NONE).state;
+    expect(punched.run.checkpoint?.tools).toEqual([]);
+    const { stampLocked: _, ...unlocked } = punched.game;
+    const granted: ChapterState = { ...punched, run: { ...punched.run, tools: ['stamp'] }, game: unlocked };
+    const r = run(c, { ...granted, game: { ...granted.game, operator: { ...granted.game.operator, halves: 0 } } }, NONE);
+    expect(types(r.events)).toContain('returnedToCheckpoint');
+    expect(r.state.run.tools).toEqual([]);
+    expect(r.state.game.stampLocked).toBe(true);
   });
 
   it('tools carried in from an earlier chapter are kept, whatever the new chapter hands out', () => {
