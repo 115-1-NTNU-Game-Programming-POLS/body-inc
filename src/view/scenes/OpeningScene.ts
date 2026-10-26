@@ -1,6 +1,10 @@
 import Phaser from 'phaser';
 import { str } from '../../app/content.ts';
-import { CHAPTER_OPENS, cardText, playOpening, startChapter, type ChapterContent, type DeckCard, type Settings } from '../../core/index.ts';
+import type { SaveStore } from '../../app/storage.ts';
+import {
+  CHAPTER_OPENS, cardText, EMPTY_TAGS, openingFor, playCards, startChapter, STORY,
+  type ChapterContent, type DeckCard, type Settings, type StoryData, type TagState, type Tool,
+} from '../../core/index.ts';
 import { addText } from '../text/fonts.ts';
 import { CardTable } from '../ui/cardTable.ts';
 import { beginRun } from './run.ts';
@@ -14,13 +18,28 @@ const NEXT = ['KeyS', 'KeyD', 'ArrowDown', 'ArrowRight'];
 const PICK = ['Digit1', 'Digit2', 'Digit3'];
 const PICK_PAD = ['Numpad1', 'Numpad2', 'Numpad3'];
 
+export interface CardsData {
+  readonly chapter: string;
+  /**
+   * `opening`: the chapter's opening cards not yet answered, then the chapter starts.
+   * `closing`: the ended chapter's closing cards, then its `next` chapter's opening, or the title.
+   */
+  readonly mode?: 'opening' | 'closing';
+  /** Tags the chapter starts from: what the last chapter's closing cards left. */
+  readonly tags?: TagState;
+  readonly tools?: readonly Tool[];
+}
+
 /**
- * The chapter's opening cards (design doc 4.2), one at a time, before the first room. It is a
- * menu outside the rule loop, like the title: the picks only decide the tags and clock the chapter
- * starts with, and the chapter start logs each pick as a card in the causal record.
+ * A chapter's cards (design doc 4.2), one at a time, outside the rule loop like the title: the
+ * opening cards before the first room, or the closing cards after the last. The picks only decide
+ * the tags the next chapter starts with, and each pick is logged as a card in the causal record,
+ * which is also how the next chapter knows which of its opening cards were already answered.
  */
 export class OpeningScene extends Phaser.Scene {
   private ctx!: ChapterContent;
+  private data_!: CardsData;
+  private cards: readonly DeckCard[] = [];
   private picks: number[] = [];
   private cursor = 0;
   private table: CardTable | undefined;
@@ -30,14 +49,22 @@ export class OpeningScene extends Phaser.Scene {
     super('Opening');
   }
 
-  create(data: { chapter: string }): void {
+  create(data: CardsData): void {
     const chapters = this.registry.get('chapters') as ReadonlyMap<string, ChapterContent>;
     const ctx = chapters.get(data.chapter);
-    if (!ctx?.deck) throw new Error(`opening cards: chapter "${data.chapter}" is not bundled or has no deck`);
+    if (!ctx) throw new Error(`cards: chapter "${data.chapter}" is not bundled`);
     this.ctx = ctx;
+    this.data_ = data;
+    const deck = ctx.deck;
+    this.cards = !deck ? [] : data.mode === 'closing' ? deck.closing : openingFor(deck, data.tags ?? EMPTY_TAGS);
     this.picks = [];
     this.table = undefined;
     this.busy = false;
+    if (this.cards.length === 0) {
+      this.busy = true;
+      this.finish();
+      return;
+    }
     addText(this, this.scale.width - 24, this.scale.height - 24, str('deck.hint'), { role: 'print', weight: 400, size: 18, color: DIM }).setOrigin(1, 1);
 
     const onKey = (e: KeyboardEvent) => {
@@ -60,15 +87,15 @@ export class OpeningScene extends Phaser.Scene {
   }
 
   private card(): DeckCard {
-    return this.ctx.deck!.opening[this.picks.length]!;
+    return this.cards[this.picks.length]!;
   }
 
   private deal(): void {
     this.table?.destroy();
-    const deck = this.ctx.deck!;
     const card = this.card();
-    const t = cardText(deck.chapter, card.id);
-    const caption = `${str('deck.opening')}　${str('deck.progress').replace('{n}', String(this.picks.length + 1)).replace('{total}', String(deck.opening.length))}`;
+    const t = cardText(this.ctx.deck!.chapter, card.id);
+    const heading = str(this.data_.mode === 'closing' ? 'deck.closing' : 'deck.opening');
+    const caption = `${heading}　${str('deck.progress').replace('{n}', String(this.picks.length + 1)).replace('{total}', String(this.cards.length))}`;
     const scale = (this.registry.get('settings') as Settings | undefined)?.textScale ?? 1;
     this.table = new CardTable(this, {
       caption,
@@ -96,10 +123,34 @@ export class OpeningScene extends Phaser.Scene {
     this.picks.push(i);
     this.time.delayedCall(CHOSEN_MS, () => {
       this.busy = false;
-      if (this.picks.length < this.ctx.deck!.opening.length) return this.deal();
-      const opening = playOpening(this.ctx.deck!, this.ctx.dict, this.picks, CHAPTER_OPENS, this.ctx.params);
+      if (this.picks.length < this.cards.length) return this.deal();
       this.busy = true;
-      beginRun(this, this.ctx, startChapter(this.ctx, { tags: opening.tags, clock: opening.clock }));
+      this.finish();
     });
+  }
+
+  private finish(): void {
+    const tools = this.data_.tools ?? [];
+    if (this.data_.mode !== 'closing') {
+      const opening = playCards(this.ctx.chapter.id, this.cards, this.ctx.dict, this.picks, CHAPTER_OPENS, this.ctx.params, this.data_.tags ?? EMPTY_TAGS);
+      beginRun(this, this.ctx, startChapter(this.ctx, { tags: opening.tags, clock: opening.clock, tools }));
+      return;
+    }
+    // A new day: only what the closing cards decide carries over, not the ended chapter's own tags.
+    const closing = playCards(this.ctx.chapter.id, this.cards, this.ctx.dict, this.picks, CHAPTER_OPENS, this.ctx.params, EMPTY_TAGS);
+    const chapters = this.registry.get('chapters') as ReadonlyMap<string, ChapterContent>;
+    const next = this.ctx.chapter.next !== undefined ? chapters.get(this.ctx.chapter.next) : undefined;
+    // Deferred like beginRun: the confirming key must reach the input tracker before the next scene reads it.
+    if (!next) {
+      this.registry.set('ended', true);
+      window.setTimeout(() => this.scene.start('Title'), 0);
+      return;
+    }
+    const story: StoryData = { checkpoint: null, entry: { chapter: next.chapter.id, tags: closing.tags, tools } };
+    const issues = (this.registry.get('saves') as SaveStore).save(STORY, story);
+    if (issues.length > 0) this.game.events.emit('save-issues', issues);
+    this.registry.set('story', story);
+    const data: CardsData = { chapter: next.chapter.id, mode: 'opening', tags: closing.tags, tools };
+    window.setTimeout(() => this.scene.restart(data), 0);
   }
 }

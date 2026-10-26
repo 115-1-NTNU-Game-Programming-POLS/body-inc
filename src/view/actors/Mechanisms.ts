@@ -1,7 +1,9 @@
 import Phaser from 'phaser';
 import {
-  conveyorTiles, directionOf, objectBox, selectBoxes, selectConveyors, selectDoorLocks, selectPickups, selectSwitches, TILE, type GameState, type RoomObject,
+  conveyorTiles, directionOf, objectBox, selectBoxes, selectConveyors, selectDoorLocks, selectPickups, selectPort, selectSwitches, TILE, type GameState,
+  type RoomObject,
 } from '../../core/index.ts';
+import { addText, updateText } from '../text/fonts.ts';
 
 const INK = 0x0c2d5e;
 const PAPER = 0xf4efe4;
@@ -19,11 +21,20 @@ export class Mechanisms {
   private readonly items = new Map<number, Phaser.GameObjects.Graphics>();
   private readonly boxes = new Map<number, Phaser.GameObjects.Graphics>();
   private readonly belts = new Map<number, { g: Phaser.GameObjects.Graphics; o: RoomObject; drawn?: string }>();
+  private port: { g: Phaser.GameObjects.Graphics; label: Phaser.GameObjects.Text; o: RoomObject; drawn?: string } | undefined;
 
   constructor(scene: Phaser.Scene, state: GameState) {
     const byId = new Map(state.room.objects.map((o) => [o.id, o]));
     // Belts lie on the floor (tile layers sit at depth 0), under everything that stands on them, whose depth is its feet line.
     for (const c of selectConveyors(state)) this.belts.set(c.object, { g: scene.add.graphics().setDepth(1), o: byId.get(c.object)! });
+    const port = selectPort(state);
+    if (port) {
+      const o = byId.get(port.object)!;
+      const b = objectBox(o);
+      const label = addText(scene, (b.left + b.right) / 2, b.top - 4, '', { role: 'print', weight: 700, size: 14, color: '#0c2d5e', backgroundColor: '#f4efe4', padding: { x: 4, y: 1 } })
+        .setOrigin(0.5, 1).setDepth(1e4);
+      this.port = { g: scene.add.graphics().setDepth(1), label, o };
+    }
     for (const b of selectBoxes(state)) {
       const g = scene.add.graphics();
       drawBox(g, b.boxType);
@@ -62,7 +73,22 @@ export class Mechanisms {
     for (const d of selectDoorLocks(state)) this.plates.get(d.object)?.setVisible(!d.open);
     for (const p of selectPickups(state)) this.items.get(p.object)?.setVisible(p.present);
     // A box is drawn at its feet line like an actor, so the operator walks behind or in front of it.
-    for (const b of selectBoxes(state)) this.boxes.get(b.object)?.setPosition(b.x, b.y).setDepth(b.y + TILE);
+    const here = new Set<number>();
+    for (const b of selectBoxes(state)) {
+      here.add(b.object);
+      this.boxes.get(b.object)?.setPosition(b.x, b.y).setDepth(b.y + TILE);
+    }
+    // A box the port took in leaves the room's state; its picture goes with it.
+    for (const [id, g] of this.boxes) g.setVisible(here.has(id));
+    const port = selectPort(state);
+    if (port && this.port) {
+      const key = `${port.count}/${port.need}`;
+      if (this.port.drawn !== key) {
+        this.port.drawn = key;
+        drawPort(this.port.g.clear(), this.port.o, port.count >= port.need);
+        updateText(this.port.label, key);
+      }
+    }
     for (const c of selectConveyors(state)) {
       const v = this.belts.get(c.object);
       if (!v) continue;
@@ -75,6 +101,17 @@ export class Mechanisms {
       drawBelt(v.g, v.o, c.running, phase);
     }
   }
+}
+
+/** The dispatch port: a hatched yellow bay on the floor; filled, it turns blue. */
+function drawPort(g: Phaser.GameObjects.Graphics, o: RoomObject, full: boolean): void {
+  const b = objectBox(o);
+  const w = b.right - b.left;
+  const h = b.bottom - b.top;
+  g.fillStyle(full ? BLUE : 0xe8c96a, 0.55).fillRect(b.left, b.top, w, h);
+  g.lineStyle(2, INK, 1).strokeRect(b.left + 1, b.top + 1, w - 2, h - 2);
+  g.lineStyle(1, INK, 0.35);
+  for (let d = 8; d < w + h; d += 8) g.lineBetween(b.left + Math.max(0, d - h), b.top + Math.min(d, h), b.left + Math.min(d, w), b.top + Math.max(0, d - w));
 }
 
 /** A crate on its tile, drawn from the tile's top-left; the type only changes the label colour. */

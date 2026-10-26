@@ -61,9 +61,12 @@ export const mayOpen = (door: RoomObject): boolean => lockOf(door) !== 'key' || 
 /** The itemId a key lock waits for; '' for a sealed door. */
 export const keyOf = (door: RoomObject): string => String(door.props['lockParam']).trim();
 
-/** Switches aimed at `doorId`, in object id order. */
-export function switchesFor(objects: readonly RoomObject[], doorId: number): RoomObject[] {
-  return objects.filter((o) => o.kind === 'Switch' && o.props['target'] === doorId).sort((a, b) => a.id - b.id);
+/** Kinds that act as a switch when aimed at a door or a conveyor: a Port is on once it holds its boxes. */
+export const SWITCH_KINDS: ReadonlySet<string> = new Set(['Switch', 'Port']);
+
+/** Switches aimed at `targetId` (a door or a conveyor), in object id order. */
+export function switchesFor(objects: readonly RoomObject[], targetId: number): RoomObject[] {
+  return objects.filter((o) => SWITCH_KINDS.has(o.kind) && o.props['target'] === targetId).sort((a, b) => a.id - b.id);
 }
 
 /** Pickups that open a key lock: same room, itemId equal to the door's lockParam, in object id order. */

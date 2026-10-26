@@ -1,6 +1,7 @@
 import { checkCondition, ConditionError, parseCondition, type Condition, type ConditionProblem } from '../tags/condition.ts';
 import { nameKind, type TagDictionary } from '../tags/dictionary.ts';
 import { wholeMinutes } from '../clock.ts';
+import { isTool, type Tool } from '../tools.ts';
 import { parseCsvRecords } from './csv.ts';
 
 /**
@@ -29,7 +30,9 @@ export type Effect =
   /** `clock:10` moves the chapter clock on (design doc 7: talking takes time). */
   | { readonly kind: 'clock'; readonly minutes: number }
   /** `unlock:caffeine` opens a handbook page. */
-  | { readonly kind: 'unlock'; readonly id: string };
+  | { readonly kind: 'unlock'; readonly id: string }
+  /** `grant:stamp` hands the operator a tool for the rest of the run. */
+  | { readonly kind: 'grant'; readonly tool: Tool };
 
 export interface Line {
   readonly dialogueId: string;
@@ -79,7 +82,8 @@ export type DialogueProblemCode =
   | 'unreachable'
   | 'duplicate-dialogue';
 
-export type EffectProblemCode = 'syntax' | 'unknown-tag' | 'alias' | 'tag-source' | 'tag-form' | 'minutes';
+/** `tool`: a grant naming no tool, or in a card, which plays outside the run that would keep it. */
+export type EffectProblemCode = 'syntax' | 'unknown-tag' | 'alias' | 'tag-source' | 'tag-form' | 'minutes' | 'tool';
 
 export interface DialogueProblem {
   readonly code: DialogueProblemCode;
@@ -106,6 +110,7 @@ const FACT = /^(|\d+|pending:\d+|general)$/;
 const FLAG_OR_AMOUNT = /^tag:((?:mod\.)?[a-z][a-z0-9_]*)(?:([=+])(\d+(?:\.\d+)?))?$/;
 const UNLOCK = /^unlock:([a-z][a-z0-9_]*)$/;
 const CLOCK = /^clock:(.*)$/;
+const GRANT = /^grant:(.*)$/;
 
 /** The tag sources that let a conversation set a tag: story events, not cards or derived rules. */
 export const DIALOGUE_SOURCES: readonly string[] = ['event', 'chapter'];
@@ -136,6 +141,14 @@ export function parseEffects(text: string, dict: TagDictionary, sources: readonl
     const unlock = UNLOCK.exec(part);
     if (unlock) {
       effects.push({ kind: 'unlock', id: unlock[1]! });
+      continue;
+    }
+    const grant = GRANT.exec(part);
+    if (grant) {
+      const tool = grant[1]!;
+      // Only a conversation is played inside a run; an opening or closing card has no run to keep the tool.
+      if (isTool(tool) && sources.includes('event') && !sources.includes('card')) effects.push({ kind: 'grant', tool });
+      else bad('tool');
       continue;
     }
     const tag = FLAG_OR_AMOUNT.exec(part);

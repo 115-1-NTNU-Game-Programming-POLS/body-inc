@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "chapter": "prologue",
+  "opening": [],
+  "events": [],
+  "closing": [
+    {
+      "id": "bedtime",
+      "options": [
+        { "id": "at_23", "effect": "" },
+        { "id": "at_01", "effect": "tag:sleep_debt=2" },
+        { "id": "at_03", "effect": "tag:sleep_debt=4" }
+      ]
+    }
+  ]
+}

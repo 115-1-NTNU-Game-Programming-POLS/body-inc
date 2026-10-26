@@ -54,16 +54,24 @@ export interface ComboReport {
   readonly problems: readonly PlayProblem[];
 }
 
-/** Minutes until a sleep bed of the chapter accepts these tags, waiting from now. */
+/**
+ * Minutes until a way out of the chapter accepts these tags, waiting from now: a sleep bed, or a
+ * Trigger whose event is `end` (the prologue ends on a scene, not in bed).
+ */
 export function bedAfter(ctx: ChapterContent, tags: TagState): number | undefined | 'none' {
-  const beds = roomsOf(ctx.chapter).flatMap((path) => {
+  const ends = roomsOf(ctx.chapter).flatMap((path) => {
     const model = ctx.rooms.get(path);
-    return model ? enterRoom(model, tags, ctx.dict).objects.filter((o) => o.kind === 'Bed' && o.props['bedType'] === 'sleep') : [];
+    if (!model) return [];
+    return enterRoom(model, tags, ctx.dict).objects.flatMap((o) => {
+      if (o.kind === 'Bed' && o.props['bedType'] === 'sleep') return [o.conditions['requires']];
+      if (o.kind === 'Trigger' && o.props['event'] === 'end') return [o.conditions['when']];
+      return [];
+    });
   });
-  if (beds.length === 0) return 'none';
+  if (ends.length === 0) return 'none';
   for (let t = 0; t <= BED_SEARCH_MINUTES; t++) {
     const now = metabolise(tags, ctx.dict, t, ctx.params);
-    if (beds.some((b) => !b.conditions['requires'] || holds(now, ctx.dict, b.conditions['requires']))) return t;
+    if (ends.some((c) => !c || holds(now, ctx.dict, c))) return t;
   }
   return undefined;
 }

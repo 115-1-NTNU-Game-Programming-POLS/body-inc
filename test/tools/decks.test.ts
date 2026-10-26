@@ -27,7 +27,9 @@ describe('deck check (build plan P1)', () => {
   it('passes on the shipped deck and logs every combination and the spread', () => {
     const r = checkDecks();
     expect(r.problems).toEqual([]);
-    expect(r.report.filter((l) => l.startsWith('  ') && l.includes('敵人'))).toHaveLength(6);
+    // Six greybox combinations, and the prologue's one: no opening cards.
+    expect(r.report.filter((l) => l.startsWith('  ') && l.includes('敵人'))).toHaveLength(7);
+    expect(r.report).toContainEqual(expect.stringMatching(/^ {2}（沒有章首卡）：敵人 3/));
     expect(r.report).toContainEqual(expect.stringMatching(/^ {4}morning_coffee：drink \d+\.\d\d，skip \d+\.\d\d$/));
     expect(r.report).toContainEqual(expect.stringMatching(/咖啡因斗篷下平均看得見 47%/));
     expect(r.report.at(-1)).toMatch(/最差組合比最好組合難 \d+%.*目標約 30%/);

@@ -1,3 +1,4 @@
+import { STAMP } from '../combat/frames.ts';
 import type { TickInput } from '../combat/operator.ts';
 import {
   arrivalEffects, chosenLine, leaveNode, LOCK_TICKS, moveCursor, nodeLine, openDialogue, pickReply, type DialogueState,
@@ -24,7 +25,24 @@ export interface Applied {
 /** `applyEffects` on a run and its room: tags live on the run, the clock in the room. */
 export function applyToRun(ctx: ChapterContent, run: Run, game: GameState, effects: readonly Effect[], source: EffectSource): Applied {
   const a = applyEffects(ctx.dict, run.tags, game.clock, effects, source, ctx.params);
-  return { run: { ...run, tags: a.tags }, game: { ...game, clock: a.clock }, events: a.events };
+  return withTools({ run: { ...run, tags: a.tags }, game: { ...game, clock: a.clock }, events: a.events });
+}
+
+/**
+ * Hands over the tools the events grant. The stamp arrives charged, so the very next thing the
+ * operator can do is try it, which is how the prologue teaches it (design doc 7.3).
+ */
+export function withTools(a: Applied): Applied {
+  let { run, game } = a;
+  for (const e of a.events) {
+    if (e.type !== 'toolGranted' || run.tools.includes(e.tool)) continue;
+    run = { ...run, tools: [...run.tools, e.tool] };
+    if (e.tool === 'stamp') {
+      const { stampLocked: _, ...open } = game;
+      game = { ...open, operator: { ...game.operator, gauge: STAMP.gaugeMax } };
+    }
+  }
+  return { run, game, events: a.events };
 }
 
 /** True when a press this tick confirms: interact, attack or dodge (docs/authoring/rooms-and-dialogue.md). */

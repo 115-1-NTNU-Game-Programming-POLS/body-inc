@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "id": "prologue",
+  "start": "prologue/lobby",
+  "next": "greybox",
+  "intro": "prologue.interview",
+  "tools": [],
+  "glucose": true,
+  "links": [
+    { "a": "prologue/lobby#door-e", "b": "prologue/freight-hall#door-w" },
+    { "a": "prologue/freight-hall#door-e", "b": "prologue/warehouse#door-w" },
+    { "a": "prologue/warehouse#door-n", "b": "prologue/boardroom#door-s" },
+    { "a": "prologue/boardroom#door-e", "b": "prologue/night-desk#door-w" }
+  ]
+}

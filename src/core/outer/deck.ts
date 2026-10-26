@@ -32,6 +32,12 @@ export interface Deck {
   readonly opening: readonly DeckCard[];
   /** By card id, as a Trigger's eventId names them. */
   readonly events: ReadonlyMap<string, DeckCard>;
+  /**
+   * Played after the chapter ends. Their effects carry into the next chapter, which skips its
+   * opening cards of the same ids: the prologue asks the bedtime question at night, so the next
+   * morning does not ask it again.
+   */
+  readonly closing: readonly DeckCard[];
 }
 
 /** Dictionary sources a card may set: an opening card is a card, an event card is a story event. */
@@ -40,10 +46,12 @@ export const EVENT_SOURCES: readonly string[] = ['event'];
 
 export type DeckProblemCode = 'schema' | 'card-duplicate' | 'option-duplicate' | 'effect';
 
+export type DeckSection = 'opening' | 'events' | 'closing';
+
 /** Codes, not display text: tools/check-decks.ts phrases them in Chinese. */
 export interface DeckProblem {
   readonly code: DeckProblemCode;
-  readonly section?: 'opening' | 'events';
+  readonly section?: DeckSection;
   readonly card?: string;
   readonly option?: string;
   readonly schema?: SchemaProblem;
@@ -68,7 +76,7 @@ export function readDeck(raw: unknown, dict: TagDictionary): { deck: Deck | unde
   const problems: DeckProblem[] = [];
   // Strings are keyed by card id alone, so an opening card and an event card cannot share one.
   const seen = new Set<string>();
-  const read = (section: 'opening' | 'events', sources: readonly string[]) => file[section].map((c): DeckCard => {
+  const read = (section: DeckSection, sources: readonly string[]) => (file[section] ?? []).map((c): DeckCard => {
     if (seen.has(c.id)) problems.push({ code: 'card-duplicate', section, card: c.id });
     seen.add(c.id);
     const ids = new Set<string>();
@@ -83,9 +91,27 @@ export function readDeck(raw: unknown, dict: TagDictionary): { deck: Deck | unde
   });
   const opening = read('opening', OPENING_SOURCES);
   const events = read('events', EVENT_SOURCES);
+  // A closing card is the same kind of choice as an opening card, only asked at the other end of the day.
+  const closing = read('closing', OPENING_SOURCES);
   if (problems.length > 0) return { deck: undefined, problems };
-  return { deck: { chapter: file.chapter, opening, events: new Map(events.map((c) => [c.id, c])) }, problems };
+  return { deck: { chapter: file.chapter, opening, events: new Map(events.map((c) => [c.id, c])), closing }, problems };
 }
+
+/** Card ids the tags already hold an answer to: every `card` entry in the causal log names one. */
+export function answeredCards(tags: TagState): Set<string> {
+  const out = new Set<string>();
+  for (const n of tags.log.nodes) {
+    const m = n.kind === 'card' ? /^card\.([^.]+)\./.exec(n.key) : null;
+    if (m) out.add(m[1]!);
+  }
+  return out;
+}
+
+/** The opening cards still to ask, given the tags the chapter starts with. */
+export const openingFor = (deck: Deck, tags: TagState): DeckCard[] => {
+  const answered = answeredCards(tags);
+  return deck.opening.filter((c) => !answered.has(c.id));
+};
 
 export function loadDeck(raw: unknown, dict: TagDictionary): Deck {
   const { deck, problems } = readDeck(raw, dict);
@@ -123,11 +149,18 @@ export interface Opening {
 export function playOpening(
   deck: Deck, dict: TagDictionary, picks: readonly number[], clock: RuleClock, k: MetabolismParams, tags: TagState = EMPTY_TAGS,
 ): Opening {
-  if (picks.length !== deck.opening.length) throw new OuterError(`${deck.chapter}: ${deck.opening.length} opening cards need as many picks, got ${picks.length}`);
+  return playCards(deck.chapter, deck.opening, dict, picks, clock, k, tags);
+}
+
+/** Plays cards with one option index per card, in order, each logged as a card. */
+export function playCards(
+  chapter: string, cards: readonly DeckCard[], dict: TagDictionary, picks: readonly number[], clock: RuleClock, k: MetabolismParams, tags: TagState = EMPTY_TAGS,
+): Opening {
+  if (picks.length !== cards.length) throw new OuterError(`${chapter}: ${cards.length} cards need as many picks, got ${picks.length}`);
   let state: Opening = { tags, clock, events: [] };
-  deck.opening.forEach((card, i) => {
+  cards.forEach((card, i) => {
     const option = card.options[picks[i]!];
-    if (!option) throw new OuterError(`${deck.chapter}: card ${card.id} has no option ${picks[i]}`);
+    if (!option) throw new OuterError(`${chapter}: card ${card.id} has no option ${picks[i]}`);
     const r = playOption(dict, state.tags, state.clock, option.effects, { kind: 'card', key: `card.${card.id}.${option.id}` }, k);
     state = { tags: r.tags, clock: r.clock, events: [...state.events, ...r.events] };
   });

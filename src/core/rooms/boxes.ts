@@ -2,6 +2,7 @@ import { overlaps, type Box } from '../collision/boxes.ts';
 import { isSolid, type SolidGrid } from '../collision/grid.ts';
 import { TILE } from '../time.ts';
 import { objectBox, platesUnder } from './interact.ts';
+import { switchesFor } from './locks.ts';
 import type { RoomModel, RoomObject } from './tiled.ts';
 
 /**
@@ -74,8 +75,19 @@ export const directionOf = (conveyor: RoomObject): Tile => STEP[String(conveyor.
  * same rule as a switch lock, except that a conveyor with no switch simply runs.
  */
 export function conveyorRunning(objects: readonly RoomObject[], conveyor: RoomObject, switchesOn: readonly number[]): boolean {
-  const aimed = objects.filter((o) => o.kind === 'Switch' && o.props['target'] === conveyor.id);
-  return aimed.every((s) => switchesOn.includes(s.id));
+  return switchesFor(objects, conveyor.id).every((s) => switchesOn.includes(s.id));
+}
+
+/** The room's Port, if it has one; the map check allows one per room, since it counts every box delivered there. */
+export const portOf = (room: RoomModel): RoomObject | undefined => room.objects.find((o) => o.kind === 'Port');
+
+/** Whether a box's tile is one of the port's, by the same centre rule as a conveyor. */
+export const onPort = (port: RoomObject, t: Tile): boolean => conveyorTiles(port).some((p) => p.col === t.col && p.row === t.row);
+
+/** The port, once it holds as many boxes as it needs: from then on it counts as a switch that is on. */
+export function filledPorts(room: RoomModel, delivered: readonly number[]): number[] {
+  const port = portOf(room);
+  return port && delivered.length >= Number(port.props['need']) ? [port.id] : [];
 }
 
 interface RoomBoxIndex {
@@ -161,8 +173,8 @@ export const onPlate = (room: RoomModel, t: Tile): boolean => platesUnder(room, 
  * stays where it was, or failing that takes the nearest free floor tile: no box is ever put on
  * another, or on any body in `clear` (the operator and every enemy's home, where enemies reappear).
  */
-export function settleBoxes(room: RoomModel, remembered: ReadonlyMap<number, Tile>, clear: readonly Box[]): BoxState[] {
-  const objects = room.objects.filter((o) => o.kind === 'Box').sort((a, b) => a.id - b.id);
+export function settleBoxes(room: RoomModel, remembered: ReadonlyMap<number, Tile>, clear: readonly Box[], delivered: readonly number[] = []): BoxState[] {
+  const objects = room.objects.filter((o) => o.kind === 'Box' && !delivered.includes(o.id)).sort((a, b) => a.id - b.id);
   const placed = new Map<number, Tile>();
   const taken = (t: Tile) => [...placed.values()].some((p) => p.col === t.col && p.row === t.row);
   const free = (t: Tile) => !taken(t) && !clear.some((c) => overlaps(tileBox(t), c));

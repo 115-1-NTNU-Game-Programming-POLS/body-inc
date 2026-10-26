@@ -128,6 +128,33 @@ describe('room parser: door locks', () => {
     expect(codes(map([locked('none'), lever(1)]))).toEqual(['switch-target-kind']);
   });
 
+  describe('a port', () => {
+    const port = (extra: Partial<TiledObject> = {}, need = 1, target = 1): Partial<TiledObject> =>
+      ({ id: 3, type: 'Port', x: 320, y: 192, width: 64, height: 32, properties: [prop('need', need), prop('target', target)], ...extra });
+    const crate = (id: number, x: number, when = ''): Partial<TiledObject> => ({ id, type: 'Box', x, y: 112, properties: when ? [prop('when', when)] : [] });
+
+    it('opens a switch lock on its own, and aims only where a switch may', () => {
+      expect(codes(map([locked('switch'), port(), crate(4, 112)]))).toEqual([]);
+      expect(codes(map([locked('none'), port(), crate(4, 112)]))).toEqual(['switch-target-kind']);
+      // Aimed at nothing, it is a sink that only counts.
+      expect(codes(map([locked('key'), port({}, 1, 0), crate(4, 112)]))).toEqual([]);
+    });
+
+    it('must be a rectangle, alone in its room, and fillable by boxes that are always there', () => {
+      expect(codes(map([locked('switch'), port({ width: 0, height: 0 }), crate(4, 112)]))).toEqual(['port-shape']);
+      expect(codes(map([locked('switch'), port(), { ...port(), id: 5, x: 448 }, crate(4, 112)]))).toEqual(['port-multiple']);
+      expect(codes(map([locked('switch'), port({}, 2), crate(4, 112)]))).toEqual(['port-need']);
+      // A box with a `when` may be missing, so it does not count towards the need.
+      expect(codes(map([locked('switch'), port({}, 2), crate(4, 112), crate(5, 176, 'deadline')]))).toEqual(['port-need']);
+      expect(codes(map([locked('switch'), port({}, 2), crate(4, 112), crate(5, 176)]))).toEqual([]);
+    });
+
+    it('cannot start with a box on it', () => {
+      const r = readRoom('t', map([locked('switch'), port(), crate(4, 112), { id: 5, type: 'Box', x: 336, y: 208, properties: [] }]), TAGS);
+      expect(r.problems).toEqual([{ code: 'box-blocked', object: 5, args: { other: 3, kind: 'Port' } }]);
+    });
+  });
+
   it('a key lock with a lockParam needs a pickup with that itemId; an empty one is a sealed door', () => {
     const item = (itemId: string): Partial<TiledObject> => ({ id: 2, type: 'Pickup', x: 300, y: 300, properties: [prop('itemType', 'file'), prop('itemId', itemId)] });
     expect(codes(map([locked('key')]))).toEqual([]);
@@ -312,7 +339,7 @@ describe('chapter check (build plan P0)', () => {
   const AB = [link('lab/a#door-s', 'lab/b#door-n')];
 
   /** Writes rooms into lab/ and checks them against a chapter file; messages are returned without the path prefix. */
-  const check = (rooms: Record<string, TiledMap>, links = AB, chapter: Partial<{ id: string; start: string }> = {}) => {
+  const check = (rooms: Record<string, TiledMap>, links = AB, chapter: Partial<{ id: string; start: string; next: string; intro: string }> = {}) => {
     const dir = join(root, `maps${n++}`);
     mkdirSync(join(dir, 'lab'), { recursive: true });
     for (const [name, m] of Object.entries(rooms)) writeFileSync(join(dir, 'lab', `${name}.tmj`), JSON.stringify(m));
@@ -390,6 +417,19 @@ describe('chapter check (build plan P0)', () => {
     expect(check({ a: lockedA([crate({ properties: [prop('when', 'deadline')] })]), b: b() })).toEqual([unreachable]);
     const variantBox = { type: 'objectgroup', name: 'variant:night', properties: [prop('when', 'deadline')], objects: [{ id: 61, type: 'Box', x: 400, y: 300 }] };
     expect(check({ a: lockedA([], { layers: [variantBox] }), b: b() })).toEqual([unreachable]);
+  });
+
+  it('a switch lock that a port opens is a way across: a filled port stays filled', () => {
+    const port = { type: 'Port', x: 320, y: 192, width: 32, height: 32, properties: [prop('target', 2)] };
+    const crate = { type: 'Box', x: 400, y: 300, properties: [] };
+    expect(check({ a: map([start, southDoor('door-s', [prop('lock', 'switch')]), port, crate]), b: b() })).toEqual([]);
+  });
+
+  it('next must name another chapter and intro a conversation that exists', () => {
+    expect(check({ a: a(), b: b() }, AB, { next: 'nowhere' })).toEqual(['next「nowhere」不是任何一章的 id（content/chapters/*.json）']);
+    expect(check({ a: a(), b: b() }, AB, { next: 'lab' })).toEqual(['next 不能是自己這一章']);
+    expect(check({ a: a(), b: b() }, AB, { intro: 'no.such.talk' })).toEqual(['intro「no.such.talk」不存在於對話（content/dialogue/*.csv）']);
+    expect(check({ a: a(), b: b() }, AB, { intro: 'prologue.interview' })).toEqual([]);
   });
 
   it('a key lock whose key lies in its room is a way across, and then it must be linked', () => {

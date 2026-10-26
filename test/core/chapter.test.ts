@@ -383,7 +383,7 @@ describe('checkpoints and forced leave', () => {
   it('a story slot with a broken checkpoint falls back to no checkpoint', () => {
     const bad = JSON.stringify({ schema: 1, data: { checkpoint: { chapter: 'greybox', roomId: REST, x: 'left', y: 0, tags: { values: {}, log: { nodes: [] } }, clock: { day: 1, minute: 0 }, fired: [] } } });
     expect(decode(STORY, bad).kind).toBe('invalid');
-    expect(decode(STORY, bad).data).toEqual({ checkpoint: null });
+    expect(decode(STORY, bad).data).toEqual({ checkpoint: null, entry: null });
   });
 
   it('refuses a checkpoint from another chapter', () => {

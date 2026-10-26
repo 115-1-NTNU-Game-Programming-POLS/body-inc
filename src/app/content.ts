@@ -1,5 +1,6 @@
 import caffeineJson from '../../content/bosses/caffeine.json';
 import greyboxChapter from '../../content/chapters/greybox.json';
+import prologueChapter from '../../content/chapters/prologue.json';
 import enemiesJson from '../../content/enemies.json';
 import feedbackJson from '../../content/feedback.json';
 import handbookJson from '../../content/handbook.json';
@@ -47,10 +48,11 @@ const speakerIssues = speakerProblems(DIALOGUES, SPEAKERS);
 if (speakerIssues.length > 0) throw new Error(`content/dialogue:\n  ${speakerIssues.join('\n  ')}`);
 
 /**
- * Every file in content/chapters, in the order the title screen offers them. A chapter left out
- * here is never loaded, so its rooms never reach the game even though the map check passes them.
+ * Every file in content/chapters. The first is the new game; the others are reached through a
+ * chapter's `next`. A chapter left out here is never loaded, so its rooms never reach the game
+ * even though the map check passes them.
  */
-export const CHAPTER_FILES: readonly unknown[] = [greyboxChapter];
+export const CHAPTER_FILES: readonly unknown[] = [prologueChapter, greyboxChapter];
 export const CHAPTERS: ReadonlyMap<string, ChapterFile> = new Map(CHAPTER_FILES.map((f) => {
   const c = readContent('chapter', f);
   return [c.id, c] as const;

@@ -1,6 +1,7 @@
 {
   "version": 1,
   "pages": [
+    { "id": "badges", "body": ["handbook.badges.1", "handbook.badges.2"] },
     { "id": "breakfast_liver", "body": ["handbook.breakfast_liver.1", "handbook.breakfast_liver.2", "handbook.breakfast_liver.3"] },
     { "id": "caffeine", "body": ["handbook.caffeine.1", "handbook.caffeine.2"] },
     { "id": "sleep_debt", "body": ["handbook.sleep_debt.1"] },

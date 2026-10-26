@@ -18,6 +18,12 @@
       "description": "Shown when the operator steps on a Trigger whose event is card and whose eventId is the card id.",
       "type": "array",
       "items": { "$ref": "#/$defs/Card" }
+    },
+    "closing": {
+      "description": "Played in order after the chapter ends, before the next chapter (design doc 7.3: the prologue ends on \"what time tonight?\"). Their effects are what the run carries into the next chapter, which then skips its own opening cards of the same id.",
+      "type": "array",
+      "maxItems": 3,
+      "items": { "$ref": "#/$defs/Card" }
     }
   },
   "$defs": {

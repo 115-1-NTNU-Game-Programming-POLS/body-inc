@@ -181,7 +181,7 @@ describe('the time clock and items', () => {
     const back = run(c, dying, NONE).state;
     expect(selectPickups(back.game)[0]!.present).toBe(false);
     expect(caffeine(back)).toBe(PARAMS.cup);
-    const saved = decode(STORY, encode(STORY, { checkpoint: punched.run.checkpoint }));
+    const saved = decode(STORY, encode(STORY, { checkpoint: punched.run.checkpoint, entry: null }));
     expect(selectPickups(resumeChapter(c, saved.data.checkpoint!).game)[0]!.present).toBe(false);
   });
 });

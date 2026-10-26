@@ -88,10 +88,14 @@ describe('handbook content', () => {
     expect(missingPages(new Map(), talk, HANDBOOK)).toEqual(['dialogue x: handbook page "missing_page"']);
   });
 
-  it('a card option that unlocks a page the handbook lacks stops the game, opening or event card alike', () => {
+  it('a card option that unlocks a page the handbook lacks stops the game, opening, event or closing card alike', () => {
     const card = (id: string, page: string) => ({ id, options: [{ id: 'yes', effects: [{ kind: 'unlock' as const, id: page }] }] });
-    const deck = { chapter: 'lab', opening: [card('o', 'caffeine'), card('p', 'nope_a')], events: new Map([['e', card('e', 'nope_b')]]) };
-    expect(missingPages(new Map(), new Map(), HANDBOOK, deck)).toEqual(['card p/yes: handbook page "nope_a"', 'card e/yes: handbook page "nope_b"']);
+    const deck = {
+      chapter: 'lab', opening: [card('o', 'caffeine'), card('p', 'nope_a')], events: new Map([['e', card('e', 'nope_b')]]), closing: [card('c', 'nope_c')],
+    };
+    expect(missingPages(new Map(), new Map(), HANDBOOK, deck)).toEqual([
+      'card p/yes: handbook page "nope_a"', 'card e/yes: handbook page "nope_b"', 'card c/yes: handbook page "nope_c"',
+    ]);
   });
 
   it('every page fits its body area at both text sizes', () => {

@@ -2,7 +2,7 @@ import type { TickInput } from '../combat/operator.ts';
 import { LOCK_TICKS } from '../dialogue/runner.ts';
 import { playOption, type DeckCard } from '../outer/deck.ts';
 import { ChapterError, type ChapterContent, type ChapterEvent, type ChapterState } from './chapter.ts';
-import { confirmPressed, type TalkResult } from './talk.ts';
+import { confirmPressed, withTools, type TalkResult } from './talk.ts';
 
 /**
  * An event card inside a chapter (design doc 7.2: the outer layer's mid-chapter card). It works
@@ -43,6 +43,7 @@ export function stepCard(ctx: ChapterContent, state: ChapterState, input: TickIn
 
   const option = card.options[picked ?? s.cursor]!;
   const r = playOption(ctx.dict, state.run.tags, state.game.clock, option.effects, { kind: 'event', key: `event.${card.id}.${option.id}` }, ctx.params);
-  const events: ChapterEvent[] = [{ type: 'cardChosen', card: card.id, option: option.id }, ...r.events];
-  return { state: { ...state, run: { ...state.run, tags: r.tags }, game: { ...state.game, clock: r.clock }, card: null }, events };
+  const a = withTools({ run: { ...state.run, tags: r.tags }, game: { ...state.game, clock: r.clock }, events: r.events });
+  const events: ChapterEvent[] = [{ type: 'cardChosen', card: card.id, option: option.id }, ...a.events];
+  return { state: { ...state, run: a.run, game: a.game, card: null }, events };
 }

@@ -8,8 +8,9 @@ import type { FixedStepLoop } from '../../app/loop.ts';
 import type { SaveStore } from '../../app/storage.ts';
 import {
   listProps, selectEnemies, selectOperator, selectProjectiles, storyOf, STORY, TILE, visibleProps,
-  type ChapterState, type EnemyState, type GameEvent, type GameState, type ProgressData, type TiledMapFile,
+  type ChapterContent, type ChapterState, type EnemyState, type GameEvent, type GameState, type ProgressData, type TiledMapFile,
 } from '../../core/index.ts';
+import type { CardsData } from './OpeningScene.ts';
 import { BossView } from '../actors/BossView.ts';
 import { EnemyView, SKINS } from '../actors/EnemyView.ts';
 import { OperatorView } from '../actors/OperatorView.ts';
@@ -202,13 +203,20 @@ export class WorldScene extends Phaser.Scene {
         this.registry.set('arrival-note', STRINGS.strings['checkpoint.returned']!.text);
         this.leave(() => this.scene.restart());
         break;
-      case 'chapterEnded':
-        this.registry.set('ended', true);
+      case 'chapterEnded': {
+        const { run } = this.loop.state;
+        const chapters = this.registry.get('chapters') as ReadonlyMap<string, ChapterContent>;
+        const ctx = chapters.get(run.chapter);
+        // A chapter that closes on cards or leads on to another goes through the card scene; one that does neither ends at the title.
+        const onward = ctx !== undefined && ((ctx.deck?.closing.length ?? 0) > 0 || ctx.chapter.next !== undefined);
+        if (!onward) this.registry.set('ended', true);
         this.leave(() => {
           this.scene.stop('Hud');
-          this.scene.start('Title');
+          if (onward) this.scene.start('Opening', { chapter: run.chapter, mode: 'closing', tools: run.tools } satisfies CardsData);
+          else this.scene.start('Title');
         });
         break;
+      }
       default:
         break;
     }
