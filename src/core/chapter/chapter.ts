@@ -7,7 +7,7 @@ import type { ChapterFile } from '../content/generated.ts';
 import type { DialogueState } from '../dialogue/runner.ts';
 import type { DialogueTable, Effect } from '../dialogue/lines.ts';
 import { createGame, sendStacksHome, step, type DomainEvent, type GameState } from '../game.ts';
-import { tileOf } from '../rooms/boxes.ts';
+import { portOf, tileOf } from '../rooms/boxes.ts';
 import { enterRoom } from '../rooms/entry.ts';
 import { arrivalPoint } from '../rooms/interact.ts';
 import { openByState } from '../rooms/locks.ts';
@@ -273,6 +273,14 @@ export function roomsOf(chapter: ChapterFile): string[] {
 /** What the story slot should hold for this run. Once a room has a punch, it is where "continue" starts, not the chapter's entry. */
 export const storyOf = (run: Run): StoryData => ({ checkpoint: run.checkpoint, entry: null });
 
+/**
+ * What the story slot holds from the end of a chapter until its closing cards are answered: the
+ * `next` chapter with none of them answered, or nothing after the last. Written before the cards,
+ * so a game closed on them never resumes the chapter just ended; the opening asks what they did not.
+ */
+export const storyAtEnd = (run: Run, next: string | undefined): StoryData =>
+  ({ checkpoint: null, entry: next !== undefined ? { chapter: next, tags: EMPTY_TAGS, tools: run.tools } : null });
+
 /** The other end of the door `door` in `room`, or undefined when the chapter file does not link it. */
 export function across(chapter: ChapterFile, room: string, door: string): { room: string; door: string } | undefined {
   const here = `${room}#${door}`;
@@ -457,6 +465,20 @@ function stepRoom(ctx: ChapterContent, state: ChapterState, input: TickInput): C
     };
   };
   const done = (next: ChapterState, more: readonly ChapterEvent[]): ChapterResult => ({ state: next, events: [...r.events, ...extra, ...more] });
+  /**
+   * A filled port's conversation is owed until it is shown, its `fired` key spent like a once
+   * trigger's. Asked for when the port fills and again on any later tick in its room, so one not
+   * shown on the filling tick (a forced leave on that tick) opens once the operator is back.
+   */
+  const claimPort = () => {
+    const port = portOf(game.room);
+    if (opening || !port || !game.switches.includes(port.id)) return;
+    const id = String(port.props['dialogueId'] ?? '').trim();
+    const key = `${run.roomId}#${port.id}`;
+    if (id === '' || run.fired.includes(key)) return;
+    run = { ...run, fired: [...run.fired, key] };
+    opening = { kind: 'dialogue', id, spent: key };
+  };
 
   for (const e of r.events) {
     switch (e.type) {
@@ -479,25 +501,24 @@ function stepRoom(ctx: ChapterContent, state: ChapterState, input: TickInput): C
         run = { ...run, fired: [...run.fired, key], boxes: run.boxes.filter((b) => b.key !== key) };
         break;
       }
-      case 'portFilled': {
-        const port = game.room.objects.find((o) => o.id === e.object);
-        const id = String(port?.props['dialogueId'] ?? '').trim();
-        // A port fills once, so its conversation must not be the one dropped. It cannot be: the
-        // room emits box events before any talk or trigger of the same tick, so this comes first.
-        if (id !== '') opening ??= { kind: 'dialogue', id };
+      case 'portFilled':
+        // The room emits box events before any talk or trigger of the same tick, so this comes
+        // first, and a time clock punched later in the tick already saves the conversation as seen.
+        claimPort();
         break;
-      }
       case 'doorEntered':
         // Left for last: a trigger or bed touched on the same tick still belongs to the room being left.
         through ??= e;
         break;
       case 'forcedLeave': {
-        const cp = run.checkpoint;
         // Without a checkpoint the room has already restarted at its start, which is all there is to return to.
-        if (!cp) {
+        if (!run.checkpoint) {
           run = remember(run, game);
           break;
         }
+        // What this tick asked to open is not shown, so it stays owed.
+        giveBack(opening?.spent);
+        const cp = run.checkpoint;
         // Everything else spent stays spent.
         const fired = run.fired.filter((k) => cp.fired.includes(k) || !undoneByReturn(ctx, k));
         // Tools go back with the tags, as Continue would restore them: a stamp handed over after the
@@ -538,6 +559,7 @@ function stepRoom(ctx: ChapterContent, state: ChapterState, input: TickInput): C
     }
   }
 
+  claimPort();
   // A door crossed on the same tick waits: it is forgotten as touched, so it fires again once the
   // conversation or card is over.
   const holdDoor = (g: GameState): GameState => (through ? { ...g, touching: g.touching.filter((id) => id !== through!.object) } : g);

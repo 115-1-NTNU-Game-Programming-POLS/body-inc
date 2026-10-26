@@ -149,6 +149,18 @@ describe('room parser: door locks', () => {
       expect(codes(map([locked('switch'), port({}, 2), crate(4, 112), crate(5, 176)]))).toEqual([]);
     });
 
+    it('must cover a floor tile\'s centre, the rule that decides where a box is taken in', () => {
+      // 10 x 10 inside tile (6, 6), clear of its centre: no tile is the port's.
+      expect(codes(map([locked('switch'), port({ x: 196, y: 196, width: 10, height: 10 }), crate(4, 112)]))).toEqual(['port-shape']);
+      // Its tiles are (10, 6) and (11, 6); walling both leaves no box a place to rest on it.
+      const walled = map([locked('switch'), port(), crate(4, 112)]);
+      const walls = (walled.layers[0] as unknown as { data: number[] }).data;
+      walls[6 * 20 + 10] = 1;
+      expect(codes(walled)).toEqual([]);
+      walls[6 * 20 + 11] = 1;
+      expect(readRoom('t', walled, TAGS).problems).toEqual([{ code: 'port-wall', object: 3 }]);
+    });
+
     it('cannot start with a box on it', () => {
       const r = readRoom('t', map([locked('switch'), port(), crate(4, 112), { id: 5, type: 'Box', x: 336, y: 208, properties: [] }]), TAGS);
       expect(r.problems).toEqual([{ code: 'box-blocked', object: 5, args: { other: 3, kind: 'Port' } }]);

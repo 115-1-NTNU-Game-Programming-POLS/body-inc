@@ -4,7 +4,7 @@ import { ConditionError, type Condition, type ConditionProblem } from '../tags/c
 import { compileCondition, type TagDictionary } from '../tags/dictionary.ts';
 import { TILE } from '../time.ts';
 import { OBJECT_CLASSES, ROOM_CLASS, VARIANT_PREFIX, type ClassSpec, type RefKind, type Scalar } from './classes.ts';
-import { KEEP_CLEAR, tileBox, tileOf } from './boxes.ts';
+import { conveyorTiles, KEEP_CLEAR, tileBox, tileOf } from './boxes.ts';
 import { canMeet } from './entry.ts';
 import { objectBox } from './interact.ts';
 import { keyOf, keysFor, parseClockWindow, SWITCH_KINDS, switchesFor } from './locks.ts';
@@ -116,8 +116,10 @@ export type RoomProblemCode =
    * with other tags it would not be in the room, and the door it opened would lock again.
    */
   | 'key-conditional'
-  /** A Port drawn as a point; it needs a rectangle to say which tiles take boxes in. */
+  /** A Port drawn as a point, or too small to hold any tile's centre; it needs a rectangle over the tiles that take boxes in. */
   | 'port-shape'
+  /** A Port whose every tile is a wall, so no box can come to rest on it. */
+  | 'port-wall'
   /** More than one Port in a room; the game delivers to the first only. */
   | 'port-multiple'
   /** A Port that needs more boxes than the room always has (base layer, no `when`), so it could never fill. */
@@ -372,7 +374,12 @@ export function readRoom(id: string, map: TiledMap, dict: TagDictionary): ReadRe
       else if (t.kind !== 'Conveyor' && (t.kind !== 'Door' || t.props['lock'] !== 'switch')) problems.push({ code: 'switch-target-kind', object: o.id, args: { target } });
     }
     if (o.kind === 'Conveyor' && (o.width <= 0 || o.height <= 0)) problems.push({ code: 'conveyor-shape', object: o.id });
-    if (o.kind === 'Port' && (o.width <= 0 || o.height <= 0)) problems.push({ code: 'port-shape', object: o.id });
+    if (o.kind === 'Port') {
+      // The game takes a box in by the tile centre rule, so a port covering no centre has no tile.
+      const tiles = o.width > 0 && o.height > 0 ? conveyorTiles(o) : [];
+      if (tiles.length === 0) problems.push({ code: 'port-shape', object: o.id });
+      else if (tiles.every((t) => isSolid({ cols: map.width, rows: map.height, solid }, t.col, t.row))) problems.push({ code: 'port-wall', object: o.id });
+    }
   }
   const boxes = objects.filter((o) => o.kind === 'Box').sort((a, b) => a.id - b.id);
   // Two objects that can never be in the room on the same visit do not clash.
