@@ -53,6 +53,7 @@ describe('room parser: Tiled classes', () => {
     ['a missing required ref', { type: 'Spawn' }, 'required'],
     ['a bad condition', { type: 'Hazard', properties: [prop('when', 'sugar>1')] }, 'condition'],
     ['a switch aimed at nothing', { type: 'Switch', properties: [prop('target', 99)] }, 'switch-target'],
+    ['a switch aimed at itself, which is not a door', { type: 'Switch', properties: [prop('target', 1)] }, 'switch-target-kind'],
     ['a door drawn as a point', { type: 'Door', properties: [prop('socket', 'N')] }, 'door-shape'],
   ])('reports %s', (_name, obj, code) => {
     expect(codes(map([obj]))).toEqual([code]);
@@ -93,6 +94,38 @@ describe('room parser: door sockets (design doc 13.3)', () => {
   it('a 2x1 room has a north socket in each cell', () => {
     expect(codes(map([door('N', (20 + 9) * 32, 0, 64, 96)], { cols: 40 }))).toEqual([]);
     expect(codes(map([door('N', (20 + 9) * 32, 0, 64, 96)]))).toEqual(['door-position']);
+  });
+});
+
+describe('room parser: door locks', () => {
+  const locked = (lock: string, param?: string, id = 1): Partial<TiledObject> => ({
+    id, type: 'Door', x: 288, y: 352, width: 64, height: 32,
+    properties: [prop('socket', 'S'), prop('lock', lock), ...(param !== undefined ? [prop('lockParam', param)] : [])],
+  });
+  const lever = (target: number, mode = 'toggle'): Partial<TiledObject> => ({ id: 2, type: 'Switch', x: 300, y: 300, properties: [prop('target', target), prop('mode', mode)] });
+
+  it.each(['08:00-10:00', '17:00-24:00', '22:00-02:00', '00:00-00:30', '23:59-24:00'])('a clock lock accepts the window %s', (w) => {
+    expect(codes(map([locked('clock', w)]))).toEqual([]);
+  });
+
+  it.each(['', '8:00-10:00', '08:00', '08:00-08:00', '24:00-02:00', '08:60-10:00', '08:00-24:30', '08:00 - 10:00', '08:00-10:00-12:00'])(
+    'a clock lock rejects the window "%s"',
+    (w) => expect(codes(map([locked('clock', w)]))).toEqual(['lock-param']),
+  );
+
+  it('a resource lock needs a condition the dictionary knows, and keeps it compiled', () => {
+    expect(codes(map([locked('resource', '')]))).toEqual(['lock-param']);
+    expect(codes(map([locked('resource', 'sugar>1')]))).toEqual(['condition']);
+    const { room, problems } = readRoom('t', map([locked('resource', 'caffeine<50')]), TAGS);
+    expect(problems).toEqual([]);
+    expect(room.objects[0]!.conditions['lockParam']?.text).toBe('caffeine<50');
+  });
+
+  it('a switch lock needs a switch aimed at it, and a switch must aim at a switch-locked door', () => {
+    expect(codes(map([locked('switch')]))).toEqual(['switch-missing']);
+    expect(codes(map([locked('switch'), lever(1)]))).toEqual([]);
+    expect(codes(map([locked('switch'), lever(1, 'hold')]))).toEqual([]);
+    expect(codes(map([locked('none'), lever(1)]))).toEqual(['switch-target-kind']);
   });
 });
 
@@ -277,10 +310,36 @@ describe('chapter check (build plan P0)', () => {
     expect(check({ a: a(), b: b(), c }, [...AB, link('lab/a#door-s', 'lab/c#door-n')])).toEqual([expect.stringContaining('門 lab/a#door-s 被接了 2 次')]);
   });
 
-  it('an unlocked door that leads nowhere fails, a locked one is a closed door', () => {
-    const extra = (lock: string) => map([start, northDoor(), named('door-e', { ...door('E', 608, 192, 32, 64), properties: [prop('socket', 'E'), prop('lock', lock)] })]);
-    expect(check({ a: a(), b: extra('none') })).toEqual([expect.stringContaining('門「door-e」沒有接到任何房間，也沒有上鎖')]);
+  it('a door that can open and leads nowhere fails, a key-locked one is a closed door', () => {
+    const lever = { type: 'Switch', x: 560, y: 224, properties: [prop('target', 3)] };
+    const extra = (lock: string, param = '') => map([start, northDoor(), named('door-e', {
+      ...door('E', 608, 192, 32, 64), properties: [prop('socket', 'E'), prop('lock', lock), ...(param ? [prop('lockParam', param)] : [])],
+    }), ...(lock === 'switch' ? [lever] : [])]);
+    expect(check({ a: a(), b: extra('none') })).toEqual([expect.stringContaining('門「door-e」沒有接到任何房間，卻打得開（lock 為 none）')]);
+    expect(check({ a: a(), b: extra('switch') })).toEqual([expect.stringContaining('卻打得開（lock 為 switch）')]);
+    expect(check({ a: a(), b: extra('clock', '08:00-10:00') })).toEqual([expect.stringContaining('卻打得開（lock 為 clock）')]);
+    expect(check({ a: a(), b: extra('resource', 'caffeine<50') })).toEqual([expect.stringContaining('卻打得開（lock 為 resource）')]);
     expect(check({ a: a(), b: extra('key') })).toEqual([]);
+  });
+
+  it('switch, clock and resource locks are a way across; a key lock and a plate-only switch lock are not', () => {
+    const lever = (mode: string, extra: Partial<TiledObject> = {}) => ({ type: 'Switch', x: 300, y: 300, properties: [prop('target', 2), prop('mode', mode)], ...extra });
+    const lockedA = (lock: string, param: string, more: Partial<TiledObject>[] = []) =>
+      map([start, southDoor('door-s', [prop('lock', lock), ...(param ? [prop('lockParam', param)] : [])]), ...more]);
+    const unreachable = expect.stringContaining('房間 lab/b 從起點 lab/a 走不到');
+    expect(check({ a: lockedA('switch', '', [lever('toggle')]), b: b() })).toEqual([]);
+    expect(check({ a: lockedA('clock', '22:00-02:00'), b: b() })).toEqual([]);
+    expect(check({ a: lockedA('resource', '!deadline'), b: b() })).toEqual([]);
+    expect(check({ a: lockedA('key', ''), b: b() })).toEqual([unreachable]);
+    expect(check({ a: lockedA('switch', '', [lever('hold')]), b: b() })).toEqual([unreachable]);
+    // A lever and a plate on the same door: the plate still cannot be held down while walking through.
+    expect(check({ a: lockedA('switch', '', [lever('toggle'), lever('hold')]), b: b() })).toEqual([unreachable]);
+    // A lever that exists only in a variant may be absent, and then the door never opens.
+    const variantLever = {
+      type: 'objectgroup', name: 'variant:night', properties: [prop('when', 'deadline')],
+      objects: [{ id: 60, type: 'Switch', x: 300, y: 300, properties: [prop('target', 2)] }],
+    };
+    expect(check({ a: map([start, southDoor('door-s', [prop('lock', 'switch')])], { layers: [variantLever] }), b: b() })).toEqual([unreachable]);
   });
 
   it('a room no link reaches fails', () => {
@@ -304,6 +363,9 @@ describe('chapter check (build plan P0)', () => {
     const withVariant = (lock: string) => map([start, northDoor()], { layers: [variantDoor(lock)] });
     expect(check({ a: a(), b: withVariant('none') })).toEqual([expect.stringContaining('變體圖層裡的門沒辦法在章節檔接到別的房間')]);
     expect(check({ a: a(), b: withVariant('key') })).toEqual([]);
+    // Any lock that can open is a way through the variant door too.
+    const clockVariant = map([start, northDoor()], { layers: [{ ...variantDoor('clock'), objects: [{ ...variantDoor('clock').objects[0]!, properties: [prop('socket', 'W'), prop('lock', 'clock'), prop('lockParam', '08:00-09:00')] }] }] });
+    expect(check({ a: a(), b: clockVariant })).toEqual([expect.stringContaining('卻打得開（lock 為 clock）')]);
   });
 
   it('a chapter file that is not valid says so, instead of reporting that the folder has none', () => {

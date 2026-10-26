@@ -12,6 +12,7 @@ import {
 import { BossView } from '../actors/BossView.ts';
 import { EnemyView, SKINS } from '../actors/EnemyView.ts';
 import { OperatorView } from '../actors/OperatorView.ts';
+import { Mechanisms } from '../actors/Mechanisms.ts';
 import { drawRoomObjects } from '../actors/RoomObjects.ts';
 import { CollisionOverlay } from '../debug/CollisionOverlay.ts';
 import { FeedbackPlayer, type ActorFx } from '../fx/FeedbackPlayer.ts';
@@ -35,6 +36,7 @@ export class WorldScene extends Phaser.Scene {
   private overlay!: CollisionOverlay;
   private feedback!: FeedbackPlayer;
   private hazards!: HazardView;
+  private mechanisms!: Mechanisms;
   private entry!: (key: string) => ManifestEntry;
   private readonly enemyViews = new Map<number, EnemyView>();
   private readonly bossViews = new Map<number, BossView>();
@@ -76,6 +78,7 @@ export class WorldScene extends Phaser.Scene {
 
     const manifest = this.cache.json.get('manifest') as Manifest;
     drawRoomObjects(this, room, manifest);
+    this.mechanisms = new Mechanisms(this, chapter.game);
     this.entry = (key: string) => {
       const e = manifest.entries.find((m) => m.key === key);
       if (!e) throw new Error(`manifest has no ${key} entry`);
@@ -154,6 +157,7 @@ export class WorldScene extends Phaser.Scene {
     }
 
     this.hazards.render(prevState, state, alpha);
+    this.mechanisms.render(state);
     this.renderStaples(prevState, alpha);
     this.overlay.render(state);
     for (const e of this.pending.splice(0)) {

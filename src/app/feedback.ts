@@ -1,9 +1,14 @@
 import type { EnemyTable, FeedbackFile, GameEvent, StringsFile } from '../core/index.ts';
 import { OBJECT_CLASSES } from '../core/rooms/classes.ts';
 
-/** The bed kinds a map can place, from the class definition, so a new kind needs its refusal note. */
-const bedSpec = OBJECT_CLASSES['Bed']!['bedType']!;
-const BED_TYPES: readonly string[] = bedSpec.type === 'enum' ? bedSpec.values : [];
+/** The values of an enum member, from the class definition, so a new value needs its note. */
+const enumValues = (cls: string, member: string): readonly string[] => {
+  const spec = OBJECT_CLASSES[cls]![member]!;
+  return spec.type === 'enum' ? spec.values : [];
+};
+const BED_TYPES = enumValues('Bed', 'bedType');
+/** An open door is never reported as locked. */
+const LOCKS = enumValues('Door', 'lock').filter((l) => l !== 'none');
 
 /**
  * content/feedback.json: domain event type to presentation (architecture section 4). The art
@@ -20,7 +25,7 @@ const ALL_EVENTS: Record<GameEvent['type'], true> = {
   dispersed: true, reformed: true, respawned: true, immuneBounce: true, heartLost: true, freeze: true, forcedLeave: true,
   gaugeFull: true, stampRaised: true, stampLanded: true, stampVoid: true, clung: true, forcedNap: true,
   bossStage: true, bossDrink: true, bossSummon: true, powerCut: true, proposalRejected: true, bossDefeated: true,
-  doorEntered: true, doorLocked: true, triggerEntered: true, talk: true, bedUse: true,
+  doorEntered: true, doorLocked: true, switchChanged: true, triggerEntered: true, talk: true, bedUse: true,
   roomChanged: true, dialogueOpened: true, dialogueClosed: true, handbookUnlocked: true, bedRefused: true, napped: true,
   checkpointSaved: true, clockAdvanced: true, cardOpened: true, cardChosen: true,
   outerRequested: true, returnedToCheckpoint: true, chapterEnded: true,
@@ -77,6 +82,7 @@ export function noteFields(table: EnemyTable): NoteFields {
     stampVoid: { solution: solutions((c) => c !== 'defeatable') },
     bossStage: { stage: ['2', '3'] },
     bedRefused: { bedType: [...BED_TYPES] },
+    doorLocked: { lock: [...LOCKS] },
   };
 }
 

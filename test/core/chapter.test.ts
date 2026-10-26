@@ -4,7 +4,7 @@ import { BOSSES, DECKS, DIALOGUES, ENEMIES, PARAMS, TAGS } from '../../src/app/c
 import { tagsFromQuery } from '../../src/app/session.ts';
 import { bodyOverlapsSolid } from '../../src/core/collision/grid.ts';
 import {
-  advance, ChapterError, LOCK_TICKS, decode, encode, EMPTY_TAGS, NAP, OPERATOR_BODY, parseRoom, readContent, resumeChapter, selectInteractable,
+  advance, ChapterError, LOCK_TICKS, decode, encode, EMPTY_TAGS, NAP, OPERATOR_BODY, parseRoom, readContent, resumeChapter, roomsOf, selectInteractable,
   startChapter, startClock, stateHash, stepChapter, storyOf, STORY, touchedObjects, wholeMinutes,
   type ChapterContent, type ChapterState, type GameEvent, type TickInput, type TiledMap,
 } from '../../src/core/index.ts';
@@ -18,7 +18,7 @@ const ARENA = 'greybox/caffeine-arena';
 const load = (path: string) => parseRoom(path, JSON.parse(readFileSync(`public/assets/maps/${path}.tmj`, 'utf8')) as TiledMap, TAGS);
 const ctx: ChapterContent = {
   chapter: CHAPTER,
-  rooms: new Map([GREY, REST, CORRIDOR, ARENA].map((p) => [p, load(p)])),
+  rooms: new Map(roomsOf(CHAPTER).map((p) => [p, load(p)])),
   dialogues: DIALOGUES, dict: TAGS, enemies: ENEMIES, bosses: BOSSES, params: PARAMS, deck: DECKS.get('greybox')!,
 };
 
@@ -130,7 +130,11 @@ describe('walking through doors', () => {
       for (const [from, to] of [[link.a, link.b], [link.b, link.a]] as const) {
         const [room, door] = from.split('#') as [string, string];
         const o = ctx.rooms.get(room)!.objects.find((x) => x.name === door)!;
-        const start = place({ ...startChapter(ctx, { room }) }, o.x + o.width / 2, o.y + o.height / 2);
+        // Every lever thrown; the chapter opens at 08:00 with no caffeine, when the clock and resource locks are open.
+        const levers = ctx.rooms.get(room)!.objects.filter((x) => x.kind === 'Switch').map((x) => x.id);
+        const s0 = startChapter(ctx, { room });
+        const opened = { ...s0, run: { ...s0.run, switches: levers.map((id) => `${room}#${id}`) }, game: { ...s0.game, switches: levers } };
+        const start = place(opened, o.x + o.width / 2, o.y + o.height / 2);
         const { state } = advanceBy(ctx, start, NONE);
         expect(state.run.roomId, `${from} -> ${to}`).toBe(to.split('#')[0]);
         expect(bodyOverlapsSolid(state.game.room.grid, OPERATOR_BODY, state.game.operator.x, state.game.operator.y)).toBe(false);

@@ -1,6 +1,6 @@
 import type { RuleClock } from '../clock.ts';
 import type { TagState } from '../tags/store.ts';
-import type { Schema } from '../content/schema.ts';
+import { isRecord, type Schema } from '../content/schema.ts';
 import type { SlotDef } from './save.ts';
 
 /**
@@ -43,6 +43,8 @@ export interface Checkpoint {
   readonly tags: TagState;
   readonly clock: RuleClock;
   readonly fired: readonly string[];
+  /** Toggle switches that were on at the punch, as `roomId#objectId`. */
+  readonly switches: readonly string[];
 }
 
 export interface StoryData {
@@ -84,7 +86,7 @@ const CAUSAL_NODE: Schema = {
 const CHECKPOINT: Schema = {
   type: 'object',
   additionalProperties: false,
-  required: ['chapter', 'roomId', 'x', 'y', 'tags', 'clock', 'fired'],
+  required: ['chapter', 'roomId', 'x', 'y', 'tags', 'clock', 'fired', 'switches'],
   properties: {
     chapter: { type: 'string', minLength: 1 },
     roomId: { type: 'string', minLength: 1 },
@@ -101,13 +103,14 @@ const CHECKPOINT: Schema = {
     },
     clock: { type: 'object', additionalProperties: false, required: ['day', 'minute'], properties: { day: { type: 'integer', minimum: 1 }, minute: INT } },
     fired: { type: 'array', items: STR },
+    switches: { type: 'array', items: STR },
   },
 };
 
 /** Story progress: the checkpoint of the chapter being played, or none before the first punch. */
 export const STORY: SlotDef<StoryData> = {
   name: 'story',
-  version: 1,
+  version: 2,
   schema: {
     type: 'object',
     additionalProperties: false,
@@ -115,7 +118,13 @@ export const STORY: SlotDef<StoryData> = {
     properties: { checkpoint: { anyOf: [{ type: 'null' }, CHECKPOINT] } },
   },
   defaults: () => ({ checkpoint: null }),
-  migrations: {},
+  migrations: {
+    // Version 2 keeps the toggle switches; a version-1 checkpoint was punched before any existed.
+    1: (data) => {
+      if (!isRecord(data) || !isRecord(data['checkpoint'])) return data;
+      return { ...data, checkpoint: { ...data['checkpoint'], switches: [] } };
+    },
+  },
 };
 
 export const SLOTS = [SETTINGS, STORY] as const;

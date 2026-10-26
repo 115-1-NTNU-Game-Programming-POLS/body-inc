@@ -10,7 +10,7 @@
  "tilewidth": 32,
  "tileheight": 32,
  "nextlayerid": 4,
- "nextobjectid": 11,
+ "nextobjectid": 12,
  "class": "Room",
  "properties": [
   {
@@ -584,7 +584,7 @@
        "name": "lock",
        "type": "string",
        "propertytype": "Lock",
-       "value": "key"
+       "value": "switch"
       }
      ]
     },
@@ -749,6 +749,25 @@
        "name": "respawnSeconds",
        "type": "float",
        "value": 3
+      }
+     ]
+    },
+    {
+     "id": 11,
+     "name": "lever",
+     "type": "Switch",
+     "x": 240,
+     "y": 80,
+     "width": 0,
+     "height": 0,
+     "rotation": 0,
+     "visible": true,
+     "point": true,
+     "properties": [
+      {
+       "name": "target",
+       "type": "object",
+       "value": 2
       }
      ]
     }

@@ -5,7 +5,7 @@ import { missingCards } from '../../src/app/decks.ts';
 import { tagsFromQuery } from '../../src/app/session.ts';
 import {
   amount, BED_SEARCH_MINUTES, caffeineOf, CHAPTER_OPENS, CLOAK, comboReports, LOCK_TICKS, metabolise, openingCombos, optionPressure, OuterError, parseRoom,
-  playOpening, readContent, readDeck, senseCap, sightOver, spreadEnds, startChapter, stepChapter, ticksPerMinute, TILE, worstSpread,
+  playOpening, readContent, readDeck, roomsOf, senseCap, sightOver, spreadEnds, startChapter, stepChapter, ticksPerMinute, TILE, worstSpread,
   type ChapterContent, type ChapterState, type Deck, type GameEvent, type TickInput, type TiledMap,
 } from '../../src/core/index.ts';
 
@@ -19,7 +19,7 @@ const DECK_JSON = JSON.parse(readFileSync('content/decks/greybox.json', 'utf8'))
 
 const raw = (path: string) => JSON.parse(readFileSync(`public/assets/maps/${path}.tmj`, 'utf8')) as TiledMap;
 const load = (path: string, map = raw(path)) => parseRoom(path, map, TAGS);
-const rooms = new Map([GREY, REST, CORRIDOR, ARENA].map((p) => [p, load(p)]));
+const rooms = new Map(roomsOf(CHAPTER).map((p) => [p, load(p)]));
 const ctx: ChapterContent = { chapter: CHAPTER, rooms, dialogues: DIALOGUES, dict: TAGS, enemies: ENEMIES, bosses: BOSSES, params: PARAMS, deck: DECK };
 
 const tags = (q: string) => tagsFromQuery(`?tags=${q}`, TAGS);

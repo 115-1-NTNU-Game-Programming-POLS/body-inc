@@ -20,6 +20,7 @@ import { parseCsv } from '../src/core/dialogue/csv.ts';
 import type { ChapterFile } from '../src/core/content/generated.ts';
 import { wholeMinutes } from '../src/core/clock.ts';
 import { arrivalPoint } from '../src/core/rooms/interact.ts';
+import { lockOf, mayOpen, switchesFor } from '../src/core/rooms/locks.ts';
 import { listProps, type PropProblem, type TiledMapFile } from '../src/core/rooms/props.ts';
 import { SOCKET_COLS, SOCKET_ROWS, readRoom, type RoomModel, type RoomObject, type RoomProblem, type TiledMap } from '../src/core/rooms/tiled.ts';
 import type { ConditionProblem } from '../src/core/tags/condition.ts';
@@ -144,6 +145,11 @@ function problemMessage(p: RoomProblem): string {
       return `${SOCKET_NAME[s]}門必須在${SOCKET_PLACE[s]}，目前在第 ${range(a['cols'])} 欄、第 ${range(a['rows'])} 列`;
     }
     case 'switch-target': return `開關的目標物件 #${a['target']} 不存在`;
+    case 'switch-target-kind': return `開關的目標物件 #${a['target']} 不是 lock 為 switch 的門；開關目前只能開門`;
+    case 'switch-missing': return 'lock 是 switch，但房間裡沒有任何開關（Switch）的 target 指向這扇門，門永遠打不開';
+    case 'lock-param': return a['lock'] === 'clock'
+      ? `lock 是 clock 時，lockParam 要寫開放時段，例如 08:00-10:00；過午夜寫成 22:00-02:00，到午夜寫成 17:00-24:00。目前是「${a['value']}」`
+      : 'lock 是 resource 時，lockParam 要寫條件式，例如 caffeine<50，條件成立時門才打開';
     case 'multiple-start': return '地圖中有不只一個 PlayerStart';
     case 'missing-start': return '地圖中沒有 PlayerStart';
     case 'variant-when': return '變體圖層缺少 when 條件式';
@@ -288,6 +294,28 @@ function loadRooms(mapsDir: string, dict: TagDictionary): ChapterRoom[] {
 const doorsOf = (r: RoomModel): RoomObject[] => r.objects.filter((o) => o.kind === 'Door');
 
 /**
+ * Whether a player can get through the door from its own room. Clock and resource locks open on
+ * global state the room cannot see, so they count as a way across; whether the state is ever
+ * reached is a question for a playtest. A switch lock counts when a base-room switch reaches it
+ * and every switch aimed at it is a toggle: the operator cannot stand on a plate and walk
+ * through a door at the same time, which waits for push boxes.
+ */
+function passable(room: RoomModel, door: RoomObject): boolean {
+  switch (lockOf(door)) {
+    case 'none':
+    case 'clock':
+    case 'resource':
+      return true;
+    case 'switch': {
+      const aimed = switchesFor(room.objects, door.id);
+      return aimed.some((s) => s.variant === undefined) && aimed.every((s) => s.props['mode'] === 'toggle');
+    }
+    default:
+      return false;
+  }
+}
+
+/**
  * Chapter rules (build plan P0). A chapter file says which door opens onto which; this checks
  * that every end exists, the sockets face each other, nothing is joined twice, no unlocked door
  * is left leading nowhere, every room can be reached from the start, and a player coming
@@ -320,9 +348,9 @@ export function checkChapters(mapsDir: string, content: MapContent = loadMapCont
       if (!r.room.objects.some((o) => o.kind === 'PlayerStart' && o.variant === undefined)) {
         out.push(`${r.path}：缺少 PlayerStart；強制下班而還沒打過卡時，營運長會回到這裡`);
       }
-      // A chapter file cannot name a door inside a variant, yet the game still lets the operator walk through it.
-      for (const d of doors.filter((x) => x.variant !== undefined && x.props['lock'] === 'none')) {
-        out.push(`${r.path} 物件 #${d.id}（Door）：變體圖層裡的門沒辦法在章節檔接到別的房間；請把 lock 設成上鎖，或把門移到變體圖層之外`);
+      // A chapter file cannot name a door inside a variant, yet the game would let the operator through one that opens.
+      for (const d of doors.filter((x) => x.variant !== undefined && mayOpen(x))) {
+        out.push(`${r.path} 物件 #${d.id}（Door）：變體圖層裡的門沒辦法在章節檔接到別的房間，卻打得開（lock 為 ${lockOf(d)}）；請把 lock 設成 key，或把門移到變體圖層之外`);
       }
     }
 
@@ -344,9 +372,9 @@ export function checkChapters(mapsDir: string, content: MapContent = loadMapCont
       });
       const [a, b] = ends;
       if (!a || !b) return;
-      // A door that is not unlocked cannot be walked through yet, so it is no way across.
-      if (a.door.props['lock'] === 'none') graph.get(a.r.path)!.add(b.r.path);
-      if (b.door.props['lock'] === 'none') graph.get(b.r.path)!.add(a.r.path);
+      // Each direction is judged by the door on the side the player starts from.
+      if (passable(a.r.room, a.door)) graph.get(a.r.path)!.add(b.r.path);
+      if (passable(b.r.room, b.door)) graph.get(b.r.path)!.add(a.r.path);
       if (OPPOSITE[String(a.door.props['socket'])] !== String(b.door.props['socket'])) {
         out.push(`${at}：${a.end}（${SOCKET_NAME[String(a.door.props['socket'])]}門）和 ${b.end}（${SOCKET_NAME[String(b.door.props['socket'])]}門）必須一個朝北一個朝南，或一個朝東一個朝西`);
       }
@@ -358,7 +386,9 @@ export function checkChapters(mapsDir: string, content: MapContent = loadMapCont
     for (const [end, n] of used) if (n > 1) out.push(`${file}：門 ${end} 被接了 ${n} 次，一扇門只能通往一個地方`);
     for (const r of inChapter) {
       for (const d of doorsOf(r.room).filter((x) => x.name !== '' && x.variant === undefined)) {
-        if (!used.has(`${r.path}#${d.name}`) && d.props['lock'] === 'none') out.push(`${r.path} 物件 #${d.id}（Door）：門「${d.name}」沒有接到任何房間，也沒有上鎖；請在章節檔連起來，或把 lock 設成上鎖`);
+        if (!used.has(`${r.path}#${d.name}`) && mayOpen(d)) {
+          out.push(`${r.path} 物件 #${d.id}（Door）：門「${d.name}」沒有接到任何房間，卻打得開（lock 為 ${lockOf(d)}）；請在章節檔連起來，或把 lock 設成 key`);
+        }
       }
     }
 
@@ -370,7 +400,7 @@ export function checkChapters(mapsDir: string, content: MapContent = loadMapCont
       seen.add(cur);
       for (const next of graph.get(cur) ?? []) queue.push(next);
     }
-    if (byPath.has(chapter.start)) for (const r of inChapter) if (!seen.has(r.path)) out.push(`${file}：房間 ${r.path} 從起點 ${chapter.start} 走不到，請在章節檔接上它；上鎖的門目前打不開，不算通路`);
+    if (byPath.has(chapter.start)) for (const r of inChapter) if (!seen.has(r.path)) out.push(`${file}：房間 ${r.path} 從起點 ${chapter.start} 走不到，請在章節檔接上它；key 鎖的門，以及只能靠踩住壓力板（hold 開關）打開的門，目前不算通路`);
   }
   return out;
 }

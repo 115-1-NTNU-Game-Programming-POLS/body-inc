@@ -11,9 +11,12 @@ const POINT_SIZE = TILE;
 
 export type SocketName = 'N' | 'E' | 'S' | 'W';
 
-/** Doors and triggers fire when the operator steps onto them; NPCs and beds wait for the interact key. */
+/**
+ * Doors and triggers fire when the operator steps onto them; NPCs, beds and toggle switches wait
+ * for the interact key. A hold switch is a pressure plate, pressed by standing on it.
+ */
 const TOUCHED = new Set(['Door', 'Trigger']);
-const REACHED = new Set(['NPC', 'Bed']);
+const reached = (o: RoomObject): boolean => o.kind === 'NPC' || o.kind === 'Bed' || (o.kind === 'Switch' && o.props['mode'] === 'toggle');
 
 export function objectBox(o: RoomObject): Box {
   const left = o.width > 0 ? o.x : o.x - POINT_SIZE / 2;
@@ -37,6 +40,8 @@ interface Placed {
 interface Index {
   readonly touched: readonly Placed[];
   readonly reached: readonly Placed[];
+  readonly plates: readonly Placed[];
+  readonly levers: readonly Placed[];
 }
 
 /**
@@ -52,7 +57,9 @@ function indexOf(room: RoomModel): Index {
     const byId = [...room.objects].sort((a, b) => a.id - b.id);
     index = {
       touched: byId.filter((o) => TOUCHED.has(o.kind)).map((o) => ({ o, box: grown(objectBox(o), o.kind === 'Door' ? DOOR_MARGIN : 0) })),
-      reached: byId.filter((o) => REACHED.has(o.kind)).map((o) => ({ o, box: objectBox(o) })),
+      reached: byId.filter(reached).map((o) => ({ o, box: objectBox(o) })),
+      plates: byId.filter((o) => o.kind === 'Switch' && o.props['mode'] === 'hold').map((o) => ({ o, box: objectBox(o) })),
+      levers: byId.filter((o) => o.kind === 'Switch' && o.props['mode'] === 'toggle').map((o) => ({ o, box: objectBox(o) })),
     };
     indexes.set(room.objects, index);
   }
@@ -64,8 +71,18 @@ export function touchedObjects(room: RoomModel, body: Box): RoomObject[] {
   return indexOf(room).touched.filter((p) => overlaps(body, p.box)).map((p) => p.o);
 }
 
+/** Ids of the hold switches (pressure plates) the box stands on, in id order. */
+export function platesUnder(room: RoomModel, box: Box): number[] {
+  return indexOf(room).plates.filter((p) => overlaps(box, p.box)).map((p) => p.o.id);
+}
+
+/** The lowest-id toggle switch the box overlaps, for a staple hitting one. */
+export function leverAt(room: RoomModel, box: Box): RoomObject | undefined {
+  return indexOf(room).levers.find((p) => overlaps(box, p.box))?.o;
+}
+
 /**
- * The talk or bed object the interact key would use: the nearest one whose box meets the body
+ * The talk, bed or switch object the interact key would use: the nearest one whose box meets the body
  * grown by INTERACT_REACH, and the lowest id when two are equally near. One definition for the
  * rule and for the HUD prompt, so the prompt never promises what the key will not do.
  */

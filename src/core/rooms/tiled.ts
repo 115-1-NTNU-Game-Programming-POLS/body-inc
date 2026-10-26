@@ -3,6 +3,7 @@ import { ConditionError, type Condition, type ConditionProblem } from '../tags/c
 import { compileCondition, type TagDictionary } from '../tags/dictionary.ts';
 import { TILE } from '../time.ts';
 import { OBJECT_CLASSES, ROOM_CLASS, VARIANT_PREFIX, type ClassSpec, type RefKind, type Scalar } from './classes.ts';
+import { parseClockWindow, switchesFor } from './locks.ts';
 
 /**
  * Tiled JSON (.tmj) to room model. Core only needs structure, not art: which cells are solid,
@@ -89,7 +90,13 @@ export type RoomProblemCode =
   | 'tile-size' | 'room-size' | 'missing-walls' | 'walls-size'
   | 'unknown-class' | 'unknown-property' | 'property-type' | 'enum-value' | 'out-of-range' | 'required'
   | 'condition' | 'door-shape' | 'door-position' | 'switch-target' | 'multiple-start' | 'missing-start'
-  | 'variant-when' | 'variant-duplicate';
+  | 'variant-when' | 'variant-duplicate'
+  /** A clock or resource lock whose lockParam is empty or not a time window. */
+  | 'lock-param'
+  /** A Switch aimed at something other than a door with a switch lock, the only thing a switch moves yet. */
+  | 'switch-target-kind'
+  /** A door with a switch lock that no Switch is aimed at. */
+  | 'switch-missing';
 
 export interface RoomProblem {
   readonly code: RoomProblemCode;
@@ -234,6 +241,30 @@ function doorProblem(o: RoomObject, cols: number, rows: number): RoomProblem | u
   return ok ? undefined : { code: 'door-position', object: o.id, args: { socket, ...actual } };
 }
 
+/**
+ * Reads a door's lockParam by its lock: a clock lock needs a time window, a resource lock a
+ * condition, compiled once here so the chapter can test it every tick.
+ */
+function lockedDoor(o: RoomObject, dict: TagDictionary, problems: RoomProblem[]): RoomObject {
+  const lock = String(o.props['lock']);
+  const param = String(o.props['lockParam']);
+  if (lock === 'clock' && !parseClockWindow(param)) {
+    problems.push({ code: 'lock-param', object: o.id, prop: 'lockParam', args: { lock, value: param } });
+  }
+  if (lock !== 'resource') return o;
+  if (param.trim() === '') {
+    problems.push({ code: 'lock-param', object: o.id, prop: 'lockParam', args: { lock, value: param } });
+    return o;
+  }
+  try {
+    return { ...o, conditions: { ...o.conditions, lockParam: compileCondition(dict, param) } };
+  } catch (e) {
+    if (!(e instanceof ConditionError)) throw e;
+    problems.push({ code: 'condition', object: o.id, prop: 'lockParam', condition: e.problem });
+    return o;
+  }
+}
+
 export function readRoom(id: string, map: TiledMap, dict: TagDictionary): ReadResult {
   const problems: RoomProblem[] = [];
   const refs: RoomRef[] = [];
@@ -292,20 +323,26 @@ export function readRoom(id: string, map: TiledMap, dict: TagDictionary): ReadRe
   }
 
   if (objects.filter((o) => o.kind === 'PlayerStart').length > 1) problems.push({ code: 'multiple-start' });
-  const ids = new Set(objects.map((o) => o.id));
-  for (const o of objects) {
+  const byId = new Map(objects.map((o) => [o.id, o]));
+  const locked = objects.map((o) => (o.kind === 'Door' ? lockedDoor(o, dict, problems) : o));
+  for (const o of locked) {
     if (o.kind === 'Door' && cellsOk) {
       const p = doorProblem(o, map.width, map.height);
       if (p) problems.push(p);
     }
+    if (o.kind === 'Door' && o.props['lock'] === 'switch' && switchesFor(objects, o.id).length === 0) {
+      problems.push({ code: 'switch-missing', object: o.id });
+    }
     const target = o.props['target'];
-    if (o.kind === 'Switch' && typeof target === 'number' && target !== 0 && !ids.has(target)) {
-      problems.push({ code: 'switch-target', object: o.id, args: { target } });
+    if (o.kind === 'Switch' && typeof target === 'number' && target !== 0) {
+      const t = byId.get(target);
+      if (!t) problems.push({ code: 'switch-target', object: o.id, args: { target } });
+      else if (t.kind !== 'Door' || t.props['lock'] !== 'switch') problems.push({ code: 'switch-target-kind', object: o.id, args: { target } });
     }
   }
 
   return {
-    room: { id, grid: { cols: map.width, rows: map.height, solid }, objects, props: room.props, variants },
+    room: { id, grid: { cols: map.width, rows: map.height, solid }, objects: locked, props: room.props, variants },
     problems,
     refs,
   };

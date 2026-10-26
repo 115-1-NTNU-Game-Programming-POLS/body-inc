@@ -5,6 +5,9 @@
   "links": [
     { "a": "greybox/greybox-room#door-s", "b": "greybox/rest-room#door-n" },
     { "a": "greybox/rest-room#door-e", "b": "greybox/brain-corridor#door-w" },
-    { "a": "greybox/brain-corridor#door-e", "b": "greybox/caffeine-arena#door-w" }
+    { "a": "greybox/brain-corridor#door-e", "b": "greybox/caffeine-arena#door-w" },
+    { "a": "greybox/greybox-room#door-n", "b": "greybox/lock-hall#door-s" },
+    { "a": "greybox/lock-hall#door-w", "b": "greybox/archive#door-e" },
+    { "a": "greybox/lock-hall#door-n", "b": "greybox/archive#door-s" }
   ]
 }

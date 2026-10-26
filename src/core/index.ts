@@ -4,6 +4,7 @@ export { parseRoom, RoomFormatError, type RoomModel, type RoomObject, type Tiled
 export { enterRoom, type EnteredRoom } from './rooms/entry.ts';
 export * from './rooms/props.ts';
 export { arrivalPoint, INTERACT_REACH, objectBox, reachableObject, touchedObjects } from './rooms/interact.ts';
+export { doorOpen, inWindow, mayOpen, openByState, parseClockWindow, switchesFor, type ClockWindow } from './rooms/locks.ts';
 export * from './chapter/chapter.ts';
 export { eventCard, type CardState } from './chapter/cards.ts';
 export * from './chapter/playable.ts';

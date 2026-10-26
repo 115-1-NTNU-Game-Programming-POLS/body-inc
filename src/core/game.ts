@@ -15,7 +15,8 @@ import {
 import { advance, startClock, type RuleClock } from './clock.ts';
 import { seedStreams, type RngStreams } from './rng.ts';
 import type { EnteredRoom } from './rooms/entry.ts';
-import { reachableObject, touchedObjects } from './rooms/interact.ts';
+import { leverAt, platesUnder, reachableObject, touchedObjects } from './rooms/interact.ts';
+import { doorOpen } from './rooms/locks.ts';
 import { playerStart, type RoomObject } from './rooms/tiled.ts';
 import { TICK_HZ, TILE } from './time.ts';
 
@@ -55,6 +56,15 @@ export interface GameState {
   readonly freeze: number;
   /** Doors and triggers the operator stood on last tick, so each fires once when stepped onto. */
   readonly touching: readonly number[];
+  /** Switches that are on, in id order: toggle switches flipped on, and hold switches being stood on. */
+  readonly switches: readonly number[];
+  /**
+   * Doors whose clock or resource lock is open, as the chapter judged them at the start of this
+   * tick from the clock and the tags, which the room does not know.
+   */
+  readonly unlocked: readonly number[];
+  /** Doors the last door check found open, so a door that opens while the operator is pressed against it lets them through. */
+  readonly doorsOpen: readonly number[];
   /** Clinging stacks brought in from another room; they belong to no enemy here and only sleep clears them. */
   readonly carried: number;
   /**
@@ -99,6 +109,8 @@ export type DomainEvent =
   /** The operator stepped onto an unlocked door; the chapter decides where it leads. */
   | { readonly type: 'doorEntered'; readonly object: number; readonly door: string; readonly socket: string }
   | { readonly type: 'doorLocked'; readonly object: number; readonly lock: string }
+  /** A switch went on or off; `by` says what moved it. Only toggle switches stay on after the operator leaves. */
+  | { readonly type: 'switchChanged'; readonly object: number; readonly on: boolean; readonly mode: string; readonly by: 'interact' | 'staple' | 'step' }
   | { readonly type: 'triggerEntered'; readonly object: number; readonly trigger: string; readonly eventId: string }
   | { readonly type: 'talk'; readonly object: number; readonly npc: string; readonly dialogueId: string }
   | { readonly type: 'bedUse'; readonly object: number; readonly bedType: string };
@@ -173,6 +185,22 @@ export interface GameOptions {
   readonly halves?: number;
   /** Clinging stacks carried in, 0 up to one below the forced-nap cap; defaults to none. */
   readonly stacks?: number;
+  /** Toggle switches already on, from an earlier visit; ids that are not toggle switches of this room are ignored. */
+  readonly switches?: readonly number[];
+  /** Doors open by their clock or resource lock at entry; the chapter refreshes this every tick. */
+  readonly unlocked?: readonly number[];
+}
+
+const switchMode = (room: EnteredRoom, id: number): string | undefined => {
+  const o = room.objects.find((x) => x.id === id && x.kind === 'Switch');
+  return o ? String(o.props['mode']) : undefined;
+};
+
+const ascending = (ids: Iterable<number>): number[] => [...new Set(ids)].sort((a, b) => a - b);
+
+/** Doors open with these switches and state-opened doors, in id order. */
+function openDoors(room: EnteredRoom, switches: readonly number[], unlocked: readonly number[]): number[] {
+  return room.objects.filter((o) => o.kind === 'Door' && doorOpen(room.objects, o, switches, unlocked)).map((o) => o.id).sort((a, b) => a - b);
 }
 
 /**
@@ -193,6 +221,11 @@ export function createGame(room: EnteredRoom, seed: number, table: EnemyTable, o
   const start = options.start ?? playerStart(room);
   const spawned = spawnEnemies(room, table, options.bosses, 1);
   const operator = { ...newOperator(start.x, start.y, BASE_HALVES, gauge), halves, stacks: carried };
+  const switches = ascending([
+    ...(options.switches ?? []).filter((id) => switchMode(room, id) === 'toggle'),
+    ...platesUnder(room, boxAt(OPERATOR_BODY, operator.x, operator.y)),
+  ]);
+  const unlocked = ascending(options.unlocked ?? []);
   return {
     tick: 0,
     rng: seedStreams(seed),
@@ -210,6 +243,9 @@ export function createGame(room: EnteredRoom, seed: number, table: EnemyTable, o
     // Standing on a door or trigger at the start (a checkpoint return) must not fire it again.
     touching: touchedObjects(room, boxAt(OPERATOR_BODY, operator.x, operator.y)).map((o) => o.id),
     carried,
+    switches,
+    unlocked,
+    doorsOpen: openDoors(room, switches, unlocked),
   };
 }
 
@@ -250,6 +286,9 @@ function forcedLeave(state: GameState): GameState {
     return e.boss ? { ...reset, boss: newBossState(state.bosses[e.boss.def]!) } : reset;
   });
   const operator = withStacks(newOperator(start.x, start.y, state.operator.maxHalves, state.operator.gauge), enemies, state.carried);
+  // A solved switch stays solved (design doc 5.6); a plate is only down while someone stands on it.
+  const body = boxAt(OPERATOR_BODY, operator.x, operator.y);
+  const switches = ascending([...state.switches.filter((id) => switchMode(state.room, id) === 'toggle'), ...platesUnder(state.room, body)]);
   return {
     ...state,
     operator,
@@ -258,7 +297,9 @@ function forcedLeave(state: GameState): GameState {
     shots: [],
     zones: [],
     freeze: 0,
-    touching: touchedObjects(state.room, boxAt(OPERATOR_BODY, operator.x, operator.y)).map((o) => o.id),
+    touching: touchedObjects(state.room, body).map((o) => o.id),
+    switches,
+    doorsOpen: openDoors(state.room, switches, state.unlocked),
   };
 }
 
@@ -330,22 +371,38 @@ export function step(state: GameState, input: TickInput): StepResult {
   if (s.dodged) events.push({ type: 'dodge' });
   if (s.stampRaised) events.push({ type: 'stampRaised' });
 
-  // Doors and triggers fire on the tick the operator steps onto them, not while standing there.
-  const onNow = touchedObjects(state.room, boxAt(OPERATOR_BODY, op.x, op.y));
+  // Switches move before doors are judged, so a door opened this tick lets the operator through at
+  // once. Their events are not room events: a switch thrown on a lethal tick stays thrown.
+  const body = boxAt(OPERATOR_BODY, op.x, op.y);
+  const used = input.interactPressed && op.action.kind === 'free' ? reachableObject(state.room, body, op) : undefined;
+  let levers = state.switches.filter((id) => switchMode(state.room, id) === 'toggle');
+  if (used?.kind === 'Switch') {
+    const on = !levers.includes(used.id);
+    levers = on ? [...levers, used.id] : levers.filter((id) => id !== used.id);
+    events.push({ type: 'switchChanged', object: used.id, on, mode: 'toggle', by: 'interact' });
+  }
+  const plates = platesUnder(state.room, body);
+  const wasDown = state.switches.filter((id) => switchMode(state.room, id) === 'hold');
+  for (const id of ascending([...plates, ...wasDown])) {
+    if (plates.includes(id) !== wasDown.includes(id)) events.push({ type: 'switchChanged', object: id, on: plates.includes(id), mode: 'hold', by: 'step' });
+  }
+  let switches = ascending([...levers, ...plates]);
+  const doorsOpenNow = openDoors(state.room, switches, state.unlocked);
+
+  // Doors and triggers fire on the tick the operator steps onto them, not while standing there;
+  // a locked door that opens while the operator is pressed against it counts as stepped onto.
+  const onNow = touchedObjects(state.room, body);
   const roomEvents: DomainEvent[] = [];
   for (const o of onNow) {
-    if (state.touching.includes(o.id)) continue;
+    const opened = o.kind === 'Door' && doorsOpenNow.includes(o.id) && !state.doorsOpen.includes(o.id);
+    if (state.touching.includes(o.id) && !opened) continue;
     if (o.kind === 'Door') {
-      const lock = String(o.props['lock']);
-      roomEvents.push(lock === 'none'
+      roomEvents.push(doorsOpenNow.includes(o.id)
         ? { type: 'doorEntered', object: o.id, door: o.name, socket: String(o.props['socket']) }
-        : { type: 'doorLocked', object: o.id, lock });
+        : { type: 'doorLocked', object: o.id, lock: String(o.props['lock']) });
     } else roomEvents.push({ type: 'triggerEntered', object: o.id, trigger: String(o.props['event']), eventId: String(o.props['eventId']) });
   }
-  if (input.interactPressed && op.action.kind === 'free') {
-    const used = reachableObject(state.room, boxAt(OPERATOR_BODY, op.x, op.y), op);
-    if (used) roomEvents.push(interactionOf(used));
-  }
+  if (used && used.kind !== 'Switch') roomEvents.push(interactionOf(used));
   events.push(...roomEvents);
 
   // Ids only ever grow, and every loop below runs in id order, so results never depend on
@@ -440,12 +497,24 @@ export function step(state: GameState, input: TickInput): StepResult {
     }
   }
 
-  // Staples: move, stop at walls, hit the lowest-id hittable enemy they overlap.
+  // Staples: move, pin a lever they reach (design doc 6.1 shoots far switches), stop at walls,
+  // hit the lowest-id hittable enemy they overlap. Levers come before walls because they are
+  // usually mounted on one. A staple only ever turns a lever on: held fire would otherwise flick
+  // it on and off six times a second.
   const flying: Projectile[] = [];
   for (const p0 of projectiles.sort((a, b) => a.id - b.id)) {
     const p = { ...p0, x: p0.x + p0.vx, y: p0.y + p0.vy, ticksLeft: p0.ticksLeft - 1 };
-    if (p.ticksLeft < 0 || isSolid(grid, Math.floor(p.x / TILE), Math.floor(p.y / TILE))) continue;
+    if (p.ticksLeft < 0) continue;
     const box = centeredBox(p.x, p.y, STAPLE_HALF, STAPLE_HALF);
+    const lever = leverAt(state.room, box);
+    if (lever) {
+      if (!switches.includes(lever.id)) {
+        switches = ascending([...switches, lever.id]);
+        events.push({ type: 'switchChanged', object: lever.id, on: true, mode: 'toggle', by: 'staple' });
+      }
+      continue;
+    }
+    if (isSolid(grid, Math.floor(p.x / TILE), Math.floor(p.y / TILE))) continue;
     const target = byId().find((e) => isHittable(e) && overlaps(box, enemyHurtbox(e)));
     if (!target) { flying.push(p); continue; }
     if (target.category === 'immune') {
@@ -540,7 +609,9 @@ export function step(state: GameState, input: TickInput): StepResult {
   const next: GameState = {
     ...state, tick: now + 1, rng, clock, operator: op, enemies: byId(), projectiles: flying,
     shots: movedShots, zones: [...zones.values()].sort((a, b) => a.id - b.id), nextId, freeze,
-    touching: onNow.map((o) => o.id), carried,
+    // What the door check saw, not a fresh count: a lever pinned by a staple after the check must
+    // still count as newly opened next tick for an operator already pressed against its door.
+    touching: onNow.map((o) => o.id), carried, switches, doorsOpen: doorsOpenNow,
   };
   // A forced leave clears the freeze, so the freeze event is only emitted when it will happen.
   if (op.halves <= 0) {
@@ -567,11 +638,20 @@ export const selectFrozen = (s: GameState): boolean => s.freeze > 0;
 export const selectGauge = (s: GameState): { readonly value: number; readonly max: number } =>
   ({ value: s.operator.gauge, max: STAMP.gaugeMax });
 export const selectClock = (s: GameState): RuleClock => s.clock;
-/** The NPC or bed the interact key would use right now, for the HUD prompt; same rule as the key. */
+/** The NPC, bed or toggle switch the interact key would use right now, for the HUD prompt; same rule as the key. */
 export function selectInteractable(s: GameState): { readonly object: number; readonly kind: string } | undefined {
   if (s.operator.action.kind !== 'free') return undefined;
   const o = reachableObject(s.room, boxAt(OPERATOR_BODY, s.operator.x, s.operator.y), s.operator);
   return o ? { object: o.id, kind: o.kind } : undefined;
+}
+/** Every locked door of the room and whether it is open now, by the same rule the step uses. */
+export function selectDoorLocks(s: GameState): readonly { readonly object: number; readonly lock: string; readonly open: boolean }[] {
+  return s.room.objects.filter((o) => o.kind === 'Door' && o.props['lock'] !== 'none')
+    .map((o) => ({ object: o.id, lock: String(o.props['lock']), open: doorOpen(s.room.objects, o, s.switches, s.unlocked) }));
+}
+/** Every switch of the room and whether it is on. */
+export function selectSwitches(s: GameState): readonly { readonly object: number; readonly mode: string; readonly on: boolean }[] {
+  return s.room.objects.filter((o) => o.kind === 'Switch').map((o) => ({ object: o.id, mode: String(o.props['mode']), on: s.switches.includes(o.id) }));
 }
 /** Clinging enemies in id order, for drawing them on the operator. */
 export const selectStacks = (s: GameState): readonly Readonly<EnemyState>[] =>
