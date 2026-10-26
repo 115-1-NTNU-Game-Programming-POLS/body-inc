@@ -53,6 +53,13 @@ describe('deck check (build plan P1)', () => {
     expect(problems(dir)).toEqual([expect.stringContaining('事件卡只能設定 sources 含 event 的標籤')]);
   });
 
+  it('a card that unlocks a handbook page must name a page that exists', () => {
+    const known = contentWith('decks/greybox.json', (j) => { j['events'][0].options[0].effect = 'unlock:caffeine'; });
+    expect(problems(known)).toEqual([]);
+    const unknown = contentWith('decks/greybox.json', (j) => { j['opening'][0].options[1].effect = 'unlock:nope'; });
+    expect(problems(unknown)).toEqual([expect.stringContaining('選項「at_01」：effect 的 unlock:nope 不存在於手冊頁')]);
+  });
+
   it('check-content: the deck must be named after its chapter, and the chapter file must exist', () => {
     const wrong = contentWith('decks/greybox.json', (j) => { j['chapter'] = 'brain'; });
     expect(checkContent(wrong)).toEqual([expect.stringContaining('chapter「brain」必須與檔名「greybox」相同')]);

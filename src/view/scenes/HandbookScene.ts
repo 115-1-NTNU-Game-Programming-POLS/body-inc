@@ -9,6 +9,8 @@ const INK = 0x0c2d5e;
 const PAPER = 0xf4efe4;
 const HIGHLIGHT = 0xdfe6f2;
 const PANEL = { x: 80, y: 56, w: 1120, h: 656 };
+const HEADING_Y = 80;
+// At 100% text size; the scene stretches the gaps with the text size so the rows do not overlap.
 const INDEX = { x: 104, top: 168, step: 44, width: 300 };
 
 /**
@@ -34,12 +36,13 @@ export class HandbookScene extends Phaser.Scene {
     this.add.rectangle(0, 0, this.scale.width, this.scale.height, INK, 0.85).setOrigin(0, 0);
     this.add.rectangle(PANEL.x, PANEL.y, PANEL.w, PANEL.h, PAPER).setOrigin(0, 0).setStrokeStyle(3, INK);
     this.add.rectangle(LAYOUT.pageX - 32, PANEL.y + 24, 2, PANEL.h - 48, INK, 0.4).setOrigin(0, 0);
-    addText(this, INDEX.x, 80, str('handbook.heading'), { role: 'hand', weight: 700, size: 32 * scale, color: '#0c2d5e' });
+    addText(this, INDEX.x, HEADING_Y, str('handbook.heading'), { role: 'hand', weight: 700, size: 32 * scale, color: '#0c2d5e' });
     const count = str('handbook.count').replace('{n}', String(pages.filter((p) => owned.has(p.id)).length)).replace('{total}', String(pages.length));
-    addText(this, INDEX.x, 124, count, { role: 'print', weight: 400, size: 18 * scale, color: '#0c2d5e' });
+    addText(this, INDEX.x, HEADING_Y + 44 * scale, count, { role: 'print', weight: 400, size: 18 * scale, color: '#0c2d5e' });
+    const step = INDEX.step * scale;
     this.index = pages.map((p, i) => {
-      const y = INDEX.top + i * INDEX.step;
-      const row = this.add.rectangle(INDEX.x - 8, y - 6, INDEX.width, INDEX.step - 6, HIGHLIGHT).setOrigin(0, 0);
+      const y = HEADING_Y + (INDEX.top - HEADING_Y) * scale + i * step;
+      const row = this.add.rectangle(INDEX.x - 8, y - 6, INDEX.width, step - 6, HIGHLIGHT).setOrigin(0, 0);
       addText(this, INDEX.x, y, owned.has(p.id) ? str(titleKey(p.id)) : str('handbook.unfound'), {
         role: 'print', weight: 400, size: 20 * scale, color: '#0c2d5e',
       });

@@ -1,4 +1,4 @@
-import { PROGRESS, withPage, type DialogueTable, type HandbookFile, type ProgressData, type RoomModel, type StringsFile } from '../core/index.ts';
+import { PROGRESS, withPage, type Deck, type DialogueTable, type HandbookFile, type ProgressData, type RoomModel, type StringsFile } from '../core/index.ts';
 import type { SaveIssue, SaveStore } from './storage.ts';
 
 /** String key of a page's title; the body keys are listed in content/handbook.json. */
@@ -24,11 +24,11 @@ export function handbookProblems(file: HandbookFile, strings: readonly { readonl
 }
 
 /**
- * Pages that rooms or conversations unlock but the handbook does not have. The map and dialogue
- * checks report these to authors; this repeats them at startup so a page that is not there
- * stops the game with its name instead of an empty handbook entry in play.
+ * Pages that rooms, conversations or cards unlock but the handbook does not have. The map,
+ * dialogue and deck checks report these to authors; this repeats them at startup because an
+ * unknown page would be saved to the progress slot and then crash the note that names it.
  */
-export function missingPages(rooms: ReadonlyMap<string, RoomModel>, dialogues: DialogueTable, file: HandbookFile): string[] {
+export function missingPages(rooms: ReadonlyMap<string, RoomModel>, dialogues: DialogueTable, file: HandbookFile, deck?: Deck): string[] {
   const pages = new Set(file.pages.map((p) => p.id));
   const out: string[] = [];
   for (const [path, room] of rooms) {
@@ -39,6 +39,9 @@ export function missingPages(rooms: ReadonlyMap<string, RoomModel>, dialogues: D
   }
   for (const [id, d] of dialogues) {
     for (const l of d.lines) for (const e of l.effects) if (e.kind === 'unlock' && !pages.has(e.id)) out.push(`dialogue ${id}: handbook page "${e.id}"`);
+  }
+  for (const c of deck ? [...deck.opening, ...deck.events.values()] : []) {
+    for (const o of c.options) for (const e of o.effects) if (e.kind === 'unlock' && !pages.has(e.id)) out.push(`card ${c.id}/${o.id}: handbook page "${e.id}"`);
   }
   return out;
 }

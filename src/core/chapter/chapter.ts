@@ -308,11 +308,13 @@ function passTime(ctx: ChapterContent, run: Run, game: GameState, minutes: numbe
 
 /**
  * Beds and pickups used since the punch come back on a return to it: the clock and the tags go
- * back to the punch, so the nap or the coffee they gave is undone too.
+ * back to the punch, so the nap or the coffee they gave is undone too. A handbook page is the
+ * exception, since the page it gave outlives every run and is not undone.
  */
 const undoneByReturn = (ctx: ChapterContent, key: string): boolean => {
   const [room = '', id = ''] = key.split('#');
-  return ctx.rooms.get(room)?.objects.some((o) => (o.kind === 'Bed' || o.kind === 'Pickup') && String(o.id) === id) ?? false;
+  return ctx.rooms.get(room)?.objects.some((o) => String(o.id) === id
+    && (o.kind === 'Bed' || (o.kind === 'Pickup' && o.props['itemType'] !== 'handbook'))) ?? false;
 };
 
 /** A conversation or an event card. Only one is on screen at a time, and only one opens per tick. */

@@ -157,6 +157,21 @@ describe('the time clock and items', () => {
     expect(selectPickups(back.state.game)[0]!.present).toBe(true);
   });
 
+  it('a handbook page taken after the punch stays taken through a forced leave, since the page stays in the handbook', () => {
+    const c = chapter([item(3, 'handbook', 'caffeine', 200, 200), item(4, 'file', 'memo', 280, 200), timeClock]);
+    const punched = run(c, place(startChapter(c), 112, 120), NONE).state;
+    const read = take(c, punched).state;
+    const both = run(c, place(read, 280, 220), INTERACT).state;
+    const dying: ChapterState = { ...both, game: { ...both.game, operator: { ...both.game.operator, halves: 0 } } };
+    const back = run(c, dying, NONE);
+    expect(types(back.events)).toContain('returnedToCheckpoint');
+    expect(back.state.run.fired).toEqual(['lab/a#3']);
+    expect(selectPickups(back.state.game)).toEqual([
+      { object: 3, itemType: 'handbook', present: false },
+      { object: 4, itemType: 'file', present: true },
+    ]);
+  });
+
   it('an item taken before the punch stays taken through a forced leave, and through save and continue', () => {
     const c = chapter([item(3, 'coffee', '', 200, 200), timeClock]);
     const drunk = take(c, startChapter(c)).state;

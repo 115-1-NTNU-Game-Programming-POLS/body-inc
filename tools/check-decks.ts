@@ -143,6 +143,13 @@ export function checkDecks(opts: DeckCheckOptions = {}): DeckCheck {
   } catch {
     return { problems: [`${here(deckDir)}：讀不到可用的標籤字典或字串表，請先修正 node tools/check-content.ts 回報的問題`], report };
   }
+  const handbookFile = join(contentDir, 'handbook.json');
+  let pages: ReadonlySet<string>;
+  try {
+    pages = new Set(existsSync(handbookFile) ? readContent('handbook', readJson(handbookFile)).pages.map((p) => p.id) : []);
+  } catch {
+    return { problems: [`${here(handbookFile)}：讀不進來，請先修正 node tools/check-content.ts 回報的問題`], report };
+  }
 
   for (const name of readdirSync(deckDir).filter((n) => n.endsWith('.json')).sort()) {
     const file = here(join(deckDir, name));
@@ -158,6 +165,13 @@ export function checkDecks(opts: DeckCheckOptions = {}): DeckCheck {
     if (!read.deck) continue;
     const deck = read.deck;
     problems.push(...textProblems(file, deck, strings, here(stringsPath)));
+    for (const c of [...deck.opening, ...deck.events.values()]) {
+      for (const o of c.options) {
+        for (const e of o.effects) {
+          if (e.kind === 'unlock' && !pages.has(e.id)) problems.push(`${file} 卡片「${c.id}」的選項「${o.id}」：effect 的 unlock:${e.id} 不存在於手冊頁（content/handbook.json）`);
+        }
+      }
+    }
 
     const ctx = chapterContent(contentDir, mapsDir, dict, deck.chapter, deck);
     if (typeof ctx === 'string') { problems.push(`${file}：${ctx}`); continue; }

@@ -13,9 +13,9 @@ export function chapterContent(chapter: ChapterFile, maps: ReadonlyMap<string, T
   const rooms = new Map([...maps].map(([path, map]) => [path, parseRoom(path, map, TAGS)] as const));
   const missing = missingDialogues(rooms, DIALOGUES);
   if (missing.length > 0) throw new Error(`rooms start conversations that do not exist:\n  ${missing.join('\n  ')}`);
-  const pages = missingPages(rooms, DIALOGUES, HANDBOOK);
-  if (pages.length > 0) throw new Error(`rooms or conversations unlock handbook pages that do not exist:\n  ${pages.join('\n  ')}`);
   const deck = DECKS.get(chapter.id);
+  const pages = missingPages(rooms, DIALOGUES, HANDBOOK, deck);
+  if (pages.length > 0) throw new Error(`rooms, conversations or cards unlock handbook pages that do not exist:\n  ${pages.join('\n  ')}`);
   const cards = missingCards(rooms, deck);
   if (cards.length > 0) throw new Error(`rooms show event cards that do not exist:\n  ${cards.join('\n  ')}`);
   return {

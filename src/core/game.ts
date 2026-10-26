@@ -381,7 +381,8 @@ export function step(state: GameState, input: TickInput): StepResult {
 
   // Switches and keys move before doors are judged, so a door opened this tick lets the operator
   // through at once. Their events are not room events: a switch thrown or an item taken on a
-  // lethal tick stays so, as it would a tick earlier.
+  // lethal tick counts as if done a tick earlier; the chapter's forced leave then decides what a
+  // return to the punch undoes.
   const body = boxAt(OPERATOR_BODY, op.x, op.y);
   const used = input.interactPressed && op.action.kind === 'free' ? reachableObject(state.room, body, op, state.taken) : undefined;
   let levers = state.switches.filter((id) => switchMode(state.room, id) === 'toggle');
