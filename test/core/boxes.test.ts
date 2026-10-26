@@ -395,6 +395,24 @@ describe('boxes between visits', () => {
   });
 });
 
+describe('a crate on a lever', () => {
+  // The lever on tile (10, 6), the operator west of it facing east.
+  const fire: TickInput = { move: { x: 1, y: 0 }, attack: true, attackPressed: true };
+  const shoot = (c: ChapterContent) => {
+    const s0 = startChapter(c);
+    const at = { ...s0, game: { ...s0.game, operator: { ...s0.game.operator, x: 200, y: 212 } } };
+    return run(c, run(c, at, { move: { x: 1, y: 0 } }).state, { ...fire, move: { x: 0, y: 0 } }, 40).events.filter((e) => e.type === 'switchChanged');
+  };
+
+  it('takes the staple, so the lever under it stays off', () => {
+    expect(shoot(chapter([lever(3, 336, 208, 2), box(4, 10, 6)], southDoor('switch')))).toEqual([]);
+    // The control: with no crate the same shots throw it.
+    expect(shoot(chapter([lever(3, 336, 208, 2), box(4, 4, 4)], southDoor('switch')))).toEqual([
+      { type: 'switchChanged', object: 3, on: true, mode: 'toggle', by: 'staple' },
+    ]);
+  });
+});
+
 describe('the parser', () => {
   const problems = (objects: object[]) => readRoom('x', mapOf(objects), TAGS).problems.map((q) => [q.code, q.object]);
 
@@ -409,6 +427,31 @@ describe('the parser', () => {
     const item = { id: 5, type: 'Pickup', x: 4 * 32 + 16, y: 4 * 32 + 16, properties: [p('itemType', 'coffee')] };
     expect(problems([item, box(3, 4, 4)])).toEqual([['box-blocked', 3]]);
     expect(problems([box(3, 4, 4), box(4, 5, 4)])).toEqual([]);
+  });
+
+  it('lets objects share a tile when no visit can hold both, and only then', () => {
+    expect(problems([box(3, 10, 6, 'breakfast'), box(4, 10, 6, '!breakfast')])).toEqual([]);
+    expect(problems([box(3, 10, 6, 'caffeine>50'), box(4, 10, 6, 'caffeine<30')])).toEqual([]);
+    expect(problems([box(3, 10, 6, 'caffeine>=50'), box(4, 10, 6, 'caffeine<50')])).toEqual([]);
+    expect(problems([box(3, 10, 6, 'caffeine==0'), box(4, 10, 6, 'caffeine>0')])).toEqual([]);
+    expect(problems([box(3, 10, 6, 'caffeine>=50'), box(4, 10, 6, 'caffeine<=50,caffeine<50')])).toEqual([]);
+    // A number tag is never below 0, so at most 0 and not 0 leaves nothing.
+    expect(problems([box(3, 10, 6, 'caffeine<=0'), box(4, 10, 6, 'caffeine!=0')])).toEqual([]);
+    // Both can be there on one visit, so they clash.
+    expect(problems([box(3, 10, 6, 'breakfast'), box(4, 10, 6, 'breakfast')])).toEqual([['box-stack', 4]]);
+    expect(problems([box(3, 10, 6, 'caffeine>10'), box(4, 10, 6, 'caffeine<30')])).toEqual([['box-stack', 4]]);
+    expect(problems([box(3, 10, 6, 'caffeine>=50'), box(4, 10, 6, 'caffeine<=50')])).toEqual([['box-stack', 4]]);
+    expect(problems([box(3, 10, 6, 'breakfast'), box(4, 10, 6, 'deadline')])).toEqual([['box-stack', 4]]);
+    // A pickup's when decides its presence too; a trigger's does not, since it only gates firing.
+    const item = (when: string) => ({ id: 5, type: 'Pickup', x: 336, y: 208, properties: [p('itemType', 'coffee'), p('when', when)] });
+    expect(problems([item('!breakfast'), box(3, 10, 6, 'breakfast')])).toEqual([]);
+    expect(problems([item('breakfast'), box(3, 10, 6, 'breakfast')])).toEqual([['box-blocked', 3]]);
+    const trap = { id: 5, type: 'Trigger', x: 320, y: 192, width: 32, height: 32, properties: [p('event', 'checkpoint'), p('when', '!breakfast')] };
+    expect(problems([trap, box(3, 10, 6, 'breakfast')])).toEqual([['box-blocked', 3]]);
+    // A variant layer's when counts as the box's own.
+    const variant = { type: 'objectgroup', name: 'variant:fed', properties: [p('when', 'breakfast')], objects: [box(4, 10, 6)] };
+    expect(readRoom('x', mapOf([box(3, 10, 6, '!breakfast')], [variant]), TAGS).problems).toEqual([]);
+    expect(readRoom('x', mapOf([box(3, 10, 6)], [variant]), TAGS).problems.map((q) => q.code)).toEqual(['box-stack']);
   });
 
   it('wants a conveyor drawn as a rectangle, and lets a switch aim at one', () => {

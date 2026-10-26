@@ -82,6 +82,38 @@ export function termText(t: Term): string {
 }
 
 /**
+ * False only when the terms provably cannot all hold at once, judging each name on its own: a flag
+ * both on and off, or comparisons on one number that leave no value. Number tags never go below 0.
+ * Anything it cannot rule out (an alias against the tags behind it, say) counts as possible, so a
+ * check built on it never lets a real clash through.
+ */
+export function canAllHold(terms: readonly Term[]): boolean {
+  const names = new Set(terms.map((t) => t.name));
+  for (const name of names) {
+    const mine = terms.filter((t) => t.name === name);
+    const flags = mine.filter((t) => t.kind === 'flag');
+    if (flags.some((t) => t.negated) && flags.some((t) => !t.negated)) return false;
+    let lo = { v: 0, strict: false };
+    let hi = { v: Infinity, strict: false };
+    const eq: number[] = [];
+    const ne: number[] = [];
+    for (const t of mine) {
+      if (t.kind !== 'compare') continue;
+      const strict = t.op === '>' || t.op === '<';
+      if ((t.op === '>=' || t.op === '>') && (t.value > lo.v || (t.value === lo.v && strict))) lo = { v: t.value, strict };
+      if ((t.op === '<=' || t.op === '<') && (t.value < hi.v || (t.value === hi.v && strict))) hi = { v: t.value, strict };
+      if (t.op === '==') eq.push(t.value);
+      if (t.op === '!=') ne.push(t.value);
+    }
+    const inside = (v: number) => (lo.strict ? v > lo.v : v >= lo.v) && (hi.strict ? v < hi.v : v <= hi.v) && !ne.includes(v);
+    if (eq.length > 0) {
+      if (eq.some((v) => v !== eq[0]) || !inside(eq[0]!)) return false;
+    } else if (lo.v > hi.v || (lo.v === hi.v && !inside(lo.v))) return false;
+  }
+  return true;
+}
+
+/**
  * Evaluates against a value lookup. A flag that is an alias is resolved through `alias`;
  * absent tags read as false or 0, so a fresh chapter has every tag off.
  */

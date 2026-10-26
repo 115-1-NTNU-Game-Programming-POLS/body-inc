@@ -639,7 +639,9 @@ export function step(state: GameState, input: TickInput): StepResult {
     const box = centeredBox(p.x, p.y, STAPLE_HALF, STAPLE_HALF);
     const lever = leverAt(state.room, box);
     if (lever) {
-      if (!switches.includes(lever.id)) {
+      // A crate may sit on a lever (only doors and the like are kept clear), and then it takes the staple.
+      const crated = boxes.some((b) => overlaps(box, tileBox(b)) || (b.carried === true && b.from !== undefined && overlaps(box, tileBox(b.from))));
+      if (!crated && !switches.includes(lever.id)) {
         switches = ascending([...switches, lever.id]);
         events.push({ type: 'switchChanged', object: lever.id, on: true, mode: 'toggle', by: 'staple' });
       }

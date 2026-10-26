@@ -289,6 +289,11 @@ describe('map check', () => {
       expect(check({ a: map([start, crate(9, 7)]) })).toEqual([expect.stringContaining('箱子壓到PlayerStart')]);
       expect(check({ a: map([southDoor, crate(9, 10)]) })).toEqual([expect.stringContaining('箱子壓到門 #1 進房時營運長站的位置')]);
       expect(check({ a: map([salesman, crate(6, 5)]) })).toEqual([expect.stringContaining('箱子壓到Spawn #1 敵人出現的位置')]);
+      // An enemy and a box that are never in the room on the same visit do not clash.
+      const fedOnly = { ...salesman, properties: [...salesman.properties, prop('when', 'breakfast')] };
+      const hungryCrate = { ...crate(6, 5), properties: [prop('when', '!breakfast')] };
+      expect(check({ a: map([fedOnly, hungryCrate]) })).toEqual([]);
+      expect(check({ a: map([fedOnly, crate(6, 5)]) })).toEqual([expect.stringContaining('箱子壓到Spawn #1 敵人出現的位置')]);
     });
   });
 });

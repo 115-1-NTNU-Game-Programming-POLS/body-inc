@@ -5,6 +5,7 @@ import { compileCondition, type TagDictionary } from '../tags/dictionary.ts';
 import { TILE } from '../time.ts';
 import { OBJECT_CLASSES, ROOM_CLASS, VARIANT_PREFIX, type ClassSpec, type RefKind, type Scalar } from './classes.ts';
 import { KEEP_CLEAR, tileBox, tileOf } from './boxes.ts';
+import { canMeet } from './entry.ts';
 import { objectBox } from './interact.ts';
 import { keyOf, keysFor, parseClockWindow, switchesFor } from './locks.ts';
 
@@ -367,13 +368,15 @@ export function readRoom(id: string, map: TiledMap, dict: TagDictionary): ReadRe
     if (o.kind === 'Conveyor' && (o.width <= 0 || o.height <= 0)) problems.push({ code: 'conveyor-shape', object: o.id });
   }
   const boxes = objects.filter((o) => o.kind === 'Box').sort((a, b) => a.id - b.id);
+  // Two objects that can never be in the room on the same visit do not clash.
+  const together = (a: RoomObject, b: RoomObject) => canMeet(variants, a, b);
   for (const [i, b] of boxes.entries()) {
     const t = tileOf(b);
     const tb = tileBox(t);
     if (isSolid({ cols: map.width, rows: map.height, solid }, t.col, t.row)) problems.push({ code: 'box-wall', object: b.id, args: { col: t.col, row: t.row } });
-    const twin = boxes.slice(0, i).find((x) => { const u = tileOf(x); return u.col === t.col && u.row === t.row; });
+    const twin = boxes.slice(0, i).find((x) => { const u = tileOf(x); return u.col === t.col && u.row === t.row && together(b, x); });
     if (twin) problems.push({ code: 'box-stack', object: b.id, args: { other: twin.id } });
-    const blocked = objects.find((x) => KEEP_CLEAR.has(x.kind) && overlaps(tb, objectBox(x)));
+    const blocked = objects.find((x) => KEEP_CLEAR.has(x.kind) && overlaps(tb, objectBox(x)) && together(b, x));
     if (blocked) problems.push({ code: 'box-blocked', object: b.id, args: { other: blocked.id, kind: blocked.kind } });
   }
 
