@@ -227,7 +227,10 @@ export interface GameOptions {
   readonly taken?: readonly number[];
   /** Where boxes were left on an earlier visit; settleBoxes decides which of them stay there. */
   readonly boxes?: ReadonlyMap<number, Tile>;
-  /** Boxes a Port took on an earlier visit; ids that are not boxes of this room are ignored. */
+  /**
+   * Boxes a Port took on an earlier visit, all counted. They must be box ids of the whole map: a
+   * delivered box may be absent from this visit's room, and the port still holds it.
+   */
   readonly delivered?: readonly number[];
   /** The stamp is not handed over yet. */
   readonly stampLocked?: boolean;
@@ -281,7 +284,7 @@ export function createGame(room: EnteredRoom, seed: number, table: EnemyTable, o
   const spawned = spawnEnemies(room, table, options.bosses, 1);
   const operator = { ...newOperator(start.x, start.y, BASE_HALVES, gauge), halves, stacks: carried };
   const body = boxAt(OPERATOR_BODY, operator.x, operator.y);
-  const delivered = ascending((options.delivered ?? []).filter((id) => room.objects.some((o) => o.id === id && o.kind === 'Box')));
+  const delivered = ascending(options.delivered ?? []);
   const boxes = settleBoxes(room, options.boxes ?? new Map(), occupantsOf(operator, spawned.enemies).bodies, delivered);
   const switches = ascending([
     ...(options.switches ?? []).filter((id) => switchMode(room, id) === 'toggle'),
@@ -840,13 +843,12 @@ export function selectBoxes(s: GameState): readonly { readonly object: number; r
     return { object: b.id, boxType: String(o?.props['boxType'] ?? 'crate'), ...boxPixel(b) };
   });
 }
-/** Every conveyor and whether it runs now, by the rule the step uses. */
 /** The room's port, if any, with how many boxes it holds of the ones it needs. */
 export function selectPort(s: GameState): { readonly object: number; readonly count: number; readonly need: number } | undefined {
   const port = portOf(s.room);
   return port ? { object: port.id, count: s.delivered.length, need: Number(port.props['need']) } : undefined;
 }
-
+/** Every conveyor and whether it runs now, by the rule the step uses. */
 export function selectConveyors(s: GameState): readonly { readonly object: number; readonly direction: string; readonly speed: string; readonly running: boolean }[] {
   return conveyorsOf(s.room).map((o) => ({
     object: o.id, direction: String(o.props['direction']), speed: String(o.props['speed']), running: conveyorRunning(s.room.objects, o, s.switches),

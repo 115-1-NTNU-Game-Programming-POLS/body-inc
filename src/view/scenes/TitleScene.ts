@@ -5,7 +5,7 @@ import { sharedKeys } from '../../app/input.ts';
 import { startChapter, type ChapterContent, type ChapterEntry, type ChapterState, type StoryData } from '../../core/index.ts';
 import { addText } from '../text/fonts.ts';
 import type { CardsData } from './OpeningScene.ts';
-import { beginRun } from './run.ts';
+import { beginRun, NO_STORY, saveStory } from './run.ts';
 
 const PAPER = '#f4efe4';
 const INK = '#0c2d5e';
@@ -109,6 +109,9 @@ export class TitleScene extends Phaser.Scene {
 
   /** A new game opens on the chapter's opening cards when its deck has any (build plan P1). */
   private newGame(ctx: ChapterContent): void {
+    if (this.starting) return;
+    // A new game replaces the old story at once; otherwise "continue" would lead back into it until the first punch.
+    saveStory(this, NO_STORY);
     if (!ctx.deck || ctx.deck.opening.length === 0) return this.play(ctx, startChapter(ctx));
     this.cards({ chapter: ctx.chapter.id });
   }
