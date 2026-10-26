@@ -1,5 +1,7 @@
 import Phaser from 'phaser';
-import { objectBox, selectDoorLocks, selectPickups, selectSwitches, type GameState, type RoomObject } from '../../core/index.ts';
+import {
+  conveyorTiles, directionOf, objectBox, selectBoxes, selectConveyors, selectDoorLocks, selectPickups, selectSwitches, TILE, type GameState, type RoomObject,
+} from '../../core/index.ts';
 
 const INK = 0x0c2d5e;
 const PAPER = 0xf4efe4;
@@ -15,9 +17,18 @@ export class Mechanisms {
   private readonly levers = new Map<number, { g: Phaser.GameObjects.Graphics; o: RoomObject; on?: boolean }>();
   private readonly plates = new Map<number, Phaser.GameObjects.Graphics>();
   private readonly items = new Map<number, Phaser.GameObjects.Graphics>();
+  private readonly boxes = new Map<number, Phaser.GameObjects.Graphics>();
+  private readonly belts = new Map<number, { g: Phaser.GameObjects.Graphics; o: RoomObject; drawn?: string }>();
 
   constructor(scene: Phaser.Scene, state: GameState) {
     const byId = new Map(state.room.objects.map((o) => [o.id, o]));
+    // Belts lie on the floor (tile layers sit at depth 0), under everything that stands on them, whose depth is its feet line.
+    for (const c of selectConveyors(state)) this.belts.set(c.object, { g: scene.add.graphics().setDepth(1), o: byId.get(c.object)! });
+    for (const b of selectBoxes(state)) {
+      const g = scene.add.graphics();
+      drawBox(g, b.boxType);
+      this.boxes.set(b.object, g);
+    }
     for (const p of selectPickups(state)) {
       const o = byId.get(p.object)!;
       const g = scene.add.graphics().setDepth(objectBox(o).bottom);
@@ -26,7 +37,9 @@ export class Mechanisms {
     }
     for (const s of selectSwitches(state)) {
       const o = byId.get(s.object)!;
-      this.levers.set(s.object, { g: scene.add.graphics().setDepth(objectBox(o).bottom), o });
+      // A plate is flat on the floor like a belt, so a box resting on it is drawn on top.
+      const depth = s.mode === 'hold' ? 1 : objectBox(o).bottom;
+      this.levers.set(s.object, { g: scene.add.graphics().setDepth(depth), o });
     }
     for (const d of selectDoorLocks(state)) {
       const o = byId.get(d.object)!;
@@ -48,6 +61,50 @@ export class Mechanisms {
     }
     for (const d of selectDoorLocks(state)) this.plates.get(d.object)?.setVisible(!d.open);
     for (const p of selectPickups(state)) this.items.get(p.object)?.setVisible(p.present);
+    // A box is drawn at its feet line like an actor, so the operator walks behind or in front of it.
+    for (const b of selectBoxes(state)) this.boxes.get(b.object)?.setPosition(b.x, b.y).setDepth(b.y + TILE);
+    for (const c of selectConveyors(state)) {
+      const v = this.belts.get(c.object);
+      if (!v) continue;
+      // The chevrons crawl one step every 8 rule ticks while running, which is enough to read the direction.
+      const phase = c.running ? Math.floor(state.tick / 8) % 4 : 0;
+      const key = `${c.running}|${phase}`;
+      if (v.drawn === key) continue;
+      v.drawn = key;
+      v.g.clear();
+      drawBelt(v.g, v.o, c.running, phase);
+    }
+  }
+}
+
+/** A crate on its tile, drawn from the tile's top-left; the type only changes the label colour. */
+function drawBox(g: Phaser.GameObjects.Graphics, boxType: string): void {
+  const label = boxType === 'glucose' ? 0xe8c96a : boxType === 'acetaldehyde' ? 0xa0306a : boxType === 'food' ? 0xc8372d : PAPER;
+  g.fillStyle(INK, 0.25).fillEllipse(16, 29, 28, 6);
+  g.fillStyle(0xb58a55).fillRect(3, 6, 26, 23).lineStyle(1.5, INK, 1).strokeRect(3, 6, 26, 23);
+  g.lineBetween(3, 12, 29, 12);
+  g.fillStyle(label).fillRect(10, 16, 12, 8).strokeRect(10, 16, 12, 8);
+}
+
+/** A grey belt with chevrons pointing the way it runs; stopped, the chevrons go dim. */
+function drawBelt(g: Phaser.GameObjects.Graphics, o: RoomObject, running: boolean, phase: number): void {
+  const d = directionOf(o);
+  for (const t of conveyorTiles(o)) {
+    const x = t.col * TILE;
+    const y = t.row * TILE;
+    g.fillStyle(0x5c6270).fillRect(x, y, TILE, TILE);
+    g.lineStyle(1, INK, 0.6).strokeRect(x + 0.5, y + 0.5, TILE - 1, TILE - 1);
+    g.lineStyle(2, running ? 0xf4efe4 : 0x8a8780, running ? 0.9 : 0.5);
+    for (let i = 0; i < 2; i++) {
+      // Along the belt: 0..31 px, shifted by the phase so the marks travel.
+      const along = (i * 16 + phase * 4) % TILE + 4;
+      const cx = x + (d.col !== 0 ? (d.col > 0 ? along : TILE - along) : TILE / 2);
+      const cy = y + (d.row !== 0 ? (d.row > 0 ? along : TILE - along) : TILE / 2);
+      const back = 5;
+      const side = 6;
+      g.lineBetween(cx - d.col * back - d.row * side, cy - d.row * back - d.col * side, cx, cy);
+      g.lineBetween(cx - d.col * back + d.row * side, cy - d.row * back + d.col * side, cx, cy);
+    }
   }
 }
 

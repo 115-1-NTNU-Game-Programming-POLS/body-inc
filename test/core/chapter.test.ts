@@ -5,7 +5,7 @@ import { tagsFromQuery } from '../../src/app/session.ts';
 import { bodyOverlapsSolid } from '../../src/core/collision/grid.ts';
 import {
   advance, ChapterError, LOCK_TICKS, decode, encode, EMPTY_TAGS, NAP, OPERATOR_BODY, parseRoom, readContent, resumeChapter, roomsOf, selectInteractable,
-  startChapter, startClock, stateHash, stepChapter, storyOf, STORY, touchedObjects, wholeMinutes,
+  startChapter, startClock, stateHash, stepChapter, storyOf, STORY, tileOf, touchedObjects, wholeMinutes,
   type ChapterContent, type ChapterState, type GameEvent, type TickInput, type TiledMap,
 } from '../../src/core/index.ts';
 
@@ -130,15 +130,18 @@ describe('walking through doors', () => {
       for (const [from, to] of [[link.a, link.b], [link.b, link.a]] as const) {
         const [room, door] = from.split('#') as [string, string];
         const o = ctx.rooms.get(room)!.objects.find((x) => x.name === door)!;
-        // Every lever thrown and every item taken; the chapter opens at 08:00 with no caffeine, when
-        // the clock and resource locks are open.
-        const ids = (kind: string) => ctx.rooms.get(room)!.objects.filter((x) => x.kind === kind).map((x) => x.id);
+        // Every lever thrown, a box resting on every plate and every item taken; the chapter opens at
+        // 08:00 with no caffeine, when the clock and resource locks are open.
+        const objects = ctx.rooms.get(room)!.objects;
+        const ids = (kind: string) => objects.filter((x) => x.kind === kind).map((x) => x.id);
         const levers = ids('Switch');
+        const plates = objects.filter((x) => x.kind === 'Switch' && x.props['mode'] === 'hold');
         const s0 = startChapter(ctx, { room });
+        const boxes = s0.game.boxes.map((b, i) => (plates[i] ? { ...b, ...tileOf(plates[i]) } : b));
         const opened = {
           ...s0,
           run: { ...s0.run, switches: levers.map((id) => `${room}#${id}`) },
-          game: { ...s0.game, switches: levers, taken: ids('Pickup') },
+          game: { ...s0.game, switches: levers, taken: ids('Pickup'), boxes },
         };
         const start = place(opened, o.x + o.width / 2, o.y + o.height / 2);
         const { state } = advanceBy(ctx, start, NONE);

@@ -11,7 +11,7 @@ import { enterRoom } from '../rooms/entry.ts';
 import { arrivalPoint } from '../rooms/interact.ts';
 import { openByState } from '../rooms/locks.ts';
 import type { RoomModel } from '../rooms/tiled.ts';
-import type { Checkpoint, StoryData } from '../save/slots.ts';
+import type { BoxPlace, Checkpoint, StoryData } from '../save/slots.ts';
 import { spiritAtEntry, type SleepCoefficients } from '../spirit.ts';
 import type { TagDictionary } from '../tags/dictionary.ts';
 import { EMPTY_TAGS, holds, type TagState } from '../tags/store.ts';
@@ -46,6 +46,8 @@ export interface Run {
    * run keeps them; a solved mechanism stays solved, through doors and forced leaves alike.
    */
   readonly switches: readonly string[];
+  /** Where each moved box was last sent, by `roomId#objectId`; the room settles them on entry. */
+  readonly boxes: readonly BoxPlace[];
   readonly checkpoint: Checkpoint | null;
   readonly seed: number;
   /** Rooms entered so far; each entry reseeds from it so a retry is not a copy of the last try. */
@@ -149,8 +151,15 @@ function build(ctx: ChapterContent, run: Run, place: Place, carry: Carry): GameS
     unlocked: openByState(room.objects, run.tags, ctx.dict, carry.clock),
     // `fired` also holds triggers and beds; the room keeps only the ids that are its pickups.
     taken: idsHere(run, run.fired),
+    boxes: boxesHere(run),
     ...(start ? { start } : {}),
   });
+}
+
+/** The run's remembered boxes of its current room, by object id. */
+function boxesHere(run: Run): Map<number, { col: number; row: number }> {
+  const prefix = `${run.roomId}#`;
+  return new Map(run.boxes.filter((b) => b.key.startsWith(prefix)).map((b) => [Number(b.key.slice(prefix.length)), { col: b.col, row: b.row }]));
 }
 
 /** Object ids of the run's current room among `roomId#objectId` keys. */
@@ -179,6 +188,7 @@ export function startChapter(ctx: ChapterContent, options: StartOptions = {}): C
     tags: options.tags ?? EMPTY_TAGS,
     fired: [],
     switches: [],
+    boxes: [],
     checkpoint: null,
     seed: options.seed ?? 1,
     entries: 1,
@@ -194,7 +204,7 @@ export function startChapter(ctx: ChapterContent, options: StartOptions = {}): C
 export function resumeChapter(ctx: ChapterContent, saved: Checkpoint, seed = 1): ChapterState {
   if (saved.chapter !== ctx.chapter.id) throw new ChapterError(`checkpoint belongs to chapter "${saved.chapter}", not "${ctx.chapter.id}"`);
   const run: Run = {
-    chapter: saved.chapter, roomId: saved.roomId, tags: saved.tags, fired: saved.fired, switches: saved.switches, checkpoint: saved, seed, entries: 1, explored: 0,
+    chapter: saved.chapter, roomId: saved.roomId, tags: saved.tags, fired: saved.fired, switches: saved.switches, boxes: saved.boxes, checkpoint: saved, seed, entries: 1, explored: 0,
   };
   const game = build(ctx, run, { kind: 'at', x: saved.x, y: saved.y }, { clock: saved.clock, gauge: 0, halves: BASE_HALVES, stacks: 0 });
   return { run, game, dialogue: null, card: null };
@@ -247,7 +257,7 @@ function onTrigger(ctx: ChapterContent, run: Run, game: GameState, e: Extract<Do
     case 'checkpoint': {
       const checkpoint: Checkpoint = {
         chapter: run.chapter, roomId: run.roomId, x: game.operator.x, y: game.operator.y, tags: run.tags, clock: game.clock, fired: run.fired,
-        switches: run.switches,
+        switches: run.switches, boxes: run.boxes,
       };
       // The tea room sits beside the time clock (design doc 5.6), so punching in also restores the hearts.
       return {
@@ -384,6 +394,12 @@ function stepRoom(ctx: ChapterContent, state: ChapterState, input: TickInput): C
         if (e.mode !== 'toggle') break;
         const key = `${run.roomId}#${e.object}`;
         run = { ...run, switches: e.on ? [...run.switches.filter((k) => k !== key), key] : run.switches.filter((k) => k !== key) };
+        break;
+      }
+      case 'boxMoved': {
+        // Like a lever, a box outlives the visit and the forced leave; settleBoxes decides on entry what stays.
+        const key = `${run.roomId}#${e.object}`;
+        run = { ...run, boxes: [...run.boxes.filter((b) => b.key !== key), { key, col: e.col, row: e.row }] };
         break;
       }
       case 'doorEntered':

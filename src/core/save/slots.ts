@@ -45,6 +45,14 @@ export interface Checkpoint {
   readonly fired: readonly string[];
   /** Toggle switches that were on at the punch, as `roomId#objectId`. */
   readonly switches: readonly string[];
+  /** Where boxes were last left, by `roomId#objectId`; entering a room settles them (core/rooms/boxes.ts). */
+  readonly boxes: readonly BoxPlace[];
+}
+
+export interface BoxPlace {
+  readonly key: string;
+  readonly col: number;
+  readonly row: number;
 }
 
 export interface StoryData {
@@ -86,7 +94,7 @@ const CAUSAL_NODE: Schema = {
 const CHECKPOINT: Schema = {
   type: 'object',
   additionalProperties: false,
-  required: ['chapter', 'roomId', 'x', 'y', 'tags', 'clock', 'fired', 'switches'],
+  required: ['chapter', 'roomId', 'x', 'y', 'tags', 'clock', 'fired', 'switches', 'boxes'],
   properties: {
     chapter: { type: 'string', minLength: 1 },
     roomId: { type: 'string', minLength: 1 },
@@ -104,13 +112,17 @@ const CHECKPOINT: Schema = {
     clock: { type: 'object', additionalProperties: false, required: ['day', 'minute'], properties: { day: { type: 'integer', minimum: 1 }, minute: INT } },
     fired: { type: 'array', items: STR },
     switches: { type: 'array', items: STR },
+    boxes: {
+      type: 'array',
+      items: { type: 'object', additionalProperties: false, required: ['key', 'col', 'row'], properties: { key: { type: 'string', minLength: 1 }, col: INT, row: INT } },
+    },
   },
 };
 
 /** Story progress: the checkpoint of the chapter being played, or none before the first punch. */
 export const STORY: SlotDef<StoryData> = {
   name: 'story',
-  version: 2,
+  version: 3,
   schema: {
     type: 'object',
     additionalProperties: false,
@@ -123,6 +135,11 @@ export const STORY: SlotDef<StoryData> = {
     1: (data) => {
       if (!isRecord(data) || !isRecord(data['checkpoint'])) return data;
       return { ...data, checkpoint: { ...data['checkpoint'], switches: [] } };
+    },
+    // Version 3 keeps where boxes were left; before it every box was where the map put it.
+    2: (data) => {
+      if (!isRecord(data) || !isRecord(data['checkpoint'])) return data;
+      return { ...data, checkpoint: { ...data['checkpoint'], boxes: [] } };
     },
   },
 };

@@ -35,7 +35,7 @@ node tools/maps/make-greybox.ts         # 重新產生灰盒測試房間
 node tools/maps/make-brain-corridor.ts  # 重新產生灰盒大腦走廊（狀態變體範例）
 node tools/maps/make-caffeine-arena.ts  # 重新產生咖啡因 Boss 灰盒場地
 node tools/maps/make-rest-room.ts       # 重新產生灰盒休息室（打卡機、午睡與就寢的床、NPC）
-node tools/maps/make-lock-rooms.ts      # 重新產生門鎖示範的灰盒大廳、檔案室與儲藏室（時段鎖、條件鎖、鑰匙鎖、道具）
+node tools/maps/make-lock-rooms.ts      # 重新產生門鎖示範的灰盒大廳、檔案室、儲藏室與裝卸區（時段鎖、條件鎖、鑰匙鎖、道具、推箱與輸送帶）
 node tools/maps/make-room-template.ts   # 重新產生給內容組複製的房間範本
 ```
 

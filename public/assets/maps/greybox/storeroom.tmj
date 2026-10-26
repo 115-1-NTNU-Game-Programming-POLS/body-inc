@@ -10,7 +10,7 @@
  "tilewidth": 32,
  "tileheight": 32,
  "nextlayerid": 4,
- "nextobjectid": 5,
+ "nextobjectid": 6,
  "class": "Room",
  "properties": [
   {
@@ -394,7 +394,7 @@
     0,
     0,
     12,
-    11,
+    13,
     0,
     0,
     0,
@@ -414,7 +414,6 @@
     0,
     0,
     14,
-    11,
     0,
     0,
     0,
@@ -434,7 +433,6 @@
     0,
     0,
     0,
-    11,
     0,
     0,
     0,
@@ -454,7 +452,9 @@
     0,
     0,
     0,
-    11,
+    0,
+    0,
+    15,
     0,
     0,
     0,
@@ -630,6 +630,31 @@
        "name": "itemId",
        "type": "string",
        "value": "sleep_debt"
+      }
+     ]
+    },
+    {
+     "id": 5,
+     "name": "door-w",
+     "type": "Door",
+     "x": 0,
+     "y": 192,
+     "width": 32,
+     "height": 64,
+     "rotation": 0,
+     "visible": true,
+     "properties": [
+      {
+       "name": "socket",
+       "type": "string",
+       "propertytype": "Socket",
+       "value": "W"
+      },
+      {
+       "name": "lock",
+       "type": "string",
+       "propertytype": "Lock",
+       "value": "none"
       }
      ]
     }

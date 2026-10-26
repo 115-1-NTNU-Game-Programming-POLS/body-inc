@@ -145,7 +145,11 @@ function problemMessage(p: RoomProblem): string {
       return `${SOCKET_NAME[s]}門必須在${SOCKET_PLACE[s]}，目前在第 ${range(a['cols'])} 欄、第 ${range(a['rows'])} 列`;
     }
     case 'switch-target': return `開關的目標物件 #${a['target']} 不存在`;
-    case 'switch-target-kind': return `開關的目標物件 #${a['target']} 不是 lock 為 switch 的門；開關目前只能開門`;
+    case 'switch-target-kind': return `開關的目標物件 #${a['target']} 不是 lock 為 switch 的門，也不是輸送帶（Conveyor）；開關只能開門或開關輸送帶`;
+    case 'box-wall': return `箱子放在牆上（第 ${a['col']} 欄、第 ${a['row']} 列）；箱子要放在地板上`;
+    case 'box-stack': return `箱子和箱子 #${a['other']} 放在同一格；一格只能放一個箱子`;
+    case 'box-blocked': return `箱子壓在物件 #${a['other']}（${a['kind']}）上；箱子不能放在門、NPC、床、道具或觸發區上，也推不進這些格子`;
+    case 'conveyor-shape': return '輸送帶必須畫成矩形，蓋住它佔的格子；點不知道佔哪些格子';
     case 'switch-missing': return 'lock 是 switch，但房間裡沒有任何開關（Switch）的 target 指向這扇門，門永遠打不開';
     case 'key-missing': return `lock 是 key，lockParam 是「${a['key']}」，但房間裡沒有 itemId 為「${a['key']}」的道具（Pickup），門永遠打不開；不打算開的門請把 lockParam 留空`;
     case 'key-conditional': return `這個道具是門 #${a['door']} 的鑰匙，必須放在 objects 圖層、when 留空；放在變體圖層或加了條件，換一組狀態再進房時它會不見，打開過的門又會鎖上`;
@@ -300,9 +304,10 @@ const doorsOf = (r: RoomModel): RoomObject[] => r.objects.filter((o) => o.kind =
  * Whether a player can get through the door from its own room. Clock and resource locks open on
  * global state the room cannot see, so they count as a way across; whether the state is ever
  * reached is a question for a playtest. A switch lock counts when a base-room switch reaches it
- * and every switch aimed at it is a toggle: the operator cannot stand on a plate and walk
- * through a door at the same time, which waits for push boxes. A key lock counts when its key
- * is in the room, which the parser already demands.
+ * and each switch aimed at it is a toggle, or a plate in a room with a box that is always there
+ * to rest on it: the operator cannot stand on a plate and walk through a door at the same time.
+ * Whether the box can actually be pushed onto the plate is left to a playtest too. A key lock
+ * counts when its key is in the room, which the parser already demands.
  */
 function passable(room: RoomModel, door: RoomObject): boolean {
   switch (lockOf(door)) {
@@ -312,7 +317,8 @@ function passable(room: RoomModel, door: RoomObject): boolean {
       return true;
     case 'switch': {
       const aimed = switchesFor(room.objects, door.id);
-      return aimed.some((s) => s.variant === undefined) && aimed.every((s) => s.props['mode'] === 'toggle');
+      const boxed = room.objects.some((o) => o.kind === 'Box' && o.variant === undefined && String(o.props['when']).trim() === '');
+      return aimed.some((s) => s.variant === undefined) && aimed.every((s) => s.props['mode'] === 'toggle' || boxed);
     }
     case 'key':
       return keysFor(room.objects, door).length > 0;
@@ -406,7 +412,7 @@ export function checkChapters(mapsDir: string, content: MapContent = loadMapCont
       seen.add(cur);
       for (const next of graph.get(cur) ?? []) queue.push(next);
     }
-    if (byPath.has(chapter.start)) for (const r of inChapter) if (!seen.has(r.path)) out.push(`${file}：房間 ${r.path} 從起點 ${chapter.start} 走不到，請在章節檔接上它；lockParam 留空的 key 鎖門，以及只能靠踩住壓力板（hold 開關）打開的門，不算通路`);
+    if (byPath.has(chapter.start)) for (const r of inChapter) if (!seen.has(r.path)) out.push(`${file}：房間 ${r.path} 從起點 ${chapter.start} 走不到，請在章節檔接上它；lockParam 留空的 key 鎖門，以及只能靠踩住壓力板（hold 開關）、房裡又沒有箱子可以壓住它的門，不算通路`);
   }
   return out;
 }

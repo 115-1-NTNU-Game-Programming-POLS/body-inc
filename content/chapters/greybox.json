@@ -9,6 +9,8 @@
     { "a": "greybox/greybox-room#door-n", "b": "greybox/lock-hall#door-s" },
     { "a": "greybox/lock-hall#door-w", "b": "greybox/archive#door-e" },
     { "a": "greybox/lock-hall#door-n", "b": "greybox/archive#door-s" },
-    { "a": "greybox/archive#door-w", "b": "greybox/storeroom#door-e" }
+    { "a": "greybox/archive#door-w", "b": "greybox/storeroom#door-e" },
+    { "a": "greybox/storeroom#door-w", "b": "greybox/loading-dock#door-e" },
+    { "a": "greybox/loading-dock#door-w", "b": "greybox/lock-hall#door-e" }
   ]
 }

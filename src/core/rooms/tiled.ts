@@ -1,8 +1,11 @@
-import type { SolidGrid } from '../collision/grid.ts';
+import { overlaps } from '../collision/boxes.ts';
+import { isSolid, type SolidGrid } from '../collision/grid.ts';
 import { ConditionError, type Condition, type ConditionProblem } from '../tags/condition.ts';
 import { compileCondition, type TagDictionary } from '../tags/dictionary.ts';
 import { TILE } from '../time.ts';
 import { OBJECT_CLASSES, ROOM_CLASS, VARIANT_PREFIX, type ClassSpec, type RefKind, type Scalar } from './classes.ts';
+import { KEEP_CLEAR, tileBox, tileOf } from './boxes.ts';
+import { objectBox } from './interact.ts';
 import { keyOf, keysFor, parseClockWindow, switchesFor } from './locks.ts';
 
 /**
@@ -93,8 +96,16 @@ export type RoomProblemCode =
   | 'variant-when' | 'variant-duplicate'
   /** A clock or resource lock whose lockParam is empty or not a time window. */
   | 'lock-param'
-  /** A Switch aimed at something other than a door with a switch lock, the only thing a switch moves yet. */
+  /** A Switch aimed at something other than a door with a switch lock or a conveyor. */
   | 'switch-target-kind'
+  /** A Box that starts on a wall tile. */
+  | 'box-wall'
+  /** Two Boxes that start on the same tile. */
+  | 'box-stack'
+  /** A Box that starts on a door, NPC, bed, pickup or trigger, which boxes must keep clear. */
+  | 'box-blocked'
+  /** A Conveyor drawn as a point; it needs a rectangle to say which tiles it covers. */
+  | 'conveyor-shape'
   /** A door with a switch lock that no Switch is aimed at. */
   | 'switch-missing'
   /** A key lock whose lockParam names no Pickup in the room. */
@@ -351,8 +362,19 @@ export function readRoom(id: string, map: TiledMap, dict: TagDictionary): ReadRe
     if (o.kind === 'Switch' && typeof target === 'number' && target !== 0) {
       const t = byId.get(target);
       if (!t) problems.push({ code: 'switch-target', object: o.id, args: { target } });
-      else if (t.kind !== 'Door' || t.props['lock'] !== 'switch') problems.push({ code: 'switch-target-kind', object: o.id, args: { target } });
+      else if (t.kind !== 'Conveyor' && (t.kind !== 'Door' || t.props['lock'] !== 'switch')) problems.push({ code: 'switch-target-kind', object: o.id, args: { target } });
     }
+    if (o.kind === 'Conveyor' && (o.width <= 0 || o.height <= 0)) problems.push({ code: 'conveyor-shape', object: o.id });
+  }
+  const boxes = objects.filter((o) => o.kind === 'Box').sort((a, b) => a.id - b.id);
+  for (const [i, b] of boxes.entries()) {
+    const t = tileOf(b);
+    const tb = tileBox(t);
+    if (isSolid({ cols: map.width, rows: map.height, solid }, t.col, t.row)) problems.push({ code: 'box-wall', object: b.id, args: { col: t.col, row: t.row } });
+    const twin = boxes.slice(0, i).find((x) => { const u = tileOf(x); return u.col === t.col && u.row === t.row; });
+    if (twin) problems.push({ code: 'box-stack', object: b.id, args: { other: twin.id } });
+    const blocked = objects.find((x) => KEEP_CLEAR.has(x.kind) && overlaps(tb, objectBox(x)));
+    if (blocked) problems.push({ code: 'box-blocked', object: b.id, args: { other: blocked.id, kind: blocked.kind } });
   }
 
   return {

@@ -12,17 +12,19 @@ export interface EnteredRoom extends RoomModel {
   readonly active: readonly string[];
 }
 
+const DECIDED_AT_ENTRY = new Set(['Spawn', 'Pickup', 'Box']);
+
 /**
- * Keeps base objects plus those of active variants, and drops Spawns and Pickups whose own `when`
- * fails: like an enemy, an item is there or not for the whole visit. Other kinds keep their
- * `when` for the system that owns them (a Trigger fires later, not now).
+ * Keeps base objects plus those of active variants, and drops Spawns, Pickups and Boxes whose own
+ * `when` fails: like an enemy, an item or a box is there or not for the whole visit. Other kinds
+ * keep their `when` for the system that owns them (a Trigger fires later, not now).
  */
 export function enterRoom(room: RoomModel, tags: TagState, dict: TagDictionary): EnteredRoom {
   const active = room.variants.filter((v) => holds(tags, dict, v.when)).map((v) => v.id);
   const on = new Set(active);
   const objects = room.objects.filter((o) => {
     if (o.variant !== undefined && !on.has(o.variant)) return false;
-    const when = o.kind === 'Spawn' || o.kind === 'Pickup' ? o.conditions['when'] : undefined;
+    const when = DECIDED_AT_ENTRY.has(o.kind) ? o.conditions['when'] : undefined;
     return when === undefined || holds(tags, dict, when);
   });
   return { ...room, objects, active };

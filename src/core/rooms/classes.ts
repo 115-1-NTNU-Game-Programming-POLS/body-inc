@@ -82,6 +82,14 @@ export const OBJECT_CLASSES: Readonly<Record<string, ClassSpec>> = {
     direction: enumOf('Direction', SOCKETS, 'E'),
     speed: enumOf('ConveyorSpeed', ['slow', 'normal', 'fast'], 'normal'),
   },
+  /**
+   * A push box. Not in design doc 13.3's table, which predates the puzzle rules; the prologue's
+   * glucose crates and the liver chapter's acetaldehyde crates need it. `boxType` only picks the art.
+   */
+  Box: {
+    boxType: enumOf('BoxType', ['crate', 'glucose', 'acetaldehyde', 'food']),
+    when: { type: 'condition' },
+  },
   Hazard: {
     hazardType: enumOf('HazardType', ['red_fog', 'water', 'syrup']),
     when: { type: 'condition' },

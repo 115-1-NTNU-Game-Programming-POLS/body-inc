@@ -150,6 +150,19 @@
     },
     {
       "id": 11,
+      "name": "BoxType",
+      "type": "enum",
+      "storageType": "string",
+      "values": [
+        "crate",
+        "glucose",
+        "acetaldehyde",
+        "food"
+      ],
+      "valuesAsFlags": false
+    },
+    {
+      "id": 12,
       "name": "HazardType",
       "type": "enum",
       "storageType": "string",
@@ -161,7 +174,7 @@
       "valuesAsFlags": false
     },
     {
-      "id": 12,
+      "id": 13,
       "name": "ItemType",
       "type": "enum",
       "storageType": "string",
@@ -176,7 +189,7 @@
       "valuesAsFlags": false
     },
     {
-      "id": 13,
+      "id": 14,
       "name": "BedType",
       "type": "enum",
       "storageType": "string",
@@ -187,7 +200,7 @@
       "valuesAsFlags": false
     },
     {
-      "id": 14,
+      "id": 15,
       "name": "Room",
       "type": "class",
       "useAs": [
@@ -241,7 +254,7 @@
       ]
     },
     {
-      "id": 15,
+      "id": 16,
       "name": "Variant",
       "type": "class",
       "useAs": [
@@ -258,7 +271,7 @@
       ]
     },
     {
-      "id": 16,
+      "id": 17,
       "name": "PlayerStart",
       "type": "class",
       "useAs": [
@@ -269,7 +282,7 @@
       "members": []
     },
     {
-      "id": 17,
+      "id": 18,
       "name": "Spawn",
       "type": "class",
       "useAs": [
@@ -302,7 +315,7 @@
       ]
     },
     {
-      "id": 18,
+      "id": 19,
       "name": "NPC",
       "type": "class",
       "useAs": [
@@ -335,7 +348,7 @@
       ]
     },
     {
-      "id": 19,
+      "id": 20,
       "name": "Trigger",
       "type": "class",
       "useAs": [
@@ -368,7 +381,7 @@
       ]
     },
     {
-      "id": 20,
+      "id": 21,
       "name": "Door",
       "type": "class",
       "useAs": [
@@ -397,7 +410,7 @@
       ]
     },
     {
-      "id": 21,
+      "id": 22,
       "name": "Switch",
       "type": "class",
       "useAs": [
@@ -420,7 +433,7 @@
       ]
     },
     {
-      "id": 22,
+      "id": 23,
       "name": "Conveyor",
       "type": "class",
       "useAs": [
@@ -444,7 +457,30 @@
       ]
     },
     {
-      "id": 23,
+      "id": 24,
+      "name": "Box",
+      "type": "class",
+      "useAs": [
+        "object"
+      ],
+      "color": "#ff3080c0",
+      "drawFill": true,
+      "members": [
+        {
+          "name": "boxType",
+          "type": "string",
+          "propertyType": "BoxType",
+          "value": "crate"
+        },
+        {
+          "name": "when",
+          "type": "string",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "id": 25,
       "name": "Hazard",
       "type": "class",
       "useAs": [
@@ -467,7 +503,7 @@
       ]
     },
     {
-      "id": 24,
+      "id": 26,
       "name": "Pickup",
       "type": "class",
       "useAs": [
@@ -495,7 +531,7 @@
       ]
     },
     {
-      "id": 25,
+      "id": 27,
       "name": "Bed",
       "type": "class",
       "useAs": [

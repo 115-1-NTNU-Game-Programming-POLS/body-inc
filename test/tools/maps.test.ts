@@ -363,6 +363,19 @@ describe('chapter check (build plan P0)', () => {
     expect(check({ a: map([start, southDoor('door-s', [prop('lock', 'switch')])], { layers: [variantLever] }), b: b() })).toEqual([unreachable]);
   });
 
+  it('a plate-only switch lock is a way across when a box that is always there can rest on the plate', () => {
+    const plate = { type: 'Switch', x: 300, y: 300, properties: [prop('target', 2), prop('mode', 'hold')] };
+    const crate = (extra: Partial<TiledObject> = {}) => ({ type: 'Box', x: 400, y: 300, properties: [], ...extra });
+    const lockedA = (more: Partial<TiledObject>[], opts: Parameters<typeof map>[1] = {}) =>
+      map([start, southDoor('door-s', [prop('lock', 'switch')]), plate, ...more], opts);
+    const unreachable = expect.stringContaining('房間 lab/b 從起點 lab/a 走不到');
+    expect(check({ a: lockedA([crate()]), b: b() })).toEqual([]);
+    // A box that only some states bring is not enough.
+    expect(check({ a: lockedA([crate({ properties: [prop('when', 'deadline')] })]), b: b() })).toEqual([unreachable]);
+    const variantBox = { type: 'objectgroup', name: 'variant:night', properties: [prop('when', 'deadline')], objects: [{ id: 61, type: 'Box', x: 400, y: 300 }] };
+    expect(check({ a: lockedA([], { layers: [variantBox] }), b: b() })).toEqual([unreachable]);
+  });
+
   it('a key lock whose key lies in its room is a way across, and then it must be linked', () => {
     const key = { type: 'Pickup', x: 300, y: 300, properties: [prop('itemType', 'file'), prop('itemId', 'k')] };
     const keyed = (name: string) => map([start, northDoor(), named(name, {

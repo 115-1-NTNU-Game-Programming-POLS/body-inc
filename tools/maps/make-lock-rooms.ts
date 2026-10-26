@@ -7,6 +7,11 @@
  * be seen opening and closing. The archive holds a cup of coffee, which shuts that north door, and
  * the file that is the key to its west door; the storeroom holds two handbook pages.
  *
+ * West of the storeroom is the loading dock (greybox/loading-dock.tmj): push the crate onto the
+ * belt, throw the lever that runs it, and the belt delivers the crate onto the plate that holds
+ * the west door open, back into the lock hall's east door. A fast belt along the bottom row
+ * carries the operator.
+ *
  *   node tools/maps/make-lock-rooms.ts
  */
 import { shell, tileLayer, W, writeRoom } from './room-kit.ts';
@@ -21,6 +26,11 @@ const pickup = (id: number, itemType: string, itemId: string, x: number, y: numb
   id, name: '', type: 'Pickup', x, y, width: 0, height: 0, rotation: 0, visible: true, point: true,
   properties: [str('itemType', 'ItemType', itemType), ...(itemId ? [str('itemId', undefined, itemId)] : [])],
 });
+const crate = (id: number, col: number, row: number, boxType = 'crate') => ({
+  id, name: '', type: 'Box', x: col * 32 + 16, y: row * 32 + 16, width: 0, height: 0, rotation: 0, visible: true, point: true,
+  properties: boxType === 'crate' ? [] : [str('boxType', 'BoxType', boxType)],
+});
+const obj = (id: number, name: string, x: number, y: number) => ({ id, name: '', type: name, x, y, rotation: 0, visible: true });
 const start = (x: number, y: number) => ({ id: 1, name: 'start', type: 'PlayerStart', x, y, width: 0, height: 0, rotation: 0, visible: true, point: true });
 
 const room = (organ: string, est: number, nextobjectid: number, floor: number[], walls: number[], tileset: object, objects: object[]) => ({
@@ -47,14 +57,17 @@ const room = (organ: string, est: number, nextobjectid: number, floor: number[],
   set(walls, 9, 2, 'door-n-l'); set(walls, 10, 2, 'door-n-r');
   set(walls, 0, 5, 'walltop-outer-se'); set(walls, 0, 8, 'walltop-outer-ne');
   set(walls, 0, 6, 'door-closed-l'); set(walls, 0, 7, 'door-closed-r');
-  // The way back south is always open.
+  // The way back south is always open, and so is the way east from the loading dock.
   walls[11 * W + 9] = 0; walls[11 * W + 10] = 0;
   set(walls, 8, 11, 'walltop-outer-ne'); set(walls, 11, 11, 'walltop-outer-nw');
-  writeRoom('greybox/lock-hall.tmj', room('brain', 20, 5, floor, walls, tileset, [
+  for (const y of [6, 7]) walls[y * W + (W - 1)] = 0;
+  set(walls, W - 1, 5, 'walltop-outer-sw'); set(walls, W - 1, 8, 'walltop-outer-nw');
+  writeRoom('greybox/lock-hall.tmj', room('brain', 20, 6, floor, walls, tileset, [
     start(320, 288),
     door(2, 'N', 'resource', 'caffeine<50', 9 * 32, 0, 64, 96),
     door(3, 'W', 'clock', '08:00-10:00', 0, 6 * 32, 32, 64),
     door(4, 'S', 'none', '', 9 * 32, 11 * 32, 64, 32),
+    door(5, 'E', 'none', '', (W - 1) * 32, 6 * 32, 32, 64),
   ]));
 }
 
@@ -78,12 +91,38 @@ const room = (organ: string, est: number, nextobjectid: number, floor: number[],
 
 {
   const { floor, walls, set, tileset } = shell('brain', 17);
-  for (const y of [6, 7]) walls[y * W + (W - 1)] = 0;
+  for (const y of [6, 7]) { walls[y * W + (W - 1)] = 0; walls[y * W] = 0; }
   set(walls, W - 1, 5, 'walltop-outer-sw'); set(walls, W - 1, 8, 'walltop-outer-nw');
-  writeRoom('greybox/storeroom.tmj', room('brain', 10, 5, floor, walls, tileset, [
+  set(walls, 0, 5, 'walltop-outer-se'); set(walls, 0, 8, 'walltop-outer-ne');
+  writeRoom('greybox/storeroom.tmj', room('brain', 10, 6, floor, walls, tileset, [
     start(320, 224),
     door(2, 'E', 'none', '', (W - 1) * 32, 6 * 32, 32, 64),
     pickup(3, 'handbook', 'caffeine', 256, 160),
     pickup(4, 'handbook', 'sleep_debt', 384, 160),
+    door(5, 'W', 'none', '', 0, 6 * 32, 32, 64),
+  ]));
+}
+
+{
+  const { floor, walls, set, tileset } = shell('brain', 19);
+  for (const y of [6, 7]) walls[y * W + (W - 1)] = 0;
+  set(walls, W - 1, 5, 'walltop-outer-sw'); set(walls, W - 1, 8, 'walltop-outer-nw');
+  set(walls, 0, 5, 'walltop-outer-se'); set(walls, 0, 8, 'walltop-outer-ne');
+  set(walls, 0, 6, 'door-closed-l'); set(walls, 0, 7, 'door-closed-r');
+  const prop = (name: string, propertytype: string, value: string | number) =>
+    ({ name, type: typeof value === 'number' ? 'object' : 'string', propertytype, value });
+  writeRoom('greybox/loading-dock.tmj', room('brain', 30, 11, floor, walls, tileset, [
+    start(560, 224),
+    door(2, 'E', 'none', '', (W - 1) * 32, 6 * 32, 32, 64),
+    door(3, 'W', 'switch', '', 0, 6 * 32, 32, 64),
+    // The plate that holds the west door open, where the belt drops the crate.
+    { ...obj(4, 'Switch', 4 * 32, 6 * 32), width: 32, height: 32, properties: [{ name: 'target', type: 'object', value: 3 }, prop('mode', 'SwitchMode', 'hold')] },
+    { ...obj(5, 'Conveyor', 5 * 32, 6 * 32), width: 5 * 32, height: 32, properties: [prop('direction', 'Direction', 'W')] },
+    // On the wall face above the belt: the belt stands still until it is thrown.
+    { ...obj(6, 'Switch', 7 * 32 + 16, 80), width: 0, height: 0, point: true, properties: [{ name: 'target', type: 'object', value: 5 }] },
+    crate(7, 12, 6),
+    crate(8, 12, 9, 'glucose'),
+    crate(9, 15, 4, 'acetaldehyde'),
+    { ...obj(10, 'Conveyor', 3 * 32, 9 * 32), width: 6 * 32, height: 32, properties: [prop('direction', 'Direction', 'E'), prop('speed', 'ConveyorSpeed', 'fast')] },
   ]));
 }

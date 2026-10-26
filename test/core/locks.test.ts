@@ -329,7 +329,7 @@ describe('story save', () => {
     const c = chapter(southDoor('switch'), [lever(3, 200, 200)]);
     const s = startChapter(c);
     const resumed = resumeChapter(c, {
-      chapter: 'lab', roomId: 'lab/a', x: 320, y: 200, tags: s.run.tags, clock: s.game.clock, fired: [], switches: ['lab/a#3', 'lab/a#77', 'lab/a#2'],
+      chapter: 'lab', roomId: 'lab/a', x: 320, y: 200, tags: s.run.tags, clock: s.game.clock, fired: [], switches: ['lab/a#3', 'lab/a#77', 'lab/a#2'], boxes: [],
     });
     expect(resumed.game.switches).toEqual([3]);
   });
