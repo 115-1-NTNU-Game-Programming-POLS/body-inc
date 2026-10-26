@@ -79,10 +79,17 @@ describe('enterRoom', () => {
     expect(enterRoom(r, tags('breakfast'), TAGS).objects.map((o) => o.id)).toEqual([1, 2]);
   });
 
-  it('leaves the when of other kinds to their own systems', () => {
-    const pickup = { id: 4, type: 'Pickup', x: 50, y: 50, properties: [{ name: 'when', value: 'breakfast' }] };
+  it('evaluates a Pickup\'s own when too: an item is there or not for the whole visit', () => {
+    const pickup = { id: 4, type: 'Pickup', x: 50, y: 50, properties: [{ name: 'itemType', value: 'coffee' }, { name: 'when', value: 'breakfast' }] };
     const r = parseRoom('t', tiny([], [pickup]), TAGS);
-    expect(enterRoom(r, EMPTY_TAGS, TAGS).objects.map((o) => o.id)).toEqual([1, 4]);
+    expect(enterRoom(r, EMPTY_TAGS, TAGS).objects.map((o) => o.id)).toEqual([1]);
+    expect(enterRoom(r, tags('breakfast'), TAGS).objects.map((o) => o.id)).toEqual([1, 4]);
+  });
+
+  it('leaves the when of other kinds to their own systems', () => {
+    const trigger = { id: 5, type: 'Trigger', x: 50, y: 50, width: 32, height: 32, properties: [{ name: 'eventId', value: 'x' }, { name: 'when', value: 'breakfast' }] };
+    const r = parseRoom('t', tiny([], [trigger]), TAGS);
+    expect(enterRoom(r, EMPTY_TAGS, TAGS).objects.map((o) => o.id)).toEqual([1, 5]);
   });
 
 });

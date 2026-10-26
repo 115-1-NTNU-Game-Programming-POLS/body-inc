@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "HandbookFile",
+  "description": "The employee handbook (design doc 3, 13.5): pages in the order the handbook screen lists them. Text lives in content/strings: the title is \"handbook.<id>.title\" and each body entry names one paragraph, so every sentence carries its own fact entry.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "pages"],
+  "properties": {
+    "version": { "const": 1 },
+    "pages": { "type": "array", "items": { "$ref": "#/$defs/HandbookPage" } }
+  },
+  "$defs": {
+    "HandbookPage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "body"],
+      "properties": {
+        "id": { "description": "What a Pickup's itemId and a dialogue unlock: effect name.", "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+        "body": { "description": "String keys of the paragraphs, in reading order.", "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } }
+      }
+    }
+  }
+}

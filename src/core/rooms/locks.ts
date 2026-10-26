@@ -13,7 +13,8 @@ import type { RoomObject } from './tiled.ts';
  *   switch    open while every Switch aimed at the door is on, and at least one is present
  *   clock     open while the chapter clock is inside lockParam, "HH:MM-HH:MM"
  *   resource  open while the condition in lockParam holds, e.g. "caffeine<50"
- *   key       not openable yet; it arrives with Pickup
+ *   key       open once the Pickup in the same room whose itemId is lockParam has been taken;
+ *             an empty lockParam never opens, which is how a socket is left unused
  */
 
 /** A daily window in minutes of the day. `to` may be 1440 (24:00); a window that ends before it starts runs past midnight. */
@@ -55,11 +56,21 @@ export const lockOf = (door: RoomObject): string => String(door.props['lock']);
  * Whether some state of the game can open this door. A door that cannot is a closed door: it
  * needs no link in the chapter file, and is the way to leave a socket unused.
  */
-export const mayOpen = (door: RoomObject): boolean => lockOf(door) !== 'key';
+export const mayOpen = (door: RoomObject): boolean => lockOf(door) !== 'key' || keyOf(door) !== '';
+
+/** The itemId a key lock waits for; '' for a sealed door. */
+export const keyOf = (door: RoomObject): string => String(door.props['lockParam']).trim();
 
 /** Switches aimed at `doorId`, in object id order. */
 export function switchesFor(objects: readonly RoomObject[], doorId: number): RoomObject[] {
   return objects.filter((o) => o.kind === 'Switch' && o.props['target'] === doorId).sort((a, b) => a.id - b.id);
+}
+
+/** Pickups that open a key lock: same room, itemId equal to the door's lockParam, in object id order. */
+export function keysFor(objects: readonly RoomObject[], door: RoomObject): RoomObject[] {
+  const key = keyOf(door);
+  if (key === '') return [];
+  return objects.filter((o) => o.kind === 'Pickup' && String(o.props['itemId']).trim() === key).sort((a, b) => a.id - b.id);
 }
 
 /**
@@ -90,14 +101,19 @@ export function switchLockOpen(objects: readonly RoomObject[], doorId: number, o
 
 /**
  * The one rule for whether a door lets the operator through, used by the room step and the view.
- * `objects` are the room as entered, so a switch in an inactive variant does not exist.
+ * `objects` are the room as entered, so a switch in an inactive variant does not exist. The map
+ * check keeps every key in the base layer with no `when`, so a key taken on an earlier visit is
+ * still among them.
  */
-export function doorOpen(objects: readonly RoomObject[], door: RoomObject, switchesOn: readonly number[], unlocked: readonly number[]): boolean {
+export function doorOpen(
+  objects: readonly RoomObject[], door: RoomObject, switchesOn: readonly number[], unlocked: readonly number[], taken: readonly number[],
+): boolean {
   switch (lockOf(door)) {
     case 'none': return true;
     case 'switch': return switchLockOpen(objects, door.id, switchesOn);
     case 'clock':
     case 'resource': return unlocked.includes(door.id);
+    case 'key': return keysFor(objects, door).some((k) => taken.includes(k.id));
     default: return false;
   }
 }

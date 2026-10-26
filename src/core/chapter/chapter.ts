@@ -5,7 +5,7 @@ import { BASE_HALVES } from '../combat/frames.ts';
 import { OPERATOR_BODY, type TickInput } from '../combat/operator.ts';
 import type { ChapterFile } from '../content/generated.ts';
 import type { DialogueState } from '../dialogue/runner.ts';
-import type { DialogueTable } from '../dialogue/lines.ts';
+import type { DialogueTable, Effect } from '../dialogue/lines.ts';
 import { createGame, sendStacksHome, step, type DomainEvent, type GameState } from '../game.ts';
 import { enterRoom } from '../rooms/entry.ts';
 import { arrivalPoint } from '../rooms/interact.ts';
@@ -19,6 +19,7 @@ import { TICK_HZ } from '../time.ts';
 import { caffeineOf, metabolise, senseCap, type MetabolismParams } from '../outer/caffeine.ts';
 import type { Deck } from '../outer/deck.ts';
 import { openCard, stepCard, type CardState } from './cards.ts';
+import { applyEffects } from './effects.ts';
 import { openTalk, stepTalk } from './talk.ts';
 
 /**
@@ -38,7 +39,7 @@ export interface Run {
   /** Room path as folder/map, the key of the room library. */
   readonly roomId: string;
   readonly tags: TagState;
-  /** One-time triggers and beds already used, as `roomId#objectId`. */
+  /** One-time triggers, beds and pickups already used, as `roomId#objectId`. */
   readonly fired: readonly string[];
   /**
    * Toggle switches that are on, as `roomId#objectId`. A room is rebuilt on every entry, so the
@@ -70,7 +71,7 @@ export type ChapterEvent =
   | { readonly type: 'roomChanged'; readonly from: string; readonly to: string }
   | { readonly type: 'dialogueOpened'; readonly dialogueId: string }
   | { readonly type: 'dialogueClosed'; readonly dialogueId: string }
-  /** A line unlocked a handbook page; nothing keeps the page yet (the handbook slot is not built). */
+  /** A line or a pickup unlocked a handbook page; the app keeps it in the progress slot. */
   | { readonly type: 'handbookUnlocked'; readonly id: string }
   | { readonly type: 'bedRefused'; readonly object: number; readonly bedType: string }
   | { readonly type: 'napped'; readonly minutes: number }
@@ -103,6 +104,8 @@ export interface ChapterContent {
 export interface ChapterParams extends SleepCoefficients, MetabolismParams {
   /** Real seconds per game hour of the chapter clock while exploring (design doc 7.2). */
   readonly exploreSecondsPerHour: number;
+  /** Caffeine residual one cup of coffee adds (design doc 7.4). */
+  readonly cup: number;
 }
 
 /** Room ticks per minute of the chapter clock. */
@@ -142,16 +145,18 @@ function build(ctx: ChapterContent, run: Run, place: Place, carry: Carry): GameS
     gauge: carry.gauge,
     halves: carry.halves,
     stacks: carry.stacks,
-    switches: switchesIn(run),
+    switches: idsHere(run, run.switches),
     unlocked: openByState(room.objects, run.tags, ctx.dict, carry.clock),
+    // `fired` also holds triggers and beds; the room keeps only the ids that are its pickups.
+    taken: idsHere(run, run.fired),
     ...(start ? { start } : {}),
   });
 }
 
-/** Object ids of the toggle switches on in the run's current room. */
-function switchesIn(run: Run): number[] {
+/** Object ids of the run's current room among `roomId#objectId` keys. */
+function idsHere(run: Run, keys: readonly string[]): number[] {
   const prefix = `${run.roomId}#`;
-  return run.switches.filter((k) => k.startsWith(prefix)).map((k) => Number(k.slice(prefix.length)));
+  return keys.filter((k) => k.startsWith(prefix)).map((k) => Number(k.slice(prefix.length)));
 }
 
 /** When a chapter opens unless told otherwise: day 1, 08:00. The opening cards are played at this time too. */
@@ -279,6 +284,20 @@ function onBed(ctx: ChapterContent, run: Run, game: GameState, e: Extract<Domain
 }
 
 /**
+ * What an item does once taken. Coffee is a cup of residual (design doc 7.4) and a handbook page
+ * goes into the handbook; the other kinds have no rule yet and only leave the room. Like a
+ * conversation's effects, each pickup is one entry in the causal log.
+ */
+function onPickup(ctx: ChapterContent, run: Run, game: GameState, e: Extract<DomainEvent, { type: 'pickedUp' }>): Applied {
+  const spent: Run = { ...run, fired: [...run.fired, `${run.roomId}#${e.object}`] };
+  const effects: Effect[] = e.itemType === 'coffee' ? [{ kind: 'amount', name: 'caffeine', mode: 'add', value: ctx.params.cup }]
+    : e.itemType === 'handbook' ? [{ kind: 'unlock', id: e.itemId }]
+      : [];
+  const out = applyEffects(ctx.dict, spent.tags, game.clock, effects, { kind: 'activity', key: `pickup.${e.itemType}` }, ctx.params);
+  return { run: { ...spent, tags: out.tags }, game, events: out.events };
+}
+
+/**
  * Moves the chapter clock on, and the caffeine residual with it (design doc 7.4). Every forward
  * move goes through here or through a `clock:` effect, which decays the same way; a return to a
  * checkpoint moves the clock back and restores the saved tags instead.
@@ -287,9 +306,13 @@ function passTime(ctx: ChapterContent, run: Run, game: GameState, minutes: numbe
   return { run: { ...run, tags: metabolise(run.tags, ctx.dict, minutes, ctx.params) }, game: { ...game, clock: advance(game.clock, minutes) } };
 }
 
-const isBed = (ctx: ChapterContent, key: string): boolean => {
+/**
+ * Beds and pickups used since the punch come back on a return to it: the clock and the tags go
+ * back to the punch, so the nap or the coffee they gave is undone too.
+ */
+const undoneByReturn = (ctx: ChapterContent, key: string): boolean => {
   const [room = '', id = ''] = key.split('#');
-  return ctx.rooms.get(room)?.objects.some((o) => o.kind === 'Bed' && String(o.id) === id) ?? false;
+  return ctx.rooms.get(room)?.objects.some((o) => (o.kind === 'Bed' || o.kind === 'Pickup') && String(o.id) === id) ?? false;
 };
 
 /** A conversation or an event card. Only one is on screen at a time, and only one opens per tick. */
@@ -369,9 +392,8 @@ function stepRoom(ctx: ChapterContent, state: ChapterState, input: TickInput): C
         const cp = run.checkpoint;
         // Without a checkpoint the room has already restarted at its start, which is all there is to return to.
         if (!cp) break;
-        // The clock goes back to the punch, which undoes a nap taken since, so its bed is usable again.
         // Everything else spent stays spent.
-        const fired = run.fired.filter((k) => cp.fired.includes(k) || !isBed(ctx, k));
+        const fired = run.fired.filter((k) => cp.fired.includes(k) || !undoneByReturn(ctx, k));
         const next: Run = { ...run, roomId: cp.roomId, tags: cp.tags, fired, entries: run.entries + 1 };
         // Only sleep clears adenosine, so the stacks come back with the operator.
         const built = build(ctx, next, { kind: 'at', x: cp.x, y: cp.y }, {
@@ -389,6 +411,12 @@ function stepRoom(ctx: ChapterContent, state: ChapterState, input: TickInput): C
         if (a.opens === undefined) break;
         if (opening) giveBack(a.spent);
         else opening = { ...a.opens, ...(a.spent !== undefined ? { spent: a.spent } : {}) };
+        break;
+      }
+      case 'pickedUp': {
+        const a = onPickup(ctx, run, game, e);
+        ({ run, game } = a);
+        extra.push(...a.events);
         break;
       }
       case 'bedUse': {

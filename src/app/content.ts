@@ -2,6 +2,7 @@ import caffeineJson from '../../content/bosses/caffeine.json';
 import greyboxChapter from '../../content/chapters/greybox.json';
 import enemiesJson from '../../content/enemies.json';
 import feedbackJson from '../../content/feedback.json';
+import handbookJson from '../../content/handbook.json';
 import paramsJson from '../../content/params.json';
 import speakersJson from '../../content/speakers.json';
 import stringsJson from '../../content/strings/zh-TW.json';
@@ -12,6 +13,7 @@ import {
 } from '../core/index.ts';
 import { speakerProblems, type Speakers } from './dialogue.ts';
 import { feedbackProblems, noteFields, type FeedbackTable, type StringTable } from './feedback.ts';
+import { handbookProblems } from './handbook.ts';
 
 /** Content is bundled and parsed once at startup; core receives the parsed objects. */
 export const TAGS: TagDictionary = loadDictionary(tagsJson);
@@ -67,3 +69,8 @@ export const DECKS: ReadonlyMap<string, Deck> = new Map(Object.values(deckSource
 
 const problems = feedbackProblems(FEEDBACK, STRINGS, noteFields(ENEMIES));
 if (problems.length > 0) throw new Error(`content/feedback.json:\n  ${problems.join('\n  ')}`);
+
+/** The handbook's pages in screen order; their text is in STRINGS. */
+export const HANDBOOK = readContent('handbook', handbookJson);
+const pageProblems = handbookProblems(HANDBOOK, [{ file: 'content/strings/zh-TW.json', value: STRINGS }]);
+if (pageProblems.length > 0) throw new Error(`content/handbook.json:\n  ${pageProblems.join('\n  ')}`);

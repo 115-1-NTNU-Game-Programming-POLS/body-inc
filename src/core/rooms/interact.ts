@@ -12,11 +12,13 @@ const POINT_SIZE = TILE;
 export type SocketName = 'N' | 'E' | 'S' | 'W';
 
 /**
- * Doors and triggers fire when the operator steps onto them; NPCs, beds and toggle switches wait
- * for the interact key. A hold switch is a pressure plate, pressed by standing on it.
+ * Doors and triggers fire when the operator steps onto them; NPCs, beds, pickups and toggle
+ * switches wait for the interact key (design doc 5.2: E also picks things up). A hold switch is a
+ * pressure plate, pressed by standing on it.
  */
 const TOUCHED = new Set(['Door', 'Trigger']);
-const reached = (o: RoomObject): boolean => o.kind === 'NPC' || o.kind === 'Bed' || (o.kind === 'Switch' && o.props['mode'] === 'toggle');
+const reached = (o: RoomObject): boolean =>
+  o.kind === 'NPC' || o.kind === 'Bed' || o.kind === 'Pickup' || (o.kind === 'Switch' && o.props['mode'] === 'toggle');
 
 export function objectBox(o: RoomObject): Box {
   const left = o.width > 0 ? o.x : o.x - POINT_SIZE / 2;
@@ -82,15 +84,18 @@ export function leverAt(room: RoomModel, box: Box): RoomObject | undefined {
 }
 
 /**
- * The talk, bed or switch object the interact key would use: the nearest one whose box meets the body
- * grown by INTERACT_REACH, and the lowest id when two are equally near. One definition for the
- * rule and for the HUD prompt, so the prompt never promises what the key will not do.
+ * The talk, bed, pickup or switch object the interact key would use: the nearest one whose box
+ * meets the body grown by INTERACT_REACH, and the lowest id when two are equally near; a pickup
+ * already taken is not there. One definition for the rule and for the HUD prompt, so the prompt
+ * never promises what the key will not do.
  */
-export function reachableObject(room: RoomModel, body: Box, feet: { readonly x: number; readonly y: number }): RoomObject | undefined {
+export function reachableObject(
+  room: RoomModel, body: Box, feet: { readonly x: number; readonly y: number }, taken: readonly number[],
+): RoomObject | undefined {
   const reach = grown(body, INTERACT_REACH);
   let best: { o: RoomObject; d: number } | undefined;
   for (const { o, box } of indexOf(room).reached) {
-    if (!overlaps(reach, box)) continue;
+    if (!overlaps(reach, box) || (o.kind === 'Pickup' && taken.includes(o.id))) continue;
     const d = Math.hypot((box.left + box.right) / 2 - feet.x, (box.top + box.bottom) / 2 - feet.y);
     if (!best || d < best.d) best = { o, d };
   }

@@ -3,7 +3,7 @@ import { ConditionError, type Condition, type ConditionProblem } from '../tags/c
 import { compileCondition, type TagDictionary } from '../tags/dictionary.ts';
 import { TILE } from '../time.ts';
 import { OBJECT_CLASSES, ROOM_CLASS, VARIANT_PREFIX, type ClassSpec, type RefKind, type Scalar } from './classes.ts';
-import { parseClockWindow, switchesFor } from './locks.ts';
+import { keyOf, keysFor, parseClockWindow, switchesFor } from './locks.ts';
 
 /**
  * Tiled JSON (.tmj) to room model. Core only needs structure, not art: which cells are solid,
@@ -96,7 +96,14 @@ export type RoomProblemCode =
   /** A Switch aimed at something other than a door with a switch lock, the only thing a switch moves yet. */
   | 'switch-target-kind'
   /** A door with a switch lock that no Switch is aimed at. */
-  | 'switch-missing';
+  | 'switch-missing'
+  /** A key lock whose lockParam names no Pickup in the room. */
+  | 'key-missing'
+  /**
+   * A Pickup that opens a key lock but sits in a variant layer or has a `when`. On a later visit
+   * with other tags it would not be in the room, and the door it opened would lock again.
+   */
+  | 'key-conditional';
 
 export interface RoomProblem {
   readonly code: RoomProblemCode;
@@ -332,6 +339,13 @@ export function readRoom(id: string, map: TiledMap, dict: TagDictionary): ReadRe
     }
     if (o.kind === 'Door' && o.props['lock'] === 'switch' && switchesFor(objects, o.id).length === 0) {
       problems.push({ code: 'switch-missing', object: o.id });
+    }
+    if (o.kind === 'Door' && o.props['lock'] === 'key' && keyOf(o) !== '') {
+      const keys = keysFor(objects, o);
+      if (keys.length === 0) problems.push({ code: 'key-missing', object: o.id, args: { key: keyOf(o) } });
+      for (const k of keys) {
+        if (k.variant !== undefined || String(k.props['when']).trim() !== '') problems.push({ code: 'key-conditional', object: k.id, args: { door: o.id } });
+      }
     }
     const target = o.props['target'];
     if (o.kind === 'Switch' && typeof target === 'number' && target !== 0) {

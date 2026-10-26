@@ -2,7 +2,7 @@
   "version": 1,
   "tags": [
     { "name": "sleep_debt", "type": "number", "unit": "hours", "sources": ["card", "event"], "duration": "persistent", "facts": ["17", "pending:1"] },
-    { "name": "caffeine", "type": "number", "unit": "residual", "sources": ["card"], "duration": "persistent", "facts": ["26"] },
+    { "name": "caffeine", "type": "number", "unit": "residual", "sources": ["card", "chapter"], "duration": "persistent", "facts": ["26"] },
     { "name": "caffeine_tolerant", "type": "boolean", "sources": ["rule"], "duration": "persistent", "facts": ["33"] },
     { "name": "withdrawal", "type": "boolean", "sources": ["rule"], "duration": "untilWake", "facts": ["33"] },
     { "name": "breakfast", "type": "boolean", "sources": ["card"], "duration": "untilWake", "facts": ["21", "27"] },

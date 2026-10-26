@@ -127,6 +127,17 @@ describe('room parser: door locks', () => {
     expect(codes(map([locked('switch'), lever(1, 'hold')]))).toEqual([]);
     expect(codes(map([locked('none'), lever(1)]))).toEqual(['switch-target-kind']);
   });
+
+  it('a key lock with a lockParam needs a pickup with that itemId; an empty one is a sealed door', () => {
+    const item = (itemId: string): Partial<TiledObject> => ({ id: 2, type: 'Pickup', x: 300, y: 300, properties: [prop('itemType', 'file'), prop('itemId', itemId)] });
+    expect(codes(map([locked('key')]))).toEqual([]);
+    expect(codes(map([locked('key', 'k')]))).toEqual(['key-missing']);
+    expect(codes(map([locked('key', 'k'), item('other')]))).toEqual(['key-missing']);
+    expect(codes(map([locked('key', 'k'), item('k')]))).toEqual([]);
+    // Spaces around the name do not make it a different key.
+    expect(codes(map([locked('key', ' k '), item('k')]))).toEqual([]);
+    expect(codes(map([locked('key', 'k'), item(' k ')]))).toEqual([]);
+  });
 });
 
 describe('room parser: variant layers', () => {
@@ -257,6 +268,16 @@ describe('map check', () => {
         expect.stringContaining('eventId「missing_line」不存在'),
         expect.stringContaining('itemId「handbook_caffeine」不存在'),
       ]);
+      // The real handbook's pages pass.
+      expect(check({ a: map([{ type: 'Pickup', properties: [prop('itemType', 'handbook'), prop('itemId', 'caffeine')] }]) })).toEqual([]);
+    });
+
+    it('a key lock names an item in its room, and that item is always there', () => {
+      const keyDoor = { id: 2, type: 'Door', x: 288, y: 352, width: 64, height: 32, properties: [prop('socket', 'S'), prop('lock', 'key'), prop('lockParam', 'k')] };
+      const key = (when = '') => ({ id: 3, type: 'Pickup', x: 300, y: 300, properties: [prop('itemType', 'file'), prop('itemId', 'k'), ...(when ? [prop('when', when)] : [])] });
+      expect(check({ a: map([keyDoor, key()]) })).toEqual([]);
+      expect(check({ a: map([keyDoor]) })).toEqual(['lock 是 key，lockParam 是「k」，但房間裡沒有 itemId 為「k」的道具（Pickup），門永遠打不開；不打算開的門請把 lockParam 留空']);
+      expect(check({ a: map([keyDoor, key('breakfast')]) })).toEqual([expect.stringContaining('這個道具是門 #2 的鑰匙，必須放在 objects 圖層、when 留空')]);
     });
   });
 });
@@ -340,6 +361,15 @@ describe('chapter check (build plan P0)', () => {
       objects: [{ id: 60, type: 'Switch', x: 300, y: 300, properties: [prop('target', 2)] }],
     };
     expect(check({ a: map([start, southDoor('door-s', [prop('lock', 'switch')])], { layers: [variantLever] }), b: b() })).toEqual([unreachable]);
+  });
+
+  it('a key lock whose key lies in its room is a way across, and then it must be linked', () => {
+    const key = { type: 'Pickup', x: 300, y: 300, properties: [prop('itemType', 'file'), prop('itemId', 'k')] };
+    const keyed = (name: string) => map([start, northDoor(), named(name, {
+      ...door('E', 608, 192, 32, 64), properties: [prop('socket', 'E'), prop('lock', 'key'), prop('lockParam', 'k')],
+    }), key]);
+    expect(check({ a: map([start, southDoor('door-s', [prop('lock', 'key'), prop('lockParam', 'k')]), key]), b: b() })).toEqual([]);
+    expect(check({ a: a(), b: keyed('door-e') })).toEqual([expect.stringContaining('門「door-e」沒有接到任何房間，卻打得開（lock 為 key）')]);
   });
 
   it('a room no link reaches fails', () => {

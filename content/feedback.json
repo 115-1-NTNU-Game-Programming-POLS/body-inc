@@ -24,6 +24,7 @@
     "proposalRejected": { "shake": { "px": 6, "seconds": 0.15 }, "particles": [{ "preset": "ink", "count": 12 }], "note": "proposal.rejected" },
     "bossDefeated": { "closeOut": true, "particles": [{ "preset": "paper", "count": 20 }], "note": "boss.defeated" },
     "doorLocked": { "note": "door.locked.{lock}" },
+    "pickedUp": { "note": "pickup.{itemType}" },
     "bedRefused": { "note": "bed.refused.{bedType}" },
     "napped": { "note": "napped" },
     "checkpointSaved": { "note": "checkpoint.saved" }

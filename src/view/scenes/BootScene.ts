@@ -6,7 +6,7 @@ import { portraitsUsed } from '../../app/dialogue.ts';
 import { chapterOfRoom, gaugeFromQuery, halvesFromQuery, roomFromQuery, tagsFromQuery } from '../../app/session.ts';
 import { browserStore, SaveStore, type SaveIssue } from '../../app/storage.ts';
 import {
-  EMPTY_TAGS, listProps, roomsOf, SETTINGS, startChapter, STORY, type ChapterContent, type TagState, type TiledMapFile,
+  EMPTY_TAGS, listProps, PROGRESS, roomsOf, SETTINGS, startChapter, STORY, type ChapterContent, type TagState, type TiledMapFile,
 } from '../../core/index.ts';
 import { glyphCorpus } from '../text/corpus.ts';
 import { addSystemText, loadFonts, type FontGateResult } from '../text/fonts.ts';
@@ -162,12 +162,15 @@ export class BootScene extends Phaser.Scene {
     const saves = new SaveStore(browserStore(window));
     const settings = saves.load(SETTINGS);
     const story = saves.load(STORY);
-    const issues: SaveIssue[] = [...settings.issues, ...story.issues];
+    const progress = saves.load(PROGRESS);
+    const issues: SaveIssue[] = [...settings.issues, ...story.issues, ...progress.issues];
     if (settings.needsWrite) issues.push(...saves.save(SETTINGS, settings.data));
     if (story.needsWrite) issues.push(...saves.save(STORY, story.data));
+    if (progress.needsWrite) issues.push(...saves.save(PROGRESS, progress.data));
     this.registry.set('saves', saves);
     this.registry.set('settings', settings.data);
     this.registry.set('story', story.data);
+    this.registry.set('progress', progress.data);
     this.registry.set('save-issues', issues);
   }
 

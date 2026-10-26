@@ -150,8 +150,18 @@ describe('feedback table', () => {
       'stampVoid: note "stamp_void.{solution}" uses unknown placeholder "{solution}"',
       'bossStage: note "boss_stage.{stage}" uses unknown placeholder "{stage}"',
       'doorLocked: note "door.locked.{lock}" uses unknown placeholder "{lock}"',
+      'pickedUp: note "pickup.{itemType}" uses unknown placeholder "{itemType}"',
       'bedRefused: note "bed.refused.{bedType}" uses unknown placeholder "{bedType}"',
     ]);
+  });
+
+  it('every item but a handbook page has its pickup note; a page is announced by the handbook', () => {
+    expect(FIELDS.pickedUp?.['itemType']).toEqual(['coffee', 'meal', 'ors', 'file', 'thanks_card']);
+    const { ['pickup.ors']: _, ...rest } = STRINGS.strings;
+    expect(feedbackProblems(FEEDBACK, { ...STRINGS, strings: rest }, FIELDS)).toEqual([
+      'pickedUp: note "pickup.ors" is not in content/strings',
+    ]);
+    expect(STRINGS.strings['pickup.handbook']).toBeUndefined();
   });
 
   it('each bed kind a map can place has its refusal line', () => {

@@ -582,6 +582,54 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
       }
     }
   },
+  "handbook": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "HandbookFile",
+    "description": "The employee handbook (design doc 3, 13.5): pages in the order the handbook screen lists them. Text lives in content/strings: the title is \"handbook.<id>.title\" and each body entry names one paragraph, so every sentence carries its own fact entry.",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "version",
+      "pages"
+    ],
+    "properties": {
+      "version": {
+        "const": 1
+      },
+      "pages": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/HandbookPage"
+        }
+      }
+    },
+    "$defs": {
+      "HandbookPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "body"
+        ],
+        "properties": {
+          "id": {
+            "description": "What a Pickup's itemId and a dialogue unlock: effect name.",
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "body": {
+            "description": "String keys of the paragraphs, in reading order.",
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      }
+    }
+  },
   "params": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "title": "ParamsFile",
@@ -1645,7 +1693,7 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
   }
 };
 
-export type SchemaName = "boss" | "chapter" | "deck" | "enemies" | "feedback" | "params" | "scheduleCards" | "speakers" | "strings" | "tags";
+export type SchemaName = "boss" | "chapter" | "deck" | "enemies" | "feedback" | "handbook" | "params" | "scheduleCards" | "speakers" | "strings" | "tags";
 
 export interface ContentTypes {
   readonly boss: BossFile;
@@ -1653,6 +1701,7 @@ export interface ContentTypes {
   readonly deck: DeckFile;
   readonly enemies: EnemiesFile;
   readonly feedback: FeedbackFile;
+  readonly handbook: HandbookFile;
   readonly params: ParamsFile;
   readonly scheduleCards: ScheduleCardsFile;
   readonly speakers: SpeakersFile;
@@ -1827,6 +1876,19 @@ export interface Feedback {
   readonly closeOut?: boolean;
   /** Key into content/strings; "{field}" is filled from the event. */
   readonly note?: string;
+}
+
+/** The employee handbook (design doc 3, 13.5): pages in the order the handbook screen lists them. Text lives in content/strings: the title is "handbook.<id>.title" and each body entry names one paragraph, so every sentence carries its own fact entry. */
+export interface HandbookFile {
+  readonly version: 1;
+  readonly pages: readonly HandbookPage[];
+}
+
+export interface HandbookPage {
+  /** What a Pickup's itemId and a dialogue unlock: effect name. */
+  readonly id: string;
+  /** String keys of the paragraphs, in reading order. */
+  readonly body: readonly string[];
 }
 
 /** Balance parameters shared by sim/ and the game (architecture section 7). Every parameter is listed, so a misspelled or renamed one fails the check. notes must name exactly the parameters in defaults (checked in tools/check-content.ts). */

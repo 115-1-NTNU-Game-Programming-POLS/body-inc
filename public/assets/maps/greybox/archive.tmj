@@ -10,7 +10,7 @@
  "tilewidth": 32,
  "tileheight": 32,
  "nextlayerid": 4,
- "nextobjectid": 4,
+ "nextobjectid": 7,
  "class": "Room",
  "properties": [
   {
@@ -26,7 +26,7 @@
   {
    "name": "estSeconds",
    "type": "int",
-   "value": 10
+   "value": 15
   }
  ],
  "layers": [
@@ -394,7 +394,7 @@
     0,
     0,
     12,
-    11,
+    13,
     0,
     0,
     0,
@@ -414,7 +414,7 @@
     0,
     0,
     14,
-    11,
+    29,
     0,
     0,
     0,
@@ -434,7 +434,7 @@
     0,
     0,
     0,
-    11,
+    30,
     0,
     0,
     0,
@@ -454,7 +454,7 @@
     0,
     0,
     0,
-    11,
+    15,
     0,
     0,
     0,
@@ -605,6 +605,81 @@
        "type": "string",
        "propertytype": "Lock",
        "value": "none"
+      }
+     ]
+    },
+    {
+     "id": 4,
+     "name": "door-w",
+     "type": "Door",
+     "x": 0,
+     "y": 192,
+     "width": 32,
+     "height": 64,
+     "rotation": 0,
+     "visible": true,
+     "properties": [
+      {
+       "name": "socket",
+       "type": "string",
+       "propertytype": "Socket",
+       "value": "W"
+      },
+      {
+       "name": "lock",
+       "type": "string",
+       "propertytype": "Lock",
+       "value": "key"
+      },
+      {
+       "name": "lockParam",
+       "type": "string",
+       "value": "archive-key"
+      }
+     ]
+    },
+    {
+     "id": 5,
+     "name": "",
+     "type": "Pickup",
+     "x": 480,
+     "y": 128,
+     "width": 0,
+     "height": 0,
+     "rotation": 0,
+     "visible": true,
+     "point": true,
+     "properties": [
+      {
+       "name": "itemType",
+       "type": "string",
+       "propertytype": "ItemType",
+       "value": "file"
+      },
+      {
+       "name": "itemId",
+       "type": "string",
+       "value": "archive-key"
+      }
+     ]
+    },
+    {
+     "id": 6,
+     "name": "",
+     "type": "Pickup",
+     "x": 160,
+     "y": 288,
+     "width": 0,
+     "height": 0,
+     "rotation": 0,
+     "visible": true,
+     "point": true,
+     "properties": [
+      {
+       "name": "itemType",
+       "type": "string",
+       "propertytype": "ItemType",
+       "value": "coffee"
       }
      ]
     }

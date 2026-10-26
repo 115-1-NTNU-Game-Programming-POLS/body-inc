@@ -130,10 +130,16 @@ describe('walking through doors', () => {
       for (const [from, to] of [[link.a, link.b], [link.b, link.a]] as const) {
         const [room, door] = from.split('#') as [string, string];
         const o = ctx.rooms.get(room)!.objects.find((x) => x.name === door)!;
-        // Every lever thrown; the chapter opens at 08:00 with no caffeine, when the clock and resource locks are open.
-        const levers = ctx.rooms.get(room)!.objects.filter((x) => x.kind === 'Switch').map((x) => x.id);
+        // Every lever thrown and every item taken; the chapter opens at 08:00 with no caffeine, when
+        // the clock and resource locks are open.
+        const ids = (kind: string) => ctx.rooms.get(room)!.objects.filter((x) => x.kind === kind).map((x) => x.id);
+        const levers = ids('Switch');
         const s0 = startChapter(ctx, { room });
-        const opened = { ...s0, run: { ...s0.run, switches: levers.map((id) => `${room}#${id}`) }, game: { ...s0.game, switches: levers } };
+        const opened = {
+          ...s0,
+          run: { ...s0.run, switches: levers.map((id) => `${room}#${id}`) },
+          game: { ...s0.game, switches: levers, taken: ids('Pickup') },
+        };
         const start = place(opened, o.x + o.width / 2, o.y + o.height / 2);
         const { state } = advanceBy(ctx, start, NONE);
         expect(state.run.roomId, `${from} -> ${to}`).toBe(to.split('#')[0]);

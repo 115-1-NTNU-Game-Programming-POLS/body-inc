@@ -9,6 +9,11 @@ const enumValues = (cls: string, member: string): readonly string[] => {
 const BED_TYPES = enumValues('Bed', 'bedType');
 /** An open door is never reported as locked. */
 const LOCKS = enumValues('Door', 'lock').filter((l) => l !== 'none');
+/**
+ * A handbook page is announced by the handbook itself, which knows whether the page is new, so
+ * its pickup has no note of its own and needs no string.
+ */
+const NOTED_ITEMS = enumValues('Pickup', 'itemType').filter((t) => t !== 'handbook');
 
 /**
  * content/feedback.json: domain event type to presentation (architecture section 4). The art
@@ -25,7 +30,7 @@ const ALL_EVENTS: Record<GameEvent['type'], true> = {
   dispersed: true, reformed: true, respawned: true, immuneBounce: true, heartLost: true, freeze: true, forcedLeave: true,
   gaugeFull: true, stampRaised: true, stampLanded: true, stampVoid: true, clung: true, forcedNap: true,
   bossStage: true, bossDrink: true, bossSummon: true, powerCut: true, proposalRejected: true, bossDefeated: true,
-  doorEntered: true, doorLocked: true, switchChanged: true, triggerEntered: true, talk: true, bedUse: true,
+  doorEntered: true, doorLocked: true, switchChanged: true, pickedUp: true, triggerEntered: true, talk: true, bedUse: true,
   roomChanged: true, dialogueOpened: true, dialogueClosed: true, handbookUnlocked: true, bedRefused: true, napped: true,
   checkpointSaved: true, clockAdvanced: true, cardOpened: true, cardChosen: true,
   outerRequested: true, returnedToCheckpoint: true, chapterEnded: true,
@@ -83,6 +88,7 @@ export function noteFields(table: EnemyTable): NoteFields {
     bossStage: { stage: ['2', '3'] },
     bedRefused: { bedType: [...BED_TYPES] },
     doorLocked: { lock: [...LOCKS] },
+    pickedUp: { itemType: [...NOTED_ITEMS] },
   };
 }
 

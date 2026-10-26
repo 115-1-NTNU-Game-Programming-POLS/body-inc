@@ -65,6 +65,8 @@ export interface GameState {
   readonly unlocked: readonly number[];
   /** Doors the last door check found open, so a door that opens while the operator is pressed against it lets them through. */
   readonly doorsOpen: readonly number[];
+  /** Pickups gone from the room, in id order: taken on this visit or, as the chapter remembers, an earlier one. */
+  readonly taken: readonly number[];
   /** Clinging stacks brought in from another room; they belong to no enemy here and only sleep clears them. */
   readonly carried: number;
   /**
@@ -112,6 +114,8 @@ export type DomainEvent =
   /** A switch went on or off; `by` says what moved it. Only toggle switches stay on after the operator leaves. */
   | { readonly type: 'switchChanged'; readonly object: number; readonly on: boolean; readonly mode: string; readonly by: 'interact' | 'staple' | 'step' }
   | { readonly type: 'triggerEntered'; readonly object: number; readonly trigger: string; readonly eventId: string }
+  /** The operator took an item; what it does beyond leaving the room (and opening a key lock) is the chapter's. */
+  | { readonly type: 'pickedUp'; readonly object: number; readonly itemType: string; readonly itemId: string }
   | { readonly type: 'talk'; readonly object: number; readonly npc: string; readonly dialogueId: string }
   | { readonly type: 'bedUse'; readonly object: number; readonly bedType: string };
 
@@ -189,6 +193,8 @@ export interface GameOptions {
   readonly switches?: readonly number[];
   /** Doors open by their clock or resource lock at entry; the chapter refreshes this every tick. */
   readonly unlocked?: readonly number[];
+  /** Pickups taken on an earlier visit; ids that are not pickups of this room are ignored. */
+  readonly taken?: readonly number[];
 }
 
 const switchMode = (room: EnteredRoom, id: number): string | undefined => {
@@ -198,9 +204,9 @@ const switchMode = (room: EnteredRoom, id: number): string | undefined => {
 
 const ascending = (ids: Iterable<number>): number[] => [...new Set(ids)].sort((a, b) => a - b);
 
-/** Doors open with these switches and state-opened doors, in id order. */
-function openDoors(room: EnteredRoom, switches: readonly number[], unlocked: readonly number[]): number[] {
-  return room.objects.filter((o) => o.kind === 'Door' && doorOpen(room.objects, o, switches, unlocked)).map((o) => o.id).sort((a, b) => a - b);
+/** Doors open with these switches, state-opened doors and taken keys, in id order. */
+function openDoors(room: EnteredRoom, switches: readonly number[], unlocked: readonly number[], taken: readonly number[]): number[] {
+  return room.objects.filter((o) => o.kind === 'Door' && doorOpen(room.objects, o, switches, unlocked, taken)).map((o) => o.id).sort((a, b) => a - b);
 }
 
 /**
@@ -226,6 +232,7 @@ export function createGame(room: EnteredRoom, seed: number, table: EnemyTable, o
     ...platesUnder(room, boxAt(OPERATOR_BODY, operator.x, operator.y)),
   ]);
   const unlocked = ascending(options.unlocked ?? []);
+  const taken = ascending((options.taken ?? []).filter((id) => room.objects.some((o) => o.id === id && o.kind === 'Pickup')));
   return {
     tick: 0,
     rng: seedStreams(seed),
@@ -245,7 +252,8 @@ export function createGame(room: EnteredRoom, seed: number, table: EnemyTable, o
     carried,
     switches,
     unlocked,
-    doorsOpen: openDoors(room, switches, unlocked),
+    doorsOpen: openDoors(room, switches, unlocked, taken),
+    taken,
   };
 }
 
@@ -299,7 +307,7 @@ function forcedLeave(state: GameState): GameState {
     freeze: 0,
     touching: touchedObjects(state.room, body).map((o) => o.id),
     switches,
-    doorsOpen: openDoors(state.room, switches, state.unlocked),
+    doorsOpen: openDoors(state.room, switches, state.unlocked, state.taken),
   };
 }
 
@@ -371,15 +379,21 @@ export function step(state: GameState, input: TickInput): StepResult {
   if (s.dodged) events.push({ type: 'dodge' });
   if (s.stampRaised) events.push({ type: 'stampRaised' });
 
-  // Switches move before doors are judged, so a door opened this tick lets the operator through at
-  // once. Their events are not room events: a switch thrown on a lethal tick stays thrown.
+  // Switches and keys move before doors are judged, so a door opened this tick lets the operator
+  // through at once. Their events are not room events: a switch thrown or an item taken on a
+  // lethal tick stays so, as it would a tick earlier.
   const body = boxAt(OPERATOR_BODY, op.x, op.y);
-  const used = input.interactPressed && op.action.kind === 'free' ? reachableObject(state.room, body, op) : undefined;
+  const used = input.interactPressed && op.action.kind === 'free' ? reachableObject(state.room, body, op, state.taken) : undefined;
   let levers = state.switches.filter((id) => switchMode(state.room, id) === 'toggle');
   if (used?.kind === 'Switch') {
     const on = !levers.includes(used.id);
     levers = on ? [...levers, used.id] : levers.filter((id) => id !== used.id);
     events.push({ type: 'switchChanged', object: used.id, on, mode: 'toggle', by: 'interact' });
+  }
+  let taken = state.taken;
+  if (used?.kind === 'Pickup') {
+    taken = ascending([...taken, used.id]);
+    events.push({ type: 'pickedUp', object: used.id, itemType: String(used.props['itemType']), itemId: String(used.props['itemId']).trim() });
   }
   const plates = platesUnder(state.room, body);
   const wasDown = state.switches.filter((id) => switchMode(state.room, id) === 'hold');
@@ -387,7 +401,7 @@ export function step(state: GameState, input: TickInput): StepResult {
     if (plates.includes(id) !== wasDown.includes(id)) events.push({ type: 'switchChanged', object: id, on: plates.includes(id), mode: 'hold', by: 'step' });
   }
   let switches = ascending([...levers, ...plates]);
-  const doorsOpenNow = openDoors(state.room, switches, state.unlocked);
+  const doorsOpenNow = openDoors(state.room, switches, state.unlocked, taken);
 
   // Doors and triggers fire on the tick the operator steps onto them, not while standing there;
   // a locked door that opens while the operator is pressed against it counts as stepped onto.
@@ -402,7 +416,7 @@ export function step(state: GameState, input: TickInput): StepResult {
         : { type: 'doorLocked', object: o.id, lock: String(o.props['lock']) });
     } else roomEvents.push({ type: 'triggerEntered', object: o.id, trigger: String(o.props['event']), eventId: String(o.props['eventId']) });
   }
-  if (used && used.kind !== 'Switch') roomEvents.push(interactionOf(used));
+  if (used && used.kind !== 'Switch' && used.kind !== 'Pickup') roomEvents.push(interactionOf(used));
   events.push(...roomEvents);
 
   // Ids only ever grow, and every loop below runs in id order, so results never depend on
@@ -611,7 +625,7 @@ export function step(state: GameState, input: TickInput): StepResult {
     shots: movedShots, zones: [...zones.values()].sort((a, b) => a.id - b.id), nextId, freeze,
     // What the door check saw, not a fresh count: a lever pinned by a staple after the check must
     // still count as newly opened next tick for an operator already pressed against its door.
-    touching: onNow.map((o) => o.id), carried, switches, doorsOpen: doorsOpenNow,
+    touching: onNow.map((o) => o.id), carried, switches, doorsOpen: doorsOpenNow, taken,
   };
   // A forced leave clears the freeze, so the freeze event is only emitted when it will happen.
   if (op.halves <= 0) {
@@ -638,16 +652,21 @@ export const selectFrozen = (s: GameState): boolean => s.freeze > 0;
 export const selectGauge = (s: GameState): { readonly value: number; readonly max: number } =>
   ({ value: s.operator.gauge, max: STAMP.gaugeMax });
 export const selectClock = (s: GameState): RuleClock => s.clock;
-/** The NPC, bed or toggle switch the interact key would use right now, for the HUD prompt; same rule as the key. */
+/** The NPC, bed, pickup or toggle switch the interact key would use right now, for the HUD prompt; same rule as the key. */
 export function selectInteractable(s: GameState): { readonly object: number; readonly kind: string } | undefined {
   if (s.operator.action.kind !== 'free') return undefined;
-  const o = reachableObject(s.room, boxAt(OPERATOR_BODY, s.operator.x, s.operator.y), s.operator);
+  const o = reachableObject(s.room, boxAt(OPERATOR_BODY, s.operator.x, s.operator.y), s.operator, s.taken);
   return o ? { object: o.id, kind: o.kind } : undefined;
 }
 /** Every locked door of the room and whether it is open now, by the same rule the step uses. */
 export function selectDoorLocks(s: GameState): readonly { readonly object: number; readonly lock: string; readonly open: boolean }[] {
   return s.room.objects.filter((o) => o.kind === 'Door' && o.props['lock'] !== 'none')
-    .map((o) => ({ object: o.id, lock: String(o.props['lock']), open: doorOpen(s.room.objects, o, s.switches, s.unlocked) }));
+    .map((o) => ({ object: o.id, lock: String(o.props['lock']), open: doorOpen(s.room.objects, o, s.switches, s.unlocked, s.taken) }));
+}
+/** Every pickup of the room and whether it is still there to take. */
+export function selectPickups(s: GameState): readonly { readonly object: number; readonly itemType: string; readonly present: boolean }[] {
+  return s.room.objects.filter((o) => o.kind === 'Pickup')
+    .map((o) => ({ object: o.id, itemType: String(o.props['itemType']), present: !s.taken.includes(o.id) }));
 }
 /** Every switch of the room and whether it is on. */
 export function selectSwitches(s: GameState): readonly { readonly object: number; readonly mode: string; readonly on: boolean }[] {

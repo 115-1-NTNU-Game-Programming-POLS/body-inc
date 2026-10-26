@@ -8,7 +8,7 @@ import { addAmount, setAmount, setFlag, type TagState } from '../tags/store.ts';
 /** What applying effects reports; a subset of the chapter's events. */
 export type EffectEvent =
   | { readonly type: 'clockAdvanced'; readonly minutes: number }
-  /** A handbook page was unlocked; nothing keeps the page yet (the handbook slot is not built). */
+  /** A handbook page was unlocked; the app keeps it in the progress slot. */
   | { readonly type: 'handbookUnlocked'; readonly id: string };
 
 export interface EffectSource {

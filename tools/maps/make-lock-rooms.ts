@@ -1,9 +1,11 @@
 /**
- * Writes two greybox rooms that show the door locks: the lock hall
+ * Writes three greybox rooms that show the door locks and pickups: the lock hall
  * (public/assets/maps/greybox/lock-hall.tmj), entered from the greybox test room's switch-locked
- * north door, and the archive behind it (greybox/archive.tmj). The hall's west door has a clock
- * lock open 08:00 to 10:00 and its north door a resource lock open while caffeine is below 50,
- * both into the archive, so either lock can be seen opening and closing.
+ * north door, the archive behind it (greybox/archive.tmj), and the storeroom behind the archive
+ * (greybox/storeroom.tmj). The hall's west door has a clock lock open 08:00 to 10:00 and its north
+ * door a resource lock open while caffeine is below 50, both into the archive, so either lock can
+ * be seen opening and closing. The archive holds a cup of coffee, which shuts that north door, and
+ * the file that is the key to its west door; the storeroom holds two handbook pages.
  *
  *   node tools/maps/make-lock-rooms.ts
  */
@@ -14,6 +16,10 @@ const str = (name: string, propertytype: string | undefined, value: string) =>
 const door = (id: number, socket: string, lock: string, lockParam: string, x: number, y: number, width: number, height: number) => ({
   id, name: `door-${socket.toLowerCase()}`, type: 'Door', x, y, width, height, rotation: 0, visible: true,
   properties: [str('socket', 'Socket', socket), str('lock', 'Lock', lock), ...(lockParam ? [str('lockParam', undefined, lockParam)] : [])],
+});
+const pickup = (id: number, itemType: string, itemId: string, x: number, y: number) => ({
+  id, name: '', type: 'Pickup', x, y, width: 0, height: 0, rotation: 0, visible: true, point: true,
+  properties: [str('itemType', 'ItemType', itemType), ...(itemId ? [str('itemId', undefined, itemId)] : [])],
 });
 const start = (x: number, y: number) => ({ id: 1, name: 'start', type: 'PlayerStart', x, y, width: 0, height: 0, rotation: 0, visible: true, point: true });
 
@@ -58,9 +64,26 @@ const room = (organ: string, est: number, nextobjectid: number, floor: number[],
   set(walls, 8, 11, 'walltop-outer-ne'); set(walls, 11, 11, 'walltop-outer-nw');
   for (const y of [6, 7]) walls[y * W + (W - 1)] = 0;
   set(walls, W - 1, 5, 'walltop-outer-sw'); set(walls, W - 1, 8, 'walltop-outer-nw');
-  writeRoom('greybox/archive.tmj', room('brain', 10, 4, floor, walls, tileset, [
+  set(walls, 0, 5, 'walltop-outer-se'); set(walls, 0, 8, 'walltop-outer-ne');
+  set(walls, 0, 6, 'door-closed-l'); set(walls, 0, 7, 'door-closed-r');
+  writeRoom('greybox/archive.tmj', room('brain', 15, 7, floor, walls, tileset, [
     start(320, 224),
     door(2, 'S', 'none', '', 9 * 32, 11 * 32, 64, 32),
     door(3, 'E', 'none', '', (W - 1) * 32, 6 * 32, 32, 64),
+    door(4, 'W', 'key', 'archive-key', 0, 6 * 32, 32, 64),
+    pickup(5, 'file', 'archive-key', 480, 128),
+    pickup(6, 'coffee', '', 160, 288),
+  ]));
+}
+
+{
+  const { floor, walls, set, tileset } = shell('brain', 17);
+  for (const y of [6, 7]) walls[y * W + (W - 1)] = 0;
+  set(walls, W - 1, 5, 'walltop-outer-sw'); set(walls, W - 1, 8, 'walltop-outer-nw');
+  writeRoom('greybox/storeroom.tmj', room('brain', 10, 5, floor, walls, tileset, [
+    start(320, 224),
+    door(2, 'E', 'none', '', (W - 1) * 32, 6 * 32, 32, 64),
+    pickup(3, 'handbook', 'caffeine', 256, 160),
+    pickup(4, 'handbook', 'sleep_debt', 384, 160),
   ]));
 }

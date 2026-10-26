@@ -1,13 +1,14 @@
 import Phaser from 'phaser';
 import type { Manifest, ManifestEntry } from '../../app/assets.ts';
-import { FEEDBACK, STRINGS } from '../../app/content.ts';
+import { FEEDBACK, str, STRINGS } from '../../app/content.ts';
 import { releaseKeysOnClose } from '../../app/dialogue.ts';
+import { keepPage, titleKey } from '../../app/handbook.ts';
 import { sharedKeys, type KeyboardInput } from '../../app/input.ts';
 import type { FixedStepLoop } from '../../app/loop.ts';
 import type { SaveStore } from '../../app/storage.ts';
 import {
   listProps, selectEnemies, selectOperator, selectProjectiles, storyOf, STORY, TILE, visibleProps,
-  type ChapterState, type EnemyState, type GameEvent, type GameState, type TiledMapFile,
+  type ChapterState, type EnemyState, type GameEvent, type GameState, type ProgressData, type TiledMapFile,
 } from '../../core/index.ts';
 import { BossView } from '../actors/BossView.ts';
 import { EnemyView, SKINS } from '../actors/EnemyView.ts';
@@ -116,6 +117,14 @@ export class WorldScene extends Phaser.Scene {
     // Without a capture Phaser does not preventDefault, and F1 also opens the browser's help page.
     this.input.keyboard?.addCapture('F1');
     this.input.keyboard?.on('keydown-F1', () => this.overlay.toggle());
+    // Tab would otherwise move the browser's focus off the canvas.
+    this.input.keyboard?.addCapture('TAB');
+    this.input.keyboard?.on('keydown-TAB', (e: KeyboardEvent) => this.openHandbook(e));
+    // Keys pressed or still held in the handbook are not the room's: W held to turn a page must not walk.
+    // Scene events outlive a restart, unlike keyboard listeners, so this one is removed by hand.
+    const onResume = () => this.input_.ignoreHeld();
+    this.events.on(Phaser.Scenes.Events.RESUME, onResume);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.events.off(Phaser.Scenes.Events.RESUME, onResume));
 
     const arrival = this.registry.get('arrival-note') as string | undefined;
     if (arrival) {
@@ -179,10 +188,13 @@ export class WorldScene extends Phaser.Scene {
         this.registry.set('story', story);
         break;
       }
-      case 'handbookUnlocked':
-        // No handbook screen exists yet (build plan P6), so the note is the only sign of the unlock.
-        this.note(STRINGS.strings['handbook.unlocked']!.text);
+      case 'handbookUnlocked': {
+        const kept = keepPage(this.registry.get('saves') as SaveStore, this.registry.get('progress') as ProgressData, e.id);
+        if (kept.issues.length > 0) this.game.events.emit('save-issues', kept.issues);
+        this.registry.set('progress', kept.progress);
+        this.note(str(kept.isNew ? 'handbook.unlocked' : 'handbook.known').replace('{title}', str(titleKey(e.id))));
         break;
+      }
       case 'roomChanged':
         this.leave(() => this.scene.restart());
         break;
@@ -200,6 +212,17 @@ export class WorldScene extends Phaser.Scene {
       default:
         break;
     }
+  }
+
+  /**
+   * The handbook pauses the room, so the rules and the chapter clock stop while it is open. A
+   * conversation or a card keeps it shut: they take the keys the handbook would use.
+   */
+  private openHandbook(e: KeyboardEvent): void {
+    const s = this.loop.state;
+    if (e.repeat || this.leaving || s.dialogue || s.card || this.scene.isActive('Handbook')) return;
+    this.scene.pause();
+    this.scene.launch('Handbook');
   }
 
   /** Fades out with the rules stopped, then runs `then`; the next room starts from the loop's state. */

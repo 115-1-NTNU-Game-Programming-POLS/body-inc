@@ -11,6 +11,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { feedbackProblems, noteFields } from '../src/app/feedback.ts';
+import { handbookProblems } from '../src/app/handbook.ts';
 import type { ContentTypes, SchemaName, SchemaProblem } from '../src/core/index.ts';
 import {
   BossTableError, DictionaryError, EnemyTableError, OPERATOR_SPEAKER, loadBossTable, loadDictionary, loadEnemyTable, schemaProblems, type EnemyTable,
@@ -30,6 +31,7 @@ const RULES: ReadonlyArray<readonly [RegExp, SchemaName]> = [
   [/^chapters\/[a-z][a-z0-9-]*\.json$/, 'chapter'],
   [/^speakers\.json$/, 'speakers'],
   [/^decks\/[a-z][a-z0-9-]*\.json$/, 'deck'],
+  [/^handbook\.json$/, 'handbook'],
 ];
 
 const TYPE_NAME: Record<string, string> = {
@@ -160,6 +162,13 @@ export function checkContent(contentDir: string): string[] {
         const stringsFile = s.value as ContentTypes['strings'];
         if (!stringsFile.strings[`speaker.${id}`]) out.push(`${speakers.file}：說話者「${id}」在 ${s.file} 沒有名牌文字，請新增「speaker.${id}」`);
       }
+    }
+  }
+
+  const handbook = get<'handbook'>('handbook.json');
+  if (handbook) {
+    for (const p of handbookProblems(handbook.value, strings.map(([, s]) => ({ file: s.file, value: s.value as ContentTypes['strings'] })))) {
+      out.push(`${handbook.file}：${p}`);
     }
   }
 

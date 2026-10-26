@@ -86,6 +86,21 @@ export const MEMO = {
 };
 
 /**
+ * The handbook screen: an index on the left, the open page on the right. The art direction
+ * gives no handbook layout; these sizes are assumptions until it is reviewed. A page's
+ * paragraphs must fit `bodyHeight` at both text sizes (a test checks every page).
+ */
+export const HANDBOOK = {
+  title: { role: 'hand' as FontRole, weight: 700 as const, fontSize: 32 },
+  body: { role: 'print' as FontRole, weight: 400 as const, fontSize: 20, lineHeight: 1.6 },
+  pageX: 456,
+  pageWidth: 712,
+  bodyTop: 140,
+  bodyHeight: 492,
+  paragraphGap: 16,
+};
+
+/**
  * Outer-layer cards (build plan P1). Card title 26 px and interface text 20 px follow art
  * direction 8.2; the option card size (320 px wide, 20 px padding, 24 px apart, so three fit on
  * the 1280 px screen) and the line caps are assumptions until the card table is reviewed.

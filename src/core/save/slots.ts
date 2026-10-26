@@ -127,4 +127,31 @@ export const STORY: SlotDef<StoryData> = {
   },
 };
 
-export const SLOTS = [SETTINGS, STORY] as const;
+/**
+ * Cross-run progress (design doc 13.5): what outlives every run and every chapter. Only the
+ * handbook so far; achievements, the career tree and the rest join it when they exist.
+ */
+export interface ProgressData {
+  /** Unlocked handbook page ids, in the order they were found. */
+  readonly handbook: readonly string[];
+}
+
+export const PROGRESS: SlotDef<ProgressData> = {
+  name: 'progress',
+  version: 1,
+  schema: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['handbook'],
+    properties: { handbook: { type: 'array', uniqueItems: true, items: { type: 'string', minLength: 1 } } },
+  },
+  defaults: () => ({ handbook: [] }),
+  migrations: {},
+};
+
+/** Progress with the page added, or undefined when it was already there, so nothing needs saving. */
+export function withPage(progress: ProgressData, id: string): ProgressData | undefined {
+  return progress.handbook.includes(id) ? undefined : { ...progress, handbook: [...progress.handbook, id] };
+}
+
+export const SLOTS = [SETTINGS, STORY, PROGRESS] as const;

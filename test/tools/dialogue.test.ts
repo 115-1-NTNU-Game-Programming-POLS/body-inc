@@ -65,7 +65,7 @@ describe('dialogue check: reader problems in words', () => {
     ['a condition naming no tag', csv(row('x', 1, 'brain', 'normal', '好', 'nope>1')), 'condition「nope>1」有誤'],
     ['an effect it cannot read', csv(row('x', 1, 'brain', 'normal', '好', '', 'dance')), 'effect「dance」看不懂'],
     ['an effect on an unknown tag', csv(row('x', 1, 'brain', 'normal', '好', '', 'tag:nope')), '標籤「nope」不在狀態標籤字典'],
-    ['an effect on a tag only cards set', csv(row('x', 1, 'brain', 'normal', '好', '', 'tag:caffeine=5')), '標籤「caffeine」不是故事事件或章節設定的標籤'],
+    ['an effect on a tag only cards set', csv(row('x', 1, 'brain', 'normal', '好', '', 'tag:breakfast')), '標籤「breakfast」不是故事事件或章節設定的標籤'],
     ['an effect that sets a modifier', csv(row('x', 1, 'brain', 'normal', '好', '', 'tag:mod.caffeine_cloak')), '「mod.caffeine_cloak」是修飾器'],
     ['an effect in the wrong form', csv(row('x', 1, 'brain', 'normal', '好', '', 'tag:deadline=1')), '寫法和標籤型別不符'],
     ['a clock effect without minutes', csv(row('x', 1, 'brain', 'normal', '好', '', 'clock:abc')), 'clock: 後面必須是分鐘數'],
