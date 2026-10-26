@@ -1,4 +1,4 @@
-import { boxAt, centeredBox, overlaps } from './collision/boxes.ts';
+import { boxAt, centeredBox, overlaps, type Box } from './collision/boxes.ts';
 import { isSolid, moveAndCollide } from './collision/grid.ts';
 import { ENEMY_BODY, enemyCenter, enemyHurtbox, isHittable, isMelee, stepEnemy, strikeBox, type EnemyState } from './combat/actors.ts';
 import { newBossState, type BossDef, type BossTable } from './combat/bosses/boss.ts';
@@ -19,7 +19,7 @@ import {
   settleBoxes, startSlide, tileAt, tileBox, withBoxes, type BoxState, type Occupants, type Tile,
 } from './rooms/boxes.ts';
 import type { EnteredRoom } from './rooms/entry.ts';
-import { leverAt, platesUnder, reachableObject, touchedObjects } from './rooms/interact.ts';
+import { leverAt, objectBox, platesUnder, reachableObject, touchedObjects } from './rooms/interact.ts';
 import { doorOpen } from './rooms/locks.ts';
 import { playerStart, type RoomObject } from './rooms/tiled.ts';
 import { TICK_HZ, TILE } from './time.ts';
@@ -640,7 +640,10 @@ export function step(state: GameState, input: TickInput): StepResult {
     const lever = leverAt(state.room, box);
     if (lever) {
       // A crate may sit on a lever (only doors and the like are kept clear), and then it takes the staple.
-      const crated = boxes.some((b) => overlaps(box, tileBox(b)) || (b.carried === true && b.from !== undefined && overlaps(box, tileBox(b.from))));
+      // Only a crate over the lever itself counts: one beside it must not eat a staple that grazes it.
+      const leverBox = objectBox(lever);
+      const covers = (t: Box) => overlaps(box, t) && overlaps(leverBox, t);
+      const crated = boxes.some((b) => covers(tileBox(b)) || (b.carried === true && b.from !== undefined && covers(tileBox(b.from))));
       if (!crated && !switches.includes(lever.id)) {
         switches = ascending([...switches, lever.id]);
         events.push({ type: 'switchChanged', object: lever.id, on: true, mode: 'toggle', by: 'staple' });

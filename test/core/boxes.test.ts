@@ -411,6 +411,20 @@ describe('a crate on a lever', () => {
       { type: 'switchChanged', object: 3, on: true, mode: 'toggle', by: 'staple' },
     ]);
   });
+
+  it('lets a staple that only grazes a crate beside the lever throw it', () => {
+    // The lever on tile (10, 3), shots fired north along the east edge of its tile, so the
+    // staple's box also touches tile (11, 3).
+    const north = (c: ChapterContent) => {
+      const s0 = startChapter(c);
+      const at = { ...s0, game: { ...s0.game, operator: { ...s0.game.operator, x: 351, y: 212 } } };
+      return run(c, run(c, at, { move: { x: 0, y: -1 } }).state, { move: { x: 0, y: 0 }, attack: true, attackPressed: true }, 40)
+        .events.filter((e) => e.type === 'switchChanged');
+    };
+    const thrown = [{ type: 'switchChanged', object: 3, on: true, mode: 'toggle', by: 'staple' }];
+    expect(north(chapter([lever(3, 336, 112, 2), box(4, 11, 3)], southDoor('switch')))).toEqual(thrown);
+    expect(north(chapter([lever(3, 336, 112, 2), box(4, 10, 3)], southDoor('switch')))).toEqual([]);
+  });
 });
 
 describe('the parser', () => {
