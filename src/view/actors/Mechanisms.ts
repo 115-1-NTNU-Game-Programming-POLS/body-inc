@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import {
   conveyorTiles, directionOf, dockTiles, isSpawnedCrate, MIST, objectBox, outletTile, selectBoxes, selectConveyors, selectDoorLocks, selectFactory, selectPickups,
-  selectPort, selectSwitches, TILE, type GameState, type RoomObject,
+  selectPort, selectSwitches, TILE, type BoxState, type GameState, type RoomObject,
 } from '../../core/index.ts';
 import { addText, updateText } from '../text/fonts.ts';
 
@@ -22,7 +22,7 @@ export class Mechanisms {
   private readonly boxes = new Map<number, Phaser.GameObjects.Graphics>();
   private readonly belts = new Map<number, { g: Phaser.GameObjects.Graphics; o: RoomObject; drawn?: string }>();
   private port: { g: Phaser.GameObjects.Graphics; label: Phaser.GameObjects.Text; o: RoomObject; drawn?: string } | undefined;
-  private factory: { dock: Phaser.GameObjects.Graphics; fog: Phaser.GameObjects.Graphics; dockDrawn?: number; fogDrawn?: string } | undefined;
+  private factory: { dock: Phaser.GameObjects.Graphics; fog: Phaser.GameObjects.Graphics; dockDrawn?: number; fogDrawn?: readonly BoxState[] } | undefined;
   private readonly scene: Phaser.Scene;
 
   constructor(scene: Phaser.Scene, state: GameState) {
@@ -135,10 +135,10 @@ export class Mechanisms {
       v.dockDrawn = f.crates.length;
       drawDock(v.dock.clear(), dockTiles(state.room), f.crates.length);
     }
+    // The rules keep the boxes array while no box moves, so the same array means the same fog.
+    if (v.fogDrawn === state.boxes) return;
+    v.fogDrawn = state.boxes;
     const crates = selectBoxes(state).filter((b) => isSpawnedCrate({ id: b.object }));
-    const key = crates.map((b) => `${b.object}:${b.x},${b.y}`).join('|');
-    if (v.fogDrawn === key) return;
-    v.fogDrawn = key;
     const g = v.fog.clear();
     for (const b of crates) {
       g.fillStyle(0xc8372d, 0.16).fillCircle(b.x + TILE / 2, b.y + TILE / 2, MIST.radiusPx);

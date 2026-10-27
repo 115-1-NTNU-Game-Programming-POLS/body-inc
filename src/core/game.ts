@@ -865,7 +865,7 @@ export function step(state: GameState, pressed: TickInput): StepResult {
   // and it neither knocks back nor freezes. Only taking the crate to the second line clears it.
   let factory = state.factory;
   if (factory) {
-    const inFog = boxes.some((b) => isSpawnedCrate(b) && circleTouchesBox(boxCentre(b).x, boxCentre(b).y, MIST.radiusPx, hurt));
+    const inFog = inMist(boxes, hurt);
     let mist = inFog ? factory.mist + 1 : 0;
     if (mist >= MIST.intervalTicks) {
       mist = 0;
@@ -959,16 +959,18 @@ export function selectBoxes(s: GameState): readonly { readonly object: number; r
     return { object: b.id, boxType: b.boxType ?? String(o?.props['boxType'] ?? 'crate'), ...boxPixel(b) };
   });
 }
-/** The factory for drawing it: the dock and the crates on it, the second line, and whether the operator is in the fog. */
+/** Whether a hurtbox touches the fog of any acetaldehyde crate (design doc 7.7). */
+export const inMist = (boxes: readonly BoxState[], hurt: Box): boolean =>
+  boxes.some((b) => isSpawnedCrate(b) && circleTouchesBox(boxCentre(b).x, boxCentre(b).y, MIST.radiusPx, hurt));
+
+/** The factory for drawing it: the dock and the crates on it, and the second line. */
 export function selectFactory(s: GameState): {
-  readonly receiving: RoomObject; readonly intake: RoomObject | undefined; readonly crates: readonly Tile[]; readonly inFog: boolean;
+  readonly receiving: RoomObject; readonly intake: RoomObject | undefined; readonly crates: readonly Tile[];
 } | undefined {
   const f = s.factory;
   const lines = linesOf(s.room);
   if (!f || !lines.receiving) return undefined;
-  const hurt = boxAt(OPERATOR_HURT, s.operator.x, s.operator.y);
-  const inFog = s.boxes.some((b) => isSpawnedCrate(b) && circleTouchesBox(boxCentre(b).x, boxCentre(b).y, MIST.radiusPx, hurt));
-  return { receiving: lines.receiving, intake: lines.intake, crates: crateTiles(s.room, f.waiting), inFog };
+  return { receiving: lines.receiving, intake: lines.intake, crates: crateTiles(s.room, f.waiting) };
 }
 /** The room's port, if any, with how many boxes it holds of the ones it needs. */
 export function selectPort(s: GameState): { readonly object: number; readonly count: number; readonly need: number } | undefined {

@@ -453,14 +453,14 @@ function unlockedNow(ctx: ChapterContent, run: Run, game: GameState): GameState 
 
 /**
  * The room as the body leaves it at the start of a tick: the factory's crates match the tags, and
- * a dizzy operator walks 15% slower (design doc 7.7). Only dizziness sets the operator's slows so far.
+ * a dizzy operator walks 15% slower (design doc 7.7).
  */
 function bodyNow(ctx: ChapterContent, run: Run, game: GameState): GameState {
   const synced = syncFactory(game, waitingCrates(run.tags, ctx.dict), acetaldehydeCrates(run.tags, ctx.dict));
-  const slows = ctx.chapter.glucose === true && isDizzy(run.tags) ? [GLUCOSE.dizzySlow] : [];
-  const op = synced.operator;
-  if (op.slows.length === slows.length && op.slows.every((v, i) => v === slows[i])) return synced;
-  return { ...synced, operator: { ...op, slows } };
+  const slow = ctx.chapter.glucose === true && isDizzy(run.tags) ? GLUCOSE.dizzySlow : 0;
+  const { bodySlow, ...op } = synced.operator;
+  if ((bodySlow ?? 0) === slow) return synced;
+  return { ...synced, operator: slow > 0 ? { ...op, bodySlow: slow } : op };
 }
 
 const warehouseShut = new WeakMap<TagDictionary, Condition | null>();

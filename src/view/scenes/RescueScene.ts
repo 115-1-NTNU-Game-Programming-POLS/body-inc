@@ -72,7 +72,7 @@ export class RescueScene extends Phaser.Scene {
       y += o.displayHeight + 12;
       return o;
     };
-    text(str('rescue.title'), 22, '#0c2d5e', 700);
+    text(str(`${at}.title`), 22, '#0c2d5e', 700);
     text(str(`${at}.prompt`), 18, '#2b3448');
     text(str('rescue.progress').replace('{n}', String(Math.min(s.done, r.steps.length))).replace('{total}', String(r.steps.length)), 15, '#5a6478', 700);
 
@@ -83,8 +83,9 @@ export class RescueScene extends Phaser.Scene {
       if (reply.kind === 'step' && reply.helped) text(str(`${at}.helper`), 18, '#0c2d5e', 700);
     }
 
-    const rows: { y: number; on: boolean }[] = [];
-    if (rescueComplete(r, s)) {
+    const rows: { y: number; h: number; on: boolean }[] = [];
+    const done = rescueComplete(r, s);
+    if (done) {
       text(str(`${at}.done`), 20, '#0c2d5e', 700);
       text(str('rescue.continue'), 15, '#5a6478');
     } else {
@@ -96,7 +97,7 @@ export class RescueScene extends Phaser.Scene {
         const h = Math.max(PANEL.row, row.displayHeight + 16);
         const zone = this.add.zone(PANEL.padding, y, inner, h).setOrigin(0, 0).setInteractive({ useHandCursor: true });
         zone.on('pointerdown', () => this.keys.queuePick(i + 1));
-        rows.push({ y, on });
+        rows.push({ y, h, on });
         items.push(row, number, zone);
         y += h + 6;
       });
@@ -109,10 +110,16 @@ export class RescueScene extends Phaser.Scene {
     g.fillStyle(INK, 0.2).fillRoundedRect(6, 6, PANEL.w, h, 12);
     g.fillStyle(PAPER).fillRoundedRect(0, 0, PANEL.w, h, 12).lineStyle(2, INK, 1).strokeRoundedRect(1, 1, PANEL.w - 2, h - 2, 12);
     for (const row of rows) {
-      g.lineStyle(row.on ? 3 : 1, INK, row.on ? 1 : 0.35).strokeRoundedRect(PANEL.padding, row.y, inner, PANEL.row, 6);
+      g.lineStyle(row.on ? 3 : 1, INK, row.on ? 1 : 0.35).strokeRoundedRect(PANEL.padding, row.y, inner, row.h, 6);
       g.fillStyle(row.on ? STAMP_RED : INK).fillCircle(PANEL.padding + 14, row.y + PANEL.row / 2, 11);
     }
     this.layer.add(this.add.rectangle(0, 0, this.scale.width, this.scale.height, INK, 0.72).setOrigin(0, 0));
+    // Mouse0 is ignored while the panel is open, so a finished panel needs its own click to close.
+    if (done) {
+      const zone = this.add.zone(0, 0, PANEL.w, h).setOrigin(0, 0).setInteractive({ useHandCursor: true });
+      zone.on('pointerdown', () => this.keys.queuePick(1));
+      items.push(zone);
+    }
     this.layer.add(this.add.container(left, top, [g, ...items]));
   }
 }

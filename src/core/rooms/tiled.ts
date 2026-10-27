@@ -8,7 +8,7 @@ import { conveyorTiles, KEEP_CLEAR, tileBox, tileOf } from './boxes.ts';
 import { canMeet } from './entry.ts';
 import { objectBox } from './interact.ts';
 import { keyOf, keysFor, parseClockWindow, SWITCH_KINDS, switchesFor } from './locks.ts';
-import { solidDock } from '../liver/factory.ts';
+import { dockTiles, solidDock } from '../liver/factory.ts';
 
 /**
  * Tiled JSON (.tmj) to room model. Core only needs structure, not art: which cells are solid,
@@ -135,6 +135,11 @@ export type RoomProblemCode =
   | 'line-multiple'
   /** A room with some Lines but not one of each stage; `stage` names the missing one. */
   | 'line-missing'
+  /**
+   * An object over the receiving dock, whose tiles are always solid in the game: an intake or Port there
+   * could never take a crate in, and a start, NPC, pickup, bed, switch, belt or spawn would be inside the counter.
+   */
+  | 'dock-blocked'
   /** A Box drawn with boxType acetaldehyde: those crates come only out of the first line. */
   | 'box-acetaldehyde';
 
@@ -365,6 +370,8 @@ export function readRoom(id: string, map: TiledMap, dict: TagDictionary): ReadRe
   if (objects.filter((o) => o.kind === 'PlayerStart').length > 1) problems.push({ code: 'multiple-start' });
   const byId = new Map(objects.map((o) => [o.id, o]));
   const locked = objects.map((o) => (o.kind === 'Door' ? lockedDoor(o, dict, problems) : o));
+  // First, so the dock is solid for every check below, as it will be in the game.
+  lineProblems(objects, map.width, map.height, solid, problems);
   for (const o of locked) {
     if (o.kind === 'Door' && cellsOk) {
       const p = doorProblem(o, map.width, map.height);
@@ -404,7 +411,6 @@ export function readRoom(id: string, map: TiledMap, dict: TagDictionary): ReadRe
     const need = Number(p.props['need']);
     if (sure < need) problems.push({ code: 'port-need', object: p.id, args: { need, boxes: sure } });
   }
-  lineProblems(objects, map.width, map.height, solid, problems);
   for (const [i, b] of boxes.entries()) {
     if (b.props['boxType'] === 'acetaldehyde') problems.push({ code: 'box-acetaldehyde', object: b.id });
     const t = tileOf(b);
@@ -449,7 +455,19 @@ function lineProblems(objects: readonly RoomObject[], cols: number, rows: number
     const t = tileOf(o);
     if (isSolid(grid, t.col, t.row)) problems.push({ code: 'line-wall', object: o.id });
   }
+  const dock = dockTiles({ objects });
+  if (dock.length === 0) return;
+  const onDock = (t: { col: number; row: number }) => dock.some((d) => d.col === t.col && d.row === t.row);
+  for (const o of objects) {
+    const covered = o.kind === 'Line' ? (o.props['stage'] === 'intake' && o.width > 0 && o.height > 0 ? conveyorTiles(o) : [])
+      : o.kind === 'Port' || o.kind === 'Conveyor' ? (o.width > 0 && o.height > 0 ? conveyorTiles(o) : [])
+        : DOCK_CLEAR.has(o.kind) ? dock.filter((d) => overlaps(tileBox(d), objectBox(o))) : [];
+    if (covered.some(onDock)) problems.push({ code: 'dock-blocked', object: o.id, args: { kind: o.kind } });
+  }
 }
+
+/** Objects that stand on a tile; a Trigger may span the dock, and a Box there is already a ox-wall. */
+const DOCK_CLEAR: ReadonlySet<string> = new Set(['PlayerStart', 'NPC', 'Pickup', 'Bed', 'Switch', 'Spawn']);
 
 /** For the game: a room with any problem is a bug that the map check should have caught. */
 export function parseRoom(id: string, map: TiledMap, dict: TagDictionary): RoomModel {

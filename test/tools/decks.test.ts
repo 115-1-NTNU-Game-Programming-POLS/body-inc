@@ -35,6 +35,13 @@ describe('deck check (build plan P1)', () => {
     expect(r.report.at(-1)).toMatch(/最差組合比最好組合難 \d+%.*目標約 30%/);
   });
 
+  it('a rescue needs its own title and the panel lines every rescue shares', () => {
+    const own = contentWith('strings/zh-TW.json', (j) => { delete j['strings']['rescue.akai.title']; });
+    expect(checkContent(own)).toEqual([expect.stringContaining('zh-TW.json 缺少文字「rescue.akai.title」')]);
+    const shared = contentWith('strings/zh-TW.json', (j) => { delete j['strings']['rescue.hint']; });
+    expect(checkContent(shared)).toEqual([expect.stringContaining('zh-TW.json 缺少共用文字「rescue.hint」')]);
+  });
+
   it('a card string that is missing is named with its key', () => {
     const dir = contentWith('strings/zh-TW.json', (j) => { delete j['strings']['deck.greybox.bedtime.at_01.note']; });
     expect(problems(dir)).toEqual([expect.stringContaining('沒有「deck.greybox.bedtime.at_01.note」（選項說明）')]);

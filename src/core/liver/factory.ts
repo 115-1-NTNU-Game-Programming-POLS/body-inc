@@ -1,6 +1,6 @@
 import { isSolid } from '../collision/grid.ts';
 import { TICK_HZ, TILE } from '../time.ts';
-import { conveyorTiles, tileOf, type BoxState, type Tile } from '../rooms/boxes.ts';
+import { boxPixel, conveyorTiles, tileOf, type BoxState, type Tile } from '../rooms/boxes.ts';
 import type { RoomModel, RoomObject } from '../rooms/tiled.ts';
 
 /**
@@ -75,9 +75,10 @@ export function outletTile(room: Pick<RoomModel, 'objects'>): Tile | undefined {
   return o ? tileOf(o) : undefined;
 }
 
-/** The centre of a box's tile now, for its fog. */
+/** The centre of a box where it is drawn, sliding included, so its fog hurts where it is seen. */
 export function boxCentre(b: BoxState): { x: number; y: number } {
-  return { x: (b.col + 0.5) * TILE, y: (b.row + 0.5) * TILE };
+  const p = boxPixel(b);
+  return { x: p.x + TILE / 2, y: p.y + TILE / 2 };
 }
 
 /** Marks the dock solid in a parsed grid; the room parser calls this so every rule sees one grid. */

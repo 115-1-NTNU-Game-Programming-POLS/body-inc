@@ -44,6 +44,8 @@ export interface OperatorState {
   readonly aim: Vec;
   /** Visible slow sources other than clinging (syrup floor, status icons); capped in movement. */
   readonly slows: readonly number[];
+  /** A slow the chapter sets from the body's state each tick (dizziness, design doc 7.7); kept apart from `slows` so neither overwrites the other. */
+  readonly bodySlow?: number;
   /** Clinging stacks riding on the operator, each one a CLING.slowPerStack slow source. */
   readonly stacks: number;
   readonly halves: number;
@@ -188,7 +190,7 @@ export function stepOperator(grid: SolidGrid, op0: OperatorState, input: TickInp
   const stick = unit(input.move);
   const aim = stick.x === 0 && stick.y === 0 ? op.aim : stick;
   const factor = input.attack === true ? STAPLER.holdSpeedFactor : 1;
-  const want = desiredVelocity(input.move, [...op.slows, ...Array<number>(op.stacks).fill(CLING.slowPerStack)]);
+  const want = desiredVelocity(input.move, [...op.slows, ...(op.bodySlow ? [op.bodySlow] : []), ...Array<number>(op.stacks).fill(CLING.slowPerStack)]);
   const v = approach({ x: op.vx, y: op.vy }, { x: want.x * factor, y: want.y * factor });
   const m = moveAndCollide(grid, OPERATOR_BODY, op.x, op.y, v.x, v.y);
   return {

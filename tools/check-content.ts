@@ -14,7 +14,7 @@ import { feedbackProblems, noteFields } from '../src/app/feedback.ts';
 import { handbookProblems } from '../src/app/handbook.ts';
 import type { ContentTypes, RescueProblemCode, SchemaName, SchemaProblem, TagDictionary } from '../src/core/index.ts';
 import {
-  BossTableError, DictionaryError, EnemyTableError, OPERATOR_SPEAKER, loadBossTable, loadDictionary, loadEnemyTable, readRescues, rescueStringKeys, schemaProblems,
+  BossTableError, DictionaryError, EnemyTableError, OPERATOR_SPEAKER, loadBossTable, loadDictionary, loadEnemyTable, readRescues, RESCUE_PANEL_KEYS, rescueStringKeys, schemaProblems,
   type EnemyTable,
 } from '../src/core/index.ts';
 
@@ -117,7 +117,8 @@ export function checkContent(contentDir: string): string[] {
   const get = <N extends SchemaName>(rel: string) => valid.get(rel) as { file: string; value: ContentTypes[N] } | undefined;
 
   const tags = get<'tags'>('tags.json');
-  if (tags) out.push(...loaderProblems(tags.file, () => loadDictionary(tags.value)));
+  let dict: TagDictionary | undefined;
+  if (tags) out.push(...loaderProblems(tags.file, () => { dict = loadDictionary(tags.value); }));
 
   let enemyTable: EnemyTable | undefined;
   const enemies = get<'enemies'>('enemies.json');
@@ -186,10 +187,12 @@ export function checkContent(contentDir: string): string[] {
 
   // A rescue goes through the game's own reader, then every line its panel can show must exist.
   const rescue = get<'rescue'>('rescue.json');
-  if (rescue && tags) {
-    let dict: TagDictionary | undefined;
-    try { dict = loadDictionary(tags.value); } catch { dict = undefined; }
+  if (rescue) {
     if (dict) for (const p of readRescues(rescue.value, dict).problems) out.push(`${rescue.file}：救援「${p.id}」${RESCUE_PROBLEM[p.code]}${p.detail ? `（${p.detail}）` : ''}`);
+    for (const [, s] of strings) {
+      const table = (s.value as ContentTypes['strings']).strings;
+      if (rescue.value.rescues.length > 0) for (const k of RESCUE_PANEL_KEYS) if (!table[k]) out.push(`${rescue.file}：急救面板在 ${s.file} 缺少共用文字「${k}」`);
+    }
     for (const r of rescue.value.rescues) {
       for (const [, s] of strings) {
         const table = (s.value as ContentTypes['strings']).strings;

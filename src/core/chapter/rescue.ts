@@ -69,17 +69,20 @@ export function readRescues(file: RescueFile, dict: TagDictionary): { table: Res
 }
 
 /**
- * The string keys a rescue's panel shows: the situation, a label and an answer per action, the
+ * The string keys a rescue's panel shows: its title, the situation, a label and an answer per action, the
  * "one thing at a time" line (its `{step}` is the label of the step that is next), the helper's
  * line and the closing line.
  */
 export function rescueStringKeys(r: Pick<RescueFile['rescues'][number], 'id' | 'order' | 'helper'>): string[] {
   const at = `rescue.${r.id}`;
   return [
-    `${at}.prompt`, ...r.order.flatMap((a) => [`${at}.action.${a}`, `${at}.reply.${a}`]), `${at}.early`,
+    `${at}.title`, `${at}.prompt`, ...r.order.flatMap((a) => [`${at}.action.${a}`, `${at}.reply.${a}`]), `${at}.early`,
     ...(r.helper ? [`${at}.helper`] : []), `${at}.done`,
   ];
 }
+
+/** Lines every rescue panel shares, whatever the rescue. */
+export const RESCUE_PANEL_KEYS: readonly string[] = ['rescue.hint', 'rescue.progress', 'rescue.continue'];
 
 export function loadRescues(file: RescueFile, dict: TagDictionary): RescueTable {
   const { table, problems } = readRescues(file, dict);
@@ -128,7 +131,8 @@ export function stepRescue(ctx: ChapterContent, state: ChapterState, input: Tick
   const r = rescueOf(ctx, s.id);
   const idle = { state: { ...state, rescue: { ...s, age: LOCK_TICKS } }, events: [] as ChapterEvent[] };
 
-  if (rescueComplete(r, s)) return confirmPressed(input) ? finish(ctx, state, r) : idle;
+  // A pick also closes it, so a click on the finished panel works as the mouse player expects.
+  if (rescueComplete(r, s)) return confirmPressed(input) || input.pick !== undefined ? finish(ctx, state, r) : idle;
 
   const list = offered(r, s.done);
   const n = list.length;
