@@ -5,7 +5,7 @@ import type { DeckFile } from '../content/generated.ts';
 import type { SchemaProblem } from '../content/schema.ts';
 import { parseEffects, type Effect, type EffectProblemCode } from '../dialogue/lines.ts';
 import { record } from '../tags/causal.ts';
-import type { MetabolismParams } from './caffeine.ts';
+import type { BodyParams } from './body.ts';
 import type { TagDictionary } from '../tags/dictionary.ts';
 import { EMPTY_TAGS, type TagState } from '../tags/store.ts';
 
@@ -132,7 +132,7 @@ export class OuterError extends Error {}
  * Plays one option: its effects with the option as their logged source. An option with no effect
  * is still logged, because the close-out report tells what was chosen, not only what it changed.
  */
-export function playOption(dict: TagDictionary, tags: TagState, clock: RuleClock, effects: readonly Effect[], source: EffectSource, k: MetabolismParams) {
+export function playOption(dict: TagDictionary, tags: TagState, clock: RuleClock, effects: readonly Effect[], source: EffectSource, k: BodyParams) {
   if (effects.length > 0) return applyEffects(dict, tags, clock, effects, source, k);
   const [log] = record(tags.log, { kind: source.kind, key: source.key, at: clock.minute });
   return { tags: { ...tags, log }, clock, events: [] as EffectEvent[] };
@@ -147,14 +147,14 @@ export interface Opening {
 
 /** Plays the opening cards with one option index per card, in order. */
 export function playOpening(
-  deck: Deck, dict: TagDictionary, picks: readonly number[], clock: RuleClock, k: MetabolismParams, tags: TagState = EMPTY_TAGS,
+  deck: Deck, dict: TagDictionary, picks: readonly number[], clock: RuleClock, k: BodyParams, tags: TagState = EMPTY_TAGS,
 ): Opening {
   return playCards(deck.chapter, deck.opening, dict, picks, clock, k, tags);
 }
 
 /** Plays cards with one option index per card, in order, each logged as a card. */
 export function playCards(
-  chapter: string, cards: readonly DeckCard[], dict: TagDictionary, picks: readonly number[], clock: RuleClock, k: MetabolismParams, tags: TagState = EMPTY_TAGS,
+  chapter: string, cards: readonly DeckCard[], dict: TagDictionary, picks: readonly number[], clock: RuleClock, k: BodyParams, tags: TagState = EMPTY_TAGS,
 ): Opening {
   if (picks.length !== cards.length) throw new OuterError(`${chapter}: ${cards.length} cards need as many picks, got ${picks.length}`);
   let state: Opening = { tags, clock, events: [] };

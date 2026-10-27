@@ -1,5 +1,6 @@
 import { MINUTES_PER_DAY, type RuleClock } from '../clock.ts';
 import { CLING } from '../combat/frames.ts';
+import { passBody } from '../outer/body.ts';
 import { caffeineOf, metabolise, senseCap } from '../outer/caffeine.ts';
 import { openingCombos, playOpening, playOption, type Deck } from '../outer/deck.ts';
 import { enterRoom } from '../rooms/entry.ts';
@@ -70,7 +71,8 @@ export function bedAfter(ctx: ChapterContent, tags: TagState): number | undefine
   });
   if (ends.length === 0) return 'none';
   for (let t = 0; t <= BED_SEARCH_MINUTES; t++) {
-    const now = metabolise(tags, ctx.dict, t, ctx.params);
+    // The whole body waits, not only caffeine: a way out may wait for the liver's line to clear.
+    const now = passBody(tags, ctx.dict, t, ctx.params, t);
     if (ends.some((c) => !c || holds(now, ctx.dict, c))) return t;
   }
   return undefined;

@@ -15,12 +15,15 @@ import {
 import { advance, startClock, type RuleClock } from './clock.ts';
 import { seedStreams, type RngStreams } from './rng.ts';
 import {
-  advanceSlide, beltAt, boxAhead, boxPixel, canEnter, CONVEYOR_TICKS, conveyorRunning, conveyorsOf, directionOf, filledPorts, onPort,
+  advanceSlide, beltAt, boxAhead, boxPixel, canEnter, CONVEYOR_TICKS, conveyorRunning, conveyorsOf, directionOf, filledPorts, nearest, onPort,
   portOf, PUSH, pushDirection, settleBoxes, startSlide, tileAt, tileBox, withBoxes, type BoxState, type Occupants, type Tile,
 } from './rooms/boxes.ts';
 import type { EnteredRoom } from './rooms/entry.ts';
 import { leverAt, objectBox, platesUnder, reachableObject, touchedObjects } from './rooms/interact.ts';
 import { doorOpen } from './rooms/locks.ts';
+import {
+  ALCOHOL_CRATE, boxCentre, crateOnTile, crateTiles, isFactory, isSpawnedCrate, linesOf, MIST, onIntake, outletTile,
+} from './liver/factory.ts';
 import { playerStart, type RoomObject } from './rooms/tiled.ts';
 import { TICK_HZ, TILE } from './time.ts';
 
@@ -94,6 +97,19 @@ export interface GameState {
    * sets it every tick from the caffeine tag, since the room knows no tags.
    */
   readonly senseCapPx?: number;
+  /** Only in a liver factory room (core/liver/factory.ts). */
+  readonly factory?: FactoryState;
+}
+
+export interface FactoryState {
+  /** Alcohol crates in receiving, as the chapter counts them from the `alcohol` tag every tick. */
+  readonly waiting: number;
+  /** Acetaldehyde crates put out so far on this visit; crate n has box id -n. */
+  readonly serial: number;
+  /** What a staple on an alcohol crate says, from the crate's enemy entry (design doc 5.5). */
+  readonly solution: string;
+  /** Ticks the operator has stood in acetaldehyde fog without a break. */
+  readonly mist: number;
 }
 
 /**
@@ -138,6 +154,8 @@ export type DomainEvent =
   | { readonly type: 'boxDelivered'; readonly object: number; readonly port: number; readonly count: number; readonly need: number }
   /** A Port took its last needed box: it now counts as a switch that is on, for good. */
   | { readonly type: 'portFilled'; readonly object: number }
+  /** The second line took in an acetaldehyde crate; the chapter takes it off the `acetaldehyde` tag. */
+  | { readonly type: 'crateTaken'; readonly object: number; readonly line: number }
   | { readonly type: 'triggerEntered'; readonly object: number; readonly trigger: string; readonly eventId: string }
   /** The operator took an item; what it does beyond leaving the room (and opening a key lock) is the chapter's. */
   | { readonly type: 'pickedUp'; readonly object: number; readonly itemType: string; readonly itemId: string }
@@ -234,6 +252,51 @@ export interface GameOptions {
   readonly delivered?: readonly number[];
   /** The stamp is not handed over yet. */
   readonly stampLocked?: boolean;
+  /** In a factory room: alcohol crates waiting in receiving. */
+  readonly waiting?: number;
+  /** In a factory room: acetaldehyde crates to put out round the outlet at entry. */
+  readonly acetaldehyde?: number;
+}
+
+/**
+ * Puts out up to `n` acetaldehyde crates on the free floor nearest the outlet: not on a box, a
+ * body, a tile boxes keep clear, the second line or the port (either would take it in at once).
+ * A crate with no free tile left waits; syncFactory tries again on the next tick.
+ */
+function placeCrates(room: EnteredRoom, boxes: readonly BoxState[], bodies: Occupants['bodies'], n: number, serial: number): { boxes: BoxState[]; serial: number } {
+  const from = outletTile(room);
+  const all = [...boxes];
+  if (!from || n <= 0) return { boxes: all, serial };
+  const port = portOf(room);
+  let next = serial;
+  for (let i = 0; i < n; i++) {
+    const t = nearest(room, from, (x) => canEnter(room, all, x, { bodies }) && !onIntake(room, x) && !(port && onPort(port, x)));
+    if (!t) break;
+    next++;
+    all.push({ id: -next, col: t.col, row: t.row, left: 0, ticks: 0, boxType: 'acetaldehyde' });
+  }
+  return { boxes: all.sort((a, b) => a.id - b.id), serial: next };
+}
+
+/**
+ * The factory brought in line with the chapter's tags, before a tick: the crates in receiving,
+ * and as many acetaldehyde crates in the room as the body holds. The first line runs on the
+ * chapter clock wherever the operator is, so a crate it finishes during the visit appears here.
+ */
+export function syncFactory(state: GameState, waiting: number, acetaldehyde: number): GameState {
+  const f = state.factory;
+  if (!f) return state;
+  let next = f.waiting === waiting ? state : { ...state, factory: { ...f, waiting } };
+  const spawned = next.boxes.filter(isSpawnedCrate);
+  if (spawned.length < acetaldehyde) {
+    const placed = placeCrates(next.room, next.boxes, occupantsOf(next.operator, next.enemies).bodies, acetaldehyde - spawned.length, next.factory!.serial);
+    if (placed.serial !== next.factory!.serial) next = { ...next, boxes: placed.boxes, factory: { ...next.factory!, serial: placed.serial } };
+  } else if (spawned.length > acetaldehyde) {
+    // The newest crates go first: they are the ones the body has not caught up with.
+    const drop = new Set(spawned.sort((a, b) => a.id - b.id).slice(0, spawned.length - acetaldehyde).map((b) => b.id));
+    next = { ...next, boxes: next.boxes.filter((b) => !drop.has(b.id)), push: next.push && drop.has(next.push.box) ? null : next.push };
+  }
+  return next;
 }
 
 const switchMode = (room: EnteredRoom, id: number): string | undefined => {
@@ -294,6 +357,16 @@ export function createGame(room: EnteredRoom, seed: number, table: EnemyTable, o
   ]);
   const unlocked = ascending(options.unlocked ?? []);
   const taken = ascending((options.taken ?? []).filter((id) => room.objects.some((o) => o.id === id && o.kind === 'Pickup')));
+  let factory: FactoryState | undefined;
+  let allBoxes: readonly BoxState[] = boxes;
+  if (isFactory(room)) {
+    // The crate's flags are data, like any immune object's (design doc 5.1): alcohol only goes through the line.
+    const def = table.enemies.get(ALCOHOL_CRATE);
+    if (!def || def.category !== 'immune') throw new GameSetupError(`${room.id}: a factory room needs "${ALCOHOL_CRATE}" in content/enemies.json as an immune enemy`);
+    const placed = placeCrates(room, boxes, occupantsOf(operator, spawned.enemies).bodies, options.acetaldehyde ?? 0, 0);
+    allBoxes = placed.boxes;
+    factory = { waiting: options.waiting ?? 0, serial: placed.serial, solution: def.solution ?? '', mist: 0 };
+  }
   return {
     tick: 0,
     rng: seedStreams(seed),
@@ -315,10 +388,11 @@ export function createGame(room: EnteredRoom, seed: number, table: EnemyTable, o
     unlocked,
     doorsOpen: openDoors(room, switches, unlocked, taken),
     taken,
-    boxes,
+    boxes: allBoxes,
     push: null,
     delivered,
     ...(options.stampLocked ? { stampLocked: true as const } : {}),
+    ...(factory ? { factory } : {}),
   };
 }
 
@@ -361,7 +435,13 @@ function forcedLeave(state: GameState): GameState {
   const operator = withStacks(newOperator(start.x, start.y, state.operator.maxHalves, state.operator.gauge), enemies, state.carried);
   // A solved switch stays solved (design doc 5.6); a plate is only down while someone or a box is on it.
   const body = boxAt(OPERATOR_BODY, operator.x, operator.y);
-  const boxes = settleBoxes(state.room, new Map(state.boxes.map((b) => [b.id, { col: b.col, row: b.row }])), occupantsOf(operator, enemies).bodies, state.delivered);
+  const clear = occupantsOf(operator, enemies).bodies;
+  const settled = settleBoxes(state.room, new Map(state.boxes.filter((b) => !isSpawnedCrate(b)).map((b) => [b.id, { col: b.col, row: b.row }])), clear, state.delivered);
+  // Acetaldehyde crates are not the map's, so they have no home to settle on: they go back round the outlet, all of them.
+  const crates = state.factory
+    ? placeCrates(state.room, settled, clear, state.boxes.filter(isSpawnedCrate).length, state.factory.serial)
+    : { boxes: settled, serial: 0 };
+  const boxes = crates.boxes;
   const switches = ascending([
     ...state.switches.filter((id) => switchMode(state.room, id) === 'toggle'), ...platesUnder(state.room, body), ...platesUnderBoxes(state.room, boxes),
     ...filledPorts(state.room, state.delivered),
@@ -379,6 +459,7 @@ function forcedLeave(state: GameState): GameState {
     doorsOpen: openDoors(state.room, switches, state.unlocked, state.taken),
     boxes,
     push: null,
+    ...(state.factory ? { factory: { ...state.factory, serial: crates.serial, mist: 0 } } : {}),
   };
 }
 
@@ -452,11 +533,19 @@ function moveBoxes(state: GameState, op: OperatorState, input: TickInput): Moved
   let delivered = state.delivered;
   if (port) {
     const need = Number(port.props['need']);
-    for (const b of boxes.filter((x) => x.left === 0 && onPort(port, x))) {
+    for (const b of boxes.filter((x) => x.left === 0 && !isSpawnedCrate(x) && onPort(port, x))) {
       boxes = boxes.filter((x) => x.id !== b.id);
       delivered = ascending([...delivered, b.id]);
       events.push({ type: 'boxDelivered', object: b.id, port: port.id, count: delivered.length, need });
       if (delivered.length === need) events.push({ type: 'portFilled', object: port.id });
+    }
+  }
+  // The second line takes in an acetaldehyde crate at rest on it in the same way (design doc 7.7).
+  const intake = state.factory ? linesOf(room).intake : undefined;
+  if (intake) {
+    for (const b of boxes.filter((x) => x.left === 0 && isSpawnedCrate(x) && onIntake(room, x))) {
+      boxes = boxes.filter((x) => x.id !== b.id);
+      events.push({ type: 'crateTaken', object: b.id, line: intake.id });
     }
   }
   const out = (push: PushState | null): MovedBoxes => ({ boxes, push, events, delivered });
@@ -668,6 +757,11 @@ export function step(state: GameState, pressed: TickInput): StepResult {
       }
       enemies.set(e.id, hit);
     }
+    // Alcohol crates in reach take the grey stamp like any immune object; one note for the dock.
+    const f = state.factory;
+    if (f && crateTiles(room, f.waiting).some((t) => Math.hypot((t.col + 0.5) * TILE - op.x, (t.row + 0.5) * TILE - op.y) <= STAMP.radiusPx)) {
+      events.push({ type: 'stampVoid', target: linesOf(room).receiving!.id, enemy: ALCOHOL_CRATE, solution: f.solution });
+    }
   }
 
   // Staples: move, pin a lever they reach (design doc 6.1 shoots far switches), stop at walls,
@@ -692,7 +786,14 @@ export function step(state: GameState, pressed: TickInput): StepResult {
       }
       continue;
     }
-    if (isSolid(grid, Math.floor(p.x / TILE), Math.floor(p.y / TILE))) continue;
+    const col = Math.floor(p.x / TILE);
+    const row = Math.floor(p.y / TILE);
+    if (state.factory && crateOnTile(room, state.factory.waiting, col, row)) {
+      // An alcohol crate only wobbles (design doc 7.7): the bounce of an immune object, never a hit.
+      events.push({ type: 'immuneBounce', target: linesOf(room).receiving!.id, enemy: ALCOHOL_CRATE, solution: state.factory.solution });
+      continue;
+    }
+    if (isSolid(grid, col, row)) continue;
     const target = byId().find((e) => isHittable(e) && overlaps(box, enemyHurtbox(e)));
     if (!target) { flying.push(p); continue; }
     if (target.category === 'immune') {
@@ -760,6 +861,20 @@ export function step(state: GameState, pressed: TickInput): StepResult {
     if (!zoneContinues(zones.get(z.id)!)) zones.delete(z.id);
   }
 
+  // Acetaldehyde fog (design doc 7.7) is a place, not an attack: a dodge does not pass through it,
+  // and it neither knocks back nor freezes. Only taking the crate to the second line clears it.
+  let factory = state.factory;
+  if (factory) {
+    const inFog = boxes.some((b) => isSpawnedCrate(b) && circleTouchesBox(boxCentre(b).x, boxCentre(b).y, MIST.radiusPx, hurt));
+    let mist = inFog ? factory.mist + 1 : 0;
+    if (mist >= MIST.intervalTicks) {
+      mist = 0;
+      op = { ...op, halves: op.halves - MIST.halves };
+      events.push({ type: 'heartLost', halves: MIST.halves, cause: 'acetaldehyde' });
+    }
+    if (mist !== factory.mist) factory = { ...factory, mist };
+  }
+
   // Clinging: at most one enemy latches on per tick, and never through i-frames, so a dodge
   // through a crowd is still the answer. Reaching the cap is a forced nap (design doc 5.5); in
   // an exam fight it fails the current question instead, which arrives with the exam fight.
@@ -790,6 +905,7 @@ export function step(state: GameState, pressed: TickInput): StepResult {
     // What the door check saw, not a fresh count: a lever pinned by a staple after the check must
     // still count as newly opened next tick for an operator already pressed against its door.
     touching: onNow.map((o) => o.id), carried, switches, doorsOpen: doorsOpenNow, taken, boxes, push, delivered: moved.delivered,
+    ...(factory ? { factory } : {}),
   };
   // A forced leave clears the freeze, so the freeze event is only emitted when it will happen.
   if (op.halves <= 0) {
@@ -840,8 +956,19 @@ export function selectSwitches(s: GameState): readonly { readonly object: number
 export function selectBoxes(s: GameState): readonly { readonly object: number; readonly boxType: string; readonly x: number; readonly y: number }[] {
   return s.boxes.map((b) => {
     const o = s.room.objects.find((x) => x.id === b.id);
-    return { object: b.id, boxType: String(o?.props['boxType'] ?? 'crate'), ...boxPixel(b) };
+    return { object: b.id, boxType: b.boxType ?? String(o?.props['boxType'] ?? 'crate'), ...boxPixel(b) };
   });
+}
+/** The factory for drawing it: the dock and the crates on it, the second line, and whether the operator is in the fog. */
+export function selectFactory(s: GameState): {
+  readonly receiving: RoomObject; readonly intake: RoomObject | undefined; readonly crates: readonly Tile[]; readonly inFog: boolean;
+} | undefined {
+  const f = s.factory;
+  const lines = linesOf(s.room);
+  if (!f || !lines.receiving) return undefined;
+  const hurt = boxAt(OPERATOR_HURT, s.operator.x, s.operator.y);
+  const inFog = s.boxes.some((b) => isSpawnedCrate(b) && circleTouchesBox(boxCentre(b).x, boxCentre(b).y, MIST.radiusPx, hurt));
+  return { receiving: lines.receiving, intake: lines.intake, crates: crateTiles(s.room, f.waiting), inFog };
 }
 /** The room's port, if any, with how many boxes it holds of the ones it needs. */
 export function selectPort(s: GameState): { readonly object: number; readonly count: number; readonly need: number } | undefined {

@@ -64,7 +64,7 @@ export const OBJECT_CLASSES: Readonly<Record<string, ClassSpec>> = {
     facing: enumOf('Facing', ['down', 'up', 'left', 'right']),
   },
   Trigger: {
-    event: enumOf('TriggerEvent', ['dialogue', 'card', 'cutscene', 'checkpoint', 'clock_advance', 'end']),
+    event: enumOf('TriggerEvent', ['dialogue', 'card', 'cutscene', 'checkpoint', 'clock_advance', 'end', 'rescue']),
     eventId: { type: 'string', default: '' },
     once: { type: 'bool', default: true },
     when: { type: 'condition' },
@@ -100,6 +100,15 @@ export const OBJECT_CLASSES: Readonly<Record<string, ClassSpec>> = {
     need: { type: 'int', default: 1, min: 1 },
     target: { type: 'object', required: false },
     dialogueId: { type: 'ref', ref: 'dialogue', required: false },
+  },
+  /**
+   * The liver factory's lines (design doc 7.7), not in design doc 13.3's table: `receiving` is the
+   * dock where alcohol crates wait (a rectangle, solid like a counter), `outlet` the point where the
+   * first line puts out acetaldehyde crates, and `intake` the second line's rectangle, which takes
+   * in an acetaldehyde crate that comes to rest on it. A factory room has one of each.
+   */
+  Line: {
+    stage: { type: 'enum', enum: 'LineStage', values: ['receiving', 'outlet', 'intake'], default: '', required: true },
   },
   Hazard: {
     hazardType: enumOf('HazardType', ['red_fog', 'water', 'syrup']),

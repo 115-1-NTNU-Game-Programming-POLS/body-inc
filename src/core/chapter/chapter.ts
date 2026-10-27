@@ -6,7 +6,13 @@ import { OPERATOR_BODY, type TickInput } from '../combat/operator.ts';
 import type { ChapterFile } from '../content/generated.ts';
 import type { DialogueState } from '../dialogue/runner.ts';
 import type { DialogueTable, Effect } from '../dialogue/lines.ts';
-import { createGame, sendStacksHome, step, type DomainEvent, type GameState } from '../game.ts';
+import { createGame, sendStacksHome, step, syncFactory, type DomainEvent, type GameState } from '../game.ts';
+import { isSpawnedCrate } from '../liver/factory.ts';
+import { acetaldehydeCrates, intakeCrate, waitingCrates, type LineParams } from '../liver/line.ts';
+import { passBody } from '../outer/body.ts';
+import { compileCondition } from '../tags/dictionary.ts';
+import type { Condition } from '../tags/condition.ts';
+import { openRescue, stepRescue, type RescueState, type RescueTable } from './rescue.ts';
 import { portOf, tileOf } from '../rooms/boxes.ts';
 import { enterRoom } from '../rooms/entry.ts';
 import { arrivalPoint } from '../rooms/interact.ts';
@@ -18,11 +24,11 @@ import type { TagDictionary } from '../tags/dictionary.ts';
 import { EMPTY_TAGS, holds, type TagState } from '../tags/store.ts';
 import { TICK_HZ } from '../time.ts';
 import { isTool, TOOLS, type Tool } from '../tools.ts';
-import { caffeineOf, metabolise, senseCap, type MetabolismParams } from '../outer/caffeine.ts';
+import { caffeineOf, senseCap, type MetabolismParams } from '../outer/caffeine.ts';
 import type { Deck } from '../outer/deck.ts';
 import { openCard, stepCard, type CardState } from './cards.ts';
 import { applyEffects } from './effects.ts';
-import { openGlucose, stepGlucose, type GlucoseEvent } from './glucose.ts';
+import { GLUCOSE, isDizzy, openGlucose, stepGlucose, type GlucoseEvent } from './glucose.ts';
 import { openTalk, stepTalk } from './talk.ts';
 
 /**
@@ -78,6 +84,8 @@ export interface ChapterState {
    * for a tick so its events (a handbook page, say) reach the app like any other conversation's.
    */
   readonly pending?: string;
+  /** The rescue panel on screen (rescue.ts); like a conversation it freezes the room. */
+  readonly rescue?: RescueState;
 }
 
 /** What the chapter itself reports on top of a room's events. */
@@ -99,6 +107,10 @@ export type ChapterEvent =
   /** A conversation handed the operator a tool; the HUD shows it from now on. */
   | { readonly type: 'toolGranted'; readonly tool: Tool }
   | GlucoseEvent
+  | { readonly type: 'rescueOpened'; readonly rescue: string }
+  /** An action on the rescue panel; `done` is how many correct steps are done after it. */
+  | { readonly type: 'rescueStep'; readonly rescue: string; readonly action: string; readonly outcome: 'step' | 'early' | 'myth'; readonly done: number }
+  | { readonly type: 'rescueDone'; readonly rescue: string }
   | { readonly type: 'chapterEnded' };
 
 export type GameEvent = DomainEvent | ChapterEvent;
@@ -116,9 +128,11 @@ export interface ChapterContent {
   readonly params: ChapterParams;
   /** The chapter's outer-layer cards; absent for a chapter without any. */
   readonly deck?: Deck;
+  /** Rescue panels by id; needed when a room has a rescue Trigger. */
+  readonly rescues?: RescueTable;
 }
 
-export interface ChapterParams extends SleepCoefficients, MetabolismParams {
+export interface ChapterParams extends SleepCoefficients, MetabolismParams, Partial<LineParams> {
   /** Real seconds per game hour of the chapter clock while exploring (design doc 7.2). */
   readonly exploreSecondsPerHour: number;
   /** Caffeine residual one cup of coffee adds (design doc 7.4). */
@@ -172,6 +186,8 @@ function build(ctx: ChapterContent, run: Run, place: Place, carry: Carry): GameS
     delivered: idsHere(run, run.fired).filter((id) => model.objects.some((o) => o.id === id && o.kind === 'Box')),
     boxes: boxesHere(run),
     stampLocked: !run.tools.includes('stamp'),
+    waiting: waitingCrates(run.tags, ctx.dict),
+    acetaldehyde: acetaldehydeCrates(run.tags, ctx.dict),
     ...(start ? { start } : {}),
   });
 }
@@ -185,7 +201,8 @@ function remember(run: Run, game: GameState): Run {
   const prefix = `${run.roomId}#`;
   const known = boxesHere(run);
   const homes = new Map(game.room.objects.filter((o) => o.kind === 'Box').map((o) => [o.id, tileOf(o)]));
-  const moved = game.boxes.filter((b) => {
+  // Acetaldehyde crates are counted by the `acetaldehyde` tag and put out round the outlet on entry, not remembered.
+  const moved = game.boxes.filter((b) => !isSpawnedCrate(b)).filter((b) => {
     const was = known.get(b.id) ?? homes.get(b.id);
     return !was || was.col !== b.col || was.row !== b.row;
   });
@@ -334,6 +351,7 @@ function onTrigger(ctx: ChapterContent, run: Run, game: GameState, e: Extract<Do
     }
     case 'dialogue':
     case 'card':
+    case 'rescue':
       return { run, game, events: [], opens: { kind: e.trigger, id: e.eventId }, ...(once ? { spent: key } : {}) };
     case 'end':
       return { run, game, events: [{ type: 'chapterEnded' }] };
@@ -371,12 +389,14 @@ function onPickup(ctx: ChapterContent, run: Run, game: GameState, e: Extract<Dom
 }
 
 /**
- * Moves the chapter clock on, and the caffeine residual with it (design doc 7.4). Every forward
- * move goes through here or through a `clock:` effect, which decays the same way; a return to a
- * checkpoint moves the clock back and restores the saved tags instead.
+ * Moves the chapter clock on, and the body with it: the caffeine residual decays (design doc 7.4)
+ * and the liver's first line runs (7.7). Every forward move goes through here or through a `clock:`
+ * effect, which does the same; a return to a checkpoint moves the clock back and restores the
+ * saved tags instead.
  */
 function passTime(ctx: ChapterContent, run: Run, game: GameState, minutes: number): { run: Run; game: GameState } {
-  return { run: { ...run, tags: metabolise(run.tags, ctx.dict, minutes, ctx.params) }, game: { ...game, clock: advance(game.clock, minutes) } };
+  const clock = advance(game.clock, minutes);
+  return { run: { ...run, tags: passBody(run.tags, ctx.dict, minutes, ctx.params, clock.minute) }, game: { ...game, clock } };
 }
 
 /**
@@ -392,7 +412,7 @@ const undoneByReturn = (ctx: ChapterContent, key: string): boolean => {
 
 /** A conversation or an event card. Only one is on screen at a time, and only one opens per tick. */
 export interface Modal {
-  readonly kind: 'dialogue' | 'card';
+  readonly kind: 'dialogue' | 'card' | 'rescue';
   readonly id: string;
 }
 
@@ -403,6 +423,7 @@ export interface Modal {
  */
 export function stepChapter(ctx: ChapterContent, state: ChapterState, input: TickInput): ChapterResult {
   if (state.pending !== undefined) return openPending(ctx, state);
+  if (state.rescue) return stepRescue(ctx, state, input);
   return state.dialogue ? stepTalk(ctx, state, input) : state.card ? stepCard(ctx, state, input) : stepRoom(ctx, state, input);
 }
 
@@ -430,10 +451,34 @@ function unlockedNow(ctx: ChapterContent, run: Run, game: GameState): GameState 
   return same ? game : { ...game, unlocked };
 }
 
+/**
+ * The room as the body leaves it at the start of a tick: the factory's crates match the tags, and
+ * a dizzy operator walks 15% slower (design doc 7.7). Only dizziness sets the operator's slows so far.
+ */
+function bodyNow(ctx: ChapterContent, run: Run, game: GameState): GameState {
+  const synced = syncFactory(game, waitingCrates(run.tags, ctx.dict), acetaldehydeCrates(run.tags, ctx.dict));
+  const slows = ctx.chapter.glucose === true && isDizzy(run.tags) ? [GLUCOSE.dizzySlow] : [];
+  const op = synced.operator;
+  if (op.slows.length === slows.length && op.slows.every((v, i) => v === slows[i])) return synced;
+  return { ...synced, operator: { ...op, slows } };
+}
+
+const warehouseShut = new WeakMap<TagDictionary, Condition | null>();
+
+/** Whether the glycogen warehouse ships: not while the first line runs on an empty stomach (`mod.warehouse_locked`). */
+function warehouseOpen(ctx: ChapterContent, run: Run): boolean {
+  let cond = warehouseShut.get(ctx.dict);
+  if (cond === undefined) {
+    cond = ctx.dict.aliases.has('mod.warehouse_locked') ? compileCondition(ctx.dict, 'mod.warehouse_locked') : null;
+    warehouseShut.set(ctx.dict, cond);
+  }
+  return cond === null || !holds(run.tags, ctx.dict, cond);
+}
+
 const plain = (run: Run, game: GameState): ChapterState => ({ run, game, dialogue: null, card: null });
 
 function stepRoom(ctx: ChapterContent, state: ChapterState, input: TickInput): ChapterResult {
-  const r = step(unlockedNow(ctx, state.run, cloaked(ctx, state.run, state.game)), input);
+  const r = step(unlockedNow(ctx, state.run, cloaked(ctx, state.run, bodyNow(ctx, state.run, state.game))), input);
   let { run } = state;
   let game = r.state;
   // The chapter clock runs while exploring (design doc 7.2); a conversation or a card stops it.
@@ -444,7 +489,7 @@ function stepRoom(ctx: ChapterContent, state: ChapterState, input: TickInput): C
   if (ctx.chapter.glucose === true) {
     const was = state.game.operator;
     const walking = game.operator.x !== was.x || game.operator.y !== was.y;
-    const g = stepGlucose(ctx.dict, run.tags, run.walked, walking, game.clock.minute);
+    const g = stepGlucose(ctx.dict, run.tags, run.walked, walking, game.clock.minute, warehouseOpen(ctx, run));
     run = { ...run, tags: g.tags, walked: g.walked };
     extra.push(...g.events);
   }
@@ -489,7 +534,12 @@ function stepRoom(ctx: ChapterContent, state: ChapterState, input: TickInput): C
         run = { ...run, switches: e.on ? [...run.switches.filter((k) => k !== key), key] : run.switches.filter((k) => k !== key) };
         break;
       }
+      case 'crateTaken':
+        // Taken off the books at once: a time clock punched later in the tick saves the lower count.
+        run = { ...run, tags: intakeCrate(run.tags, ctx.dict) };
+        break;
       case 'boxMoved': {
+        if (e.object < 0) break;
         // Like a lever, a box outlives the visit and the forced leave; settleBoxes decides on entry what stays.
         const key = `${run.roomId}#${e.object}`;
         run = { ...run, boxes: [...run.boxes.filter((b) => b.key !== key), { key, col: e.col, row: e.row }] };
@@ -565,6 +615,9 @@ function stepRoom(ctx: ChapterContent, state: ChapterState, input: TickInput): C
   const holdDoor = (g: GameState): GameState => (through ? { ...g, touching: g.touching.filter((id) => id !== through!.object) } : g);
   if (opening?.kind === 'card') {
     return done({ ...plain(run, holdDoor(game)), card: openCard(ctx, opening.id) }, [{ type: 'cardOpened', card: opening.id }]);
+  }
+  if (opening?.kind === 'rescue') {
+    return done({ ...plain(run, holdDoor(game)), rescue: openRescue(ctx, opening.id) }, [{ type: 'rescueOpened', rescue: opening.id }]);
   }
   if (opening !== undefined) {
     if (!ctx.dialogues.has(opening.id)) throw new ChapterError(`${run.roomId}: dialogue "${opening.id}" does not exist (the map check and Boot should have caught this)`);

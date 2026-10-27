@@ -122,7 +122,7 @@ const room = (organ: string, est: number, nextobjectid: number, floor: number[],
     { ...obj(6, 'Switch', 7 * 32 + 16, 80), width: 0, height: 0, point: true, properties: [{ name: 'target', type: 'object', value: 5 }] },
     crate(7, 12, 6),
     crate(8, 12, 9, 'glucose'),
-    crate(9, 15, 4, 'acetaldehyde'),
+    crate(9, 15, 4, 'food'),
     { ...obj(10, 'Conveyor', 3 * 32, 9 * 32), width: 6 * 32, height: 32, properties: [prop('direction', 'Direction', 'E'), prop('speed', 'ConveyorSpeed', 'fast')] },
   ]));
 }

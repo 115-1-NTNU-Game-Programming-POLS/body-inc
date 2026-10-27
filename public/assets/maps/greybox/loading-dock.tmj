@@ -719,7 +719,7 @@
        "name": "boxType",
        "type": "string",
        "propertytype": "BoxType",
-       "value": "acetaldehyde"
+       "value": "food"
       }
      ]
     },

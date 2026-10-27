@@ -33,6 +33,8 @@ export interface BoxState extends Tile {
   readonly ticks: number;
   /** Set while a belt carries it: the tile it left stays solid until it arrives. */
   readonly carried?: true;
+  /** Only on boxes that are not Tiled objects (the first line's acetaldehyde crates); others take it from the map. */
+  readonly boxType?: string;
 }
 
 /** The operator presses against a box this many ticks before it moves; a brush past one does not shove it. */
@@ -206,7 +208,7 @@ export function settleBoxes(room: RoomModel, remembered: ReadonlyMap<number, Til
 }
 
 /** The closest floor tile to `from` that passes `ok`, walking through floor only, in N, S, W, E order. */
-function nearest(room: RoomModel, from: Tile, ok: (t: Tile) => boolean): Tile | undefined {
+export function nearest(room: RoomModel, from: Tile, ok: (t: Tile) => boolean): Tile | undefined {
   const seen = new Set([at(from)]);
   const queue = [from];
   for (let i = 0; i < queue.length; i++) {
@@ -223,12 +225,14 @@ function nearest(room: RoomModel, from: Tile, ok: (t: Tile) => boolean): Tile | 
 }
 
 /** A box starting a slide of `ticks` to the next tile in `dir`. */
-export const startSlide = (b: BoxState, dir: Tile, ticks: number, carried = false): BoxState =>
-  ({ id: b.id, col: b.col + dir.col, row: b.row + dir.row, from: { col: b.col, row: b.row }, left: ticks, ticks, ...(carried ? { carried: true as const } : {}) });
+export const startSlide = (b: BoxState, dir: Tile, ticks: number, carried = false): BoxState => ({
+  id: b.id, col: b.col + dir.col, row: b.row + dir.row, from: { col: b.col, row: b.row }, left: ticks, ticks,
+  ...(carried ? { carried: true as const } : {}), ...(b.boxType !== undefined ? { boxType: b.boxType } : {}),
+});
 
 /** One tick of a slide; the box rests once it runs out. */
 export function advanceSlide(b: BoxState): BoxState {
-  if (b.left <= 1) return { id: b.id, col: b.col, row: b.row, left: 0, ticks: 0 };
+  if (b.left <= 1) return { id: b.id, col: b.col, row: b.row, left: 0, ticks: 0, ...(b.boxType !== undefined ? { boxType: b.boxType } : {}) };
   return { ...b, left: b.left - 1 };
 }
 

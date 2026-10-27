@@ -803,6 +803,7 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
           "examWake",
           "bossSecondsPerHour",
           "exploreSecondsPerHour",
+          "liverRate",
           "floorYellowAt",
           "floorOrangeAt",
           "floorRedAt",
@@ -1288,6 +1289,11 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
           },
           "bossSecondsPerHour": {
             "description": "Real seconds per game hour on the boss clock.",
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "liverRate": {
+            "description": "Cups of alcohol the liver's first line processes per game hour.",
             "type": "number",
             "exclusiveMinimum": 0
           },
@@ -1990,6 +1996,101 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
       }
     }
   },
+  "rescue": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "RescueFile",
+    "description": "Rescue sequences that cannot fail (design doc 7.7: the classmate who will not wake up). A Trigger with event rescue and this id opens an action panel; the correct steps must be done in order, a myth is answered by a friend and the panel stays open, so the only way out is through the steps. Text lives in content/strings under rescue.<id>.*; how to write one is in docs/authoring/rooms-and-dialogue.md.",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "version",
+      "rescues"
+    ],
+    "properties": {
+      "version": {
+        "const": 1
+      },
+      "rescues": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/Rescue"
+        }
+      }
+    },
+    "$defs": {
+      "Rescue": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "steps",
+          "myths",
+          "order",
+          "effects"
+        ],
+        "properties": {
+          "id": {
+            "description": "What a rescue Trigger's eventId names.",
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "steps": {
+            "description": "The correct actions, in the order they must be done.",
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]*$"
+            }
+          },
+          "myths": {
+            "description": "Actions that look like help and are not; picking one never harms anyone.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]*$"
+            }
+          },
+          "order": {
+            "description": "Every step and myth once, in the order the panel lists them, so the right answers are not simply at the top.",
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]*$"
+            }
+          },
+          "helper": {
+            "$ref": "#/$defs/RescueHelper"
+          },
+          "effects": {
+            "description": "What finishing the rescue does, in the dialogue effect syntax with story-event tags (tag:rescued;unlock:alcohol_poisoning).",
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "RescueHelper": {
+        "description": "Someone who takes over a step on their own when the condition holds, such as the roommate the opening card brought along.",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "when",
+          "step"
+        ],
+        "properties": {
+          "when": {
+            "type": "string",
+            "minLength": 1
+          },
+          "step": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$"
+          }
+        }
+      }
+    }
+  },
   "scheduleCards": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "title": "ScheduleCardsFile",
@@ -2347,7 +2448,7 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
   }
 };
 
-export type SchemaName = "boss" | "chapter" | "deck" | "enemies" | "feedback" | "handbook" | "params" | "report" | "scheduleCards" | "speakers" | "strings" | "tags";
+export type SchemaName = "boss" | "chapter" | "deck" | "enemies" | "feedback" | "handbook" | "params" | "report" | "rescue" | "scheduleCards" | "speakers" | "strings" | "tags";
 
 export interface ContentTypes {
   readonly boss: BossFile;
@@ -2358,6 +2459,7 @@ export interface ContentTypes {
   readonly handbook: HandbookFile;
   readonly params: ParamsFile;
   readonly report: ReportFile;
+  readonly rescue: RescueFile;
   readonly scheduleCards: ScheduleCardsFile;
   readonly speakers: SpeakersFile;
   readonly strings: StringsFile;
@@ -2692,6 +2794,8 @@ export interface ParamsFile {
     readonly examWake: number;
     /** Real seconds per game hour on the boss clock. */
     readonly bossSecondsPerHour: number;
+    /** Cups of alcohol the liver's first line processes per game hour. */
+    readonly liverRate: number;
     /** Real seconds per game hour on the chapter clock while exploring. */
     readonly exploreSecondsPerHour: number;
     /** Floor load at which a floor lights yellow (design doc 8.4). */
@@ -2882,6 +2986,32 @@ export interface ReportDoc {
   readonly bankruptAdvice1: string;
   readonly bankruptAdvice2: string;
   readonly bankruptAdvice3: string;
+}
+
+/** Rescue sequences that cannot fail (design doc 7.7: the classmate who will not wake up). A Trigger with event rescue and this id opens an action panel; the correct steps must be done in order, a myth is answered by a friend and the panel stays open, so the only way out is through the steps. Text lives in content/strings under rescue.<id>.*; how to write one is in docs/authoring/rooms-and-dialogue.md. */
+export interface RescueFile {
+  readonly version: 1;
+  readonly rescues: readonly Rescue[];
+}
+
+export interface Rescue {
+  /** What a rescue Trigger's eventId names. */
+  readonly id: string;
+  /** The correct actions, in the order they must be done. */
+  readonly steps: readonly string[];
+  /** Actions that look like help and are not; picking one never harms anyone. */
+  readonly myths: readonly string[];
+  /** Every step and myth once, in the order the panel lists them, so the right answers are not simply at the top. */
+  readonly order: readonly string[];
+  readonly helper?: RescueHelper;
+  /** What finishing the rescue does, in the dialogue effect syntax with story-event tags (tag:rescued;unlock:alcohol_poisoning). */
+  readonly effects: string;
+}
+
+/** Someone who takes over a step on their own when the condition holds, such as the roommate the opening card brought along. */
+export interface RescueHelper {
+  readonly when: string;
+  readonly step: string;
 }
 
 /** Schedule cards (docs/specs/content-spec.md section 1). Draft: the department demand fields of the spec belong to the removed token model (design doc status table) and are left out; the outer-layer work package settles the rest. */

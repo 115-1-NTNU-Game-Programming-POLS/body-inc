@@ -8,6 +8,7 @@ import { conveyorTiles, KEEP_CLEAR, tileBox, tileOf } from './boxes.ts';
 import { canMeet } from './entry.ts';
 import { objectBox } from './interact.ts';
 import { keyOf, keysFor, parseClockWindow, SWITCH_KINDS, switchesFor } from './locks.ts';
+import { solidDock } from '../liver/factory.ts';
 
 /**
  * Tiled JSON (.tmj) to room model. Core only needs structure, not art: which cells are solid,
@@ -123,7 +124,19 @@ export type RoomProblemCode =
   /** More than one Port in a room; the game delivers to the first only. */
   | 'port-multiple'
   /** A Port that needs more boxes than the room always has (base layer, no `when`), so it could never fill. */
-  | 'port-need';
+  | 'port-need'
+  /** A Line in a variant layer: the chapter keeps alcohol and acetaldehyde for the whole chapter, so the factory cannot come and go. */
+  | 'line-variant'
+  /** A receiving or intake Line drawn as a point, or too small to hold any tile's centre. */
+  | 'line-shape'
+  /** A receiving or intake Line whose every tile is a wall, or an outlet on a wall or on the dock. */
+  | 'line-wall'
+  /** Two Lines of the same stage in one room. */
+  | 'line-multiple'
+  /** A room with some Lines but not one of each stage; `stage` names the missing one. */
+  | 'line-missing'
+  /** A Box drawn with boxType acetaldehyde: those crates come only out of the first line. */
+  | 'box-acetaldehyde';
 
 export interface RoomProblem {
   readonly code: RoomProblemCode;
@@ -391,7 +404,9 @@ export function readRoom(id: string, map: TiledMap, dict: TagDictionary): ReadRe
     const need = Number(p.props['need']);
     if (sure < need) problems.push({ code: 'port-need', object: p.id, args: { need, boxes: sure } });
   }
+  lineProblems(objects, map.width, map.height, solid, problems);
   for (const [i, b] of boxes.entries()) {
+    if (b.props['boxType'] === 'acetaldehyde') problems.push({ code: 'box-acetaldehyde', object: b.id });
     const t = tileOf(b);
     const tb = tileBox(t);
     if (isSolid({ cols: map.width, rows: map.height, solid }, t.col, t.row)) problems.push({ code: 'box-wall', object: b.id, args: { col: t.col, row: t.row } });
@@ -406,6 +421,34 @@ export function readRoom(id: string, map: TiledMap, dict: TagDictionary): ReadRe
     problems,
     refs,
   };
+}
+
+/**
+ * The factory's Lines (core/liver/factory.ts). Reads the walls before the dock is made solid, then
+ * marks the dock in `solid`, so the outlet is checked against the grid the game will use.
+ */
+function lineProblems(objects: readonly RoomObject[], cols: number, rows: number, solid: boolean[], problems: RoomProblem[]): void {
+  const lines = objects.filter((o) => o.kind === 'Line').sort((a, b) => a.id - b.id);
+  if (lines.length === 0) return;
+  const grid = { cols, rows, solid };
+  for (const o of lines) if (o.variant !== undefined) problems.push({ code: 'line-variant', object: o.id });
+  for (const stage of ['receiving', 'outlet', 'intake']) {
+    const of = lines.filter((o) => o.props['stage'] === stage);
+    if (of.length === 0) problems.push({ code: 'line-missing', object: lines[0]!.id, args: { stage } });
+    if (of.length > 1) problems.push({ code: 'line-multiple', object: of[1]!.id, args: { stage } });
+  }
+  for (const o of lines) {
+    if (o.props['stage'] === 'outlet') continue;
+    const tiles = o.width > 0 && o.height > 0 ? conveyorTiles(o) : [];
+    if (tiles.length === 0) problems.push({ code: 'line-shape', object: o.id });
+    else if (tiles.every((t) => isSolid(grid, t.col, t.row))) problems.push({ code: 'line-wall', object: o.id });
+  }
+  solidDock(objects, cols, rows, solid);
+  for (const o of lines) {
+    if (o.props['stage'] !== 'outlet') continue;
+    const t = tileOf(o);
+    if (isSolid(grid, t.col, t.row)) problems.push({ code: 'line-wall', object: o.id });
+  }
 }
 
 /** For the game: a room with any problem is a bug that the map check should have caught. */
