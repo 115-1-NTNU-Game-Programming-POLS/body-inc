@@ -28,7 +28,7 @@ describe('host name rules (issue #8)', () => {
   });
 
   it('refuses braces, angle brackets and control or format characters', () => {
-    for (const bad of ['阿{明', '阿}', '<b>', '阿\n明', '阿\u0007', '阿​明']) expect(readHostName(bad)).toEqual({ ok: false, problem: 'bad-char' });
+    for (const bad of ['阿{明', '阿}', '<b>', '阿\n明', '阿\u0007', '阿​明', '阿 明', '阿 明'])expect(readHostName(bad)).toEqual({ ok: false, problem: 'bad-char' });
   });
 
   it('normalizes to NFC, so a decomposed accent counts and is kept as one character', () => {
