@@ -207,7 +207,34 @@
     "wakeCap": 11,
     "examWake": 7,
     "bossSecondsPerHour": 6,
-    "exploreSecondsPerHour": 55
+    "exploreSecondsPerHour": 55,
+    "floorYellowAt": 40,
+    "floorOrangeAt": 60,
+    "floorRedAt": 85,
+    "floorOmenCap": 84,
+    "floorSleepRepair": 2,
+    "floorNeglect": 10,
+    "floorPatrolBase": 30,
+    "floorPatrolPerGrade": 10,
+    "floorStallBest": 70,
+    "floorStrikeStudyMult": 0.5,
+    "floorContrib": {
+      "debtBrain": 4,
+      "deadlineBrain": 8,
+      "toleranceBrain": 8,
+      "lateSnackStomach": 15,
+      "alcoholLiver": 8,
+      "fastingAlcoholMult": 1.5
+    },
+    "overtimeBedDelay": 1,
+    "hospitalFloorLoad": 40,
+    "examPassPercent": 60,
+    "skillNoise": 0.4,
+    "ratingCuts": [
+      0.25,
+      0.5,
+      0.75
+    ]
   },
   "difficulty": [
     {
@@ -390,6 +417,22 @@
     "wakeCap": "[risk-3 mechanisms / opportunity events (need an RSVP the evening before, i.e. reading ctx.tomorrow)] latest sleep-in on a free morning",
     "examWake": "[risk-3 mechanisms / opportunity events (need an RSVP the evening before, i.e. reading ctx.tomorrow)] exam mornings: must be up by 07:00 (travel + prep)",
     "bossSecondsPerHour": "[clock] DOC boss fights run 1 game hour in 6 s, so the 5 h caffeine half-life is 30 s (design doc 7.3, 7.4)",
-    "exploreSecondsPerHour": "[clock] DOC the chapter clock runs about 1 game hour in 55 s while exploring (design doc 7.2); it stands still while a conversation or a card is open"
+    "exploreSecondsPerHour": "[clock] DOC the chapter clock runs about 1 game hour in 55 s while exploring (design doc 7.2); it stands still while a conversation or a card is open",
+    "floorYellowAt": "[floors] DOC a floor lights yellow at load 40 and above (design doc 8.4); also where the neglect bonus starts and where the liver's cross-floor clues begin (8.6)",
+    "floorOrangeAt": "[floors] DOC orange at 60 and above, where the department names an early symptom (8.4); a floor below it overnight cannot reach a strike (omen guarantee); the elevator stops at the liver from here (8.6)",
+    "floorRedAt": "[floors] DOC red light and strike at 85 and above (8.4); the liver strikes only when 8.6's three conditions also hold",
+    "floorOmenCap": "[floors] DOC a floor whose load was under floorOrangeAt can rise to 84 at most in one night (8.4)",
+    "floorSleepRepair": "[floors] DOC sleep repair = 2 x effective sleep hours, for every floor (8.4)",
+    "floorNeglect": "[floors] DOC neglect bonus +10 for a floor at floorYellowAt or more that was not patrolled today (8.4, 'ignore bonus'); design doc 9.6 lists it for re-simulation",
+    "floorPatrolBase": "[floors] DOC patrol reduction = 30 + 10 x grade, grade C 0, B 1, A 2, S 3 (8.4)",
+    "floorPatrolPerGrade": "[floors] DOC see floorPatrolBase",
+    "floorStallBest": "[floors] DOC a patrol of a striking floor can lower its load to 70 at best (8.4)",
+    "floorStrikeStudyMult": "[floors] DOC study efficiency x0.5 while the brain floor strikes (8.4); the other strike effects are not modelled yet",
+    "floorContrib": "[floors] DOC first-version daily load contributions of design doc 8.4: sleep debt +4 per hour (brain, ASSUME: the debt left after tonight's sleep is used), program deadline +8 (brain, the doc says 8 to 10), caffeine tolerance +8 (brain), late snack +15 (stomach), alcohol +8 per cup (liver) times 1.5 when fasting. All of them wait for re-simulation (design doc 9.6)",
+    "overtimeBedDelay": "[floors] DOC an overtime patrol pushes bedtime back 1 hour (8.4)",
+    "hospitalFloorLoad": "[floors] DOC a hospital stay brings every floor down to 40 (8.11); ASSUME 'down to' means a cap, so a floor already lower stays",
+    "examPassPercent": "[exam] ASSUME an exam percent at or above 60 passes: the base score at the pass threshold (design doc 8.9) with average combat; the design doc names no pass line for the percent",
+    "skillNoise": "[skill] ASSUME the abstract combat skill k (0 to 1) is blurred by up to +-0.2 per roll before it becomes a patrol grade or an exam performance (design doc 9.5 gives k no distribution)",
+    "ratingCuts": "[skill] ASSUME blurred skill below the first cut grades C, below the second B, below the third A, otherwise S"
   }
 }
