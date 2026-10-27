@@ -2,8 +2,8 @@ import {
   ChapterError, GameSetupError, parseRoom, resumeChapter, stepChapter,
   type ChapterContent, type ChapterFile, type ChapterState, type Checkpoint, type GameEvent, type TiledMap,
 } from '../core/index.ts';
-import { BOSSES, DECKS, DIALOGUES, ENEMIES, HANDBOOK, PARAMS, TAGS } from './content.ts';
-import { missingCards } from './decks.ts';
+import { BOSSES, DECKS, DIALOGUES, ENEMIES, HANDBOOK, PARAMS, RESCUES, TAGS } from './content.ts';
+import { missingCards, missingRescues } from './decks.ts';
 import { missingDialogues } from './dialogue.ts';
 import { missingPages } from './handbook.ts';
 import { FixedStepLoop } from './loop.ts';
@@ -18,6 +18,8 @@ export function chapterContent(chapter: ChapterFile, maps: ReadonlyMap<string, T
   if (pages.length > 0) throw new Error(`rooms, conversations or cards unlock handbook pages that do not exist:\n  ${pages.join('\n  ')}`);
   const cards = missingCards(rooms, deck);
   if (cards.length > 0) throw new Error(`rooms show event cards that do not exist:\n  ${cards.join('\n  ')}`);
+  const rescues = missingRescues(rooms, RESCUES);
+  if (rescues.length > 0) throw new Error(`rooms open rescues that do not exist:\n  ${rescues.join('\n  ')}`);
   return {
     chapter,
     rooms,
@@ -26,6 +28,7 @@ export function chapterContent(chapter: ChapterFile, maps: ReadonlyMap<string, T
     enemies: ENEMIES,
     bosses: BOSSES,
     params: PARAMS,
+    rescues: RESCUES,
     ...(deck ? { deck } : {}),
   };
 }

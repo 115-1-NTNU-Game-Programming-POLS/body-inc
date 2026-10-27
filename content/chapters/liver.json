@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "id": "liver",
+  "start": "liver/party",
+  "intro": "liver.intro",
+  "glucose": true,
+  "links": [
+    { "a": "liver/party#door-e", "b": "liver/factory#door-w" },
+    { "a": "liver/factory#door-s", "b": "liver/warehouse#door-n" },
+    { "a": "liver/factory#door-e", "b": "liver/corner#door-w" }
+  ]
+}

@@ -1,4 +1,19 @@
-import type { Deck, RoomObject } from '../core/index.ts';
+import type { Deck, RescueTable, RoomObject } from '../core/index.ts';
+
+type Rooms = ReadonlyMap<string, { readonly objects: readonly Pick<RoomObject, 'id' | 'kind' | 'props'>[] }>;
+
+/** Rescues that rooms open but content/rescue.json lacks; the map check's rule again, at Boot. */
+export function missingRescues(rooms: Rooms, rescues: RescueTable): string[] {
+  const out: string[] = [];
+  for (const [path, room] of rooms) {
+    for (const o of room.objects) {
+      if (o.kind !== 'Trigger' || o.props['event'] !== 'rescue') continue;
+      const id = String(o.props['eventId']);
+      if (!rescues.has(id)) out.push(`${path}: Trigger #${o.id} opens rescue "${id}", which content/rescue.json does not define`);
+    }
+  }
+  return out;
+}
 
 /**
  * Event cards that rooms ask for but the chapter's deck does not hold: a Trigger with event
