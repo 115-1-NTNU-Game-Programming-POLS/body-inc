@@ -37,6 +37,7 @@ node tools/maps/make-caffeine-arena.ts  # 重新產生咖啡因 Boss 灰盒場�
 node tools/maps/make-rest-room.ts       # 重新產生灰盒休息室（打卡機、午睡與就寢的床、NPC）
 node tools/maps/make-lock-rooms.ts      # 重新產生門鎖示範的灰盒大廳、檔案室、儲藏室與裝卸區（時段鎖、條件鎖、鑰匙鎖、道具、推箱與輸送帶）
 node tools/maps/make-prologue.ts        # 重新產生灰盒序章（第一章範本：調度口、血糖、駁回印章、下班打卡）
+node tools/maps/make-liver.ts           # 重新產生灰盒肝臟章（產線、酒精桶、乙醛箱與紅霧、肝醣倉庫、急救）
 node tools/maps/make-room-template.ts   # 重新產生給內容組複製的房間範本
 ```
 
