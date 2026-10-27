@@ -75,7 +75,10 @@ node check.js 500                 # 12 項教育預期檢查
 node accept.js 1000               # 重玩性驗收（應變事件、機會事件、難度階梯）
 node run.js 500 --extra --cards   # 各策略與各學期設定卡的詳細結果
 node discriminate.js 500          # 鑑別力測試
+node semester.ts 200              # 學期原型（新核心 core/semester）：場景 x 玩家類型 x 技術，檢查肝臟燈永遠不亮
 ```
+
+前四項屬於舊的代幣模型。`semester.ts` 直接執行 `src/core/semester` 的規則，並用 `semesterProblems` 檢查每個模擬出的狀態，有任何違反就以非零狀態結束；它的場景與玩家類型放在 `sim/semester/`。
 
 所有參數集中在 `content/params.json`，模擬與遊戲讀同一份檔案；每項參數在 `notes` 中標註來自設計文件（DOC）或暫時假設（ASSUME）。新增或改名參數時，要一併更新 `notes` 與 `content/schema/params.schema.json`，否則 `node tools/check-content.ts` 會失敗。調整數值後請重跑 `check.js` 與 `accept.js`，兩者都必須通過。最近一次的輸出存在 `sim/*_out.txt`。
 
