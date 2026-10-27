@@ -26,7 +26,8 @@ describe('text goes through the font gate (build plan S10)', () => {
 
   it('no Chinese text is written into view code; it belongs in content/strings', () => {
     const offenders = walk('src/view').flatMap((f) =>
-      readFileSync(f, 'utf8').split('\n').flatMap((line, i) => {
+      // Git for Windows checks files out with CRLF by default, and `.` does not match `\r`.
+      readFileSync(f, 'utf8').split(/\r?\n/).flatMap((line, i) => {
         const code = line.replace(/\/\/.*$|\/\*.*?\*\/|^\s*\*.*$/g, '');
         return /[㐀-鿿]/.test(code) ? [`${f}:${i + 1}`] : [];
       }));

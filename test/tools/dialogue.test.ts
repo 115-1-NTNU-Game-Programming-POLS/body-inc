@@ -190,6 +190,19 @@ describe('dialogue check: text must fit', () => {
     expect(run(csv(row('x', 1, 'brain', 'normal', '一'.repeat(29) + '。' + '一'.repeat(60))))).toEqual([]);
     said(run(csv(row('x', 1, 'brain', 'normal', '一'.repeat(29) + '。' + '一'.repeat(62)))), '要 4 行');
   });
+
+  it('measures {host} as the widest name the player may choose, not as 小晨', () => {
+    expect(run(csv(row('x', 1, 'brain', 'normal', '小晨' + '一'.repeat(88))))).toEqual([]);
+    said(run(csv(row('x', 1, 'brain', 'normal', '{host}' + '一'.repeat(88)))), '對話框放不下：字級 100% 時要 4 行');
+    expect(run(csv(row('x', 1, 'brain', 'normal', '{host}' + '一'.repeat(84))))).toEqual([]);
+  });
+});
+
+describe('dialogue check: placeholders', () => {
+  it('{host} is known, a typo of it is said', () => {
+    expect(run(csv(row('x', 1, 'brain', 'normal', '{host}該睡了')))).toEqual([]);
+    said(run(csv(row('x', 1, 'brain', 'normal', '{hots}該睡了'))), '不認得的佔位符「{hots}」');
+  });
 });
 
 describe('dialogue check: handbook and release', () => {

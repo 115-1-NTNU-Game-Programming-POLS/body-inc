@@ -14,7 +14,7 @@ import { feedbackProblems, noteFields } from '../src/app/feedback.ts';
 import { handbookProblems } from '../src/app/handbook.ts';
 import type { ContentTypes, RescueProblemCode, SchemaName, SchemaProblem, TagDictionary } from '../src/core/index.ts';
 import {
-  BossTableError, DictionaryError, EnemyTableError, OPERATOR_SPEAKER, loadBossTable, loadDictionary, loadEnemyTable, readRescues, RESCUE_PANEL_KEYS, rescueStringKeys, schemaProblems,
+  BossTableError, DictionaryError, EnemyTableError, HOST_TOKEN, OPERATOR_SPEAKER, loadBossTable, loadDictionary, loadEnemyTable, readRescues, RESCUE_PANEL_KEYS, rescueStringKeys, schemaProblems,
   type EnemyTable,
 } from '../src/core/index.ts';
 
@@ -36,6 +36,31 @@ const RULES: ReadonlyArray<readonly [RegExp, SchemaName]> = [
   [/^report\.json$/, 'report'],
   [/^rescue\.json$/, 'rescue'],
 ];
+
+/**
+ * Every `{...}` placeholder content may use. `{host}` is filled in wherever text is drawn; the
+ * others are filled by the one caller that shows their string. A token not listed here is a typo
+ * that players would see as is, such as `{hots}`.
+ */
+export const PLACEHOLDERS: ReadonlySet<string> = new Set([
+  HOST_TOKEN,
+  '{D}', '{Dr}', '{N}', '{action}', '{cap}', '{cause}', '{clock}', '{cups}', '{day}', '{debt}', '{dept}', '{education}', '{exam}', '{g}', '{h}', '{label}',
+  '{list}', '{m}', '{missed}', '{n}', '{number}', '{opinion}', '{option}', '{orders}', '{page}', '{r}', '{residue}', '{rmin}',
+  '{seconds}', '{sign}', '{situation}', '{stay}', '{step}', '{symptom}', '{text}', '{time}', '{title}', '{total}', '{unlock}', '{value}',
+]);
+
+/**
+ * Problems with the placeholders of one text, in Chinese. `report` marks the close-out report's
+ * wording, which the design doc (section 3) fixes as 宿主 rather than the host's name.
+ */
+export function placeholderProblems(text: string, report = false): string[] {
+  const out: string[] = [];
+  for (const [token] of text.matchAll(/\{[^{}]*\}/g)) {
+    if (!PLACEHOLDERS.has(token)) out.push(`不認得的佔位符「${token}」；寫宿主的名字請用 ${HOST_TOKEN}，新的佔位符要登記在 tools/check-content.ts 的 PLACEHOLDERS`);
+    else if (report && token === HOST_TOKEN) out.push(`報告文字不能用 ${HOST_TOKEN}；設計文件第 3 節規定報告一律稱「宿主」`);
+  }
+  return [...new Set(out)];
+}
 
 const RESCUE_PROBLEM: Record<RescueProblemCode, string> = {
   duplicate: 'id 重複',
@@ -129,6 +154,12 @@ export function checkContent(contentDir: string): string[] {
   if (feedback && enemyTable) {
     for (const [, s] of strings) {
       for (const p of feedbackProblems(feedback.value, s.value as ContentTypes['strings'], noteFields(enemyTable))) out.push(`${feedback.file}（對照 ${s.file}）：${p}`);
+    }
+  }
+
+  for (const [, s] of strings) {
+    for (const [key, { text }] of Object.entries((s.value as ContentTypes['strings']).strings)) {
+      for (const p of placeholderProblems(text, key.startsWith('report.'))) out.push(`${s.file}「${key}」：${p}`);
     }
   }
 

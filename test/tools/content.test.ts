@@ -38,6 +38,21 @@ describe('content check (build plan S4)', () => {
     expect(checkContent('content')).toEqual([]);
   });
 
+  it('an unknown placeholder is reported; {host} and the per-caller ones are not', () => {
+    const dir = contentCopy();
+    edit(dir, 'strings/zh-TW.json', (j) => {
+      j.strings['title.ended'].text = '{hots}今天的班到此結束。';
+      j.strings['title.stale'].text = '{host}的舊存檔對不上。';
+    });
+    expect(checkContent(dir)).toEqual([expect.stringMatching(/zh-TW\.json「title\.ended」：不認得的佔位符「\{hots\}」/)]);
+  });
+
+  it('report wording may not use {host}: the report calls the host 宿主', () => {
+    const dir = contentCopy();
+    edit(dir, 'strings/zh-TW.json', (j) => { j.strings['report.dept.company'].text = '{host}公司'; });
+    expect(checkContent(dir)).toEqual([expect.stringMatching(/「report\.dept\.company」：報告文字不能用 \{host\}/)]);
+  });
+
   it('a schedule card in the spec format passes, and one with an unknown field fails', () => {
     expect(checkContent(withCards('schedule-good.json'))).toEqual([]);
     const problems = checkContent(withCards('schedule-unknown-field.json'));
