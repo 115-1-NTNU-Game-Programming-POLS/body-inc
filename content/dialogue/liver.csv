@@ -1,0 +1,20 @@
+dialogueId,order,speaker,expression,text,condition,effect,next,fact
+liver.intro,1,narrator,normal,本章含飲酒情境。在台灣，未滿 18 歲不得飲酒，也沒有人可以提供酒給未成年人。,,,,
+liver.intro,2,narrator,normal,期中考後，系學會辦系烤。學弟妹輪流來敬酒：「學長，謝謝你改考卷手下留情。」,,,,
+liver.intro,3,narrator,normal,沒先吃東西就到場，一輪下來已經連喝了兩杯。,fasting,,,
+liver.intro,4,narrator,normal,晚餐墊了肚子，一輪下來還是喝了兩杯。,!fasting,,,
+liver.intro,5,narrator,normal,肝臟化工廠的收貨區，兩箱酒精已經在排隊。,,tag:alcohol+2,,22
+liver.intro,6,liver,normal,收到。產線開工。,,,,
+liver.stall.coffee,1,narrator,normal,醒酒咖啡攤：「喝一杯，馬上清醒！」,,,,
+liver.stall.coffee,2,narrator,normal,你現在是一個清醒的醉漢，酒精一克都沒少。,,,,2
+liver.stall.shower,1,narrator,normal,冷水澡攤：「沖一下就醒了！」,,,,
+liver.stall.shower,2,narrator,normal,冷水不會讓酒精變少，產線的速度一點都沒變。,,,,2
+liver.stall.throat,1,narrator,normal,挖喉嚨攤：「吐出來就沒事了！」,,,,
+liver.stall.throat,2,narrator,normal,催吐不會讓肝處理得比較快，還可能被嘔吐物嗆到。,,,,2
+liver.factory.console,1,liver,normal,一箱是一杯。處理一箱，要一個多小時。,,,,29
+liver.factory.console,2,liver,normal,打它、蓋章都沒用，只能等產線。,,,,22
+liver.factory.console,3,liver,normal,產線做出來的箱子，請推進第二產線。,,,,
+liver.warehouse.sign,1,liver,normal,產線忙碌中，暫停出貨。,mod.warehouse_locked,,,31
+liver.warehouse.sign,2,liver,normal,喝酒前先吃東西，倉庫才撐得住。,,,,31
+liver.end,1,narrator,normal,救護車開走了。你改拿烏龍茶，跟學弟妹和大四學長乾杯。,,,,
+liver.end,2,narrator,normal,學長說：「好啊，敬你。」你補一句：「期末 office hour 見。」,,,,

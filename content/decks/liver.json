@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "chapter": "liver",
+  "opening": [
+    {
+      "id": "dinner",
+      "options": [
+        { "id": "eat", "effect": "" },
+        { "id": "skip", "effect": "tag:fasting" }
+      ]
+    },
+    {
+      "id": "ride",
+      "options": [
+        { "id": "roommate", "effect": "tag:roommate" },
+        { "id": "bus", "effect": "" }
+      ]
+    }
+  ],
+  "events": [
+    {
+      "id": "toast",
+      "options": [
+        { "id": "tea", "effect": "" },
+        { "id": "one_more", "effect": "tag:alcohol+1" },
+        { "id": "food", "effect": "" }
+      ]
+    }
+  ]
+}

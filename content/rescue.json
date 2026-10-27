@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "rescues": [
+    {
+      "id": "akai",
+      "steps": ["call_119", "recovery_position", "stay"],
+      "myths": ["black_coffee", "cold_shower", "sleep_it_off"],
+      "order": ["black_coffee", "call_119", "cold_shower", "recovery_position", "sleep_it_off", "stay"],
+      "helper": { "when": "roommate", "step": "stay" },
+      "effects": "tag:rescued;unlock:alcohol_poisoning"
+    }
+  ]
+}

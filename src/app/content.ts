@@ -1,16 +1,18 @@
 import caffeineJson from '../../content/bosses/caffeine.json';
 import greyboxChapter from '../../content/chapters/greybox.json';
+import liverChapter from '../../content/chapters/liver.json';
 import prologueChapter from '../../content/chapters/prologue.json';
 import enemiesJson from '../../content/enemies.json';
 import feedbackJson from '../../content/feedback.json';
 import handbookJson from '../../content/handbook.json';
 import paramsJson from '../../content/params.json';
+import rescueJson from '../../content/rescue.json';
 import speakersJson from '../../content/speakers.json';
 import stringsJson from '../../content/strings/zh-TW.json';
 import tagsJson from '../../content/tags.json';
 import {
-  loadBossTable, loadDeck, loadDictionary, loadDialogueTable, loadEnemyTable, readContent,
-  type BossTable, type ChapterFile, type Deck, type DialogueFile, type DialogueTable, type EnemyTable, type TagDictionary,
+  loadBossTable, loadDeck, loadDictionary, loadDialogueTable, loadEnemyTable, loadRescues, readContent,
+  type BossTable, type ChapterFile, type Deck, type DialogueFile, type DialogueTable, type EnemyTable, type RescueTable, type TagDictionary,
 } from '../core/index.ts';
 import { speakerProblems, type Speakers } from './dialogue.ts';
 import { feedbackProblems, noteFields, type FeedbackTable, type StringTable } from './feedback.ts';
@@ -52,7 +54,9 @@ if (speakerIssues.length > 0) throw new Error(`content/dialogue:\n  ${speakerIss
  * chapter's `next`. A chapter left out here is never loaded, so its rooms never reach the game
  * even though the map check passes them.
  */
-export const CHAPTER_FILES: readonly unknown[] = [prologueChapter, greyboxChapter];
+export const CHAPTER_FILES: readonly unknown[] = [prologueChapter, greyboxChapter, liverChapter];
+/** The rescue sequences rooms open with a `rescue` Trigger; check-content words the problems this load throws on. */
+export const RESCUES: RescueTable = loadRescues(readContent('rescue', rescueJson), TAGS);
 export const CHAPTERS: ReadonlyMap<string, ChapterFile> = new Map(CHAPTER_FILES.map((f) => {
   const c = readContent('chapter', f);
   return [c.id, c] as const;
