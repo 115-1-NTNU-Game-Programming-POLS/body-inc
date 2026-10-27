@@ -60,7 +60,8 @@ export function operationFacts(
     const evening = minuteOf(rec.day, k.bedMin);
     const visited = new Set(rec.patrols.map((p) => p.floor));
     for (const floor of rec.lit) {
-      if (!struck.has(floor) || visited.has(floor)) continue;
+      // Design doc 8.4: a department says its symptom aloud from the orange light on, not at yellow.
+      if (!struck.has(floor) || visited.has(floor) || (rec.lights[floor] !== 'orange' && rec.lights[floor] !== 'red')) continue;
       const symptom = cfg.scopes[floor]?.symptom;
       out.push({ key: 'warning', scope: floor, at: morning, vars: symptom ? { symptom: text(symptom) } : {} });
     }

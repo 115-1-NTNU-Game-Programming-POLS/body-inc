@@ -28,7 +28,8 @@ function contentWith(...edits: [file: string, fn: (j: Record<string, any>) => vo
 
 const problems = (dir: string) => checkReports({ contentDir: dir, seeds: 2 }).problems;
 
-describe('report check (build plan P6)', () => {
+// The default batch is 960 semesters; on a loaded machine it needs more than the 5 s default.
+describe('report check (build plan P6)', { timeout: 60_000 }, () => {
   it('passes on the shipped content with the default batch and reports that nothing fell back to the generic sentence', () => {
     const r = checkReports();
     expect(r.problems).toEqual([]);
