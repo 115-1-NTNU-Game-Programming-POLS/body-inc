@@ -65,8 +65,8 @@ export interface DayRecord {
   readonly wake: number;
   /** Hour sleep began on the extended clock; absent on the final exam day, which has no night. */
   readonly bedEnd?: number;
-  /** The emergency-room entry of the causal log, when the night ended there. */
-  readonly crisis?: { readonly node: number; readonly at: number };
+  /** The emergency-room entry of the causal log, when the night ended there; `fasting` marks the liver strike on an empty stomach. */
+  readonly crisis?: { readonly node: number; readonly at: number; readonly fasting: boolean };
   readonly kind: 'normal' | 'exam' | 'hospital';
   /** False on the final exam day, which ends before any night settlement. */
   readonly settled: boolean;

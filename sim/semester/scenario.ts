@@ -68,6 +68,29 @@ export function bingeWeek(seed: number): Scenario {
   return days;
 }
 
+/** Barbecues on days 2 to 4 and again on 6 and 7: enough for a second trip to the emergency room. */
+export function bingeTwice(seed: number): Scenario {
+  const days: Record<number, string[]> = {};
+  for (const [day, ids] of Object.entries(bingeWeek(seed))) days[Number(day)] = [...ids];
+  for (const day of [6, 7]) (days[day] ??= []).push('bbq');
+  return days;
+}
+
+/** A barbecue on every evening of days 2 to 9, for a player who drinks but eats first. */
+export function drinkWeek(seed: number): Scenario {
+  const days: Record<number, string[]> = {};
+  for (const [day, ids] of Object.entries(scenarioFor(seed))) days[Number(day)] = ids.filter((id) => id !== 'bbq');
+  for (let day = 2; day <= 9; day++) (days[day] ??= []).push('bbq');
+  return days;
+}
+
+/** A late snack on every evening of days 2 to 9 and a deadline on four of them, with no barbecue. */
+export function crunchWeek(_seed: number): Scenario {
+  const days: Record<number, string[]> = {};
+  for (let day = 2; day <= 9; day++) days[day] = [...([3, 4, 8, 9].includes(day) ? ['deadline'] : []), 'late_snack'];
+  return days;
+}
+
 /** The game's own content, read the way the app reads it, for a semester played by a given skill. */
 export function contextFor(skill: number, seed: number, overrides: Partial<SemesterContext> = {}): SemesterContext {
   return {

@@ -333,7 +333,7 @@ function settle(d: DayRun, n: Night): Outcome {
     hospitals += 1;
     const [log, node] = record(tags.log, { kind: 'crisis', key: 'er', at, causes: strikeNodes });
     tags = { ...tags, log };
-    crisis = { node, at };
+    crisis = { node, at, fasting: crisisNight };
     if (hospitals >= 2) {
       bankrupt = true;
     } else {
