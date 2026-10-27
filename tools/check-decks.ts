@@ -11,7 +11,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  cardText, comboReports, loadBossTable, loadDialogueTable, loadEnemyTable, parseRoom, readContent, readDeck, roomsOf,
+  cardText, comboReports, fillHost, HOST_WORST, loadBossTable, loadDialogueTable, loadEnemyTable, parseRoom, readContent, readDeck, roomsOf,
   CHAPTER_OPENS, optionPressure, spreadEnds, worstSpread, type ChapterContent, type ComboReport, type Deck, type DeckProblem, type PlayProblem, type StringsFile,
   type TagDictionary, type TiledMap,
 } from '../src/core/index.ts';
@@ -80,9 +80,12 @@ function playMessage(file: string, r: ComboReport, p: PlayProblem): string {
   }
 }
 
-/** Lines the text takes at a text size, with the width model that needs no canvas. */
+/**
+ * Lines the text takes at a text size, with the width model that needs no canvas. `{host}` is
+ * measured as the widest name the player may choose, so no name can overflow a text that passes.
+ */
 const linesAt = (text: string, preset: { fontSize: number; maxWidth(scale: number): number }, scale: number): number =>
-  wrapCJK(text, preset.maxWidth(scale), modelMeasure(preset.fontSize * scale)).length;
+  wrapCJK(fillHost(text, HOST_WORST), preset.maxWidth(scale), modelMeasure(preset.fontSize * scale)).length;
 
 function textProblems(file: string, deck: Deck, strings: StringsFile, stringsFile: string): string[] {
   const out: string[] = [];
