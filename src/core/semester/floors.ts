@@ -20,7 +20,6 @@ export interface FloorThresholds {
   readonly floorRedAt: number;
 }
 
-/** Applies `f` to every floor. */
 export function mapFloors<T>(f: (floor: FloorId) => T): Readonly<Record<FloorId, T>> {
   return Object.fromEntries(FLOORS.map((fl) => [fl, f(fl)])) as Record<FloorId, T>;
 }

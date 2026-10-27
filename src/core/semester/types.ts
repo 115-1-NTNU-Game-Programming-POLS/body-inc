@@ -1,3 +1,4 @@
+import type { ParamsFile } from '../content/generated.ts';
 import type { MetabolismParams } from '../outer/caffeine.ts';
 import type { RngStreams } from '../rng.ts';
 import type { SleepCoefficients } from '../spirit.ts';
@@ -9,54 +10,23 @@ import type { Grade, LoadParams } from './load.ts';
 import type { SkillParams } from './rating.ts';
 
 /** The rules of content/params.json that a semester reads; the file's `defaults` satisfies it. */
-export interface SemesterParams extends SleepCoefficients, MetabolismParams, LoadParams, SkillParams {
-  readonly days: number;
-  readonly midDay: number;
-  readonly finDay: number;
-  readonly weekend: readonly number[];
-  readonly examHours: readonly number[];
-  readonly examWake: number;
-  readonly wake: number;
-  readonly bed: number;
-  readonly bedMin: number;
-  readonly bedMax: number;
-  readonly meals: readonly number[];
-  readonly classes: readonly number[];
-  readonly sleepNeed: number;
-  readonly repayRatio: number;
-  readonly cup: number;
-  readonly boostMin: number;
-  readonly boost: number;
-  readonly boostTolerant: number;
-  readonly cafSleepK: number;
-  readonly cafDeadZone: number;
-  readonly tolDays: number;
-  readonly tolCups: number;
-  readonly tolResetDays: number;
-  readonly withdrawal: number;
-  readonly alcoholSleep: number;
-  readonly snackSleep: number;
-  readonly passMid: number;
-  readonly passFin: number;
-  readonly hospitalDebtMult: number;
-  readonly hospitalFloorLoad: number;
-  readonly floorStrikeStudyMult: number;
-  readonly overtimeBedDelay: number;
-  readonly examPassPercent: number;
-}
+export type SemesterParams = SleepCoefficients & MetabolismParams & LoadParams & SkillParams & Pick<
+  ParamsFile['defaults'],
+  | 'days' | 'midDay' | 'finDay' | 'weekend' | 'examHours' | 'examWake' | 'wake' | 'bed' | 'bedMin' | 'bedMax' | 'bedOverrun' | 'wakeCap'
+  | 'meals' | 'classes' | 'sleepNeed' | 'repayRatio' | 'cup' | 'boostMin' | 'boost' | 'boostTolerant' | 'cafSleepK' | 'cafDeadZone'
+  | 'tolDays' | 'tolCups' | 'tolResetDays' | 'withdrawal' | 'alcoholSleep' | 'snackSleep' | 'passMid' | 'passFin'
+  | 'hospitalDebtMult' | 'hospitalFloorLoad' | 'hospitalSleep' | 'floorStrikeStudyMult' | 'overtimeBedDelay' | 'examPassPercent'
+>;
 
 /** What one option of an event does to the day; only the fields it names. */
 export interface EventOption {
   /** Cups of alcohol; any cup also pins a work order on the liver. */
   readonly alcohol?: number;
-  /** Drinking on an empty stomach. */
   readonly fasting?: boolean;
-  /** A program deadline weighs on the night. */
   readonly deadline?: boolean;
   readonly lateSnack?: boolean;
   /** Free hours of the day the event eats. */
   readonly workHours?: number;
-  /** Hours the event pushes bedtime back. */
   readonly bedDelay?: number;
 }
 
@@ -111,7 +81,7 @@ export interface DayRecord {
   /** Floors on strike after the night settlement. */
   readonly strikes: readonly FloorId[];
   /** Why the liver struck, when it did: the second and third condition of design doc 8.6. */
-  readonly liverStrike?: { readonly alcoholAtBed: boolean; readonly orderBefore: boolean };
+  readonly liverStrike?: { readonly alcoholAtBed: boolean; readonly dupMedication: boolean; readonly orderBefore: boolean };
   readonly hospitalized: boolean;
 }
 

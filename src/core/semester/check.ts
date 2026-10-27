@@ -33,7 +33,7 @@ export function semesterProblems(history: readonly DayRecord[], k: FloorThreshol
     }
     if (r.strikes.includes(LIVER)) {
       const why = r.liverStrike;
-      if (!why || !why.alcoholAtBed || !why.orderBefore || r.loadsSettled.liver < k.floorRedAt) {
+      if (!why || !(why.alcoholAtBed || why.dupMedication) || !why.orderBefore || r.loadsSettled.liver < k.floorRedAt) {
         out.push(`${at}: the liver struck without all three conditions of 8.6`);
       }
     } else if (r.liverStrike) {
