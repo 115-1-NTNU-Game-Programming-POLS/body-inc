@@ -754,3 +754,133 @@ describe('lights follow floors, not their order', () => {
     expect(elevatorPanel(zero, K).buttons.map((b) => b.floor)).toEqual([...FLOORS]);
   });
 });
+
+describe('the causal log of a semester', () => {
+  const MINUTES = 1440;
+  const dayOf = (at: number): number => Math.floor(at / MINUTES) + 1;
+  const bingeCtx = contextFor(0.5, 1, { scenario: Object.fromEntries([2, 3, 4].map((d) => [d, ['bbq']])) });
+  const binge = runSemester(bingeCtx, ARCHETYPES.drinkerBlind, 1);
+  const nodes = binge.tags.log.nodes;
+  const strikeDay = binge.history[3]!;
+
+  it('records the visit to the emergency room as a crisis, and which night and entry it was', () => {
+    const crisis = nodes[strikeDay.crisis!.node]!;
+    expect(crisis.kind).toBe('crisis');
+    expect(crisis.key).toBe('er');
+    expect(crisis.at).toBe(strikeDay.crisis!.at);
+    expect(dayOf(crisis.at)).toBe(4);
+    expect(binge.history.filter((r) => r.crisis).map((r) => r.day)).toEqual([4]);
+  });
+
+  it('makes the strikes of that night the parents of the crisis', () => {
+    const crisis = nodes[strikeDay.crisis!.node]!;
+    expect(crisis.causes.map((c) => nodes[c.node]!.key)).toEqual(['strike.liver']);
+    expect(crisis.causes.map((c) => nodes[c.node]!.kind)).toEqual(['effect']);
+  });
+
+  it('cites every night of the binge behind the liver strike, not only the last', () => {
+    const drinks = trace(binge.tags.log, strikeDay.crisis!.node).filter((n) => n.kind === 'event' && n.key.startsWith('event.bbq.'));
+    expect(drinks.map((n) => dayOf(n.at))).toEqual([2, 3, 4]);
+    expect(drinks.every((n) => n.data?.cups === 6)).toBe(true);
+  });
+
+  it('cites nothing that happened after the crisis', () => {
+    const crisis = nodes[strikeDay.crisis!.node]!;
+    const cited = trace(binge.tags.log, crisis.id);
+    expect(cited.length).toBeGreaterThan(3);
+    expect(cited.every((n) => n.at <= crisis.at)).toBe(true);
+    expect(cited.at(-1)!.id).toBe(crisis.id);
+  });
+
+  it('keeps a floor causes while it is hot and drops them when it is calm', () => {
+    let s = startSemester(bingeCtx, 1);
+    s = play(s, bingeCtx, ARCHETYPES.drinkerBlind);
+    expect(s.loadCauses.liver).toEqual([]);
+    s = play(s, bingeCtx, ARCHETYPES.drinkerBlind);
+    expect(s.loads.liver).toBeGreaterThanOrEqual(K.floorYellowAt);
+    expect(s.loadCauses.liver.map((id) => s.tags.log.nodes[id]!.key)).toEqual(['event.bbq.binge']);
+    s = play(s, bingeCtx, ARCHETYPES.drinkerBlind);
+    expect(s.loadCauses.liver).toHaveLength(2);
+    while (s.day <= 5) s = play(s, bingeCtx, ARCHETYPES.drinkerBlind);
+    expect(s.loads.liver).toBeLessThan(K.floorYellowAt);
+    expect(s.loadCauses.liver).toEqual([]);
+  });
+
+  it('keeps the causes of a floor that the hospital leaves exactly on the yellow line', () => {
+    let s = startSemester(bingeCtx, 1);
+    while (s.day <= 4) s = play(s, bingeCtx, ARCHETYPES.drinkerBlind);
+    expect(s.loads.liver).toBe(K.hospitalFloorLoad);
+    expect(K.hospitalFloorLoad).toBeGreaterThanOrEqual(K.floorYellowAt);
+    expect(s.loadCauses.liver.length).toBeGreaterThan(0);
+  });
+
+  describe('a strike cites what loaded the floor', () => {
+    const owl = (to: number): Strategy => ({ ...quiet, floor: () => ({ patrol: 'gut' }), night: () => ({ bed: to, nextWake: 11, lateNight: 'rest' }) });
+    const struck = (floor: 'brain' | 'stomach', event: string, option: string, bed: number): string[] => {
+      const ctx = contextFor(0.5, 1, { scenario: { 3: [event] } });
+      const s = play({ ...startSemester(ctx, 1), day: 3, loads: loads({ [floor]: 100 }) }, ctx, { ...owl(bed), choose: () => option });
+      expect(last(s.history).strikes).toContain(floor);
+      const node = s.tags.log.nodes.find((n) => n.key === `strike.${floor}`)!;
+      return node.causes.map((c) => s.tags.log.nodes[c.node]!.key);
+    };
+
+    it('names the deadline behind a brain strike', () => {
+      expect(struck('brain', 'deadline', 'squeeze', 22)).toEqual(['event.deadline.squeeze']);
+    });
+
+    it('names the late snack behind a stomach strike', () => {
+      expect(struck('stomach', 'late_snack', 'takeout', 24)).toEqual(['event.late_snack.takeout']);
+    });
+  });
+
+  it('draws the day of each record and the hour sleep began', () => {
+    expect(binge.history.map((r) => r.wake).slice(0, 4)).toEqual([K.wake, K.wake, K.wake, K.wake]);
+    expect(binge.history[1]!.bedEnd).toBe(22.5);
+    expect(binge.history.at(-1)!.bedEnd).toBeUndefined();
+  });
+
+  describe('what shortens a night is named as a cause of the sleep debt', () => {
+    const causesOfDebt = (s: SemesterState): { kind: string; key: string; data?: unknown }[] => {
+      const debt = s.tags.log.nodes[s.tags.values['sleep_debt']!.node]!;
+      return debt.causes.map((c) => s.tags.log.nodes[c.node]!).map((n) => ({ kind: n.kind, key: n.key, data: n.data }));
+    };
+    const keys = (s: SemesterState): string[] => causesOfDebt(s).map((c) => c.key);
+    const bedAt = (bed: number, lateNight: 'study' | 'rest' = 'rest'): Strategy => ({ ...quiet, night: () => ({ bed, nextWake: 7, lateNight }) });
+
+    it('names a bedtime after midnight, and study when the hours went to study', () => {
+      expect(keys(play(startSemester(CTX, 1), CTX, bedAt(25)))).toContain('stayed_up');
+      expect(keys(play(startSemester(CTX, 1), CTX, bedAt(25, 'study')))).toContain('study_late');
+      expect(keys(play(startSemester(CTX, 1), CTX, bedAt(25, 'study')))).not.toContain('stayed_up');
+    });
+
+    it('does not call midnight early, and calls it late from midnight on', () => {
+      const early = play(startSemester(CTX, 1), CTX, bedAt(23.5));
+      expect(amount(early.tags, CTX.dict, 'sleep_debt')).toBeGreaterThan(0);
+      expect(keys(early)).not.toContain('stayed_up');
+      expect(keys(play(startSemester(CTX, 1), CTX, bedAt(24)))).toContain('stayed_up');
+    });
+
+    it('names the caffeine left at bedtime, with its residual, and the cup it came from', () => {
+      const s = play(startSemester(CTX, 1), CTX, { ...quiet, plan: () => ({ coffee: [21], rest: [] }) });
+      const effect = causesOfDebt(s).find((c) => c.key === 'caffeine_insomnia')!;
+      expect(effect.kind).toBe('effect');
+      expect((effect.data as { residual: number }).residual).toBeGreaterThan(K.cafDeadZone - 1);
+      const id = s.tags.log.nodes.find((n) => n.key === 'caffeine_insomnia')!.id;
+      expect(trace(s.tags.log, id).map((n) => n.key)).toContain('coffee');
+      expect(keys(play(startSemester(CTX, 1), CTX, bedAt(25)))).not.toContain('caffeine_insomnia');
+      // a morning cup is mostly gone by a 01:00 bedtime: some residual, but under the dead zone
+      const morning = play(startSemester(CTX, 1), CTX, { ...bedAt(25), plan: () => ({ coffee: [8], rest: [] }) });
+      expect(keys(morning)).not.toContain('caffeine_insomnia');
+      expect(morning.tags.log.nodes.some((n) => n.kind === 'tag' && n.key === 'caffeine')).toBe(true);
+    });
+
+    it('names the drink in the body at bedtime and the snack', () => {
+      const bbq = contextFor(0.5, 1, { scenario: { 1: ['bbq'] } });
+      const drink = play(startSemester(bbq, 1), bbq, { ...quiet, choose: () => 'binge' });
+      expect(keys(drink)).toContain('alcohol_sleep');
+      const snackCtx = contextFor(0.5, 1, { scenario: { 1: ['late_snack'] } });
+      const snack = play(startSemester(snackCtx, 1), snackCtx, { ...bedAt(25), choose: () => 'takeout' });
+      expect(causesOfDebt(snack).some((c) => c.kind === 'tag' && c.key === 'late_snack')).toBe(true);
+    });
+  });
+});
