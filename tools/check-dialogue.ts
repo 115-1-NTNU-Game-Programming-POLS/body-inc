@@ -14,10 +14,11 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { ContentTypes, DialogueFile, DialogueProblem, Line } from '../src/core/index.ts';
-import { DIALOGUE_COLUMNS, DictionaryError, OPERATOR_SPEAKER, loadDictionary, readDialogues, schemaProblems } from '../src/core/index.ts';
+import { DIALOGUE_COLUMNS, DictionaryError, HOST_WORST, OPERATOR_SPEAKER, fillHost, loadDictionary, readDialogues, schemaProblems } from '../src/core/index.ts';
 import { modelMeasure } from '../src/view/text/measure.ts';
 import { DIALOGUE, MEMO, REPLY, TEXT_SCALES } from '../src/view/text/styles.ts';
 import { wrapCJK } from '../src/view/text/wrap.ts';
+import { placeholderProblems } from './check-content.ts';
 import { conditionMessage } from './check-maps.ts';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -81,9 +82,12 @@ export function dialogueMessage(p: DialogueProblem): string {
   }
 }
 
-/** Lines `text` takes at a text size, with the width model that needs no canvas. */
+/**
+ * Lines `text` takes at a text size, with the width model that needs no canvas. `{host}` is
+ * measured as the widest name the player may choose, so no name can overflow a text that passes.
+ */
 const linesAt = (text: string, preset: { fontSize: number; maxWidth(scale: number): number }, scale: number): number =>
-  wrapCJK(text, preset.maxWidth(scale), modelMeasure(preset.fontSize * scale)).length;
+  wrapCJK(fillHost(text, HOST_WORST), preset.maxWidth(scale), modelMeasure(preset.fontSize * scale)).length;
 
 function textProblem(l: Line, speaker: Speakers[string] | undefined): string | undefined {
   const reply = l.speaker === OPERATOR_SPEAKER;
@@ -166,6 +170,7 @@ export function checkDialogue(opts: DialogueCheckOptions = {}): string[] {
       }
       const fit = textProblem(l, speaker);
       if (fit) say(fit);
+      for (const p of placeholderProblems(l.text)) say(p);
       for (const fx of l.effects) if (fx.kind === 'unlock' && !pages.has(fx.id)) say(`effect 的 unlock:${fx.id} 不存在於手冊頁（content/handbook.json）`);
       if (opts.release && l.fact.startsWith('pending:')) say(`fact 還是 ${l.fact}，事實查核沒完成就不能發行；查核後請改成編號或 general`);
     }

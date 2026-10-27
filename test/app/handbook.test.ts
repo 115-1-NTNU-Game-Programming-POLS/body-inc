@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { DIALOGUES, HANDBOOK, STRINGS, TAGS } from '../../src/app/content.ts';
 import { handbookProblems, keepPage, missingPages, titleKey } from '../../src/app/handbook.ts';
 import { SaveStore, type KeyValueStore } from '../../src/app/storage.ts';
-import { decode, DEFAULT_HOST, encode, loadDialogueTable, parseRoom, PROGRESS, withPage, type ProgressData, type TiledMap } from '../../src/core/index.ts';
+import { decode, DEFAULT_HOST, encode, fillHost, HOST_WORST, loadDialogueTable, parseRoom, PROGRESS, withPage, type ProgressData, type TiledMap } from '../../src/core/index.ts';
 import { modelMeasure } from '../../src/view/text/measure.ts';
 import { HANDBOOK as LAYOUT, TEXT_SCALES } from '../../src/view/text/styles.ts';
 import { wrapCJK } from '../../src/view/text/wrap.ts';
@@ -98,17 +98,29 @@ describe('handbook content', () => {
     ]);
   });
 
-  it('every page fits its body area at both text sizes', () => {
-    const b = LAYOUT.body;
-    for (const scale of TEXT_SCALES) {
-      const size = b.fontSize * scale;
-      for (const page of HANDBOOK.pages) {
-        const height = page.body.reduce((h, key) => {
-          const lines = wrapCJK(STRINGS.strings[key]!.text, LAYOUT.pageWidth, modelMeasure(size)).length;
-          return h + lines * size * b.lineHeight + LAYOUT.paragraphGap;
-        }, 0);
-        expect(height, `${page.id} at ${scale * 100}%`).toBeLessThanOrEqual(LAYOUT.bodyHeight);
-      }
-    }
+  /** Pages whose body is taller than the page at a text size, `{host}` measured as the widest name allowed. */
+  const overflowing = (texts: readonly (readonly string[])[]): string[] => TEXT_SCALES.flatMap((scale) => {
+    const size = LAYOUT.body.fontSize * scale;
+    return texts.flatMap((body, i) => {
+      const height = body.reduce((h, text) => {
+        const lines = wrapCJK(fillHost(text, HOST_WORST), LAYOUT.pageWidth, modelMeasure(size)).length;
+        return h + lines * size * LAYOUT.body.lineHeight + LAYOUT.paragraphGap;
+      }, 0);
+      return height > LAYOUT.bodyHeight ? [`page ${i} at ${scale * 100}%`] : [];
+    });
+  });
+
+  it('every page fits its body area at both text sizes, with the widest host name', () => {
+    expect(overflowing(HANDBOOK.pages.map((p) => p.body.map((key) => STRINGS.strings[key]!.text)))).toEqual([]);
+  });
+
+  it('the fit measures {host} as the widest name, so a page that fits only 小晨 is caught', () => {
+    // Full lines of the page at the larger size, the last one ending with the host's name.
+    const size = LAYOUT.body.fontSize * 1.25;
+    const perLine = Math.floor(LAYOUT.pageWidth / size);
+    const lines = Math.floor((LAYOUT.bodyHeight - LAYOUT.paragraphGap) / (size * LAYOUT.body.lineHeight));
+    const fill = '一'.repeat(perLine * lines - 2);
+    expect(overflowing([[fill + '小晨']])).toEqual([]);
+    expect(overflowing([[fill + '{host}']])).toEqual(['page 0 at 125%']);
   });
 });

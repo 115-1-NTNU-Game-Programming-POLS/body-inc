@@ -6,10 +6,11 @@ import { portraitsUsed } from '../../app/dialogue.ts';
 import { chapterOfRoom, gaugeFromQuery, halvesFromQuery, roomFromQuery, tagsFromQuery } from '../../app/session.ts';
 import { browserStore, SaveStore, type SaveIssue } from '../../app/storage.ts';
 import {
-  EMPTY_TAGS, listProps, PROGRESS, roomsOf, SETTINGS, startChapter, STORY, type ChapterContent, type TagState, type TiledMapFile,
+  DEFAULT_HOST, EMPTY_TAGS, listProps, PROGRESS, roomsOf, savedHost, SETTINGS, startChapter, STORY, type ChapterContent, type ProgressData, type TagState,
+  type TiledMapFile,
 } from '../../core/index.ts';
 import { glyphCorpus } from '../text/corpus.ts';
-import { addSystemText, loadFonts, type FontGateResult } from '../text/fonts.ts';
+import { addSystemText, admitText, loadFonts, setHostName, type FontGateResult } from '../text/fonts.ts';
 
 /** Phaser cache key of a room's Tiled map; the room path is folder/map as in the chapter file. */
 export const roomKey = (path: string): string => `room:${path}`;
@@ -44,7 +45,8 @@ export class BootScene extends Phaser.Scene {
 
   preload(): void {
     // Fonts load in parallel with the assets; no scene that draws text starts before both finish.
-    this.fonts = loadFonts(glyphCorpus(STRINGS, DIALOGUE_TEXT));
+    // The default host name is in no content text yet, but `{host}` reads as it on a fresh save.
+    this.fonts = loadFonts(glyphCorpus(STRINGS, [...DIALOGUE_TEXT, DEFAULT_HOST]));
     this.load.on(Phaser.Loader.Events.FILE_LOAD_ERROR, (file: Phaser.Loader.File) => {
       this.failed.push(`failed to load ${file.url}`);
     });
@@ -136,7 +138,7 @@ export class BootScene extends Phaser.Scene {
       }
       this.loadSaves();
       this.registry.set('chapters', contexts);
-      this.start(contexts);
+      void this.admitHost().then(() => this.start(contexts));
     });
   }
 
@@ -172,6 +174,18 @@ export class BootScene extends Phaser.Scene {
     this.registry.set('story', story.data);
     this.registry.set('progress', progress.data);
     this.registry.set('save-issues', issues);
+  }
+
+  /**
+   * Makes the saved host name drawable before any scene shows `{host}`. A name that no longer
+   * passes the rules, or that no font can draw, reads as the default instead of stopping Boot.
+   */
+  private async admitHost(): Promise<void> {
+    const progress = this.registry.get('progress') as ProgressData;
+    let name = savedHost(progress);
+    if (name !== DEFAULT_HOST && (await admitText(name)).length > 0) name = DEFAULT_HOST;
+    setHostName(name);
+    if (name !== progress.hostName) this.registry.set('progress', { ...progress, hostName: name });
   }
 
   private fail(): void {

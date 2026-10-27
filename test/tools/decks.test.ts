@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 import { checkContent } from '../../tools/check-content.ts';
 import { checkDecks } from '../../tools/check-decks.ts';
+import { CARD, TEXT_SCALES } from '../../src/view/text/styles.ts';
 
 const root = mkdtempSync(join(tmpdir(), 'deck-check-'));
 afterAll(() => rmSync(root, { recursive: true, force: true }));
@@ -50,6 +51,15 @@ describe('deck check (build plan P1)', () => {
   it('a card title too long for its lines at the larger text size is refused', () => {
     const dir = contentWith('strings/zh-TW.json', (j) => { j['strings']['deck.greybox.bedtime.title'].text = '昨'.repeat(70); });
     expect(problems(dir)).toEqual([expect.stringMatching(/「deck\.greybox\.bedtime\.title」：卡片的題目放不下，字級 \d+% 時要 \d 行，上限 2 行/)]);
+  });
+
+  it('a card title is measured with the widest host name, so one that fits only 小晨 is refused', () => {
+    // Full-width characters a card title holds at the tighter text size.
+    const room = Math.min(...TEXT_SCALES.map((s) => Math.floor(CARD.title.maxWidth(s) / (CARD.title.fontSize * s)) * CARD.title.maxLines));
+    const named = contentWith('strings/zh-TW.json', (j) => { j['strings']['deck.greybox.bedtime.title'].text = '小晨' + '昨'.repeat(room - 2); });
+    expect(problems(named)).toEqual([]);
+    const host = contentWith('strings/zh-TW.json', (j) => { j['strings']['deck.greybox.bedtime.title'].text = '{host}' + '昨'.repeat(room - 2); });
+    expect(problems(host)).toEqual([expect.stringMatching(/「deck\.greybox\.bedtime\.title」：卡片的題目放不下/)]);
   });
 
   it('an effect the reader does not understand is explained', () => {

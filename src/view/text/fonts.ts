@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { DEFAULT_HOST, fillHost } from '../../core/index.ts';
 import { cssFont, FACES, FONT, type FontRole } from './styles.ts';
 import { wrapCJK, type Measure } from './wrap.ts';
 
@@ -13,6 +14,8 @@ import { wrapCJK, type Measure } from './wrap.ts';
  * refuses text with a character outside that set.
  */
 let loaded: ReadonlySet<string> | undefined;
+/** What `{host}` reads as in every text; set at Boot from the save and when the player renames the host. */
+let host = DEFAULT_HOST;
 
 export interface FontGateResult {
   readonly problems: readonly string[];
@@ -84,6 +87,29 @@ export async function loadFonts(corpus: string, timeoutMs = 20000): Promise<Font
 export const fontsReady = (): boolean => loaded !== undefined;
 
 /**
+ * Loads every face for text outside the corpus, such as a host name the player typed, and lets
+ * addText draw it. Resolves with the characters no face can draw (no slice covers them, or the
+ * load timed out); then nothing is admitted.
+ */
+export async function admitText(text: string, timeoutMs = 8000): Promise<string[]> {
+  if (!loaded) return [...new Set(text)];
+  const known = loaded;
+  const fresh = [...new Set(text)].filter((c) => c !== '\n' && !known.has(c));
+  if (fresh.length === 0) return [];
+  const chars = fresh.join('');
+  const loads = Promise.all(FACES.map(({ role, weight }) => document.fonts.load(cssFont(role, weight, 22), chars)));
+  const timedOut = await Promise.race([loads.then(() => false, () => false), sleep(timeoutMs).then(() => true)]);
+  const missing = timedOut ? fresh : [...new Set(FACES.flatMap(({ role, weight }) => uncovered(FONT[role], weight, chars)))];
+  if (missing.length === 0) loaded = new Set([...known, ...fresh]);
+  return missing;
+}
+
+/** Sets what `{host}` reads as from now on. The name must have passed readHostName and admitText. */
+export function setHostName(name: string): void {
+  host = name;
+}
+
+/**
  * Rejects text the gate has not covered. Development builds throw so the mistake is found at
  * once; a release build logs it and draws the text anyway, since a fallback glyph beats a crash.
  */
@@ -122,7 +148,9 @@ export interface TextSpec {
   readonly padding?: { readonly x: number; readonly y: number };
 }
 
-function layout(text: string, spec: TextSpec): string {
+/** The host's name goes in before wrapping, so lines break where the real name ends. */
+function layout(template: string, spec: TextSpec): string {
+  const text = fillHost(template, host);
   assertCovered(text);
   return spec.maxWidth === undefined ? text : wrapCJK(text, spec.maxWidth, measurer(spec.role, spec.weight, spec.size)).join('\n');
 }
