@@ -747,8 +747,13 @@ describe('what the operator did and left undone', () => {
   const bed = ctx.params.bedMin;
   type Patrol = DayRecord['patrols'][number];
   const patrol = (floor: FloorId, grade: Patrol['grade'], overtime = false): Patrol => ({ floor, grade, overtime });
+  const lightsOf = (lit: readonly FloorId[], light: 'yellow' | 'orange' | 'red' = 'orange'): DayRecord['lights'] =>
+    Object.fromEntries((['brain', 'immune', 'stomach', 'liver', 'gut'] as const).map((f) => [f, lit.includes(f) ? light : 'off'])) as DayRecord['lights'];
   const rec = (day: number, over: Partial<DayRecord> = {}): DayRecord =>
-    ({ ...run.history[0]!, day, kind: 'normal', lit: [], patrols: [], loadsBefore: { ...run.history[0]!.loadsBefore, liver: 0 }, ...over });
+    ({
+      ...run.history[0]!, day, kind: 'normal', lit: [], lights: lightsOf(over.lit ?? []), patrols: [],
+      loadsBefore: { ...run.history[0]!.loadsBefore, liver: 0 }, ...over,
+    });
   const facts = (history: DayRecord[], struck: FloorId[], liverOrders: number[] = [], after = 0, upTo = 10): ReportFact[] =>
     operationFacts(history, { ...run, liverOrders } as SemesterState, ctx, new Set(struck), text, CFG, after, upTo);
 
@@ -757,6 +762,19 @@ describe('what the operator did and left undone', () => {
     expect(facts([day], ['brain', 'gut'])).toEqual([
       { key: 'warning', scope: 'brain', at: minuteOf(3, day.wake), vars: { symptom: text(CFG.scopes['brain']!.symptom!) } },
     ]);
+  });
+
+  it('says a department reported its symptom only from the orange light on, not at yellow', () => {
+    const warned = (light: 'yellow' | 'orange' | 'red'): number => facts([rec(3, { lit: ['brain'], lights: lightsOf(['brain'], light) })], ['brain']).length;
+    expect([warned('yellow'), warned('orange'), warned('red')]).toEqual([0, 1, 1]);
+  });
+
+  it('writes no warning for the days a cram week stomach was only yellow', () => {
+    const crunch = contextFor(0.2, 1, { scenario: crunchWeek(1) });
+    const crammed = runSemester(crunch, ARCHETYPES.crammer, 1);
+    const stomach = operationFacts(crammed.history, crammed, crunch, new Set(['brain', 'stomach']), text, CFG, 0, 10).filter((f) => f.key === 'warning' && f.scope === 'stomach');
+    expect(stomach.length).toBeGreaterThan(0);
+    for (const f of stomach) expect(['orange', 'red']).toContain(crammed.history[Math.floor(f.at / DAY)]!.lights.stomach);
   });
 
   it('writes a poor patrol only for a floor that struck and a patrol rated C', () => {
