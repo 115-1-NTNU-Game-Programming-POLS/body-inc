@@ -22,9 +22,10 @@ const segmenter = new Intl.Segmenter('zh-Hant', { granularity: 'grapheme' });
 /** Characters as a reader counts them: a surrogate pair or a letter with its accent is one, as `string.length` would not say. */
 export const graphemes = (s: string): number => [...segmenter.segment(s)].length;
 
-// Control and format characters (\p{C}) would draw as nothing or break lines; braces would read as
-// a placeholder and angle brackets as markup.
-const BAD_CHAR = /[\p{C}{}<>]/u;
+// Control and format characters (\p{C}) and the line and paragraph separators (\p{Zl}, \p{Zp}, which
+// \p{C} leaves out) would draw as nothing or break lines; braces would read as a placeholder and
+// angle brackets as markup.
+const BAD_CHAR = /[\p{C}\p{Zl}\p{Zp}{}<>]/u;
 
 /** A typed name made ready to keep: NFC, trimmed, 1 to HOST_MAX characters, no forbidden character. */
 export function readHostName(raw: string): NameRead {
