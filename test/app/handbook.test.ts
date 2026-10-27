@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { DIALOGUES, HANDBOOK, STRINGS, TAGS } from '../../src/app/content.ts';
 import { handbookProblems, keepPage, missingPages, titleKey } from '../../src/app/handbook.ts';
 import { SaveStore, type KeyValueStore } from '../../src/app/storage.ts';
-import { decode, encode, loadDialogueTable, parseRoom, PROGRESS, withPage, type ProgressData, type TiledMap } from '../../src/core/index.ts';
+import { decode, DEFAULT_HOST, encode, loadDialogueTable, parseRoom, PROGRESS, withPage, type ProgressData, type TiledMap } from '../../src/core/index.ts';
 import { modelMeasure } from '../../src/view/text/measure.ts';
 import { HANDBOOK as LAYOUT, TEXT_SCALES } from '../../src/view/text/styles.ts';
 import { wrapCJK } from '../../src/view/text/wrap.ts';
@@ -14,14 +14,14 @@ function memoryStore(): KeyValueStore & { data: Map<string, string> } {
 
 describe('progress slot', () => {
   it('a new page is added once, in the order found', () => {
-    const a = withPage({ handbook: [] }, 'caffeine')!;
+    const a = withPage({ handbook: [], hostName: DEFAULT_HOST }, 'caffeine')!;
     expect(a.handbook).toEqual(['caffeine']);
     expect(withPage(a, 'caffeine')).toBeUndefined();
     expect(withPage(a, 'sleep_debt')!.handbook).toEqual(['caffeine', 'sleep_debt']);
   });
 
   it('round-trips, and a list with a page twice is not a valid slot', () => {
-    expect(decode(PROGRESS, encode(PROGRESS, { handbook: ['caffeine'] }))).toMatchObject({ kind: 'ok', data: { handbook: ['caffeine'] } });
+    expect(decode(PROGRESS, encode(PROGRESS, { handbook: ['caffeine'], hostName: DEFAULT_HOST }))).toMatchObject({ kind: 'ok', data: { handbook: ['caffeine'] } });
     expect(decode(PROGRESS, null)).toMatchObject({ kind: 'empty', data: { handbook: [] } });
     const twice = JSON.stringify({ schema: 1, data: { handbook: ['caffeine', 'caffeine'] } });
     expect(decode(PROGRESS, twice).kind).toBe('invalid');
@@ -30,8 +30,8 @@ describe('progress slot', () => {
   it('keepPage writes a new page at once and leaves a known page alone', () => {
     const store = memoryStore();
     const saves = new SaveStore(store);
-    const first = keepPage(saves, { handbook: [] }, 'caffeine');
-    expect(first).toEqual({ progress: { handbook: ['caffeine'] }, isNew: true, issues: [] });
+    const first = keepPage(saves, { handbook: [], hostName: DEFAULT_HOST }, 'caffeine');
+    expect(first).toEqual({ progress: { handbook: ['caffeine'], hostName: DEFAULT_HOST }, isNew: true, issues: [] });
     const written = decode(PROGRESS, store.data.get('hbc.v1.progress') ?? null);
     expect(written).toMatchObject({ kind: 'ok', data: { handbook: ['caffeine'] } });
     store.data.clear();
@@ -42,7 +42,7 @@ describe('progress slot', () => {
 
   it('a failed write still gives back the page to show, with the issue', () => {
     const blocked: KeyValueStore = { getItem: () => null, removeItem: () => {}, setItem: () => { throw new DOMException('no', 'SecurityError'); } };
-    const kept = keepPage(new SaveStore(blocked), { handbook: [] } satisfies ProgressData, 'caffeine');
+    const kept = keepPage(new SaveStore(blocked), { handbook: [], hostName: DEFAULT_HOST } satisfies ProgressData, 'caffeine');
     expect(kept.progress.handbook).toEqual(['caffeine']);
     expect(kept.issues).toEqual([{ kind: 'write-failed', slot: 'progress', reason: 'blocked' }]);
   });

@@ -47,6 +47,7 @@ export * from './content/read.ts';
 export * from './content/schema.ts';
 export * from './save/save.ts';
 export * from './save/slots.ts';
+export * from './host/name.ts';
 export * from './exam/scoring.ts';
 export * from './semester/index.ts';
 export * from './report/index.ts';
