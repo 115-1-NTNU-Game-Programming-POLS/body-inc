@@ -1,15 +1,15 @@
 {
   "version": 1,
   "tags": [
-    { "name": "sleep_debt", "type": "number", "unit": "hours", "sources": ["card", "event"], "duration": "persistent", "facts": ["17", "pending:1"] },
+    { "name": "sleep_debt", "type": "number", "unit": "hours", "sources": ["card", "event", "rule"], "duration": "persistent", "facts": ["17", "pending:1"] },
     { "name": "caffeine", "type": "number", "unit": "residual", "sources": ["card", "chapter"], "duration": "persistent", "facts": ["26"] },
     { "name": "caffeine_tolerant", "type": "boolean", "sources": ["rule"], "duration": "persistent", "facts": ["33"] },
     { "name": "withdrawal", "type": "boolean", "sources": ["rule"], "duration": "untilWake", "facts": ["33"] },
     { "name": "breakfast", "type": "boolean", "sources": ["card"], "duration": "untilWake", "facts": ["21", "27"] },
-    { "name": "fasting", "type": "boolean", "sources": ["card"], "duration": "untilWake", "facts": ["31"] },
+    { "name": "fasting", "type": "boolean", "sources": ["card", "event"], "duration": "untilWake", "facts": ["31"] },
     { "name": "glucose", "type": "number", "unit": "meter", "sources": ["chapter", "event", "rule"], "duration": "untilWake", "facts": ["21", "27"] },
     { "name": "sugar_fatigue", "type": "boolean", "sources": ["card", "event"], "duration": "hours", "hours": 2, "facts": ["13"] },
-    { "name": "late_snack", "type": "boolean", "sources": ["card"], "duration": "nextDay", "facts": ["14"] },
+    { "name": "late_snack", "type": "boolean", "sources": ["card", "event"], "duration": "nextDay", "facts": ["14"] },
     { "name": "alcohol", "type": "number", "unit": "cups", "sources": ["event"], "duration": "persistent", "facts": ["22", "29", "pending:4"] },
     { "name": "dup_medication", "type": "boolean", "sources": ["event"], "duration": "persistent", "facts": ["pending:13"] },
     { "name": "stress", "type": "number", "sources": ["card", "event"], "duration": "persistent", "facts": ["23", "28"] },

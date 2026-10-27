@@ -802,7 +802,23 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
           "wakeCap",
           "examWake",
           "bossSecondsPerHour",
-          "exploreSecondsPerHour"
+          "exploreSecondsPerHour",
+          "floorYellowAt",
+          "floorOrangeAt",
+          "floorRedAt",
+          "floorOmenCap",
+          "floorSleepRepair",
+          "floorNeglect",
+          "floorPatrolBase",
+          "floorPatrolPerGrade",
+          "floorStallBest",
+          "floorStrikeStudyMult",
+          "floorContrib",
+          "overtimeBedDelay",
+          "hospitalFloorLoad",
+          "examPassPercent",
+          "skillNoise",
+          "ratingCuts"
         ],
         "properties": {
           "days": {
@@ -1277,6 +1293,141 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
             "description": "Real seconds per game hour on the chapter clock while exploring.",
             "type": "number",
             "exclusiveMinimum": 0
+          },
+          "floorYellowAt": {
+            "description": "Floor load at which a floor lights yellow (design doc 8.4).",
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "floorOrangeAt": {
+            "description": "Floor load at which a floor lights orange.",
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "floorRedAt": {
+            "description": "Floor load at which a floor lights red and strikes.",
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "floorOmenCap": {
+            "description": "Highest load a floor that was under floorOrangeAt can reach in one night.",
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "floorSleepRepair": {
+            "description": "Load repaired per effective sleep hour, on every floor.",
+            "type": "number",
+            "minimum": 0
+          },
+          "floorNeglect": {
+            "description": "Load added to a floor at floorYellowAt or more that was not patrolled today.",
+            "type": "number",
+            "minimum": 0
+          },
+          "floorPatrolBase": {
+            "description": "Patrol reduction at grade C.",
+            "type": "number",
+            "minimum": 0
+          },
+          "floorPatrolPerGrade": {
+            "description": "Extra patrol reduction per grade step (C 0, B 1, A 2, S 3).",
+            "type": "number",
+            "minimum": 0
+          },
+          "floorStallBest": {
+            "description": "Lowest load a patrol of a striking floor can bring it to.",
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "floorStrikeStudyMult": {
+            "description": "Study efficiency multiplier while the brain floor strikes.",
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "floorContrib": {
+            "description": "First-version daily floor load contributions of design doc 8.4 for the behaviours the semester prototype models.",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "debtBrain",
+              "deadlineBrain",
+              "toleranceBrain",
+              "lateSnackStomach",
+              "alcoholLiver",
+              "fastingAlcoholMult"
+            ],
+            "properties": {
+              "debtBrain": {
+                "description": "Brain load per hour of sleep debt.",
+                "type": "number",
+                "minimum": 0
+              },
+              "deadlineBrain": {
+                "description": "Brain load on a night with a program deadline.",
+                "type": "number",
+                "minimum": 0
+              },
+              "toleranceBrain": {
+                "description": "Brain load on a night while caffeine tolerance holds.",
+                "type": "number",
+                "minimum": 0
+              },
+              "lateSnackStomach": {
+                "description": "Stomach load on a night with a late snack.",
+                "type": "number",
+                "minimum": 0
+              },
+              "alcoholLiver": {
+                "description": "Liver load per cup of alcohol.",
+                "type": "number",
+                "minimum": 0
+              },
+              "fastingAlcoholMult": {
+                "description": "Multiplier on the alcohol load when drinking on an empty stomach.",
+                "type": "number",
+                "minimum": 1
+              }
+            }
+          },
+          "overtimeBedDelay": {
+            "description": "Hours an overtime patrol pushes bedtime back.",
+            "type": "number",
+            "minimum": 0
+          },
+          "hospitalFloorLoad": {
+            "description": "Load every floor is brought down to by a hospital stay.",
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "examPassPercent": {
+            "description": "Exam percent at or above which an exam passes.",
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "skillNoise": {
+            "description": "Width of the blur added to the abstract combat skill k per roll.",
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "ratingCuts": {
+            "description": "Blurred skill cuts between the grades C, B, A and S, ascending.",
+            "type": "array",
+            "minItems": 3,
+            "maxItems": 3,
+            "items": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            }
           }
         }
       },
@@ -2071,6 +2222,51 @@ export interface ParamsFile {
     readonly bossSecondsPerHour: number;
     /** Real seconds per game hour on the chapter clock while exploring. */
     readonly exploreSecondsPerHour: number;
+    /** Floor load at which a floor lights yellow (design doc 8.4). */
+    readonly floorYellowAt: number;
+    /** Floor load at which a floor lights orange. */
+    readonly floorOrangeAt: number;
+    /** Floor load at which a floor lights red and strikes. */
+    readonly floorRedAt: number;
+    /** Highest load a floor that was under floorOrangeAt can reach in one night. */
+    readonly floorOmenCap: number;
+    /** Load repaired per effective sleep hour, on every floor. */
+    readonly floorSleepRepair: number;
+    /** Load added to a floor at floorYellowAt or more that was not patrolled today. */
+    readonly floorNeglect: number;
+    /** Patrol reduction at grade C. */
+    readonly floorPatrolBase: number;
+    /** Extra patrol reduction per grade step (C 0, B 1, A 2, S 3). */
+    readonly floorPatrolPerGrade: number;
+    /** Lowest load a patrol of a striking floor can bring it to. */
+    readonly floorStallBest: number;
+    /** Study efficiency multiplier while the brain floor strikes. */
+    readonly floorStrikeStudyMult: number;
+    /** First-version daily floor load contributions of design doc 8.4 for the behaviours the semester prototype models. */
+    readonly floorContrib: {
+      /** Brain load per hour of sleep debt. */
+      readonly debtBrain: number;
+      /** Brain load on a night with a program deadline. */
+      readonly deadlineBrain: number;
+      /** Brain load on a night while caffeine tolerance holds. */
+      readonly toleranceBrain: number;
+      /** Stomach load on a night with a late snack. */
+      readonly lateSnackStomach: number;
+      /** Liver load per cup of alcohol. */
+      readonly alcoholLiver: number;
+      /** Multiplier on the alcohol load when drinking on an empty stomach. */
+      readonly fastingAlcoholMult: number;
+    };
+    /** Hours an overtime patrol pushes bedtime back. */
+    readonly overtimeBedDelay: number;
+    /** Load every floor is brought down to by a hospital stay. */
+    readonly hospitalFloorLoad: number;
+    /** Exam percent at or above which an exam passes. */
+    readonly examPassPercent: number;
+    /** Width of the blur added to the abstract combat skill k per roll. */
+    readonly skillNoise: number;
+    /** Blurred skill cuts between the grades C, B, A and S, ascending. */
+    readonly ratingCuts: readonly number[];
   };
   readonly difficulty: readonly Difficulty[];
   readonly semesterCards: {
