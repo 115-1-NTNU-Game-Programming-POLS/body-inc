@@ -7,6 +7,7 @@
     "check": "node check.js",
     "discriminate": "node discriminate.js",
     "accept": "node accept.js",
-    "ladder": "node ladder.js"
+    "ladder": "node ladder.js",
+    "semester": "node semester.ts"
   }
 }
