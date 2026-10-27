@@ -11,14 +11,8 @@ import { liverClues, liverStrikes } from './liver.ts';
 import { contributions, nextLoad, strikes, type DayFacts } from './load.ts';
 import { examPerformance, gradeFor } from './rating.ts';
 import type {
-  DayRecord, DayView, PatrolRecord, SemesterContext, SemesterEvent, SemesterState, SemesterSummary, Strategy,
+  DayRecord, DayView, PatrolRecord, SemesterContext, SemesterEvent, SemesterParams, SemesterState, SemesterSummary, Strategy,
 } from './types.ts';
-
-/** Hours the effective sleep of a hospital night counts for (the old sim's assumption, kept). */
-const HOSPITAL_SLEEP = 9;
-
-/** The extended clock allows an event to push bedtime at most two hours past bedMax. */
-const BED_OVERRUN = 2;
 
 const STEP = 0.5;
 
@@ -48,7 +42,19 @@ export function activeModifiers(tags: TagState, dict: TagDictionary): string[] {
   return [...dict.aliases].filter(([, alias]) => holds(tags, dict, alias.condition)).map(([name]) => name);
 }
 
+/** Settings that would break a guarantee of design doc 8.4 are refused when the semester starts. */
+function checkParams(k: SemesterParams): void {
+  const rising = (names: string, xs: readonly number[]): void => {
+    if (!xs.every((x, i) => i === 0 || xs[i - 1]! < x)) throw new RangeError(`${names} must be strictly increasing, got ${xs.join(', ')}`);
+  };
+  rising('floorYellowAt, floorOrangeAt, floorRedAt', [k.floorYellowAt, k.floorOrangeAt, k.floorRedAt]);
+  rising('ratingCuts', k.ratingCuts);
+  if (k.floorOmenCap >= k.floorRedAt) throw new RangeError('floorOmenCap must stay under floorRedAt, or a floor could strike with no orange night before');
+  if (k.floorStallBest >= k.floorRedAt) throw new RangeError('floorStallBest must stay under floorRedAt, or a patrol could not lift a floor off the red line');
+}
+
 export function startSemester(ctx: SemesterContext, seed: number): SemesterState {
+  checkParams(ctx.params);
   for (const [day, ids] of Object.entries(ctx.scenario)) {
     for (const id of ids) if (!ctx.events.has(id)) throw new RangeError(`scenario day ${day} names the unknown event "${id}"`);
   }
@@ -115,9 +121,10 @@ function roll(d: DayRun): number {
   return r;
 }
 
-function applyEvents(d: DayRun, upTo: number): void {
+/** Plays the events due by `upTo`; with `before`, only those strictly earlier, for the moment bedtime comes. */
+function applyEvents(d: DayRun, upTo: number, before = false): void {
   const { dict } = d.ctx;
-  while (d.pending.length > 0 && d.pending[0]!.hour <= upTo) {
+  while (d.pending.length > 0 && (before ? d.pending[0]!.hour < upTo : d.pending[0]!.hour <= upTo)) {
     const ev = d.pending.shift()!;
     const keys = Object.keys(ev.options);
     const pick = d.strategy.choose(ev.id, keys, viewOf(d));
@@ -241,16 +248,17 @@ function settle(d: DayRun, n: Night): Outcome {
   const grades = new Map(n.patrols.map((p) => [p.floor, p.grade] as const));
   let loads = mapFloors((f) => {
     const grade = grades.get(f);
-    return nextLoad(d.morningLoads[f], add[f], { sleep: effective, ...(grade ? { grade } : {}), attended: grade !== undefined || n.hospitalDay }, k);
+    return nextLoad(f, d.morningLoads[f], add[f], { sleep: effective, ...(grade ? { grade } : {}), attended: grade !== undefined || n.hospitalDay }, k);
   });
 
   const orderBefore = d.s.liverOrders.some((o) => o < day);
+  const dupMedication = flag(tags, dict, 'dup_medication');
   const struck = FLOORS.filter((f) => (f === 'liver'
-    ? liverStrikes({ load: loads.liver, alcohol: alcoholAtBed, dupMedication: flag(tags, dict, 'dup_medication'), orders: d.s.liverOrders, day }, k)
+    ? liverStrikes({ load: loads.liver, alcohol: alcoholAtBed, dupMedication, orders: d.s.liverOrders, day }, k)
     : strikes(f, loads[f], k)));
   // Design doc 8.6: a struck liver plus an empty stomach is the dizzy-and-sweating crisis.
-  const crisis = struck.includes('liver') && flag(tags, dict, 'fasting');
-  const er = struck.length >= 2 || (struck.length >= 1 && crisis);
+  const crisis = struck.includes('liver') && d.fasting;
+  const er = struck.length >= 2 || crisis;
 
   const loadsSettled = loads;
   let hospitals = d.s.hospitals;
@@ -267,10 +275,10 @@ function settle(d: DayRun, n: Night): Outcome {
     } else {
       // The first visit is a hospital day: loads fall to the cap, debt halves, and the night counts as 9 good hours.
       const halved = amount(tags, dict, 'sleep_debt') * k.hospitalDebtMult;
-      tags = setAmount(tags, dict, 'sleep_debt', nextSleepDebt(halved, HOSPITAL_SLEEP, k), rule, at);
+      tags = setAmount(tags, dict, 'sleep_debt', nextSleepDebt(halved, k.hospitalSleep, k), rule, at);
       loads = mapFloors((f) => Math.min(loads[f], k.hospitalFloorLoad));
       hospitalDay = day + 1;
-      residualHours = HOSPITAL_SLEEP;
+      residualHours = k.hospitalSleep;
     }
   }
   tags = metabolise(tags, dict, Math.round(residualHours * 60), k);
@@ -296,7 +304,7 @@ function settle(d: DayRun, n: Night): Outcome {
     strikes: struck,
     hospitalized: er,
     loadsSettled,
-    ...(struck.includes('liver') ? { liverStrike: { alcoholAtBed, orderBefore } } : {}),
+    ...(struck.includes('liver') ? { liverStrike: { alcoholAtBed, dupMedication, orderBefore } } : {}),
   };
 }
 
@@ -330,7 +338,7 @@ export function playDay(s0: SemesterState, ctx: SemesterContext, strategy: Strat
   }
   if (exam === 'fin') {
     const rec: DayRecord = {
-      ...header, kind: 'exam', settled: false, patrols: [], events: [], loadsAfter: s0.loads, loadsSettled: s0.loads, strikes: [],
+      ...header, kind: hospitalDay ? 'hospital' : 'exam', settled: false, patrols: [], events: [], loadsAfter: s0.loads, loadsSettled: s0.loads, strikes: [],
       hospitalized: false, studyHours: 0,
     };
     return { ...d.s, history: [...d.s.history, rec] };
@@ -356,6 +364,8 @@ export function playDay(s0: SemesterState, ctx: SemesterContext, strategy: Strat
     if (coffee.has(h)) drinkCup(d, h);
     spend(d, 1, activityAt(d, h, rest));
   }
+  // An event between two whole hours before 22:00 is still due when the evening begins.
+  if (!hospitalDay) applyEvents(d, k.bedMin, true);
 
   // The elevator comes after the day's events and before bedtime (design doc 8.1); exams replace the patrol.
   const patrols: PatrolRecord[] = [];
@@ -372,10 +382,11 @@ export function playDay(s0: SemesterState, ctx: SemesterContext, strategy: Strat
     ? { bed: k.bed, nextWake: k.wake, lateNight: 'rest' as const }
     : strategy.night(viewOf(d));
   const bedBase = Math.min(k.bedMax, Math.max(k.bedMin, wholeHalfHours('bed', night.bed)));
-  if (!Number.isInteger(night.nextWake)) throw new RangeError(`nextWake must be a whole hour, got ${night.nextWake}`);
-  const nextWake = examOn(day + 1, ctx) !== null ? Math.min(night.nextWake, k.examWake) : night.nextWake;
+  if (!Number.isInteger(night.nextWake) || night.nextWake < 0) throw new RangeError(`nextWake must be a whole hour from 0, got ${night.nextWake}`);
+  const sleptIn = Math.min(night.nextWake, k.wakeCap);
+  const nextWake = examOn(day + 1, ctx) !== null ? Math.min(sleptIn, k.examWake) : sleptIn;
   const overtimeDelay = patrols.some((p) => p.overtime) ? k.overtimeBedDelay : 0;
-  const bedEndAt = (): number => Math.min(bedBase + d.bedDelay + overtimeDelay, k.bedMax + BED_OVERRUN);
+  const bedEndAt = (): number => Math.min(bedBase + d.bedDelay + overtimeDelay, k.bedMax + k.bedOverrun);
   for (let t = k.bedMin; t < bedEndAt(); t += STEP) {
     if (!hospitalDay) applyEvents(d, t);
     if (t >= bedEndAt()) break;
@@ -395,7 +406,11 @@ export function playDay(s0: SemesterState, ctx: SemesterContext, strategy: Strat
 
 export function runSemester(ctx: SemesterContext, strategy: Strategy, seed: number): SemesterState {
   let s = startSemester(ctx, seed);
-  while (!s.ended) s = playDay(s, ctx, strategy);
+  // Every turn is one day, so a semester that outlasts its calendar has a final exam that never comes.
+  for (let turn = 0; !s.ended; turn++) {
+    if (turn >= ctx.params.days) throw new RangeError(`the semester has not ended after ${ctx.params.days} days`);
+    s = playDay(s, ctx, strategy);
+  }
   return s;
 }
 

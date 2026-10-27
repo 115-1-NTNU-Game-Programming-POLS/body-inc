@@ -151,7 +151,9 @@
         "floorStrikeStudyMult",
         "floorContrib",
         "overtimeBedDelay",
+        "bedOverrun",
         "hospitalFloorLoad",
+        "hospitalSleep",
         "examPassPercent",
         "skillNoise",
         "ratingCuts"
@@ -736,11 +738,21 @@
           "type": "number",
           "minimum": 0
         },
+        "bedOverrun": {
+          "description": "Hours past bedMax that events and an overtime patrol can push bedtime.",
+          "type": "number",
+          "minimum": 0
+        },
         "hospitalFloorLoad": {
           "description": "Load every floor is brought down to by a hospital stay.",
           "type": "number",
           "minimum": 0,
           "maximum": 100
+        },
+        "hospitalSleep": {
+          "description": "Effective sleep hours the night after an emergency visit counts for.",
+          "type": "number",
+          "minimum": 0
         },
         "examPassPercent": {
           "description": "Exam percent at or above which an exam passes.",

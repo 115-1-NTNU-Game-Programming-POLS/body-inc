@@ -1,13 +1,7 @@
 /**
- * Headless semester runs on the shared core (build plan L3).
- *
- *   node semester.ts [n=200]      exit 1 when any simulated state breaks an invariant
- *
- * Every archetype plays n semesters at a low and a high combat skill (design doc 9.5). The table is
- * a first look at the building, not a balance result: the floor numbers of design doc 8.4 are
- * first versions that design doc 9.6 lists for re-simulation. What the exit code vouches for is
- * structural: the liver light is off in every state, a floor never skips its orange night, and a
- * liver strike always has its three conditions.
+ * Headless semester runs on the shared core (build plan L3): `node semester.ts [n=200]`, exit 1
+ * when any simulated state breaks an invariant. The table is not a balance result; see the L3
+ * paragraph of docs/build-plan.md.
  */
 import { runSemester, semesterProblems, summarize } from '../src/core/index.ts';
 import { ARCHETYPES, type ArchetypeName } from './semester/archetypes.ts';
@@ -23,12 +17,14 @@ const f1 = (x: number): string => x.toFixed(1).padStart(6);
 
 console.log(`${'scenario'.padEnd(10)} ${'archetype'.padEnd(16)} skill   mid   fin  grade  pass%  hosp%  bank%  liver peak  liver strikes  lit-liver days  problems`);
 let problems = 0;
+// Reading and validating the content files dominates a run, so it is done once per skill.
+const BASES = new Map(SKILLS.map((skill) => [skill, contextFor(skill, 1, { scenario: {} })] as const));
 for (const [scenario, scenarioOf] of Object.entries(SCENARIOS)) {
   for (const name of Object.keys(ARCHETYPES) as ArchetypeName[]) {
     for (const skill of SKILLS) {
       const rows = [];
       for (let seed = 1; seed <= n; seed++) {
-        const ctx = contextFor(skill, seed, { scenario: scenarioOf(seed) });
+        const ctx = { ...BASES.get(skill)!, scenario: scenarioOf(seed) };
         const end = runSemester(ctx, ARCHETYPES[name], seed);
         const found = semesterProblems(end.history, ctx.params);
         problems += found.length;

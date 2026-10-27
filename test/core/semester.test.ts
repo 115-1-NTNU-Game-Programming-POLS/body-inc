@@ -61,39 +61,44 @@ describe('the nightly load (design doc 8.4)', () => {
   });
 
   it('repairs two points per effective sleep hour and stops at 0', () => {
-    expect(nextLoad(30, 0, night(8), K)).toBe(14);
-    expect(nextLoad(10, 0, night(8), K)).toBe(0);
+    expect(nextLoad('brain', 30, 0, night(8), K)).toBe(14);
+    expect(nextLoad('brain', 10, 0, night(8), K)).toBe(0);
   });
 
   it('adds the neglect bonus only to an unpatrolled floor that began at 40 or more', () => {
-    expect(nextLoad(40, 0, night(8), K)).toBe(34);
-    expect(nextLoad(39.9, 0, night(8), K)).toBeCloseTo(23.9);
-    expect(nextLoad(40, 0, night(8, { attended: true }), K)).toBe(24);
+    expect(nextLoad('brain', 40, 0, night(8), K)).toBe(34);
+    expect(nextLoad('brain', 39.9, 0, night(8), K)).toBeCloseTo(23.9);
+    expect(nextLoad('brain', 40, 0, night(8, { attended: true }), K)).toBe(24);
   });
 
   it('lowers a patrolled floor by 30 plus 10 per grade step', () => {
     expect((['C', 'B', 'A', 'S'] as const).map((g) => patrolReduction(g, K))).toEqual([30, 40, 50, 60]);
-    expect(nextLoad(70, 0, night(0, { grade: 'S' }), K)).toBe(10);
-    expect(nextLoad(70, 0, night(0, { grade: 'C' }), K)).toBe(40);
+    expect(nextLoad('brain', 70, 0, night(0, { grade: 'S' }), K)).toBe(10);
+    expect(nextLoad('brain', 70, 0, night(0, { grade: 'C' }), K)).toBe(40);
   });
 
   it('caps the night at 84 for a floor that began under orange, so a strike always follows an orange night', () => {
-    expect(nextLoad(59.9, 100, night(0), K)).toBe(84);
-    expect(nextLoad(60, 100, night(0), K)).toBe(100);
-    expect(strikes('brain', nextLoad(59.9, 100, night(0), K), K)).toBe(false);
+    expect(nextLoad('brain', 59.9, 100, night(0), K)).toBe(84);
+    expect(nextLoad('brain', 60, 100, night(0), K)).toBe(100);
+    expect(strikes('brain', nextLoad('brain', 59.9, 100, night(0), K), K)).toBe(false);
   });
 
   it('lets a patrol bring a striking floor down to 70 and no lower', () => {
-    expect(nextLoad(90, 0, night(8, { grade: 'S' }), K)).toBe(70);
-    expect(nextLoad(85, 0, night(8, { grade: 'S' }), K)).toBe(70);
-    expect(nextLoad(84.9, 0, night(8, { grade: 'S' }), K)).toBeCloseTo(8.9);
-    expect(nextLoad(80, 0, night(8, { grade: 'S' }), K)).toBe(4);
-    expect(nextLoad(90, 0, night(8), K)).toBe(84);
+    expect(nextLoad('brain', 90, 0, night(8, { grade: 'S' }), K)).toBe(70);
+    expect(nextLoad('brain', 85, 0, night(8, { grade: 'S' }), K)).toBe(70);
+    expect(nextLoad('brain', 84.9, 0, night(8, { grade: 'S' }), K)).toBeCloseTo(8.9);
+    expect(nextLoad('brain', 80, 0, night(8, { grade: 'S' }), K)).toBe(4);
+    expect(nextLoad('brain', 90, 0, night(8), K)).toBe(84);
+  });
+
+  it('never stalls a patrol of the liver, which is not on strike by load', () => {
+    expect(nextLoad('liver', 90, 0, night(8, { grade: 'S' }), K)).toBe(14);
+    expect(nextLoad('stomach', 90, 0, night(8, { grade: 'S' }), K)).toBe(70);
   });
 
   it('stays within 0 to 100', () => {
-    expect(nextLoad(99, 500, night(0), K)).toBe(100);
-    expect(nextLoad(0, 0, night(24), K)).toBe(0);
+    expect(nextLoad('brain', 99, 500, night(0), K)).toBe(100);
+    expect(nextLoad('brain', 0, 0, night(24), K)).toBe(0);
   });
 
   it('reads the contribution column of 8.4 for the behaviours the prototype models', () => {
@@ -239,10 +244,36 @@ describe('one day', () => {
     expect(at(23, plain).s.history[0]!.patrols).toHaveLength(1);
   });
 
-  it('refuses an overtime patrol on the same floor, a bad bedtime and a half-hour wake-up', () => {
+  it('refuses an overtime patrol on the same floor, a bad bedtime and a half-hour or negative wake-up', () => {
     expect(() => play(startSemester(CTX, 1), CTX, { ...quiet, floor: () => ({ patrol: 'brain', overtime: 'brain' }) })).toThrow(RangeError);
     expect(() => play(startSemester(CTX, 1), CTX, { ...quiet, night: () => ({ bed: 22.25, nextWake: 7, lateNight: 'rest' }) })).toThrow(/half an hour/);
     expect(() => play(startSemester(CTX, 1), CTX, { ...quiet, night: () => ({ bed: 22, nextWake: 7.5, lateNight: 'rest' }) })).toThrow(/whole hour/);
+    expect(() => play(startSemester(CTX, 1), CTX, { ...quiet, night: () => ({ bed: 22, nextWake: -1, lateNight: 'rest' }) })).toThrow(/whole hour/);
+  });
+
+  it('caps a sleep-in at wakeCap, so a late wake-up cannot repay the debt without limit', () => {
+    const ctx = contextFor(0.5, 1, { scenario: {}, startDebt: 10 });
+    const debtAfter = (nextWake: number) => amount(
+      play({ ...startSemester(ctx, 1), day: 2 }, ctx, { ...quiet, night: () => ({ bed: 22, nextWake, lateNight: 'rest' }) }).tags, ctx.dict, 'sleep_debt',
+    );
+    expect(K.wakeCap).toBe(11);
+    expect(debtAfter(K.wakeCap)).toBeLessThan(debtAfter(7));
+    expect(debtAfter(20)).toBe(debtAfter(K.wakeCap));
+  });
+
+  it('stops a run whose final exam never comes instead of playing on', () => {
+    const ctx = contextFor(0.5, 1, { scenario: {}, params: { ...K, finDay: K.days + 2 } });
+    expect(() => runSemester(ctx, quiet, 1)).toThrow(/has not ended after 10 days/);
+  });
+
+  it('refuses settings that would break the omen guarantee or scramble the lights', () => {
+    const start = (params: Partial<typeof K>) => () => startSemester(contextFor(0.5, 1, { scenario: {}, params: { ...K, ...params } }), 1);
+    expect(start({})).not.toThrow();
+    expect(start({ floorOmenCap: K.floorRedAt })).toThrow(/floorOmenCap/);
+    expect(start({ floorStallBest: K.floorRedAt })).toThrow(/floorStallBest/);
+    expect(start({ floorOrangeAt: K.floorYellowAt })).toThrow(/strictly increasing/);
+    expect(start({ floorRedAt: K.floorOrangeAt - 1 })).toThrow(/strictly increasing/);
+    expect(start({ ratingCuts: [0.5, 0.25, 0.75] })).toThrow(/ratingCuts/);
   });
 
   it('caps the wake-up on an exam morning', () => {
@@ -302,6 +333,16 @@ describe('events and tags', () => {
     const ctx = evCtx({ 2: ['bbq'] });
     expect(() => play({ ...startSemester(ctx, 1), day: 2 }, ctx, pick('bbq', 'shots'))).toThrow(/shots/);
     expect(() => startSemester(evCtx({ 3: ['karaoke'] }), 1)).toThrow(/karaoke/);
+  });
+
+  it('plays an event between two whole hours before bedtime, and misses one that comes up at bedtime', () => {
+    const at = (hour: number): SemesterEvent => ({ id: 'chat', hour, options: { on: {} } });
+    const events = (hour: number) => {
+      const ctx = evCtx({ 2: ['chat'] }, { events: new Map([['chat', at(hour)]]) });
+      return last(play({ ...startSemester(ctx, 1), day: 2 }, ctx).history).events;
+    };
+    expect(events(21.5)).toEqual([{ id: 'chat', option: 'on' }]);
+    expect(events(22)).toEqual([]);
   });
 
   it('misses an event that comes up after the player is in bed', () => {
@@ -471,7 +512,7 @@ describe('exams and hospital (design doc 8.9, 8.11)', () => {
     // night 4: 84 + 72 + 10 - 14.4 passes 100, with the drink in the body and orders from days 2 and 3
     expect(d4.loadsSettled.liver).toBe(100);
     expect(d4.strikes).toEqual(['liver']);
-    expect(d4.liverStrike).toEqual({ alcoholAtBed: true, orderBefore: true });
+    expect(d4.liverStrike).toEqual({ alcoholAtBed: true, dupMedication: false, orderBefore: true });
     // fasting turns the strike into the dizzy crisis and a trip to the emergency room
     expect(d4.hospitalized).toBe(true);
     expect(d4.loadsAfter.liver).toBe(K.hospitalFloorLoad);
@@ -565,6 +606,22 @@ describe('exams and hospital (design doc 8.9, 8.11)', () => {
       expect(last(s.history).strikes).toEqual(['liver']);
       expect(last(s.history).hospitalized).toBe(true);
       expect(s.hospitals).toBe(1);
+    });
+
+    it('records a final exam lost to a hospital day as a hospital day, scored 0', () => {
+      const s = play({ ...startSemester(CTX, 1), day: 10, progress: 60, hospitalDay: 10 }, CTX);
+      expect(s.fin).toBe(0);
+      expect(s.ended).toBe(true);
+      expect(last(s.history)).toMatchObject({ kind: 'hospital', settled: false, hospitalized: false });
+    });
+
+    it('strikes the liver on a double medication alone, and the invariant check accepts it', () => {
+      const s0 = { ...startSemester(CTX, 1), day: 3, loads: loads({ liver: 100 }), liverOrders: [2] };
+      const [log, cause] = record(s0.tags.log, { kind: 'rule', key: 'test', at: 0 });
+      const s = play({ ...s0, tags: setFlag({ ...s0.tags, log }, CTX.dict, 'dup_medication', true, cause, 0) }, CTX);
+      expect(last(s.history).strikes).toEqual(['liver']);
+      expect(last(s.history).liverStrike).toEqual({ alcoholAtBed: false, dupMedication: true, orderBefore: true });
+      expect(semesterProblems(s.history, K)).toEqual([]);
     });
 
     it('fails the semester at a second visit even if the final exam would have been a pass', () => {
@@ -673,10 +730,10 @@ describe('the invariant check can fail', () => {
 
   it('reports a strike without its conditions, and a load outside 0 to 100', () => {
     expect(find(tamper(1, { strikes: ['liver'] })).join('\n')).toMatch(/without all three conditions/);
-    expect(find(tamper(3, { liverStrike: { alcoholAtBed: false, orderBefore: true } })).join('\n')).toMatch(/without all three conditions/);
-    expect(find(tamper(3, { liverStrike: { alcoholAtBed: true, orderBefore: false } })).join('\n')).toMatch(/without all three conditions/);
+    expect(find(tamper(3, { liverStrike: { alcoholAtBed: false, dupMedication: false, orderBefore: true } })).join('\n')).toMatch(/without all three conditions/);
+    expect(find(tamper(3, { liverStrike: { alcoholAtBed: true, dupMedication: false, orderBefore: false } })).join('\n')).toMatch(/without all three conditions/);
     expect(find(tamper(1, { loadsAfter: { ...history[1]!.loadsAfter, gut: 101 } })).join('\n')).toMatch(/outside 0 to 100/);
-    expect(find(tamper(1, { liverStrike: { alcoholAtBed: true, orderBefore: true } })).join('\n')).toMatch(/not on strike/);
+    expect(find(tamper(1, { liverStrike: { alcoholAtBed: true, dupMedication: false, orderBefore: true } })).join('\n')).toMatch(/not on strike/);
     // day 4 is the strike; a liver that settled under the line cannot have struck
     expect(find(tamper(3, { loadsSettled: { ...history[3]!.loadsSettled, liver: 50 } })).join('\n')).toMatch(/without all three conditions/);
   });

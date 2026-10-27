@@ -35,7 +35,6 @@ export interface DayFacts {
   readonly tolerant: boolean;
   readonly lateSnack: boolean;
   readonly alcoholCups: number;
-  /** Drinking on an empty stomach. */
   readonly fasting: boolean;
 }
 
@@ -72,16 +71,17 @@ export interface FloorNight {
  * Tomorrow's load (design doc 8.4):
  *   load + contribution + neglect bonus - sleep repair - patrol reduction
  * with two guards: a floor that was under orange cannot reach a strike in one night, so every
- * strike is preceded by at least one orange night, and a patrol of a striking floor can only
- * bring it down to floorStallBest. The result stays within 0 to 100.
+ * strike is preceded by at least one orange night, and a patrol of a floor on strike can only
+ * bring it down to floorStallBest. The liver is never on strike by load (design doc 8.6 lifts its
+ * strike with the morning), so its patrol is never stalled. The result stays within 0 to 100.
  */
-export function nextLoad(prev: number, add: number, night: FloorNight, k: LoadParams): number {
+export function nextLoad(floor: FloorId, prev: number, add: number, night: FloorNight, k: LoadParams): number {
   let load = prev + add;
   if (prev >= k.floorYellowAt && !night.attended) load += k.floorNeglect;
   load -= k.floorSleepRepair * night.sleep;
   if (night.grade !== undefined) load -= patrolReduction(night.grade, k);
   if (prev < k.floorOrangeAt) load = Math.min(load, k.floorOmenCap);
-  if (night.grade !== undefined && prev >= k.floorRedAt) load = Math.max(load, k.floorStallBest);
+  if (night.grade !== undefined && strikes(floor, prev, k)) load = Math.max(load, k.floorStallBest);
   return round6(Math.min(100, Math.max(0, load)));
 }
 

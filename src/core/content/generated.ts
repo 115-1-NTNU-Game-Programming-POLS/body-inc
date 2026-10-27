@@ -815,7 +815,9 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
           "floorStrikeStudyMult",
           "floorContrib",
           "overtimeBedDelay",
+          "bedOverrun",
           "hospitalFloorLoad",
+          "hospitalSleep",
           "examPassPercent",
           "skillNoise",
           "ratingCuts"
@@ -1400,11 +1402,21 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
             "type": "number",
             "minimum": 0
           },
+          "bedOverrun": {
+            "description": "Hours past bedMax that events and an overtime patrol can push bedtime.",
+            "type": "number",
+            "minimum": 0
+          },
           "hospitalFloorLoad": {
             "description": "Load every floor is brought down to by a hospital stay.",
             "type": "number",
             "minimum": 0,
             "maximum": 100
+          },
+          "hospitalSleep": {
+            "description": "Effective sleep hours the night after an emergency visit counts for.",
+            "type": "number",
+            "minimum": 0
           },
           "examPassPercent": {
             "description": "Exam percent at or above which an exam passes.",
@@ -2259,8 +2271,12 @@ export interface ParamsFile {
     };
     /** Hours an overtime patrol pushes bedtime back. */
     readonly overtimeBedDelay: number;
+    /** Hours past bedMax that events and an overtime patrol can push bedtime. */
+    readonly bedOverrun: number;
     /** Load every floor is brought down to by a hospital stay. */
     readonly hospitalFloorLoad: number;
+    /** Effective sleep hours the night after an emergency visit counts for. */
+    readonly hospitalSleep: number;
     /** Exam percent at or above which an exam passes. */
     readonly examPassPercent: number;
     /** Width of the blur added to the abstract combat skill k per roll. */
