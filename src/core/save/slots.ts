@@ -1,4 +1,5 @@
 import type { RuleClock } from '../clock.ts';
+import { DEFAULT_HOST, readHostName } from '../host/name.ts';
 import type { TagState } from '../tags/store.ts';
 import { isRecord, type Schema } from '../content/schema.ts';
 import type { SlotDef } from './save.ts';
@@ -179,26 +180,44 @@ export const STORY: SlotDef<StoryData> = {
 };
 
 /**
- * Cross-run progress (design doc 13.5): what outlives every run and every chapter. Only the
- * handbook so far; achievements, the career tree and the rest join it when they exist.
+ * Cross-run progress (design doc 13.5): what outlives every run and every chapter. The handbook
+ * and the host's name so far; achievements, the career tree and the rest join it when they exist.
  */
 export interface ProgressData {
   /** Unlocked handbook page ids, in the order they were found. */
   readonly handbook: readonly string[];
+  /** What `{host}` reads as. A new game or a checkpoint never resets it; see `savedHost`. */
+  readonly hostName: string;
 }
 
 export const PROGRESS: SlotDef<ProgressData> = {
   name: 'progress',
-  version: 1,
+  version: 2,
   schema: {
     type: 'object',
     additionalProperties: false,
-    required: ['handbook'],
-    properties: { handbook: { type: 'array', uniqueItems: true, items: { type: 'string', minLength: 1 } } },
+    required: ['handbook', 'hostName'],
+    properties: {
+      handbook: { type: 'array', uniqueItems: true, items: { type: 'string', minLength: 1 } },
+      // The schema cannot count characters; savedHost applies the full rules after loading.
+      hostName: { type: 'string', minLength: 1 },
+    },
   },
-  defaults: () => ({ handbook: [] }),
-  migrations: {},
+  defaults: () => ({ handbook: [], hostName: DEFAULT_HOST }),
+  migrations: {
+    // Version 2 keeps the host's name; before it the host was always 小晨.
+    1: (data) => (isRecord(data) ? { ...data, hostName: DEFAULT_HOST } : data),
+  },
 };
+
+/**
+ * The saved name if it still passes the naming rules, otherwise the default. Storage can be
+ * edited by hand, and a name the rules refuse could break a line or a placeholder.
+ */
+export function savedHost(progress: ProgressData): string {
+  const read = readHostName(progress.hostName);
+  return read.ok && read.name === progress.hostName ? read.name : DEFAULT_HOST;
+}
 
 /** Progress with the page added, or undefined when it was already there, so nothing needs saving. */
 export function withPage(progress: ProgressData, id: string): ProgressData | undefined {
