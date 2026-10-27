@@ -30,10 +30,11 @@ const ALL_EVENTS: Record<GameEvent['type'], true> = {
   dispersed: true, reformed: true, respawned: true, immuneBounce: true, heartLost: true, freeze: true, forcedLeave: true,
   gaugeFull: true, stampRaised: true, stampLanded: true, stampVoid: true, clung: true, forcedNap: true,
   bossStage: true, bossDrink: true, bossSummon: true, powerCut: true, proposalRejected: true, bossDefeated: true,
-  doorEntered: true, doorLocked: true, switchChanged: true, boxMoved: true, boxDelivered: true, portFilled: true, pickedUp: true,
+  doorEntered: true, doorLocked: true, switchChanged: true, boxMoved: true, boxDelivered: true, portFilled: true, crateTaken: true, pickedUp: true,
   triggerEntered: true, talk: true, bedUse: true,
   roomChanged: true, dialogueOpened: true, dialogueClosed: true, handbookUnlocked: true, bedRefused: true, napped: true,
-  checkpointSaved: true, clockAdvanced: true, cardOpened: true, cardChosen: true, toolGranted: true, glucoseRefilled: true,
+  checkpointSaved: true, clockAdvanced: true, cardOpened: true, cardChosen: true, toolGranted: true, glucoseRefilled: true, dizzyChanged: true,
+  rescueOpened: true, rescueStep: true, rescueDone: true,
   outerRequested: true, returnedToCheckpoint: true, chapterEnded: true,
 };
 /** Every event type core can emit; a feedback key outside this list is a typo. */

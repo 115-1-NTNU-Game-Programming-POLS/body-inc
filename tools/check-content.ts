@@ -12,9 +12,10 @@ import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { feedbackProblems, noteFields } from '../src/app/feedback.ts';
 import { handbookProblems } from '../src/app/handbook.ts';
-import type { ContentTypes, SchemaName, SchemaProblem } from '../src/core/index.ts';
+import type { ContentTypes, RescueProblemCode, SchemaName, SchemaProblem, TagDictionary } from '../src/core/index.ts';
 import {
-  BossTableError, DictionaryError, EnemyTableError, OPERATOR_SPEAKER, loadBossTable, loadDictionary, loadEnemyTable, schemaProblems, type EnemyTable,
+  BossTableError, DictionaryError, EnemyTableError, OPERATOR_SPEAKER, loadBossTable, loadDictionary, loadEnemyTable, readRescues, rescueStringKeys, schemaProblems,
+  type EnemyTable,
 } from '../src/core/index.ts';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -33,7 +34,17 @@ const RULES: ReadonlyArray<readonly [RegExp, SchemaName]> = [
   [/^decks\/[a-z][a-z0-9-]*\.json$/, 'deck'],
   [/^handbook\.json$/, 'handbook'],
   [/^report\.json$/, 'report'],
+  [/^rescue\.json$/, 'rescue'],
 ];
+
+const RESCUE_PROBLEM: Record<RescueProblemCode, string> = {
+  duplicate: 'id 重複',
+  repeat: 'steps 與 myths 之間有重複的行動',
+  order: 'order 必須剛好列出 steps 與 myths 的每一個行動各一次',
+  'helper-step': 'helper 的 step 不是 steps 裡的行動',
+  'helper-when': 'helper 的 when 條件式有誤',
+  effects: 'effects 有誤（寫法同對話的 effect 欄，只能設定 sources 含 event 的標籤）',
+};
 
 const TYPE_NAME: Record<string, string> = {
   object: '物件', array: '清單', string: '文字', number: '數字', integer: '整數', boolean: 'true 或 false', null: 'null',
@@ -170,6 +181,22 @@ export function checkContent(contentDir: string): string[] {
   if (handbook) {
     for (const p of handbookProblems(handbook.value, strings.map(([, s]) => ({ file: s.file, value: s.value as ContentTypes['strings'] })))) {
       out.push(`${handbook.file}：${p}`);
+    }
+  }
+
+  // A rescue goes through the game's own reader, then every line its panel can show must exist.
+  const rescue = get<'rescue'>('rescue.json');
+  if (rescue && tags) {
+    let dict: TagDictionary | undefined;
+    try { dict = loadDictionary(tags.value); } catch { dict = undefined; }
+    if (dict) for (const p of readRescues(rescue.value, dict).problems) out.push(`${rescue.file}：救援「${p.id}」${RESCUE_PROBLEM[p.code]}${p.detail ? `（${p.detail}）` : ''}`);
+    for (const r of rescue.value.rescues) {
+      for (const [, s] of strings) {
+        const table = (s.value as ContentTypes['strings']).strings;
+        for (const k of rescueStringKeys(r)) if (!table[k]) out.push(`${rescue.file}：救援「${r.id}」在 ${s.file} 缺少文字「${k}」`);
+      }
+      const pages = new Set(handbook?.value.pages.map((p) => p.id) ?? []);
+      for (const m of r.effects.matchAll(/unlock:([a-z0-9_]+)/g)) if (!pages.has(m[1]!)) out.push(`${rescue.file}：救援「${r.id}」解鎖的手冊頁「${m[1]}」不在 content/handbook.json`);
     }
   }
 

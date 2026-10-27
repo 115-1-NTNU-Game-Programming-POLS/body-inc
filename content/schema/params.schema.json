@@ -139,6 +139,7 @@
         "examWake",
         "bossSecondsPerHour",
         "exploreSecondsPerHour",
+        "liverRate",
         "floorYellowAt",
         "floorOrangeAt",
         "floorRedAt",
@@ -624,6 +625,11 @@
         },
         "bossSecondsPerHour": {
           "description": "Real seconds per game hour on the boss clock.",
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "liverRate": {
+          "description": "Cups of alcohol the liver's first line processes per game hour.",
           "type": "number",
           "exclusiveMinimum": 0
         },

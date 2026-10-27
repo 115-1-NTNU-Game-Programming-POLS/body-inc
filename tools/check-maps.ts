@@ -41,6 +41,8 @@ export interface MapContent {
   readonly handbookIds: ReadonlySet<string>;
   /** Event card ids by chapter, read loosely from content/decks: what is wrong inside a deck is check-decks' to say. */
   readonly cardIds?: ReadonlyMap<string, ReadonlySet<string>>;
+  /** Rescue ids, read loosely from content/rescue.json: what is wrong inside one is check-content's to say. */
+  readonly rescueIds?: ReadonlySet<string>;
   /** Chapter files by chapter id; a file that fails to parse or its schema is left out and reported in `problems`. */
   readonly chapters?: ReadonlyMap<string, ChapterFile>;
   /** Problems found while reading content (a chapter file that does not parse), reported first. */
@@ -97,12 +99,22 @@ export function loadMapContent(contentDir = join(ROOT, 'content')): MapContent {
       cardIds.set(basename(f, '.json'), ids);
     }
   }
+  const rescueIds = new Set<string>();
+  if (existsSync(join(contentDir, 'rescue.json'))) {
+    try {
+      const value = json('rescue.json') as { rescues?: { id?: unknown }[] };
+      for (const r of Array.isArray(value.rescues) ? value.rescues : []) rescueIds.add(String(r?.id));
+    } catch {
+      // A rescue file that does not parse is check-content's to report.
+    }
+  }
   return {
     dict: loadDictionary(json('tags.json')),
     enemies: loadEnemyTable(json('enemies.json')),
     dialogueIds,
     handbookIds: new Set(handbook.map((p) => p.id)),
     cardIds,
+    rescueIds,
     chapters,
     problems,
   };
@@ -171,6 +183,12 @@ function problemMessage(p: RoomProblem): string {
     case 'port-wall': return '調度口（Port）蓋住的格子全是牆，箱子停不上去，永遠收不滿；要畫在地板上';
     case 'port-multiple': return '一個房間只能有一個調度口（Port）；遊戲只會收進第一個';
     case 'port-need': return `調度口要收 ${a['need']} 個箱子，但房間裡一定在場的箱子（objects 圖層、when 留空）只有 ${a['boxes']} 個，永遠收不滿`;
+    case 'line-variant': return '產線（Line）不能放在變體圖層；酒精與乙醛記在整章的狀態上，工廠不能隨狀態出現或消失';
+    case 'line-shape': return '收貨區（receiving）與第二產線（intake）必須畫成矩形，蓋住它佔的格子（以格子中心為準）';
+    case 'line-wall': return '產線畫在牆上：收貨區與第二產線至少要有一格地板，出貨口（outlet）要放在地板上、不能在收貨區裡';
+    case 'line-multiple': return `一個房間只能有一個 stage 為 ${a['stage']} 的產線（Line）`;
+    case 'line-missing': return `房間有產線（Line），但缺少 stage 為 ${a['stage']} 的那一個；工廠房間要有收貨區（receiving）、出貨口（outlet）與第二產線（intake）各一`;
+    case 'box-acetaldehyde': return '乙醛箱只由第一產線產生，不能直接放在地圖上；boxType 請改用其他種類';
   }
 }
 
@@ -238,6 +256,9 @@ export function checkMaps(mapsDir: string, content: MapContent = loadMapContent(
         if (!content.cardIds?.get(chapter)?.has(id)) {
           out.push(`${file} ${where(room, { object: o.id })}：eventId「${id}」不是這一章的事件卡（content/decks/${chapter}.json 的 events）`);
         }
+      }
+      if (o.kind === 'Trigger' && o.props['event'] === 'rescue' && !content.rescueIds?.has(id)) {
+        out.push(`${file} ${where(room, { object: o.id })}：eventId「${id}」不存在於急救（content/rescue.json 的 rescues）`);
       }
       if (o.kind === 'Trigger' && o.props['event'] === 'clock_advance' && wholeMinutes(id) === undefined) {
         out.push(`${file} ${where(room, { object: o.id })}：clock_advance 的 eventId「${id}」必須是分鐘數，1 到 4 位數的整數，例如 20`);
