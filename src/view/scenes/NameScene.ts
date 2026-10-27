@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { str } from '../../app/content.ts';
-import { keepHost, NAME_PROBLEM } from '../../app/host.ts';
+import { keepHost, NAME_EMPTY, NAME_PROBLEM } from '../../app/host.ts';
 import { sharedKeys } from '../../app/input.ts';
 import type { SaveStore } from '../../app/storage.ts';
 import { DEFAULT_HOST, HOST_MAX, readHostName, type ChapterContent, type NameRead, type ProgressData } from '../../core/index.ts';
@@ -64,9 +64,7 @@ export class NameScene extends Phaser.Scene {
 
     this.message = addText(this, w / 2, 442, '', { role: 'print', weight: 400, size: 20, color: WARN }).setOrigin(0.5);
     const plate = { role: 'print', weight: 700, size: 30, color: PAPER, padding: { x: 20, y: 8 } } as const;
-    const reset = addText(this, w / 2 - 110, 530, str('name.default'), plate).setOrigin(0.5);
-    this.confirmText = addText(this, w / 2 + 110, 530, str('name.confirm'), { ...plate, color: INK, backgroundColor: PAPER }).setOrigin(0.5);
-    reset.setInteractive({ useHandCursor: true }).on('pointerup', () => this.restoreDefault());
+    this.confirmText = addText(this, w / 2, 530, str('name.confirm'), { ...plate, color: INK, backgroundColor: PAPER }).setOrigin(0.5);
     this.confirmText.setInteractive({ useHandCursor: true }).on('pointerup', () => void this.confirm());
     addText(this, w / 2, this.scale.height - 56, str('name.hint'), { role: 'print', weight: 400, size: 18, color: DIM }).setOrigin(0.5);
 
@@ -111,18 +109,23 @@ export class NameScene extends Phaser.Scene {
     }
   }
 
-  /** Shows why the typed name is refused, live, and dims confirm until it is not. */
+  /**
+   * Shows why the typed name is refused, live, and dims confirm until it is not. An empty box is
+   * not refused: it confirms as the default name. It is not refilled at once, since a player who
+   * clears the box usually means to type a new name.
+   */
   private validate(): NameRead {
     const read = readHostName(this.field.value);
-    updateText(this.message, read.ok ? '' : str(NAME_PROBLEM[read.problem]).replace('{n}', String(HOST_MAX)));
+    if (!read.ok && read.problem === 'empty') {
+      updateText(this.message, str(NAME_EMPTY).replace('{text}', DEFAULT_HOST));
+      this.message.setColor(DIM);
+      this.confirmText.setColor(INK);
+      return { ok: true, name: DEFAULT_HOST };
+    }
+    updateText(this.message, read.ok || read.problem === 'empty' ? '' : str(NAME_PROBLEM[read.problem]).replace('{n}', String(HOST_MAX)));
+    this.message.setColor(WARN);
     this.confirmText.setColor(read.ok ? INK : DIM);
     return read;
-  }
-
-  private restoreDefault(): void {
-    this.field.value = DEFAULT_HOST;
-    this.validate();
-    this.field.focus();
   }
 
   private async confirm(): Promise<void> {

@@ -1,14 +1,19 @@
 import { PROGRESS, type NameProblem, type ProgressData } from '../core/index.ts';
 import type { SaveIssue, SaveStore } from './storage.ts';
 
-/** String key of the message for a refused name; `{n}` in the too-long one is the limit. */
-export const NAME_PROBLEM: Readonly<Record<NameProblem | 'glyph', string>> = {
-  empty: 'name.problem.empty',
+/**
+ * String key of the message for a refused name; `{n}` in the too-long one is the limit. An empty
+ * box is not refused by the prompt: it stands for the default name, said by NAME_EMPTY.
+ */
+export const NAME_PROBLEM: Readonly<Record<Exclude<NameProblem, 'empty'> | 'glyph', string>> = {
   'too-long': 'name.problem.too_long',
   'bad-char': 'name.problem.bad_char',
   // No font slice has a character of the name, so it would draw in a fallback font.
   glyph: 'name.problem.glyph',
 };
+
+/** Shown while the box is empty; `{text}` is the default name. */
+export const NAME_EMPTY = 'name.empty';
 
 export interface KeptName {
   readonly progress: ProgressData;
