@@ -6,7 +6,7 @@
  * Rules, applied by gluing characters into units that are never split:
  * 1. closing punctuation never starts a line (it is glued to the character before it);
  * 2. opening punctuation never ends a line (it is glued to the character after it);
- * 3. a no-break space (U+00A0, as in "300 mg") joins its neighbours, so a number stays
+ * 3. a no-break space (U+00A0, as in "300 毫克") joins its neighbours, so a number stays
  *    with its unit;
  * 4. a handbook page name in 〈〉 is one unit.
  * Latin words and digit runs are also units, breaking only at spaces. A unit wider than a
