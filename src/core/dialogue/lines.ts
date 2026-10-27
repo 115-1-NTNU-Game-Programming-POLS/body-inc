@@ -83,7 +83,7 @@ export type DialogueProblemCode =
   | 'duplicate-dialogue';
 
 /** `tool`: a grant naming no tool, or in a card, which plays outside the run that would keep it. */
-export type EffectProblemCode = 'syntax' | 'unknown-tag' | 'alias' | 'tag-source' | 'tag-form' | 'minutes' | 'tool';
+export type EffectProblemCode = 'syntax' | 'unknown-tag' | 'alias' | 'tag-source' | 'tag-form' | 'minutes' | 'tool' | 'alcohol-set' | 'alcohol-buff';
 
 export interface DialogueProblem {
   readonly code: DialogueProblemCode;
@@ -165,7 +165,29 @@ export function parseEffects(text: string, dict: TagDictionary, sources: readonl
     else if (def.type === 'number' && op !== undefined) effects.push({ kind: 'amount', name, mode: op === '=' ? 'set' : 'add', value: Number(num) });
     else bad('tag-form');
   }
+  problems.push(...alcoholProblems(effects, text));
   return { effects, problems };
+}
+
+/**
+ * Design doc 5.1: alcohol is never a combat buff, and only the liver's line lowers it. So no
+ * effect sets `alcohol` (setting it to 0 would be a sobering-up cure), and an effect cell that
+ * pours a drink cannot also hand out a tool, lower the sleep debt or raise caffeine or glucose,
+ * which would make the drink the way to a reward.
+ */
+function alcoholProblems(effects: readonly Effect[], text: string): EffectProblem[] {
+  const out: EffectProblem[] = [];
+  const parts = text.split(';').map((p) => p.trim());
+  const partOf = (prefix: string) => parts.find((p) => p.startsWith(prefix)) ?? prefix;
+  for (const e of effects) if (e.kind === 'amount' && e.name === 'alcohol' && e.mode === 'set') out.push({ code: 'alcohol-set', part: partOf('tag:alcohol=') });
+  if (!effects.some((e) => e.kind === 'amount' && e.name === 'alcohol' && e.mode === 'add' && e.value > 0)) return out;
+  for (const e of effects) {
+    if (e.kind === 'grant') out.push({ code: 'alcohol-buff', part: `grant:${e.tool}` });
+    else if (e.kind === 'amount' && ((e.name === 'sleep_debt' && e.mode === 'set') || ((e.name === 'caffeine' || e.name === 'glucose') && (e.mode === 'set' || e.value > 0)))) {
+      out.push({ code: 'alcohol-buff', part: partOf(`tag:${e.name}`) });
+    }
+  }
+  return out;
 }
 
 /** Index of the line with this order, or -1. */

@@ -294,6 +294,17 @@ describe('map check', () => {
       expect(loadMapContent().cardIds?.get('greybox')?.has('group_chat')).toBe(true);
     });
 
+    it('a rescue Trigger must name a rescue of content/rescue.json', () => {
+      const ch = join(dir, 'rescues');
+      mkdirSync(ch);
+      const at = (id: string) => {
+        writeFileSync(join(ch, 'a.tmj'), JSON.stringify(map([{ type: 'Trigger', properties: [prop('event', 'rescue'), prop('eventId', id)] }])));
+        return checkMaps(ch).map((l) => l.slice(l.indexOf('：') + 1));
+      };
+      expect(at('akai')).toEqual([]);
+      expect(at('nobody')).toEqual(['eventId「nobody」不存在於急救（content/rescue.json 的 rescues）']);
+    });
+
     it('dialogue and handbook ids must exist', () => {
       const out = check({
         a: map([
