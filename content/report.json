@@ -1,0 +1,202 @@
+{
+  "version": 1,
+  "cupGrams": 10,
+  "fallback": "report.generic",
+  "scopes": {
+    "company": { "dept": "report.dept.company", "theme": "sleep" },
+    "brain": { "dept": "report.dept.brain", "symptom": "report.symptom.brain", "theme": "sleep" },
+    "immune": { "dept": "report.dept.immune", "symptom": "report.symptom.immune", "theme": "sleep" },
+    "stomach": { "dept": "report.dept.stomach", "symptom": "report.symptom.stomach", "theme": "snack" },
+    "liver": { "dept": "report.dept.liver", "theme": "alcohol" },
+    "gut": { "dept": "report.dept.gut", "symptom": "report.symptom.gut", "theme": "snack" }
+  },
+  "themes": {
+    "alcohol": {
+      "page": "alcohol_metabolism",
+      "education": ["handbook.alcohol_metabolism.2", "handbook.alcohol_metabolism.4"],
+      "situation": "report.theme.alcohol.situation",
+      "action": "report.theme.alcohol.action",
+      "sign": "report.theme.alcohol.sign"
+    },
+    "caffeine": {
+      "page": "caffeine",
+      "education": ["handbook.caffeine.1", "handbook.caffeine.2"],
+      "situation": "report.theme.caffeine.situation",
+      "action": "report.theme.caffeine.action",
+      "sign": "report.theme.caffeine.sign"
+    },
+    "snack": {
+      "page": "eating_before_sleep",
+      "education": ["handbook.eating_before_sleep.1", "handbook.eating_before_sleep.2"],
+      "situation": "report.theme.snack.situation",
+      "action": "report.theme.snack.action",
+      "sign": "report.theme.snack.sign"
+    },
+    "sleep": {
+      "page": "sleep_debt",
+      "education": ["handbook.sleep_debt.1"],
+      "situation": "report.theme.sleep.situation",
+      "action": "report.theme.sleep.action",
+      "sign": "report.theme.sleep.sign"
+    }
+  },
+  "themeOrder": ["alcohol", "caffeine", "snack", "sleep"],
+  "defaultTheme": "sleep",
+  "nodes": {
+    "card:coffee": "choice:coffee",
+    "event:event.bbq.drink": "choice:drink",
+    "event:event.bbq.drink_fasting": "choice:drink_fasting",
+    "event:event.bbq.binge": "choice:drink_fasting",
+    "event:event.deadline.squeeze": "event:deadline",
+    "event:event.deadline.overtime": "event:deadline",
+    "event:event.late_snack.takeout": "choice:late_snack",
+    "event:event.late_snack.go": "choice:late_snack",
+    "effect:strike.*": "strike"
+  },
+  "ignore": [
+    "rule:*",
+    "tag:caffeine",
+    "tag:alcohol",
+    "tag:fasting",
+    "tag:deadline",
+    "tag:late_snack",
+    "tag:caffeine_tolerant",
+    "tag:withdrawal",
+    "tag:dup_medication"
+  ],
+  "keys": {
+    "choice:coffee": {
+      "score": "choice", "theme": "caffeine", "vars": { "cups": { "agg": "sum", "numeral": "zh" } },
+      "single": ["report.choice.coffee.single.1", "report.choice.coffee.single.2"],
+      "run": ["report.choice.coffee.run.1"],
+      "spread": ["report.choice.coffee.spread.1"]
+    },
+    "effect:caffeine_insomnia": {
+      "score": "effect", "theme": "caffeine", "vars": { "r": { "agg": "max" }, "rmin": { "agg": "min" } },
+      "single": ["report.effect.caffeine_insomnia.single.1", "report.effect.caffeine_insomnia.single.2"],
+      "run": ["report.effect.caffeine_insomnia.run.1"],
+      "spread": ["report.effect.caffeine_insomnia.spread.1"]
+    },
+    "activity:stayed_up": {
+      "score": "choice", "theme": "sleep",
+      "single": ["report.activity.stayed_up.single.1", "report.activity.stayed_up.single.2"],
+      "run": ["report.activity.stayed_up.run.1"],
+      "spread": ["report.activity.stayed_up.spread.1"]
+    },
+    "activity:study_late": {
+      "score": "choice", "theme": "sleep",
+      "single": ["report.activity.study_late.single.1", "report.activity.study_late.single.2"],
+      "run": ["report.activity.study_late.run.1"],
+      "spread": ["report.activity.study_late.spread.1"]
+    },
+    "event:deadline": {
+      "score": "external", "theme": "sleep", "period": true,
+      "single": ["report.event.deadline.single.1", "report.event.deadline.single.2"],
+      "run": ["report.event.deadline.run.1"],
+      "spread": ["report.event.deadline.spread.1"]
+    },
+    "choice:late_snack": {
+      "score": "choice", "theme": "snack",
+      "single": ["report.choice.late_snack.single.1", "report.choice.late_snack.single.2"],
+      "run": ["report.choice.late_snack.run.1"],
+      "spread": ["report.choice.late_snack.spread.1"]
+    },
+    "choice:drink": {
+      "score": "choice", "theme": "alcohol", "period": true,
+      "vars": { "cups": { "agg": "sum", "numeral": "zh" }, "g": { "agg": "sum" } },
+      "single": ["report.choice.drink.single.1", "report.choice.drink.single.2"],
+      "run": ["report.choice.drink.run.1"],
+      "spread": ["report.choice.drink.spread.1"]
+    },
+    "choice:drink_fasting": {
+      "score": "choice", "theme": "alcohol", "period": true,
+      "vars": { "cups": { "agg": "sum", "numeral": "zh" }, "g": { "agg": "sum" } },
+      "single": ["report.choice.drink_fasting.single.1", "report.choice.drink_fasting.single.2"],
+      "run": ["report.choice.drink_fasting.run.1"],
+      "spread": ["report.choice.drink_fasting.spread.1"]
+    },
+    "effect:alcohol_sleep": {
+      "score": "effect", "theme": "alcohol",
+      "single": ["report.effect.alcohol_sleep.single.1", "report.effect.alcohol_sleep.single.2"],
+      "run": ["report.effect.alcohol_sleep.run.1"],
+      "spread": ["report.effect.alcohol_sleep.spread.1"]
+    },
+    "tag:sleep_debt": {
+      "score": "tag", "theme": "sleep",
+      "single": ["report.tag.sleep_debt.single.1", "report.tag.sleep_debt.single.2"]
+    },
+    "strike": {
+      "score": "effect",
+      "single": ["report.strike.single.1", "report.strike.single.2"]
+    },
+    "warning": {
+      "score": "warning", "period": true, "vars": { "symptom": { "agg": "max" } },
+      "single": ["report.warning.single.1", "report.warning.single.2"],
+      "run": ["report.warning.run.1"],
+      "spread": ["report.warning.spread.1"]
+    },
+    "ops:patrol_orders": {
+      "score": "choice", "theme": "alcohol", "vars": { "orders": { "agg": "max" } },
+      "single": ["report.ops.patrol_orders.single.1", "report.ops.patrol_orders.single.2"],
+      "run": ["report.ops.patrol_orders.run.1"],
+      "spread": ["report.ops.patrol_orders.spread.1"]
+    },
+    "ops:liver_clue": {
+      "score": "warning", "theme": "alcohol", "period": true,
+      "single": ["report.ops.liver_clue.single.1"],
+      "run": ["report.ops.liver_clue.run.1"],
+      "spread": ["report.ops.liver_clue.spread.1"]
+    },
+    "ops:poor_patrol": {
+      "score": "choice",
+      "single": ["report.ops.poor_patrol.single.1"],
+      "run": ["report.ops.poor_patrol.run.1"],
+      "spread": ["report.ops.poor_patrol.spread.1"]
+    }
+  },
+  "opinions": {
+    "default": [
+      "report.opinion.default.1",
+      "report.opinion.default.2",
+      "report.opinion.default.3",
+      "report.opinion.default.4",
+      "report.opinion.default.5"
+    ],
+    "hangover": ["report.opinion.hangover.1"],
+    "afterStrike": ["report.opinion.after_strike.1"]
+  },
+  "doc": {
+    "letterhead": "report.doc.letterhead",
+    "recipient": "report.doc.recipient",
+    "explain": "report.doc.explain",
+    "incidentHead": "report.doc.incident_head",
+    "incidentItem": "report.doc.incident_item",
+    "copyTo": "report.doc.copy_to",
+    "copyCc": "report.doc.copy_cc",
+    "chair": "report.doc.chair",
+    "liverNote": "report.doc.liver_note",
+    "causeSingle": "report.doc.cause_single",
+    "causeMulti": "report.doc.cause_multi",
+    "causeLiverFasting": "report.doc.cause_liver_fasting",
+    "unlockNew": "report.doc.unlock_new",
+    "unlockKnown": "report.doc.unlock_known",
+    "examMid": "report.doc.exam_mid",
+    "examFin": "report.doc.exam_fin",
+    "noticeDate": "report.doc.notice_date",
+    "noticeNumber": "report.doc.notice_number",
+    "noticeSubject": "report.doc.notice_subject",
+    "noticePenalty": "report.doc.notice_penalty",
+    "noticeMissed": "report.doc.notice_missed",
+    "noticeAdvice": "report.doc.notice_advice",
+    "noticeWarning": "report.doc.notice_warning",
+    "bankruptDate": "report.doc.bankrupt_date",
+    "bankruptNumber": "report.doc.bankrupt_number",
+    "bankruptPrevious": "report.doc.bankrupt_previous",
+    "bankruptSubject": "report.doc.bankrupt_subject",
+    "bankruptResult": "report.doc.bankrupt_result",
+    "bankruptAdviceHead": "report.doc.bankrupt_advice_head",
+    "bankruptAdvice1": "report.doc.bankrupt_advice_1",
+    "bankruptAdvice2": "report.doc.bankrupt_advice_2",
+    "bankruptAdvice3": "report.doc.bankrupt_advice_3"
+  }
+}

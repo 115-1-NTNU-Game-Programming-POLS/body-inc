@@ -32,6 +32,7 @@ const RULES: ReadonlyArray<readonly [RegExp, SchemaName]> = [
   [/^speakers\.json$/, 'speakers'],
   [/^decks\/[a-z][a-z0-9-]*\.json$/, 'deck'],
   [/^handbook\.json$/, 'handbook'],
+  [/^report\.json$/, 'report'],
 ];
 
 const TYPE_NAME: Record<string, string> = {
