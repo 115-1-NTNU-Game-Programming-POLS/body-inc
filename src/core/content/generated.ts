@@ -1531,6 +1531,465 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
       }
     }
   },
+  "report": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "ReportFile",
+    "description": "The close-out report system (docs/specs/ux-spec.md section 4): which sentence belongs to which causal-log entry, how the departments are named, what each cause family recommends and the frame of the two documents. Every text is a string key into content/strings, so each sentence carries its own fact entry.",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "version",
+      "cupGrams",
+      "fallback",
+      "scopes",
+      "themes",
+      "themeOrder",
+      "defaultTheme",
+      "nodes",
+      "ignore",
+      "keys",
+      "opinions",
+      "doc"
+    ],
+    "properties": {
+      "version": {
+        "const": 1
+      },
+      "cupGrams": {
+        "description": "Grams of alcohol in one standard cup (fact-check 29); a drink is worded in cups and in grams.",
+        "type": "number",
+        "exclusiveMinimum": 0
+      },
+      "fallback": {
+        "description": "String key of the sentence for a fact that has no template. Placeholders: {D}, {dept}, {label}.",
+        "type": "string",
+        "minLength": 1
+      },
+      "scopes": {
+        "description": "The parts of the body a sentence can be about, by scope id (a floor).",
+        "type": "object",
+        "additionalProperties": {
+          "$ref": "#/$defs/ReportScope"
+        }
+      },
+      "themes": {
+        "description": "Cause families, each with the handbook page and the advice a report of that family ends with.",
+        "type": "object",
+        "additionalProperties": {
+          "$ref": "#/$defs/ReportTheme"
+        }
+      },
+      "themeOrder": {
+        "description": "Which family wins a tie, first first.",
+        "type": "array",
+        "minItems": 1,
+        "items": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "defaultTheme": {
+        "description": "The family of a report none of whose sentences belongs to one.",
+        "type": "string",
+        "minLength": 1
+      },
+      "nodes": {
+        "description": "Causal-log entries that have a sentence under another key, as \"<kind>:<key>\" to a bank key. An entry not listed here is looked up under its own \"<kind>:<key>\".",
+        "type": "object",
+        "additionalProperties": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "ignore": {
+        "description": "Causal-log entries that need no sentence of their own, as \"<kind>:<key>\"; a trailing * matches a prefix. Anything neither listed nor in the bank is worded by the fallback and counted.",
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "keys": {
+        "description": "The sentence bank by key.",
+        "type": "object",
+        "additionalProperties": {
+          "$ref": "#/$defs/ReportKey"
+        }
+      },
+      "opinions": {
+        "$ref": "#/$defs/ReportOpinions"
+      },
+      "doc": {
+        "$ref": "#/$defs/ReportDoc"
+      }
+    },
+    "$defs": {
+      "ReportScope": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "dept",
+          "theme"
+        ],
+        "properties": {
+          "dept": {
+            "description": "String key of the department's formal name (ux-spec 4.4).",
+            "type": "string",
+            "minLength": 1
+          },
+          "symptom": {
+            "description": "String key of what the department says when its light is on.",
+            "type": "string",
+            "minLength": 1
+          },
+          "theme": {
+            "description": "Cause family a strike of this department belongs to.",
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "ReportTheme": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "page",
+          "education",
+          "situation",
+          "action",
+          "sign"
+        ],
+        "properties": {
+          "page": {
+            "description": "Handbook page the report unlocks.",
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "education": {
+            "description": "String keys of the handbook paragraphs quoted as the health-education point; the notice quotes the first.",
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 2,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "situation": {
+            "description": "String key: the host's state at the emergency room, in conservative words.",
+            "type": "string",
+            "minLength": 1
+          },
+          "action": {
+            "description": "String key: one thing the player can do.",
+            "type": "string",
+            "minLength": 1
+          },
+          "sign": {
+            "description": "String key: a reminder about the warning signs, or the closing joke.",
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "ReportVar": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "agg"
+        ],
+        "properties": {
+          "agg": {
+            "description": "How the values of a merged sentence combine.",
+            "enum": [
+              "sum",
+              "min",
+              "max"
+            ]
+          },
+          "numeral": {
+            "description": "Write the value in Chinese numerals (a count) instead of digits.",
+            "enum": [
+              "zh"
+            ]
+          }
+        }
+      },
+      "ReportKey": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "score",
+          "single"
+        ],
+        "properties": {
+          "score": {
+            "description": "Weight class when a report has too many sentences (ux-spec 4.6): choice 5, warning 4, tag 3, external 2, effect 1.",
+            "enum": [
+              "choice",
+              "warning",
+              "tag",
+              "external",
+              "effect"
+            ]
+          },
+          "period": {
+            "description": "Name the part of the day (morning, noon, ...) after the date.",
+            "type": "boolean"
+          },
+          "theme": {
+            "description": "Cause family it counts toward; a sentence about a department takes the department's.",
+            "type": "string",
+            "minLength": 1
+          },
+          "vars": {
+            "description": "Data the sentence uses besides the built-in placeholders, and how a merged sentence combines it.",
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/$defs/ReportVar"
+            }
+          },
+          "single": {
+            "description": "String keys of the variants for one day: {D}, {h}, {dept} and the vars.",
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 3,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "run": {
+            "description": "Variants for the same key on consecutive days: {Dr}, {N}, {dept} and the vars. Absent when the key does not merge.",
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 3,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "spread": {
+            "description": "Variants for the same key on days that are not consecutive: the same placeholders as run.",
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 3,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      },
+      "ReportOpinions": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "default",
+          "hangover",
+          "afterStrike"
+        ],
+        "properties": {
+          "default": {
+            "description": "String keys of the liver's written opinion in an ordinary report.",
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "hangover": {
+            "description": "For a report of the alcohol family, when the liver did not strike.",
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "afterStrike": {
+            "description": "For a report in which the liver struck.",
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      },
+      "ReportDoc": {
+        "description": "The frame of the two documents, as string keys. The placeholders each may use are fixed in src/core/report/bank.ts.",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "letterhead",
+          "recipient",
+          "explain",
+          "incidentHead",
+          "incidentItem",
+          "copyTo",
+          "copyCc",
+          "chair",
+          "liverNote",
+          "causeSingle",
+          "causeMulti",
+          "causeLiverFasting",
+          "unlockNew",
+          "unlockKnown",
+          "examMid",
+          "examFin",
+          "noticeDate",
+          "noticeNumber",
+          "noticeSubject",
+          "noticePenalty",
+          "noticeMissed",
+          "noticeAdvice",
+          "noticeWarning",
+          "bankruptDate",
+          "bankruptNumber",
+          "bankruptPrevious",
+          "bankruptSubject",
+          "bankruptResult",
+          "bankruptAdviceHead",
+          "bankruptAdvice1",
+          "bankruptAdvice2",
+          "bankruptAdvice3"
+        ],
+        "properties": {
+          "letterhead": {
+            "type": "string",
+            "minLength": 1
+          },
+          "recipient": {
+            "type": "string",
+            "minLength": 1
+          },
+          "explain": {
+            "type": "string",
+            "minLength": 1
+          },
+          "incidentHead": {
+            "type": "string",
+            "minLength": 1
+          },
+          "incidentItem": {
+            "type": "string",
+            "minLength": 1
+          },
+          "copyTo": {
+            "type": "string",
+            "minLength": 1
+          },
+          "copyCc": {
+            "type": "string",
+            "minLength": 1
+          },
+          "chair": {
+            "type": "string",
+            "minLength": 1
+          },
+          "liverNote": {
+            "type": "string",
+            "minLength": 1
+          },
+          "causeSingle": {
+            "type": "string",
+            "minLength": 1
+          },
+          "causeMulti": {
+            "type": "string",
+            "minLength": 1
+          },
+          "causeLiverFasting": {
+            "type": "string",
+            "minLength": 1
+          },
+          "unlockNew": {
+            "type": "string",
+            "minLength": 1
+          },
+          "unlockKnown": {
+            "type": "string",
+            "minLength": 1
+          },
+          "examMid": {
+            "type": "string",
+            "minLength": 1
+          },
+          "examFin": {
+            "type": "string",
+            "minLength": 1
+          },
+          "noticeDate": {
+            "type": "string",
+            "minLength": 1
+          },
+          "noticeNumber": {
+            "type": "string",
+            "minLength": 1
+          },
+          "noticeSubject": {
+            "type": "string",
+            "minLength": 1
+          },
+          "noticePenalty": {
+            "type": "string",
+            "minLength": 1
+          },
+          "noticeMissed": {
+            "type": "string",
+            "minLength": 1
+          },
+          "noticeAdvice": {
+            "type": "string",
+            "minLength": 1
+          },
+          "noticeWarning": {
+            "type": "string",
+            "minLength": 1
+          },
+          "bankruptDate": {
+            "type": "string",
+            "minLength": 1
+          },
+          "bankruptNumber": {
+            "type": "string",
+            "minLength": 1
+          },
+          "bankruptPrevious": {
+            "type": "string",
+            "minLength": 1
+          },
+          "bankruptSubject": {
+            "type": "string",
+            "minLength": 1
+          },
+          "bankruptResult": {
+            "type": "string",
+            "minLength": 1
+          },
+          "bankruptAdviceHead": {
+            "type": "string",
+            "minLength": 1
+          },
+          "bankruptAdvice1": {
+            "type": "string",
+            "minLength": 1
+          },
+          "bankruptAdvice2": {
+            "type": "string",
+            "minLength": 1
+          },
+          "bankruptAdvice3": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    }
+  },
   "scheduleCards": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "title": "ScheduleCardsFile",
@@ -1888,7 +2347,7 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
   }
 };
 
-export type SchemaName = "boss" | "chapter" | "deck" | "enemies" | "feedback" | "handbook" | "params" | "scheduleCards" | "speakers" | "strings" | "tags";
+export type SchemaName = "boss" | "chapter" | "deck" | "enemies" | "feedback" | "handbook" | "params" | "report" | "scheduleCards" | "speakers" | "strings" | "tags";
 
 export interface ContentTypes {
   readonly boss: BossFile;
@@ -1898,6 +2357,7 @@ export interface ContentTypes {
   readonly feedback: FeedbackFile;
   readonly handbook: HandbookFile;
   readonly params: ParamsFile;
+  readonly report: ReportFile;
   readonly scheduleCards: ScheduleCardsFile;
   readonly speakers: SpeakersFile;
   readonly strings: StringsFile;
@@ -2306,6 +2766,122 @@ export interface Difficulty {
   readonly exposureMult: number;
   /** Sleep debt at the start, in hours. */
   readonly startDebt: number;
+}
+
+/** The close-out report system (docs/specs/ux-spec.md section 4): which sentence belongs to which causal-log entry, how the departments are named, what each cause family recommends and the frame of the two documents. Every text is a string key into content/strings, so each sentence carries its own fact entry. */
+export interface ReportFile {
+  readonly version: 1;
+  /** Grams of alcohol in one standard cup (fact-check 29); a drink is worded in cups and in grams. */
+  readonly cupGrams: number;
+  /** String key of the sentence for a fact that has no template. Placeholders: {D}, {dept}, {label}. */
+  readonly fallback: string;
+  /** The parts of the body a sentence can be about, by scope id (a floor). */
+  readonly scopes: Readonly<Record<string, ReportScope>>;
+  /** Cause families, each with the handbook page and the advice a report of that family ends with. */
+  readonly themes: Readonly<Record<string, ReportTheme>>;
+  /** Which family wins a tie, first first. */
+  readonly themeOrder: readonly string[];
+  /** The family of a report none of whose sentences belongs to one. */
+  readonly defaultTheme: string;
+  /** Causal-log entries that have a sentence under another key, as "<kind>:<key>" to a bank key. An entry not listed here is looked up under its own "<kind>:<key>". */
+  readonly nodes: Readonly<Record<string, string>>;
+  /** Causal-log entries that need no sentence of their own, as "<kind>:<key>"; a trailing * matches a prefix. Anything neither listed nor in the bank is worded by the fallback and counted. */
+  readonly ignore: readonly string[];
+  /** The sentence bank by key. */
+  readonly keys: Readonly<Record<string, ReportKey>>;
+  readonly opinions: ReportOpinions;
+  readonly doc: ReportDoc;
+}
+
+export interface ReportScope {
+  /** String key of the department's formal name (ux-spec 4.4). */
+  readonly dept: string;
+  /** String key of what the department says when its light is on. */
+  readonly symptom?: string;
+  /** Cause family a strike of this department belongs to. */
+  readonly theme: string;
+}
+
+export interface ReportTheme {
+  /** Handbook page the report unlocks. */
+  readonly page: string;
+  /** String keys of the handbook paragraphs quoted as the health-education point; the notice quotes the first. */
+  readonly education: readonly string[];
+  /** String key: the host's state at the emergency room, in conservative words. */
+  readonly situation: string;
+  /** String key: one thing the player can do. */
+  readonly action: string;
+  /** String key: a reminder about the warning signs, or the closing joke. */
+  readonly sign: string;
+}
+
+export interface ReportVar {
+  /** How the values of a merged sentence combine. */
+  readonly agg: "sum" | "min" | "max";
+  /** Write the value in Chinese numerals (a count) instead of digits. */
+  readonly numeral?: "zh";
+}
+
+export interface ReportKey {
+  /** Weight class when a report has too many sentences (ux-spec 4.6): choice 5, warning 4, tag 3, external 2, effect 1. */
+  readonly score: "choice" | "warning" | "tag" | "external" | "effect";
+  /** Name the part of the day (morning, noon, ...) after the date. */
+  readonly period?: boolean;
+  /** Cause family it counts toward; a sentence about a department takes the department's. */
+  readonly theme?: string;
+  /** Data the sentence uses besides the built-in placeholders, and how a merged sentence combines it. */
+  readonly vars?: Readonly<Record<string, ReportVar>>;
+  /** String keys of the variants for one day: {D}, {h}, {dept} and the vars. */
+  readonly single: readonly string[];
+  /** Variants for the same key on consecutive days: {Dr}, {N}, {dept} and the vars. Absent when the key does not merge. */
+  readonly run?: readonly string[];
+  /** Variants for the same key on days that are not consecutive: the same placeholders as run. */
+  readonly spread?: readonly string[];
+}
+
+export interface ReportOpinions {
+  /** String keys of the liver's written opinion in an ordinary report. */
+  readonly default: readonly string[];
+  /** For a report of the alcohol family, when the liver did not strike. */
+  readonly hangover: readonly string[];
+  /** For a report in which the liver struck. */
+  readonly afterStrike: readonly string[];
+}
+
+/** The frame of the two documents, as string keys. The placeholders each may use are fixed in src/core/report/bank.ts. */
+export interface ReportDoc {
+  readonly letterhead: string;
+  readonly recipient: string;
+  readonly explain: string;
+  readonly incidentHead: string;
+  readonly incidentItem: string;
+  readonly copyTo: string;
+  readonly copyCc: string;
+  readonly chair: string;
+  readonly liverNote: string;
+  readonly causeSingle: string;
+  readonly causeMulti: string;
+  readonly causeLiverFasting: string;
+  readonly unlockNew: string;
+  readonly unlockKnown: string;
+  readonly examMid: string;
+  readonly examFin: string;
+  readonly noticeDate: string;
+  readonly noticeNumber: string;
+  readonly noticeSubject: string;
+  readonly noticePenalty: string;
+  readonly noticeMissed: string;
+  readonly noticeAdvice: string;
+  readonly noticeWarning: string;
+  readonly bankruptDate: string;
+  readonly bankruptNumber: string;
+  readonly bankruptPrevious: string;
+  readonly bankruptSubject: string;
+  readonly bankruptResult: string;
+  readonly bankruptAdviceHead: string;
+  readonly bankruptAdvice1: string;
+  readonly bankruptAdvice2: string;
+  readonly bankruptAdvice3: string;
 }
 
 /** Schedule cards (docs/specs/content-spec.md section 1). Draft: the department demand fields of the spec belong to the removed token model (design doc status table) and are left out; the outer-layer work package settles the rest. */

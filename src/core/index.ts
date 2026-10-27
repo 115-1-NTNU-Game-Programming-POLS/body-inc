@@ -45,3 +45,4 @@ export * from './save/save.ts';
 export * from './save/slots.ts';
 export * from './exam/scoring.ts';
 export * from './semester/index.ts';
+export * from './report/index.ts';
