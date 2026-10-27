@@ -27,19 +27,23 @@ interface Options {
   readonly lateSnack: string;
   /** Bed on the eve of an exam. */
   readonly examEveBed?: number;
+  /** Always patrols this floor, however the lights read. */
+  readonly fixedPatrol?: FloorId;
+  /** Hours of the day's cups; the default is one cup an hour after waking. */
+  readonly coffeeAt?: (wake: number) => number[];
 }
 
 function archetype(o: Options): Strategy {
   return {
     plan(view) {
-      return { coffee: o.coffee ? [view.wake + 1] : [], rest: view.weekend ? [13, 17, 21] : [17, 21] };
+      return { coffee: o.coffee ? (o.coffeeAt ?? ((wake) => [wake + 1]))(view.wake) : [], rest: view.weekend ? [13, 17, 21] : [17, 21] };
     },
     choose(id) {
       return { bbq: o.bbq, deadline: o.deadline, late_snack: o.lateSnack }[id] ?? 'decline';
     },
     floor(view) {
       const hot = view.panel.buttons.some((b) => RANK[b.light] >= RANK.orange);
-      const patrol = o.readsLiver && view.liverClues.stomachJam && !hot ? 'liver' : brightest(view);
+      const patrol = o.fixedPatrol ?? (o.readsLiver && view.liverClues.stomachJam && !hot ? 'liver' : brightest(view));
       if (!o.overtime) return { patrol };
       return { patrol, overtime: litBrightestFirst(view).find((f) => f !== patrol) ?? (patrol === 'gut' ? 'immune' : 'gut') };
     },
@@ -58,6 +62,14 @@ export const ARCHETYPES = {
   /** Healthy otherwise, but binges on an empty stomach at every barbecue and never looks at the liver. */
   drinkerBlind: archetype({ bed: 22.5, lateNight: 'rest', coffee: true, readsLiver: false, overtime: false, bbq: 'binge', deadline: 'squeeze', lateSnack: 'no', examEveBed: 22 }),
   /** The same drinker, who goes to the liver as soon as its clues show. */
+  /** Cram: 01:00 bed, late cups, a snack every night, the deadline worked through, and the elevator always sent to the immune floor. */
+  crammer: archetype({ bed: 25, lateNight: 'study', coffee: true, coffeeAt: (wake) => [wake + 1, 21], readsLiver: false, overtime: false, fixedPatrol: 'immune', bbq: 'decline', deadline: 'overtime', lateSnack: 'go' }),
+  /** Cram without the study: 01:00 bed spent resting, late cups, a snack every night. */
+  insomniac: archetype({ bed: 25, lateNight: 'rest', coffee: true, coffeeAt: (wake) => [wake + 1, 21], readsLiver: false, overtime: false, fixedPatrol: 'immune', bbq: 'decline', deadline: 'overtime', lateSnack: 'go' }),
+  /** Drinks at every barbecue, but eats first. */
+  drinkerFed: archetype({ bed: 22.5, lateNight: 'rest', coffee: true, readsLiver: false, overtime: false, bbq: 'drink', deadline: 'squeeze', lateSnack: 'no', examEveBed: 22 }),
+  /** Every barbecue, the late bedtime and the late cups together. */
+  partier: archetype({ bed: 25, lateNight: 'rest', coffee: true, coffeeAt: (wake) => [wake + 1, 21], readsLiver: false, overtime: false, fixedPatrol: 'immune', bbq: 'drink', deadline: 'overtime', lateSnack: 'go' }),
   drinkerInformed: archetype({ bed: 22.5, lateNight: 'rest', coffee: true, readsLiver: true, overtime: false, bbq: 'binge', deadline: 'squeeze', lateSnack: 'no', examEveBed: 22 }),
 } as const satisfies Record<string, Strategy>;
 

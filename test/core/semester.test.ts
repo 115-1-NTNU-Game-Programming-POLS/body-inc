@@ -7,7 +7,7 @@ import {
   type SemesterContext, type SemesterEvent, type SemesterState, type Strategy,
 } from '../../src/core/index.ts';
 import { ARCHETYPES } from '../../sim/semester/archetypes.ts';
-import { bingeWeek, contextFor, scenarioFor } from '../../sim/semester/scenario.ts';
+import { bingeWeek, contextFor, crunchWeek, scenarioFor } from '../../sim/semester/scenario.ts';
 
 const CTX = contextFor(0.5, 1, { scenario: {} });
 const K = CTX.params;
@@ -770,6 +770,14 @@ describe('the causal log of a semester', () => {
     expect(crisis.at).toBe(strikeDay.crisis!.at);
     expect(dayOf(crisis.at)).toBe(4);
     expect(binge.history.filter((r) => r.crisis).map((r) => r.day)).toEqual([4]);
+  });
+
+  it('records whether the liver struck on an empty stomach, which a strike of two floors never is', () => {
+    expect(strikeDay.crisis!.fasting).toBe(true);
+    const ctx = contextFor(0.5, 1, { scenario: crunchWeek(1) });
+    const crammed = runSemester(ctx, ARCHETYPES.crammer, 1);
+    const visit = crammed.history.find((r) => r.crisis)!;
+    expect([visit.strikes, visit.crisis!.fasting]).toEqual([['brain', 'stomach'], false]);
   });
 
   it('makes the strikes of that night the parents of the crisis', () => {
