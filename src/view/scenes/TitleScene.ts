@@ -2,10 +2,11 @@ import Phaser from 'phaser';
 import { tryResume } from '../../app/chapters.ts';
 import { str } from '../../app/content.ts';
 import { sharedKeys } from '../../app/input.ts';
-import { startChapter, type ChapterContent, type ChapterEntry, type ChapterState, type StoryData } from '../../core/index.ts';
+import type { ChapterContent, ChapterEntry, ChapterState, StoryData } from '../../core/index.ts';
 import { addText } from '../text/fonts.ts';
+import type { NameData } from './NameScene.ts';
 import type { CardsData } from './OpeningScene.ts';
-import { beginRun, NO_STORY, saveStory } from './run.ts';
+import { beginRun } from './run.ts';
 
 const PAPER = '#f4efe4';
 const INK = '#0c2d5e';
@@ -19,8 +20,8 @@ interface Item {
 
 /**
  * Title screen: a new game, or continue from the latest time clock, or from the start of the next
- * chapter when the last one ended with no punch since. The first bundled chapter is the new game;
- * "continue" needs a save that still fits the bundled content.
+ * chapter when the last one ended with no punch since, or rename the host. The first bundled
+ * chapter is the new game; "continue" needs a save that still fits the bundled content.
  */
 export class TitleScene extends Phaser.Scene {
   private items: Item[] = [];
@@ -62,9 +63,11 @@ export class TitleScene extends Phaser.Scene {
     this.items = [
       make(420, 'title.new', true, () => this.newGame(first)),
       make(490, 'title.continue', resumed !== undefined || entered !== undefined, () => (resumed ? this.play(saved!, resumed) : this.enter(entered!))),
+      // Only here, never during a chapter (issue #8).
+      make(560, 'title.host', true, () => this.name({ mode: 'rename' })),
     ];
     if ((checkpoint && resumed === undefined) || (entry && entered === undefined)) {
-      addText(this, w / 2, 556, str('title.stale'), { role: 'print', weight: 400, size: 20, color: DIM }).setOrigin(0.5);
+      addText(this, w / 2, 626, str('title.stale'), { role: 'print', weight: 400, size: 20, color: DIM }).setOrigin(0.5);
     }
     this.index = 0;
     this.items.forEach((item, i) => {
@@ -107,13 +110,16 @@ export class TitleScene extends Phaser.Scene {
     beginRun(this, ctx, state);
   }
 
-  /** A new game opens on the chapter's opening cards when its deck has any (build plan P1). */
+  /** A new game asks for the host's name first; the name scene then starts it (run.ts startNewGame). */
   private newGame(ctx: ChapterContent): void {
+    this.name({ mode: 'new', chapter: ctx.chapter.id });
+  }
+
+  private name(data: NameData): void {
     if (this.starting) return;
-    // A new game replaces the old story at once; otherwise "continue" would lead back into it until the first punch.
-    saveStory(this, NO_STORY);
-    if (!ctx.deck || ctx.deck.opening.length === 0) return this.play(ctx, startChapter(ctx));
-    this.cards({ chapter: ctx.chapter.id });
+    this.starting = true;
+    // Deferred so the confirming key is not also typed into the name box.
+    window.setTimeout(() => this.scene.start('Name', data), 0);
   }
 
   /** The next chapter of a save made between chapters: its opening cards not yet answered, then its first room. */
