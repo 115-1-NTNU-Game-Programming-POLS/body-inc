@@ -297,6 +297,38 @@ describe('one day', () => {
     // bed at 05:00 (29:00) to 07:00 is 2 hours of sleep, 6 short of the 8 needed
     expect(amount(s.tags, ctx.dict, 'sleep_debt')).toBe(6);
   });
+
+  it('refuses a plan that wakes before its own bedtime, and starts the day no earlier than a delayed bedtime allows', () => {
+    const backwards: Strategy = { ...quiet, night: () => ({ bed: 27, nextWake: 0, lateNight: 'rest' }) };
+    expect(() => play(startSemester(CTX, 1), CTX, backwards)).toThrow(/before the planned bedtime/);
+    // waking at the very hour of going to bed is a night with no sleep, not a backwards one
+    const ctx = contextFor(0.5, 1, { scenario: { 1: ['late_snack'] } });
+    const edge: Strategy = { ...quiet, choose: () => 'go', night: () => ({ bed: 24, nextWake: 0, lateNight: 'rest' }) };
+    const s = play(startSemester(ctx, 1), ctx, edge);
+    expect([last(s.history).bedEnd, s.wake]).toEqual([25, 1]);
+    // a half-hour bedtime rounds the wake-up hour up, never down into the night
+    const half: Strategy = { ...edge, night: () => ({ bed: 23.5, nextWake: 0, lateNight: 'rest' }) };
+    const late = play(startSemester(ctx, 1), ctx, half);
+    expect([last(late.history).bedEnd, late.wake]).toEqual([24.5, 1]);
+  });
+
+  it('stamps an event with the half hour of the evening step it was offered in', () => {
+    const ctx = contextFor(0.5, 1, { scenario: { 1: ['late_snack'] } });
+    const s = play(startSemester(ctx, 1), ctx, { ...quiet, choose: () => 'takeout', night: () => ({ bed: 24, nextWake: 7, lateNight: 'rest' }) });
+    expect(s.tags.log.nodes.find((n) => n.key === 'event.late_snack.takeout')!.at).toBe(23 * 60);
+  });
+
+  it('plays an event that comes up between the last half hour and bedtime, and lets it push bedtime back', () => {
+    const chat = (hour: number): SemesterEvent => ({ id: 'chat', hour, options: { on: { bedDelay: 1 } } });
+    const night: Strategy = { ...quiet, night: () => ({ bed: 22.5, nextWake: 7, lateNight: 'rest' }) };
+    const day = (hour: number) => {
+      const ctx = contextFor(0.5, 1, { scenario: { 2: ['chat'] }, events: new Map([['chat', chat(hour)]]) });
+      return last(play({ ...startSemester(ctx, 1), day: 2 }, ctx, night).history);
+    };
+    expect([day(22.25).events, day(22.25).bedEnd]).toEqual([[{ id: 'chat', option: 'on' }], 23.5]);
+    // one that comes up at the very minute of bedtime is still missed
+    expect([day(22.5).events, day(22.5).bedEnd]).toEqual([[], 22.5]);
+  });
 });
 
 describe('events and tags', () => {
@@ -327,6 +359,12 @@ describe('events and tags', () => {
     const alcohol = s.tags.log.nodes.find((n) => n.kind === 'tag' && n.key === 'alcohol')!;
     expect(trace(s.tags.log, alcohol.id).some((n) => n.kind === 'event' && n.key === 'event.bbq.drink')).toBe(true);
     expect(amount(s.tags, ctx.dict, 'alcohol')).toBe(0);
+  });
+
+  it('pins one work order for each drinking event, so two drinks in a day are two orders', () => {
+    const on = (id: string, hour: number): SemesterEvent => ({ id, hour, options: { on: { alcohol: 1 } } });
+    const ctx = evCtx({ 2: ['a', 'b'] }, { events: new Map([['a', on('a', 19)], ['b', on('b', 20)]]) });
+    expect(play({ ...startSemester(ctx, 1), day: 2 }, ctx).liverOrders).toEqual([2, 2]);
   });
 
   it('refuses an option the event does not have, and a scenario naming an unknown event', () => {
@@ -859,6 +897,26 @@ describe('the causal log of a semester', () => {
       expect(keys(play(startSemester(CTX, 1), CTX, bedAt(25)))).toContain('stayed_up');
       expect(keys(play(startSemester(CTX, 1), CTX, bedAt(25, 'study')))).toContain('study_late');
       expect(keys(play(startSemester(CTX, 1), CTX, bedAt(25, 'study')))).not.toContain('stayed_up');
+    });
+
+    it('dates late study by when it stopped, and names the hours awake after it as a separate cause', () => {
+      const snack = contextFor(0.5, 1, { scenario: { 1: ['late_snack'] } });
+      const s = play(startSemester(snack, 1), snack, { ...bedAt(27, 'study'), choose: () => 'go' });
+      const at = (key: string): number => s.tags.log.nodes.find((n) => n.key === key)!.at;
+      // study ran to 03:00 and the snack kept the player up to 04:00
+      expect([at('study_late'), at('stayed_up')]).toEqual([27 * 60, 28 * 60]);
+      expect(keys(s)).toEqual(expect.arrayContaining(['study_late', 'stayed_up']));
+    });
+
+    it('counts study that stops exactly at midnight as late study', () => {
+      expect(keys(play(startSemester(CTX, 1), CTX, bedAt(24, 'study')))).toContain('study_late');
+    });
+
+    it('does not call study that stopped before midnight a late night, only the hours awake after it', () => {
+      const snack = contextFor(0.5, 1, { scenario: { 1: ['late_snack'] } });
+      const s = play(startSemester(snack, 1), snack, { ...bedAt(23.5, 'study'), choose: () => 'go' });
+      expect(keys(s)).toContain('stayed_up');
+      expect(keys(s)).not.toContain('study_late');
     });
 
     it('does not call midnight early, and calls it late from midnight on', () => {

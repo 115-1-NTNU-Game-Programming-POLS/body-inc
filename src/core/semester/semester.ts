@@ -150,7 +150,7 @@ function applyEvents(d: DayRun, upTo: number, before = false): void {
       tags = addAmount(tags, dict, 'alcohol', opt.alcohol, cause, at);
       d.alcoholCups += opt.alcohol;
       d.evidence.liver.push(cause);
-      if (!orders.includes(d.s.day)) orders = [...orders, d.s.day];
+      orders = [...orders, d.s.day];
     }
     if (opt.fasting) {
       tags = setFlag(tags, dict, 'fasting', true, cause, at);
@@ -229,6 +229,8 @@ function wholeHalfHours(name: string, v: number): number {
 interface Night {
   /** Hour the day's activities end and sleep begins. */
   readonly bedEnd: number;
+  /** Hour late-night study stopped; absent when none was done. An event or an overtime patrol can keep the player up past it. */
+  readonly studyEnd?: number;
   readonly nextWake: number;
   readonly patrols: readonly PatrolRecord[];
   readonly hospitalDay: boolean;
@@ -251,8 +253,13 @@ const nodeOf = (tags: TagState, name: string): number[] => (tags.values[name] ? 
 function explainDebt(d: DayRun, tags: TagState, n: Night, residual: number, alcoholAtBed: boolean, at: number): TagState {
   const k = d.ctx.params;
   const why: number[] = [];
-  if (n.bedEnd >= MIDNIGHT) {
-    const [t, id] = source(tags, 'activity', d.lateStudy > 0 ? 'study_late' : 'stayed_up', at, { bed: n.bedEnd });
+  if (n.studyEnd !== undefined && n.studyEnd >= MIDNIGHT) {
+    const [t, id] = source(tags, 'activity', 'study_late', minuteOf(d.s.day, n.studyEnd), { until: n.studyEnd });
+    tags = t;
+    why.push(id);
+  }
+  if (n.bedEnd >= MIDNIGHT && (n.studyEnd === undefined || n.bedEnd > n.studyEnd)) {
+    const [t, id] = source(tags, 'activity', 'stayed_up', at, { bed: n.bedEnd });
     tags = t;
     why.push(id);
   }
@@ -451,22 +458,27 @@ export function playDay(s0: SemesterState, ctx: SemesterContext, strategy: Strat
     : strategy.night(viewOf(d));
   const bedBase = Math.min(k.bedMax, Math.max(k.bedMin, wholeHalfHours('bed', night.bed)));
   if (!Number.isInteger(night.nextWake) || night.nextWake < 0) throw new RangeError(`nextWake must be a whole hour from 0, got ${night.nextWake}`);
+  if (24 + night.nextWake < bedBase) throw new RangeError(`a plan to wake at ${night.nextWake} wakes before the planned bedtime ${bedBase}`);
   const sleptIn = Math.min(night.nextWake, k.wakeCap);
   const nextWake = examOn(day + 1, ctx) !== null ? Math.min(sleptIn, k.examWake) : sleptIn;
   const overtimeDelay = patrols.some((p) => p.overtime) ? k.overtimeBedDelay : 0;
   const bedEndAt = (): number => Math.min(bedBase + d.bedDelay + overtimeDelay, k.bedMax + k.bedOverrun);
-  for (let t = k.bedMin; t < bedEndAt(); t += STEP) {
-    if (!hospitalDay) applyEvents(d, t);
+  for (let t = k.bedMin; ; t += STEP) {
+    // Once bedtime has come, an event strictly before it is still due, and it may push bedtime back.
+    if (!hospitalDay) applyEvents(d, t, t >= bedEndAt());
     if (t >= bedEndAt()) break;
     const late = t < bedBase && night.lateNight === 'study';
     if (late) d.lateStudy += STEP;
     spend(d, STEP, late ? 'study' : 'rest');
   }
 
-  const outcome = settle(d, { bedEnd: Math.max(bedEndAt(), k.bedMin), nextWake, patrols, hospitalDay });
+  const bedEnd = Math.max(bedEndAt(), k.bedMin);
+  // A delay can carry bedtime past the planned wake-up hour; the day never starts before the night ends.
+  const woke = Math.max(nextWake, Math.ceil(bedEnd) - 24);
+  const outcome = settle(d, { bedEnd, ...(d.lateStudy > 0 ? { studyEnd: k.bedMin + d.lateStudy } : {}), nextWake: woke, patrols, hospitalDay });
   const rec: DayRecord = {
     ...header,
-    bedEnd: Math.max(bedEndAt(), k.bedMin),
+    bedEnd,
     kind: hospitalDay ? 'hospital' : exam !== null ? 'exam' : 'normal',
     settled: true,
     patrols, events: d.played, loadsAfter: d.s.loads, studyHours: d.studyHours, ...outcome,

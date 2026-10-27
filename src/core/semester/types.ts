@@ -106,7 +106,7 @@ export interface SemesterState {
   /** Cups per finished day, for the tolerance rule. */
   readonly cupsHist: readonly number[];
   readonly zeroCupDays: number;
-  /** Days on which a liver-loading event pinned a work order. */
+  /** The day of each work order, one per liver-loading event (design doc 8.6), so a day with two drinks appears twice. */
   readonly liverOrders: readonly number[];
   readonly hospitals: number;
   readonly hospitalDay?: number;
