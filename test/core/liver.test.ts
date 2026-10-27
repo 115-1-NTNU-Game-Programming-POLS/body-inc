@@ -3,13 +3,14 @@ import { describe, expect, it } from 'vitest';
 import { BOSSES, DECKS, DIALOGUES, ENEMIES, PARAMS, RESCUES, TAGS } from '../../src/app/content.ts';
 import { tagsFromQuery } from '../../src/app/session.ts';
 import {
-  acetaldehydeCrates, amount, crateTiles, dockTiles, EMPTY_TAGS, GLUCOSE, holds, isDizzy, LOCK_TICKS, lineProgress, linesOf, loadRescues,
-  MIST, offered, openRescue, outletTile, parseEffects, parseRoom, readContent, roomsOf, runLine, selectFactory, spiritAtEntry, startChapter,
+  acetaldehydeCrates, amount, boxAt, crateTiles, dockTiles, EMPTY_TAGS, GLUCOSE, holds, isDizzy, LOCK_TICKS, lineProgress, linesOf, loadRescues,
+  inMist, MIST, offered, openRescue, outletTile, parseEffects, parseRoom, readContent, roomsOf, runLine, selectFactory, spiritAtEntry, startChapter,
   stepChapter, stepGlucose, TILE, waitingCrates,
   type ChapterContent, type ChapterState, type GameEvent, type TickInput, type TiledMap,
 } from '../../src/core/index.ts';
 import { applyEffects } from '../../src/core/chapter/effects.ts';
 import { isSolid } from '../../src/core/collision/grid.ts';
+import { OPERATOR_HURT } from '../../src/core/combat/operator.ts';
 import { OBJECT_CLASSES } from '../../src/core/rooms/classes.ts';
 import { readRoom } from '../../src/core/rooms/tiled.ts';
 import { compileCondition } from '../../src/core/tags/dictionary.ts';
@@ -129,7 +130,8 @@ describe('the factory room', () => {
     const s = at(FACTORY, 'acetaldehyde:1');
     const [b] = spawned(s);
     const beside = place(s, (b!.col + 0.5) * TILE, (b!.row + 1.6) * TILE);
-    expect(selectFactory(beside.game)?.inFog).toBe(true);
+    const fogged = (s: ChapterState) => inMist(s.game.boxes, boxAt(OPERATOR_HURT, s.game.operator.x, s.game.operator.y));
+    expect(fogged(beside)).toBe(true);
     const halves = beside.game.operator.halves;
     const almost = run(beside, NONE, MIST.intervalTicks - 1);
     expect(almost.state.game.operator.halves).toBe(halves);
@@ -139,6 +141,18 @@ describe('the factory room', () => {
     // Out of the fog and back: the count starts again.
     const back = place(run(place(almost.state, 4 * TILE, 7.5 * TILE), NONE, 1).state, beside.game.operator.x, beside.game.operator.y);
     expect(run(back, NONE, MIST.intervalTicks - 1).state.game.operator.halves).toBe(halves);
+  });
+
+  it('the fog hurts round the crate where it is drawn, so a sliding crate carries its fog with it', () => {
+    const s = at(FACTORY, 'acetaldehyde:1');
+    const [b] = spawned(s);
+    const from = { col: b!.col - 1, row: b!.row };
+    const hurtAt = (x: number) => boxAt(OPERATOR_HURT, x, (b!.row + 0.5) * TILE + 4);
+    // Just inside the fog of the tile the crate is leaving, and well outside the fog of the tile it is going to.
+    const x = (from.col + 0.5) * TILE - MIST.radiusPx - OPERATOR_HURT.halfW + 2;
+    const leaving = { ...b!, from, ticks: 12, left: 12 };
+    expect(inMist([leaving], hurtAt(x))).toBe(true);
+    expect(inMist([{ ...leaving, left: 0 }], hurtAt(x))).toBe(false);
   });
 
   it('a crate brought to rest on the second line is taken in and leaves the books', () => {
@@ -174,6 +188,16 @@ describe('the factory room', () => {
     const box = { id: 99, type: 'Box', x: 4 * TILE + 16, y: 8 * TILE + 16, width: 0, height: 0, point: true, properties: [{ name: 'boxType', value: 'acetaldehyde' }] };
     expect(readRoom('factory', withObjects([...objects, box]), TAGS).problems).toContainEqual(expect.objectContaining({ code: 'box-acetaldehyde' }));
     expect(readRoom('factory', map, TAGS).problems).toEqual([]);
+    // The dock is solid in the game, so the parser judges what is drawn over it against the same grid.
+    const [d] = dockTiles(liver.rooms.get(FACTORY)!);
+    const port = { id: 98, type: 'Port', x: d!.col * TILE, y: d!.row * TILE, width: TILE, height: TILE, properties: [] };
+    const npc = { id: 97, type: 'NPC', x: d!.col * TILE + 16, y: d!.row * TILE + 16, width: 0, height: 0, point: true, properties: [{ name: 'npcId', value: 'x' }, { name: 'dialogueId', value: 'liver.end' }] };
+    const moved = objects.map((o) => (o.type === 'Line' && o.properties?.some((p) => p.value === 'intake')
+      ? { ...o, x: d!.col * TILE, y: d!.row * TILE, width: 2 * TILE, height: TILE } : o));
+    const codes = (list: Obj[]) => readRoom('factory', withObjects(list), TAGS).problems.map((p) => `${p.code}:${p.object}`);
+    expect(codes([...objects, port])).toEqual(expect.arrayContaining(['dock-blocked:98', 'port-wall:98']));
+    expect(codes([...objects, npc])).toContain('dock-blocked:97');
+    expect(codes(moved)).toEqual(expect.arrayContaining([expect.stringMatching(/^dock-blocked:/)]));
   });
 });
 
@@ -210,7 +234,19 @@ describe('the glycogen warehouse shut on an empty stomach (fact 31)', () => {
     const walked = run(place(fasting, 4 * TILE, 7.5 * TILE), { move: { x: 1, y: 0 } }, GLUCOSE.drainTicks + 1).state;
     expect(isDizzy(walked.run.tags)).toBe(true);
     const next = run(walked, NONE, 1).state;
-    expect(next.game.operator.slows).toEqual([GLUCOSE.dizzySlow]);
+    expect(next.game.operator.bodySlow).toBe(GLUCOSE.dizzySlow);
+    const stride = (s: ChapterState) => {
+      const start = place(s, 4 * TILE, 7.5 * TILE);
+      return run(start, { move: { x: 1, y: 0 } }, 30).state.game.operator.x - start.game.operator.x;
+    };
+    const dizzyStride = stride(next);
+    const steadyStride = stride(withTags(at(FACTORY), 'alcohol:1,glucose:50'));
+    expect(dizzyStride).toBeLessThan(steadyStride * 0.9);
+    // Another slow source is kept beside it, not overwritten.
+    // From an operator not yet marked dizzy, so the chapter has to set the dizzy slow on this tick.
+    const { bodySlow: _, ...fresh } = next.game.operator;
+    const syrup = { ...next, game: { ...next.game, operator: { ...fresh, slows: [0.2] } } };
+    expect(run(syrup, NONE, 1).state.game.operator).toMatchObject({ slows: [0.2], bodySlow: GLUCOSE.dizzySlow });
     const fed = withTags(at(FACTORY), 'alcohol:1,glucose:40');
     expect(isDizzy(run(place(fed, 4 * TILE, 7.5 * TILE), { move: { x: 1, y: 0 } }, GLUCOSE.drainTicks + 1).state.run.tags)).toBe(false);
   });
@@ -296,6 +332,14 @@ describe('the rescue cannot fail (design doc 7.7)', () => {
     expect(alone.rescue).toMatchObject({ done: 2 });
   });
 
+  it('a finished panel closes on a pick as well as a confirm, so a click closes it', () => {
+    let s = opened();
+    for (const step of plan.steps) s = stepChapter(liver, s, { ...NONE, pick: offered(plan, s.rescue!.done).indexOf(step) + 1 }).state;
+    expect(s.rescue?.done).toBe(plan.steps.length);
+    expect(stepChapter(liver, s, NONE).state.rescue).toBeDefined();
+    expect(stepChapter(liver, s, { ...NONE, pick: 1 }).state.rescue).toBeUndefined();
+  });
+
   it('finishing applies its effects as the rescue event, and the corner trigger opens it', () => {
     const done = solve(opened());
     expect(done.rescue).toBeUndefined();
@@ -326,6 +370,7 @@ describe('alcohol is never a combat buff (design doc 5.1)', () => {
         expect(drunk.game.operator.halves).toBe(sober.game.operator.halves);
         expect(drunk.game.operator.gauge).toBe(sober.game.operator.gauge);
         expect(drunk.game.operator.slows).toEqual(sober.game.operator.slows);
+        expect(drunk.game.operator.bodySlow).toBe(sober.game.operator.bodySlow);
       }
     }
   });
