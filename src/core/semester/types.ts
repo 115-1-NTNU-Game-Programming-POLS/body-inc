@@ -61,6 +61,12 @@ export interface PatrolRecord {
 
 export interface DayRecord {
   readonly day: number;
+  /** Hour the day began; the report draws its narrative days from it (a night before this hour belongs to the day before). */
+  readonly wake: number;
+  /** Hour sleep began on the extended clock; absent on the final exam day, which has no night. */
+  readonly bedEnd?: number;
+  /** The emergency-room entry of the causal log, when the night ended there. */
+  readonly crisis?: { readonly node: number; readonly at: number };
   readonly kind: 'normal' | 'exam' | 'hospital';
   /** False on the final exam day, which ends before any night settlement. */
   readonly settled: boolean;
@@ -91,6 +97,12 @@ export interface SemesterState {
   readonly tags: TagState;
   readonly progress: number;
   readonly loads: Loads;
+  /**
+   * Causal log entries behind each floor's load since it was last calm (under the yellow line).
+   * A load is a running sum over days, so a strike has to cite the nights that built it, not only
+   * the night it crossed the line.
+   */
+  readonly loadCauses: Readonly<Record<FloorId, readonly number[]>>;
   /** Cups per finished day, for the tolerance rule. */
   readonly cupsHist: readonly number[];
   readonly zeroCupDays: number;

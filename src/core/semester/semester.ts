@@ -3,7 +3,7 @@ import { calculateSemesterGrade, scoreExam } from '../exam/scoring.ts';
 import { caffeineOf, metabolise } from '../outer/caffeine.ts';
 import { drawFloat, seedStreams } from '../rng.ts';
 import { sleepFactor } from '../spirit.ts';
-import { record, type SourceNodeKind } from '../tags/causal.ts';
+import { addCauses, record, type NodeData, type SourceNodeKind } from '../tags/causal.ts';
 import type { TagDictionary } from '../tags/dictionary.ts';
 import { addAmount, amount, EMPTY_TAGS, flag, holds, lowerAmount, onWake, setAmount, setFlag, type TagState } from '../tags/store.ts';
 import { EMPTY_LOADS, elevatorPanel, FLOORS, lightOf, litFloors, mapFloors, type FloorId } from './floors.ts';
@@ -32,10 +32,18 @@ export const nextSleepDebt = (debt: number, effectiveSleep: number, k: { sleepNe
     ? debt + (k.sleepNeed - effectiveSleep)
     : Math.max(0, debt - k.repayRatio * (effectiveSleep - k.sleepNeed));
 
-function source(tags: TagState, kind: SourceNodeKind, key: string, at: number): [TagState, number] {
-  const [log, id] = record(tags.log, { kind, key, at });
+function source(tags: TagState, kind: SourceNodeKind, key: string, at: number, data?: NodeData): [TagState, number] {
+  const [log, id] = record(tags.log, { kind, key, at, ...(data ? { data } : {}) });
   return [{ ...tags, log }, id];
 }
+
+/** A derived entry of the causal log: an effect that follows from `causes`. */
+function derive(tags: TagState, key: string, at: number, causes: readonly number[], data?: NodeData): [TagState, number] {
+  const [log, id] = record(tags.log, { kind: 'effect', key, at, causes, ...(data ? { data } : {}) });
+  return [{ ...tags, log }, id];
+}
+
+const MIDNIGHT = 24;
 
 /** The dictionary modifiers that hold now (design doc 8.7). */
 export function activeModifiers(tags: TagState, dict: TagDictionary): string[] {
@@ -64,7 +72,7 @@ export function startSemester(ctx: SemesterContext, seed: number): SemesterState
     tags = setAmount(t, ctx.dict, 'sleep_debt', ctx.startDebt!, cause, 0);
   }
   return {
-    day: 1, wake: ctx.params.wake, tags, progress: 0, loads: EMPTY_LOADS, cupsHist: [], zeroCupDays: 0, liverOrders: [],
+    day: 1, wake: ctx.params.wake, tags, progress: 0, loads: EMPTY_LOADS, loadCauses: mapFloors(() => []), cupsHist: [], zeroCupDays: 0, liverOrders: [],
     hospitals: 0, bankrupt: false, rng: seedStreams(seed), history: [], ended: false,
   };
 }
@@ -88,6 +96,10 @@ interface DayRun {
   workLeft: number;
   bedDelay: number;
   studyHours: number;
+  /** Hours between the end of the evening and bedtime spent studying. */
+  lateStudy: number;
+  /** The events of the day behind each floor's contribution tonight, for the causal log. */
+  evidence: Record<'brain' | 'stomach' | 'liver', number[]>;
   pending: SemesterEvent[];
   played: { id: string; option: string }[];
 }
@@ -132,11 +144,12 @@ function applyEvents(d: DayRun, upTo: number, before = false): void {
     if (opt === undefined) throw new RangeError(`strategy chose "${pick}" for event "${ev.id}"; its options are ${keys.join(', ')}`);
     const at = minuteOf(d.s.day, upTo);
     // Every choice is logged, even one that changes nothing, so the report can tell what was chosen.
-    let [tags, cause] = source(d.s.tags, 'event', `event.${ev.id}.${pick}`, at);
+    let [tags, cause] = source(d.s.tags, 'event', `event.${ev.id}.${pick}`, at, { cups: opt.alcohol ?? 0 });
     let orders = d.s.liverOrders;
     if (opt.alcohol !== undefined && opt.alcohol > 0) {
       tags = addAmount(tags, dict, 'alcohol', opt.alcohol, cause, at);
       d.alcoholCups += opt.alcohol;
+      d.evidence.liver.push(cause);
       if (!orders.includes(d.s.day)) orders = [...orders, d.s.day];
     }
     if (opt.fasting) {
@@ -146,10 +159,12 @@ function applyEvents(d: DayRun, upTo: number, before = false): void {
     if (opt.deadline) {
       tags = setFlag(tags, dict, 'deadline', true, cause, at);
       d.deadline = true;
+      d.evidence.brain.push(cause);
     }
     if (opt.lateSnack) {
       tags = setFlag(tags, dict, 'late_snack', true, cause, at);
       d.lateSnack = true;
+      d.evidence.stomach.push(cause);
     }
     d.workLeft += opt.workHours ?? 0;
     d.bedDelay += opt.bedDelay ?? 0;
@@ -187,7 +202,7 @@ function spend(d: DayRun, dur: number, activity: Activity): void {
 function drinkCup(d: DayRun, h: number): void {
   const { dict, params: k } = d.ctx;
   const at = minuteOf(d.s.day, h);
-  const [tags, cause] = source(d.s.tags, 'card', 'coffee', at);
+  const [tags, cause] = source(d.s.tags, 'card', 'coffee', at, { cups: 1 });
   d.s = { ...d.s, tags: addAmount(tags, dict, 'caffeine', k.cup, cause, at) };
   d.cups += 1;
 }
@@ -224,6 +239,35 @@ interface Outcome {
   readonly hospitalized: boolean;
   readonly loadsSettled: SemesterState['loads'];
   readonly liverStrike?: NonNullable<DayRecord['liverStrike']>;
+  readonly crisis?: NonNullable<DayRecord['crisis']>;
+}
+
+const nodeOf = (tags: TagState, name: string): number[] => (tags.values[name] ? [tags.values[name]!.node] : []);
+
+/**
+ * Names what shortened tonight's sleep as causes of the sleep debt, so a report that traces the
+ * debt back finds the late bedtime, the caffeine, the drinks and the snack by name.
+ */
+function explainDebt(d: DayRun, tags: TagState, n: Night, residual: number, alcoholAtBed: boolean, at: number): TagState {
+  const k = d.ctx.params;
+  const why: number[] = [];
+  if (n.bedEnd >= MIDNIGHT) {
+    const [t, id] = source(tags, 'activity', d.lateStudy > 0 ? 'study_late' : 'stayed_up', at, { bed: n.bedEnd });
+    tags = t;
+    why.push(id);
+  }
+  if (residual >= k.cafDeadZone) {
+    const [t, id] = derive(tags, 'caffeine_insomnia', at, nodeOf(tags, 'caffeine'), { residual: Math.round(residual) });
+    tags = t;
+    why.push(id);
+  }
+  if (alcoholAtBed) {
+    const [t, id] = derive(tags, 'alcohol_sleep', at, nodeOf(tags, 'alcohol'));
+    tags = t;
+    why.push(id);
+  }
+  if (d.lateSnack) why.push(...nodeOf(tags, 'late_snack'));
+  return { ...tags, log: addCauses(tags.log, tags.values['sleep_debt']!.node, why, at) };
 }
 
 /** The night settlement: sleep, debt, floor loads, strikes, a trip to the emergency room, waking up. */
@@ -231,14 +275,17 @@ function settle(d: DayRun, n: Night): Outcome {
   const { dict, params: k } = d.ctx;
   const day = d.s.day;
   const at = minuteOf(day, n.bedEnd);
-  let [tags, rule] = source(d.s.tags, 'rule', 'sleep', at);
-
   const sleepHours = Math.max(0, 24 + n.nextWake - n.bedEnd);
-  const alcoholAtBed = amount(tags, dict, 'alcohol') > 0;
-  const mult = caffeineSleepCoef(caffeineOf(tags, dict), k) * (alcoholAtBed ? k.alcoholSleep : 1) * (d.lateSnack ? k.snackSleep : 1);
+  const residual = caffeineOf(d.s.tags, dict);
+  const alcoholAtBed = amount(d.s.tags, dict, 'alcohol') > 0;
+  const mult = caffeineSleepCoef(residual, k) * (alcoholAtBed ? k.alcoholSleep : 1) * (d.lateSnack ? k.snackSleep : 1);
   const effective = sleepHours * mult;
-  const debtAfter = nextSleepDebt(amount(tags, dict, 'sleep_debt'), effective, k);
+  let [tags, rule] = source(d.s.tags, 'rule', 'sleep', at, { bed: n.bedEnd, sleep: sleepHours, effective });
+
+  const debtBefore = amount(tags, dict, 'sleep_debt');
+  const debtAfter = nextSleepDebt(debtBefore, effective, k);
   tags = setAmount(tags, dict, 'sleep_debt', debtAfter, rule, at);
+  if (debtAfter > debtBefore) tags = explainDebt(d, tags, n, residual, alcoholAtBed, at);
 
   const facts: DayFacts = {
     debtAfter, deadline: d.deadline, tolerant: flag(tags, dict, 'caffeine_tolerant'), lateSnack: d.lateSnack,
@@ -257,19 +304,36 @@ function settle(d: DayRun, n: Night): Outcome {
     ? liverStrikes({ load: loads.liver, alcohol: alcoholAtBed, dupMedication, orders: d.s.liverOrders, day }, k)
     : strikes(f, loads[f], k)));
   // Design doc 8.6: a struck liver plus an empty stomach is the dizzy-and-sweating crisis.
-  const crisis = struck.includes('liver') && d.fasting;
-  const er = struck.length >= 2 || crisis;
+  const crisisNight = struck.includes('liver') && d.fasting;
+  const er = struck.length >= 2 || crisisNight;
+
+  // A load is a running sum, so a floor's causes accumulate until it is calm again (under the yellow line).
+  const tonight: Record<FloorId, number[]> = {
+    brain: [...(debtAfter > 0 ? nodeOf(tags, 'sleep_debt') : []), ...(facts.tolerant ? nodeOf(tags, 'caffeine_tolerant') : []), ...d.evidence.brain],
+    stomach: d.evidence.stomach,
+    liver: d.evidence.liver,
+    immune: [],
+    gut: [],
+  };
+  const behind = mapFloors((f) => [...new Set([...d.s.loadCauses[f], ...tonight[f]])]);
+  const strikeNodes: number[] = [];
+  for (const f of struck) {
+    const [t, id] = derive(tags, `strike.${f}`, at, behind[f].length > 0 ? behind[f] : [rule], { floor: f });
+    tags = t;
+    strikeNodes.push(id);
+  }
 
   const loadsSettled = loads;
   let hospitals = d.s.hospitals;
   let hospitalDay: number | undefined;
   let bankrupt = false;
   let residualHours = sleepHours;
+  let crisis: Outcome['crisis'];
   if (er) {
     hospitals += 1;
-    const causes = [rule, ...['alcohol', 'fasting'].flatMap((t) => (tags.values[t] ? [tags.values[t]!.node] : []))];
-    const [log] = record(tags.log, { kind: 'crisis', key: 'er', at, causes });
+    const [log, node] = record(tags.log, { kind: 'crisis', key: 'er', at, causes: strikeNodes });
     tags = { ...tags, log };
+    crisis = { node, at };
     if (hospitals >= 2) {
       bankrupt = true;
     } else {
@@ -296,8 +360,9 @@ function settle(d: DayRun, n: Night): Outcome {
   tags = lowerAmount(tags, dict, 'alcohol', amount(tags, dict, 'alcohol'));
   tags = setFlag(tags, dict, 'deadline', false, rule, at);
 
+  const loadCauses = mapFloors((f) => (loads[f] < k.floorYellowAt ? [] : behind[f]));
   d.s = {
-    ...d.s, tags, loads, cupsHist, zeroCupDays, hospitals, bankrupt, day: day + 1, wake: er && !bankrupt ? k.wake : n.nextWake,
+    ...d.s, tags, loads, loadCauses, cupsHist, zeroCupDays, hospitals, bankrupt, day: day + 1, wake: er && !bankrupt ? k.wake : n.nextWake,
     ...(hospitalDay !== undefined ? { hospitalDay } : {}),
   };
   return {
@@ -305,6 +370,7 @@ function settle(d: DayRun, n: Night): Outcome {
     hospitalized: er,
     loadsSettled,
     ...(struck.includes('liver') ? { liverStrike: { alcoholAtBed, dupMedication, orderBefore } } : {}),
+    ...(crisis ? { crisis } : {}),
   };
 }
 
@@ -317,13 +383,15 @@ export function playDay(s0: SemesterState, ctx: SemesterContext, strategy: Strat
   const debt = amount(s0.tags, dict, 'sleep_debt');
   const d: DayRun = {
     s: s0, ctx, strategy, exam, S: sleepFactor(debt, k), brainStrike: strikes('brain', s0.loads.brain, k), morningLoads: s0.loads,
-    cups: 0, alcoholCups: 0, fasting: false, deadline: false, lateSnack: false, workLeft: 0, bedDelay: 0, studyHours: 0,
+    cups: 0, alcoholCups: 0, fasting: false, deadline: false, lateSnack: false, workLeft: 0, bedDelay: 0, studyHours: 0, lateStudy: 0,
+    evidence: { brain: [], stomach: [], liver: [] },
     pending: hospitalDay ? [] : (ctx.scenario[day] ?? []).map((id) => ctx.events.get(id)!).sort((a, b) => a.hour - b.hour),
     played: [],
   };
   const panel = elevatorPanel(s0.loads, k);
   const header = {
     day,
+    wake: s0.wake,
     lights: mapFloors((f) => lightOf(f, s0.loads[f], k)),
     lit: litFloors(panel),
     liverNote: panel.buttons.some((b) => b.floor === 'liver' && b.note === 'liver_ok'),
@@ -390,12 +458,15 @@ export function playDay(s0: SemesterState, ctx: SemesterContext, strategy: Strat
   for (let t = k.bedMin; t < bedEndAt(); t += STEP) {
     if (!hospitalDay) applyEvents(d, t);
     if (t >= bedEndAt()) break;
-    spend(d, STEP, t < bedBase ? night.lateNight : 'rest');
+    const late = t < bedBase && night.lateNight === 'study';
+    if (late) d.lateStudy += STEP;
+    spend(d, STEP, late ? 'study' : 'rest');
   }
 
   const outcome = settle(d, { bedEnd: Math.max(bedEndAt(), k.bedMin), nextWake, patrols, hospitalDay });
   const rec: DayRecord = {
     ...header,
+    bedEnd: Math.max(bedEndAt(), k.bedMin),
     kind: hospitalDay ? 'hospital' : exam !== null ? 'exam' : 'normal',
     settled: true,
     patrols, events: d.played, loadsAfter: d.s.loads, studyHours: d.studyHours, ...outcome,
