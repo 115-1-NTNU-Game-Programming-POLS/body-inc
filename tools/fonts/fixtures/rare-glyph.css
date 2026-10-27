@@ -1,0 +1,2 @@
+/* Fixture for check_fonts.py --expect-missing: the real base subset with 龘 (U+9F98) added to its range. */
+@font-face{font-family:"LXGW WenKai TC";font-weight:400;src:url(../../../public/assets/fonts/LXGWWenKaiTC-Regular.woff2) format("woff2");unicode-range:U+20-7E,U+9F98}
