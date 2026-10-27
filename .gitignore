@@ -9,6 +9,9 @@ prototypes/feasibility/dom.txt
 
 __pycache__/
 
+# Source fonts downloaded by tools/fonts/build_fonts.py
+tools/fonts/.cache/
+
 .DS_Store
 Thumbs.db
 desktop.ini

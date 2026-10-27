@@ -9,7 +9,7 @@ import {
   DEFAULT_HOST, EMPTY_TAGS, listProps, PROGRESS, roomsOf, savedHost, SETTINGS, startChapter, STORY, type ChapterContent, type ProgressData, type TagState,
   type TiledMapFile,
 } from '../../core/index.ts';
-import { glyphCorpus } from '../text/corpus.ts';
+import { bootCorpus } from '../text/corpus.ts';
 import { addSystemText, admitText, loadFonts, setHostName, type FontGateResult } from '../text/fonts.ts';
 
 /** Phaser cache key of a room's Tiled map; the room path is folder/map as in the chapter file. */
@@ -45,8 +45,7 @@ export class BootScene extends Phaser.Scene {
 
   preload(): void {
     // Fonts load in parallel with the assets; no scene that draws text starts before both finish.
-    // The default host name is in no content text yet, but `{host}` reads as it on a fresh save.
-    this.fonts = loadFonts(glyphCorpus(STRINGS, [...DIALOGUE_TEXT, DEFAULT_HOST]));
+    this.fonts = loadFonts(bootCorpus(STRINGS, DIALOGUE_TEXT));
     this.load.on(Phaser.Loader.Events.FILE_LOAD_ERROR, (file: Phaser.Loader.File) => {
       this.failed.push(`failed to load ${file.url}`);
     });

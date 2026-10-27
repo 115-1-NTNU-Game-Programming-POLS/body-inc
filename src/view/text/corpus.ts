@@ -1,4 +1,5 @@
 import type { StringTable } from '../../app/feedback.ts';
+import { DEFAULT_HOST } from '../../core/index.ts';
 import { CLOSING, OPENING } from './wrap.ts';
 
 /**
@@ -16,3 +17,11 @@ export function glyphCorpus(strings: StringTable, extra: readonly string[] = [])
   for (const text of extra) for (const c of text) set.add(c);
   return [...set].sort().join('');
 }
+
+/**
+ * What Boot loads before the title, and so what the self-hosted base subset must hold
+ * (tools/fonts/build_fonts.py). The default host name is in no content text, but `{host}` reads as
+ * it on a fresh save.
+ */
+export const bootCorpus = (strings: StringTable, dialogue: readonly string[]): string =>
+  glyphCorpus(strings, [...dialogue, DEFAULT_HOST]);

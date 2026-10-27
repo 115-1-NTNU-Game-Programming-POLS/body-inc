@@ -14,7 +14,6 @@ public/assets/atlases/atlas-*,場景圖集（道具、方箱骨架、特效、�
 public/assets/tilesets/*,世界圖塊集,黃晨瑋（程式繪製骨架）；地板為 AI 紋理底稿,,team-original,,ai-generated,Google Gemini 或 ChatGPT gpt-image（逐項見生成紀錄的 tool 與 c2pa 欄）,art-src/ai/log/tex-*.json,紋理無縫化、量化到世界地板色票；骨架以索引灰階換色,黃晨瑋,2026-10-23,
 public/assets/atlases/index.json,圖集索引（每個素材鍵載入正式圖或佔位圖）,黃晨瑋（程式產生）,,team-original,,none,,,,黃晨瑋,2026-10-23,
 public/assets/maps/*,Tiled 房間地圖,黃晨瑋（程式產生灰盒房間）,,team-original,,none,,,,黃晨瑋,2026-10-23,
-public/assets/fonts/LXGWWenKaiTC-Regular.woff2,LXGW WenKai TC Regular,LXGW,https://github.com/lxgw/LxgwWenKai-TC,OFL-1.1,https://scripts.sil.org/OFL,none,,,pyftsubset 子集化,王欣媛,2026-10-27,
-public/assets/fonts/LXGWWenKaiTC-Bold.woff2,LXGW WenKai TC Bold,LXGW,https://github.com/lxgw/LxgwWenKai-TC,OFL-1.1,https://scripts.sil.org/OFL,none,,,pyftsubset 子集化,王欣媛,2026-10-27,
-public/assets/fonts/NotoSansTC-Regular.woff2,Noto Sans TC Regular,Google,https://github.com/google/fonts,OFL-1.1,https://scripts.sil.org/OFL,none,,,pyftsubset 子集化,王欣媛,2026-10-27,
-public/assets/fonts/NotoSansTC-Bold.woff2,Noto Sans TC Bold,Google,https://github.com/google/fonts,OFL-1.1,https://scripts.sil.org/OFL,none,,,pyftsubset 子集化,王欣媛,2026-10-27,
+public/assets/fonts/*LXGWWenKaiTC-*.woff2,LXGW WenKai TC Regular 與 Bold 子集（基本子集與常用字切片）,LXGW,https://github.com/google/fonts/tree/4e5f06dbb274a27ebe71ed54ea706b3ee40eabd9/ofl/lxgwwenkaitc,OFL-1.1,https://openfontlicense.org/open-font-license-official-text/,none,,,以 tools/fonts/build_fonts.py 子集化,王欣媛,2026-10-27,LXGW WenKai TC by LXGW (SIL Open Font License 1.1)
+public/assets/fonts/*NotoSansTC-*.woff2,Noto Sans TC Regular 與 Bold 子集（基本子集與常用字切片）,Google,https://github.com/google/fonts/tree/3be1884c48c3e45b52ecc725676a08f87776373e/ofl/notosanstc,OFL-1.1,https://openfontlicense.org/open-font-license-official-text/,none,,,由可變字型取 400 與 700 實例後以 tools/fonts/build_fonts.py 子集化,王欣媛,2026-10-27,Noto Sans TC by Google (SIL Open Font License 1.1)
+public/assets/fonts/*.css,字型樣式表（各子集的 @font-face 與 unicode-range）,王欣媛（程式產生）,,team-original,,none,,,,王欣媛,2026-10-27,

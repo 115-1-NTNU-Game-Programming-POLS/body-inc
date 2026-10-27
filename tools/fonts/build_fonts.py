@@ -1,154 +1,160 @@
-import json
-import os
+"""Build the self-hosted font subsets (issue #15, art direction 8.2).
+
+    python tools/fonts/build_fonts.py
+
+Needs Python 3.12 with `pip install fonttools brotli`, and Node 22.18 for the corpus. Run it
+again whenever content adds a character; `npm run check` (tools/check-fonts.ts) says when.
+
+Writes to public/assets/fonts/:
+  * one base subset per face holding exactly the boot corpus, the characters Boot waits for
+    before the title (`node tools/check-fonts.ts --corpus`, the same function Boot uses);
+  * fonts.css, which index.html links: one @font-face per face and weight, each with the
+    unicode-range read back from the subset file, so the font gate in src/view/text/fonts.ts
+    can tell a character the subset lacks from one it has;
+  * extra/ and fonts-extra.css: the Big5 level-1 common characters and the Latin-1 letters
+    the base lacks, in slices of SLICE characters. Only admitText loads that stylesheet, for a
+    host name outside the corpus, and the browser then fetches just the slices the name needs.
+
+The source fonts come from google/fonts at a pinned commit and are cached in tools/fonts/.cache/.
+"""
+
+import shutil
 import subprocess
+import sys
 import urllib.request
 from pathlib import Path
+
+from fontTools.subset import Options, Subsetter
 from fontTools.ttLib import TTFont
-from fontTools.varLib.mutator import instantiateVariableFont
+from fontTools.varLib.instancer import instantiateVariableFont
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-STRINGS_PATH = PROJECT_ROOT / "content" / "strings" / "zh-TW.json"
-DIALOGUE_DIR = PROJECT_ROOT / "content" / "dialogue"
-OUTPUT_DIR = PROJECT_ROOT / "public" / "assets" / "fonts"
-CACHE_DIR = PROJECT_ROOT / "tools" / "fonts" / ".cache"
+ROOT = Path(__file__).resolve().parents[2]
+OUT = ROOT / "public" / "assets" / "fonts"
+CACHE = ROOT / "tools" / "fonts" / ".cache"
+SLICE = 100
 
-OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-CACHE_DIR.mkdir(parents=True, exist_ok=True)
+LXGW = "https://raw.githubusercontent.com/google/fonts/4e5f06dbb274a27ebe71ed54ea706b3ee40eabd9/ofl/lxgwwenkaitc/"
+NOTO = "https://raw.githubusercontent.com/google/fonts/3be1884c48c3e45b52ecc725676a08f87776373e/ofl/notosanstc/"
 
-# 1. 收集遊戲實際使用的字元 (Base Corpus)
-chars = set()
-for code in range(32, 127):
-    chars.add(chr(code))
-
-extra_punc = "…—～,.:;?!)]}'」』〉》〕】\"'「『〈《〔【"
-chars.update(extra_punc)
-
-if STRINGS_PATH.exists():
-    with open(STRINGS_PATH, "r", encoding="utf-8") as f:
-        data = json.load(f)
-        chars.update(json.dumps(data, ensure_ascii=False))
-
-if DIALOGUE_DIR.exists():
-    for file_path in DIALOGUE_DIR.rglob("*.*"):
-        if file_path.suffix in [".json", ".csv", ".txt"]:
-            try:
-                with open(file_path, "r", encoding="utf-8") as f:
-                    chars.update(f.read())
-            except Exception:
-                pass
-
-base_corpus_text = "".join(sorted(chars))
-base_corpus_file = CACHE_DIR / "corpus_base.txt"
-with open(base_corpus_file, "w", encoding="utf-8") as f:
-    f.write(base_corpus_text)
-
-print(f"Base Corpus: {len(chars)} 個唯一字元，已寫入 {base_corpus_file.name}")
-
-# 2. 建立 +3500 常用字 Safety Net Corpus (依據常用 CJK 區間)
-safety_chars = set(chars)
-for cp in range(0x4E00, 0x5C00):
-    safety_chars.add(chr(cp))
-safety_corpus_text = "".join(sorted(safety_chars))
-safety_corpus_file = CACHE_DIR / "corpus_safety.txt"
-with open(safety_corpus_file, "w", encoding="utf-8") as f:
-    f.write(safety_corpus_text)
-
-print(f"Safety Net Corpus: {len(safety_chars)} 個字元，已寫入 {safety_corpus_file.name}")
-
-# 3. 下載輔助函式
-def download_font(urls, target_path):
-    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
-    for url in urls:
-        try:
-            req = urllib.request.Request(url, headers=headers)
-            with urllib.request.urlopen(req) as resp, open(target_path, "wb") as out:
-                out.write(resp.read())
-            return True
-        except Exception:
-            pass
-    return False
-
-FONTS = [
-    {
-        "name": "LXGWWenKaiTC-Regular.woff2",
-        "temp": CACHE_DIR / "LXGWWenKaiTC-Regular.ttf",
-        "weight": None,
-        "urls": [
-            "https://raw.githubusercontent.com/google/fonts/main/ofl/lxgwwenkaitc/LXGWWenKaiTC-Regular.ttf",
-            "https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/lxgwwenkaitc/LXGWWenKaiTC-Regular.ttf"
-        ]
-    },
-    {
-        "name": "LXGWWenKaiTC-Bold.woff2",
-        "temp": CACHE_DIR / "LXGWWenKaiTC-Bold.ttf",
-        "weight": None,
-        "urls": [
-            "https://raw.githubusercontent.com/google/fonts/main/ofl/lxgwwenkaitc/LXGWWenKaiTC-Bold.ttf",
-            "https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/lxgwwenkaitc/LXGWWenKaiTC-Bold.ttf"
-        ]
-    },
-    {
-        "name": "NotoSansTC-Regular.woff2",
-        "temp": CACHE_DIR / "NotoSansTC-Variable.ttf",
-        "weight": 400,
-        "urls": [
-            "https://raw.githubusercontent.com/google/fonts/main/ofl/notosanstc/NotoSansTC%5Bwght%5D.ttf",
-            "https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/notosanstc/NotoSansTC%5Bwght%5D.ttf"
-        ]
-    },
-    {
-        "name": "NotoSansTC-Bold.woff2",
-        "temp": CACHE_DIR / "NotoSansTC-Variable.ttf",
-        "weight": 700,
-        "urls": [
-            "https://raw.githubusercontent.com/google/fonts/main/ofl/notosanstc/NotoSansTC%5Bwght%5D.ttf",
-            "https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/notosanstc/NotoSansTC%5Bwght%5D.ttf"
-        ]
-    }
+# (output stem, CSS family, weight, source file, source URL, wght instance or None)
+FACES = [
+    ("NotoSansTC-Regular", "Noto Sans TC", 400, "NotoSansTC[wght].ttf", NOTO + "NotoSansTC%5Bwght%5D.ttf", 400),
+    ("NotoSansTC-Bold", "Noto Sans TC", 700, "NotoSansTC[wght].ttf", NOTO + "NotoSansTC%5Bwght%5D.ttf", 700),
+    ("LXGWWenKaiTC-Regular", "LXGW WenKai TC", 400, "LXGWWenKaiTC-Regular.ttf", LXGW + "LXGWWenKaiTC-Regular.ttf", None),
+    ("LXGWWenKaiTC-Bold", "LXGW WenKai TC", 700, "LXGWWenKaiTC-Bold.ttf", LXGW + "LXGWWenKaiTC-Bold.ttf", None),
 ]
 
-# 4. 執行下載、子集裁切與容量比較
-results = []
-for font in FONTS:
-    output_path = OUTPUT_DIR / font["name"]
-    temp_path = font["temp"]
+HEADER = "/* Generated by tools/fonts/build_fonts.py; do not edit. */\n"
 
-    if not temp_path.exists():
-        download_font(font["urls"], temp_path)
 
-    input_ttf = temp_path
-    if font["weight"] is not None:
-        static_ttf = CACHE_DIR / f"{font['name'].replace('.woff2', '')}-static.ttf"
-        if not static_ttf.exists():
-            var_font = TTFont(temp_path)
-            static_font = instantiateVariableFont(var_font, {"wght": font["weight"]})
-            static_font.save(static_ttf)
-        input_ttf = static_ttf
+def boot_corpus() -> set[int]:
+    node = shutil.which("node") or "node"
+    text = subprocess.run([node, str(ROOT / "tools" / "check-fonts.ts"), "--corpus"], check=True, capture_output=True).stdout.decode("utf-8")
+    return {ord(c) for c in text if c != "\n"}
 
-    # 產出 Base Corpus woff2
-    cmd_base = [
-        "pyftsubset", str(input_ttf),
-        f"--text-file={str(base_corpus_file)}",
-        f"--output-file={str(output_path)}",
-        "--flavor=woff2", "--layout-features=*",
-    ]
-    subprocess.run(cmd_base, check=True)
-    base_kb = output_path.stat().st_size / 1024
 
-    # 產出 Safety Net woff2（僅測試容量）
-    safety_output = CACHE_DIR / f"safety_{font['name']}"
-    cmd_safety = [
-        "pyftsubset", str(input_ttf),
-        f"--text-file={str(safety_corpus_file)}",
-        f"--output-file={str(safety_output)}",
-        "--flavor=woff2", "--layout-features=*",
-    ]
-    subprocess.run(cmd_safety, check=True)
-    safety_kb = safety_output.stat().st_size / 1024
+def big5_level1() -> set[int]:
+    """The 5,401 common characters of Big5 (0xA440 to 0xC67E), in their Unicode code points."""
+    out = set()
+    for lead in range(0xA4, 0xC7):
+        for trail in [*range(0x40, 0x7F), *range(0xA1, 0xFF)]:
+            if (lead << 8 | trail) > 0xC67E:
+                break
+            out.add(ord(bytes([lead, trail]).decode("big5")))
+    return out
 
-    results.append((font["name"], base_kb, safety_kb))
-    print(f"{font['name']}: Base = {base_kb:.1f} KB | +3,500 Safety Net = {safety_kb:.1f} KB")
 
-print("\n--- Font Size Comparison Report ---")
-for name, base_kb, safety_kb in results:
-    print(f"{name:26}: {base_kb:6.1f} KB  ->  {safety_kb:6.1f} KB (+{(safety_kb-base_kb):.1f} KB)")
+LATIN1_LETTERS = set(range(0xC0, 0x100)) - {0xD7, 0xF7}
+
+
+def source(name: str, url: str, wght: int | None) -> TTFont:
+    path = CACHE / name
+    if not path.exists():
+        print(f"downloading {url}")
+        with urllib.request.urlopen(url) as resp:
+            path.write_bytes(resp.read())
+    if wght is None:
+        return TTFont(path)
+    static = CACHE / f"{path.stem}-{wght}.ttf"
+    if not static.exists():
+        instantiateVariableFont(TTFont(path), {"wght": wght}).save(static)
+    return TTFont(static)
+
+
+def subset(font_path: Path, unicodes: set[int], out: Path) -> set[int]:
+    """Writes a woff2 subset and returns the code points its cmap really holds."""
+    options = Options()
+    options.flavor = "woff2"
+    options.name_IDs = ["*"]  # keeps the copyright and the OFL notice in the name table
+    font = TTFont(font_path)
+    s = Subsetter(options)
+    s.populate(unicodes=unicodes)
+    s.subset(font)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    font.flavor = "woff2"
+    font.save(out)
+    return set(TTFont(out).getBestCmap())
+
+
+def unicode_range(cps: set[int]) -> str:
+    parts, run = [], []
+    for cp in sorted(cps):
+        if run and cp == run[-1] + 1:
+            run.append(cp)
+            continue
+        if run:
+            parts.append(f"U+{run[0]:X}" if len(run) == 1 else f"U+{run[0]:X}-{run[-1]:X}")
+        run = [cp]
+    if run:
+        parts.append(f"U+{run[0]:X}" if len(run) == 1 else f"U+{run[0]:X}-{run[-1]:X}")
+    return ",".join(parts)
+
+
+def face_rule(family: str, weight: int, url: str, cps: set[int]) -> str:
+    # font-display: block, as the Google Fonts link had; the gate waits for the fonts anyway.
+    return (
+        f'@font-face{{font-family:"{family}";font-style:normal;font-weight:{weight};font-display:block;'
+        f'src:url({url}) format("woff2");unicode-range:{unicode_range(cps)}}}\n'
+    )
+
+
+def main() -> int:
+    CACHE.mkdir(parents=True, exist_ok=True)
+    corpus = boot_corpus()
+    common = big5_level1() | LATIN1_LETTERS
+    if (OUT / "extra").exists():
+        shutil.rmtree(OUT / "extra")
+    base_css, extra_css = [HEADER], [HEADER]
+    lacking: set[int] = set()
+    report = []
+    for stem, family, weight, name, url, wght in FACES:
+        font = source(name, url, wght)
+        have = set(font.getBestCmap())
+        font_path = Path(font.reader.file.name)
+        lacking |= corpus - have
+        base_file = OUT / f"{stem}.woff2"
+        base = subset(font_path, corpus & have, base_file)
+        base_css.append(face_rule(family, weight, base_file.name, base))
+        extra_cps = sorted((common & have) - base)
+        extra_bytes = 0
+        for i in range(0, len(extra_cps), SLICE):
+            part = OUT / "extra" / f"{stem}-{i // SLICE:02d}.woff2"
+            got = subset(font_path, set(extra_cps[i : i + SLICE]), part)
+            extra_css.append(face_rule(family, weight, f"extra/{part.name}", got - base))
+            extra_bytes += part.stat().st_size
+        report.append((stem, len(base), base_file.stat().st_size, len(extra_cps), extra_bytes))
+    (OUT / "fonts.css").write_text("".join(base_css), encoding="utf-8", newline="\n")
+    (OUT / "fonts-extra.css").write_text("".join(extra_css), encoding="utf-8", newline="\n")
+
+    print(f"boot corpus: {len(corpus)} characters")
+    for stem, n, size, en, esize in report:
+        print(f"{stem:22} base {n:4} chars {size / 1024:7.1f} KiB | extra {en:4} chars {esize / 1024:7.1f} KiB in {-(-en // SLICE)} slices")
+    print(f"base total {sum(r[2] for r in report) / 1024:.1f} KiB, extra total {sum(r[4] for r in report) / 1024:.1f} KiB")
+    if lacking:
+        shown = ", ".join(f"{chr(c)} U+{c:04X}" for c in sorted(lacking))
+        print(f"some face lacks these corpus characters, so they draw in a fallback font: {shown}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
