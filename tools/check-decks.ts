@@ -57,6 +57,8 @@ function deckMessage(file: string, p: DeckProblem): string {
         case 'tag-form': return `${at}：effect「${part}」寫法和標籤型別不符：布林標籤寫 tag:${tag}，數值標籤寫 tag:${tag}=數字 或 tag:${tag}+數字`;
         case 'tool': return `${at}：effect「${part}」不行；grant:stamp 只能寫在對話或事件卡，章首卡與章末卡不能發工具`;
         case 'minutes': return `${at}：effect「${part}」的 clock: 後面必須是分鐘數，1 到 4 位數的整數`;
+        case 'alcohol-set': return `${at}：effect「${part}」不行；酒精只能由肝臟產線處理掉，內容不能直接設定 alcohol，只能用 tag:alcohol+數字 加杯數`;
+        case 'alcohol-buff': return `${at}：effect「${part}」不能和加酒精的效果寫在同一格；喝酒永遠不能換到工具、精神、咖啡因或血糖（設計文件 5.1）`;
         default: return `${at}：effect「${part}」有誤`;
       }
   }

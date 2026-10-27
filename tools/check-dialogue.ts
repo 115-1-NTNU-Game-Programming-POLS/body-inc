@@ -42,6 +42,8 @@ function effectMessage(p: DialogueProblem): string {
     case 'tag-source': return `effect 的標籤「${tag}」不是故事事件或章節設定的標籤，對話不能改它；字典裡它的 sources 要包含 event 或 chapter`;
     case 'tag-form': return `effect「${part}」寫法和標籤型別不符：布林標籤寫 tag:${tag}，數值標籤寫 tag:${tag}=數字 或 tag:${tag}+數字`;
     case 'minutes': return `effect「${part}」的 clock: 後面必須是分鐘數，1 到 4 位數的整數，例如 clock:10`;
+    case 'alcohol-set': return `effect「${part}」不行；酒精只能由肝臟產線處理掉，內容不能直接設定 alcohol，只能用 tag:alcohol+數字 加杯數`;
+    case 'alcohol-buff': return `effect「${part}」不能和加酒精的效果寫在同一格；喝酒永遠不能換到工具、精神、咖啡因或血糖（設計文件 5.1）`;
     default: return `effect「${part}」有誤`;
   }
 }

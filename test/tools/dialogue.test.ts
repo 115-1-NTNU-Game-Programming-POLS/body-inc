@@ -199,6 +199,11 @@ describe('dialogue check: handbook and release', () => {
     expect(run(text, { handbook: ['caffeine'] })).toEqual([]);
   });
 
+  it('a line cannot sober anyone up or pay for a drink (design doc 5.1)', () => {
+    said(run(csv(row('x', 1, 'brain', 'normal', '醒酒', '', 'tag:alcohol=0'))), '內容不能直接設定 alcohol');
+    said(run(csv(row('x', 1, 'brain', 'normal', '乾杯', '', 'tag:alcohol+1;grant:stamp'))), '不能和加酒精的效果寫在同一格');
+  });
+
   it('a pending fact passes the everyday check and fails the release check', () => {
     const text = csv(row('x', 1, 'brain', 'normal', '咖啡因半衰期約五小時。', '', '', '', 'pending:7'));
     expect(run(text)).toEqual([]);
