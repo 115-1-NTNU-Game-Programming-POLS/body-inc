@@ -168,6 +168,8 @@ public/assets/maps/brain/coffee-room.tmj 物件 #4（Door）：門「door-e」�
 
 合併到 `main` 之前，GitHub 上的檢查會跑同一套規則，沒通過不能合併。
 
+遊戲的字型只收錄內容用得到的字，所以字串或對話用了一個新字時，`npm run check` 會回報「字型子集缺少內容用到的字」。這時執行 `python tools/fonts/build_fonts.py`（需要 Python 3.12 與 `pip install fonttools brotli`，第一次會下載原始字型，約需兩三分鐘），把 `public/assets/fonts/` 裡變動的檔案一起提交即可。重新產生後還是缺的字，代表字型本身沒有這個字，請改用別的字。
+
 ## 對話
 
 對話寫在試算表裡，匯出成 UTF-8 的 CSV，放進 `content/dialogue/`，一個檔案可以放很多段對話，同一個 `dialogueId` 不能出現在兩個檔案。第一列是表頭，欄位名稱與順序固定：

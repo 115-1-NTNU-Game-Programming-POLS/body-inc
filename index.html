@@ -4,10 +4,16 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>人體股份有限公司 Body Inc.</title>
-    <!-- Development fonts from Google Fonts (art direction 8.2); the release build will self-host subset woff2. -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=LXGW+WenKai+TC:wght@400;700&family=Noto+Sans+TC:wght@400;700&display=block" />
+    <!--
+      Self-hosted subset fonts (art direction 8.2), built by tools/fonts/build_fonts.py. The font
+      gate in src/view/text/fonts.ts asks for them only after the bundle runs, so they are
+      preloaded to download alongside it.
+    -->
+    <link rel="preload" href="/assets/fonts/NotoSansTC-Regular.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/assets/fonts/NotoSansTC-Bold.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/assets/fonts/LXGWWenKaiTC-Regular.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/assets/fonts/LXGWWenKaiTC-Bold.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="stylesheet" href="/assets/fonts/fonts.css" />
     <style>
       html, body { margin: 0; height: 100%; background: #0c1a33; }
       #game { display: flex; align-items: center; justify-content: center; height: 100%; }

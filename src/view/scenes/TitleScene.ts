@@ -34,6 +34,10 @@ export class TitleScene extends Phaser.Scene {
 
   create(): void {
     this.starting = false;
+    // The cold start measurement (docs/perf/cold-start.md) ends at the first frame drawn with the title.
+    if (performance.getEntriesByName('title-ready').length === 0) {
+      this.game.events.once(Phaser.Core.Events.POST_RENDER, () => performance.mark('title-ready'));
+    }
     const chapters = this.registry.get('chapters') as ReadonlyMap<string, ChapterContent>;
     // Kept current by the world scene on every punch; this is the same copy the save slot holds.
     const story = this.registry.get('story') as StoryData;

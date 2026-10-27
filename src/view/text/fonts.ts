@@ -12,6 +12,10 @@ import { wrapCJK, type Measure } from './wrap.ts';
  * without a text argument fetches only the slice that holds a space. The gate therefore loads
  * every face for the full set of characters the game can show (the corpus), and addText
  * refuses text with a character outside that set.
+ *
+ * The fonts are self-hosted subsets (public/assets/fonts/fonts.css), and each @font-face declares
+ * exactly the characters its file holds. Without that unicode-range a face would default to
+ * U+0-10FFFF and uncovered() would count every character, even an emoji, as drawable.
  */
 let loaded: ReadonlySet<string> | undefined;
 /** What `{host}` reads as in every text; set at Boot from the save and when the player renames the host. */
@@ -86,6 +90,30 @@ export async function loadFonts(corpus: string, timeoutMs = 20000): Promise<Font
 
 export const fontsReady = (): boolean => loaded !== undefined;
 
+let extraSheet: Promise<void> | undefined;
+
+/**
+ * Declares the slices of common characters outside the corpus (fonts-extra.css, built by
+ * tools/fonts/build_fonts.py). Declaring is cheap; the browser fetches a slice only when
+ * document.fonts.load asks for one of its characters. Kept out of index.html so the cold start
+ * does not parse it. A failed load is retried on the next call.
+ */
+function declareExtraFaces(): Promise<void> {
+  extraSheet ??= new Promise((done) => {
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = `${import.meta.env.BASE_URL}assets/fonts/fonts-extra.css`;
+    link.onload = () => done();
+    link.onerror = () => {
+      link.remove();
+      extraSheet = undefined;
+      done();
+    };
+    document.head.append(link);
+  });
+  return extraSheet;
+}
+
 /**
  * Loads every face for text outside the corpus, such as a host name the player typed, and lets
  * addText draw it. Resolves with the characters no face can draw (no slice covers them, or the
@@ -97,7 +125,7 @@ export async function admitText(text: string, timeoutMs = 8000): Promise<string[
   const fresh = [...new Set(text)].filter((c) => c !== '\n' && !known.has(c));
   if (fresh.length === 0) return [];
   const chars = fresh.join('');
-  const loads = Promise.all(FACES.map(({ role, weight }) => document.fonts.load(cssFont(role, weight, 22), chars)));
+  const loads = declareExtraFaces().then(() => Promise.all(FACES.map(({ role, weight }) => document.fonts.load(cssFont(role, weight, 22), chars))));
   const timedOut = await Promise.race([loads.then(() => false, () => false), sleep(timeoutMs).then(() => true)]);
   const missing = timedOut ? fresh : [...new Set(FACES.flatMap(({ role, weight }) => uncovered(FONT[role], weight, chars)))];
   if (missing.length === 0) loaded = new Set([...known, ...fresh]);
