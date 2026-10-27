@@ -152,6 +152,7 @@ describe('feedback table', () => {
       'doorLocked: note "door.locked.{lock}" uses unknown placeholder "{lock}"',
       'pickedUp: note "pickup.{itemType}" uses unknown placeholder "{itemType}"',
       'bedRefused: note "bed.refused.{bedType}" uses unknown placeholder "{bedType}"',
+      'dizzyChanged: note "dizzy.{dizzy}" uses unknown placeholder "{dizzy}"',
     ]);
   });
 

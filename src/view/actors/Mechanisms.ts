@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import {
-  conveyorTiles, directionOf, objectBox, selectBoxes, selectConveyors, selectDoorLocks, selectPickups, selectPort, selectSwitches, TILE, type GameState,
-  type RoomObject,
+  conveyorTiles, directionOf, dockTiles, isSpawnedCrate, MIST, objectBox, outletTile, selectBoxes, selectConveyors, selectDoorLocks, selectFactory, selectPickups,
+  selectPort, selectSwitches, TILE, type GameState, type RoomObject,
 } from '../../core/index.ts';
 import { addText, updateText } from '../text/fonts.ts';
 
@@ -22,8 +22,11 @@ export class Mechanisms {
   private readonly boxes = new Map<number, Phaser.GameObjects.Graphics>();
   private readonly belts = new Map<number, { g: Phaser.GameObjects.Graphics; o: RoomObject; drawn?: string }>();
   private port: { g: Phaser.GameObjects.Graphics; label: Phaser.GameObjects.Text; o: RoomObject; drawn?: string } | undefined;
+  private factory: { dock: Phaser.GameObjects.Graphics; fog: Phaser.GameObjects.Graphics; dockDrawn?: number; fogDrawn?: string } | undefined;
+  private readonly scene: Phaser.Scene;
 
   constructor(scene: Phaser.Scene, state: GameState) {
+    this.scene = scene;
     const byId = new Map(state.room.objects.map((o) => [o.id, o]));
     // Belts lie on the floor (tile layers sit at depth 0), under everything that stands on them, whose depth is its feet line.
     for (const c of selectConveyors(state)) this.belts.set(c.object, { g: scene.add.graphics().setDepth(1), o: byId.get(c.object)! });
@@ -35,10 +38,16 @@ export class Mechanisms {
         .setOrigin(0.5, 1).setDepth(1e4);
       this.port = { g: scene.add.graphics().setDepth(1), label, o };
     }
-    for (const b of selectBoxes(state)) {
-      const g = scene.add.graphics();
-      drawBox(g, b.boxType);
-      this.boxes.set(b.object, g);
+    const factory = selectFactory(state);
+    if (factory) {
+      // The intake and outlet lie on the floor; the dock stands like a counter, drawn at its feet line.
+      const floor = scene.add.graphics().setDepth(1);
+      if (factory.intake) drawIntake(floor, factory.intake);
+      const out = outletTile(state.room);
+      if (out) drawOutlet(floor, out.col, out.row);
+      const dock = dockTiles(state.room);
+      const bottom = Math.max(...dock.map((t) => (t.row + 1) * TILE));
+      this.factory = { dock: scene.add.graphics().setDepth(bottom), fog: scene.add.graphics().setDepth(2) };
     }
     for (const p of selectPickups(state)) {
       const o = byId.get(p.object)!;
@@ -73,13 +82,28 @@ export class Mechanisms {
     for (const d of selectDoorLocks(state)) this.plates.get(d.object)?.setVisible(!d.open);
     for (const p of selectPickups(state)) this.items.get(p.object)?.setVisible(p.present);
     // A box is drawn at its feet line like an actor, so the operator walks behind or in front of it.
+    // Acetaldehyde crates come out of the line while the room is open, so pictures are made on first sight.
     const here = new Set<number>();
     for (const b of selectBoxes(state)) {
       here.add(b.object);
-      this.boxes.get(b.object)?.setPosition(b.x, b.y).setDepth(b.y + TILE);
+      let g = this.boxes.get(b.object);
+      if (!g) {
+        g = this.scene.add.graphics();
+        drawBox(g, b.boxType);
+        this.boxes.set(b.object, g);
+      }
+      g.setPosition(b.x, b.y).setDepth(b.y + TILE);
     }
+    this.renderFactory(state);
     // A box the port took in leaves the room's state; its picture goes with it.
-    for (const [id, g] of this.boxes) g.setVisible(here.has(id));
+    for (const [id, g] of this.boxes) {
+      if (here.has(id)) g.setVisible(true);
+      else if (id < 0) {
+        // A spawned crate taken in does not come back under the same id on this visit.
+        g.destroy();
+        this.boxes.delete(id);
+      } else g.setVisible(false);
+    }
     const port = selectPort(state);
     if (port && this.port) {
       const key = `${port.count}/${port.need}`;
@@ -101,6 +125,53 @@ export class Mechanisms {
       drawBelt(v.g, v.o, c.running, phase);
     }
   }
+
+  /** The dock's alcohol crates and the red fog round each acetaldehyde crate, redrawn only when they change. */
+  private renderFactory(state: GameState): void {
+    const f = selectFactory(state);
+    const v = this.factory;
+    if (!f || !v) return;
+    if (v.dockDrawn !== f.crates.length) {
+      v.dockDrawn = f.crates.length;
+      drawDock(v.dock.clear(), dockTiles(state.room), f.crates.length);
+    }
+    const crates = selectBoxes(state).filter((b) => isSpawnedCrate({ id: b.object }));
+    const key = crates.map((b) => `${b.object}:${b.x},${b.y}`).join('|');
+    if (v.fogDrawn === key) return;
+    v.fogDrawn = key;
+    const g = v.fog.clear();
+    for (const b of crates) {
+      g.fillStyle(0xc8372d, 0.16).fillCircle(b.x + TILE / 2, b.y + TILE / 2, MIST.radiusPx);
+      g.lineStyle(1, 0xc8372d, 0.45).strokeCircle(b.x + TILE / 2, b.y + TILE / 2, MIST.radiusPx);
+    }
+  }
+}
+
+/** The receiving dock: a steel counter, with a barrel on each of the first `n` tiles. */
+function drawDock(g: Phaser.GameObjects.Graphics, tiles: readonly { col: number; row: number }[], n: number): void {
+  tiles.forEach((t, i) => {
+    const x = t.col * TILE;
+    const y = t.row * TILE;
+    g.fillStyle(0x7d8594).fillRect(x, y + 6, TILE, TILE - 6).lineStyle(1, INK, 0.8).strokeRect(x + 0.5, y + 6.5, TILE - 1, TILE - 7);
+    if (i >= n) return;
+    // An alcohol barrel: amber staves, ink hoops.
+    g.fillStyle(0xc98a3a).fillRoundedRect(x + 6, y - 6, 20, 26, 5).lineStyle(1.5, INK, 1).strokeRoundedRect(x + 6, y - 6, 20, 26, 5);
+    g.lineBetween(x + 6, y + 1, x + 26, y + 1).lineBetween(x + 6, y + 13, x + 26, y + 13);
+  });
+}
+
+/** The second line's mouth: a dark bay with an arrow in. */
+function drawIntake(g: Phaser.GameObjects.Graphics, o: RoomObject): void {
+  const b = objectBox(o);
+  g.fillStyle(0x3d4352, 0.7).fillRect(b.left, b.top, b.right - b.left, b.bottom - b.top);
+  g.lineStyle(2, INK, 1).strokeRect(b.left + 1, b.top + 1, b.right - b.left - 2, b.bottom - b.top - 2);
+  const cy = (b.top + b.bottom) / 2;
+  g.lineStyle(3, PAPER, 0.8).lineBetween(b.left + 8, cy, b.right - 12, cy).lineBetween(b.right - 18, cy - 6, b.right - 12, cy).lineBetween(b.right - 18, cy + 6, b.right - 12, cy);
+}
+
+/** Where the first line puts out crates: a hatch ring on the floor. */
+function drawOutlet(g: Phaser.GameObjects.Graphics, col: number, row: number): void {
+  g.lineStyle(2, INK, 0.7).strokeCircle((col + 0.5) * TILE, (row + 0.5) * TILE, TILE / 2 - 3);
 }
 
 /** The dispatch port: a hatched yellow bay on the floor; filled, it turns blue. */

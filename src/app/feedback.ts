@@ -91,6 +91,7 @@ export function noteFields(table: EnemyTable): NoteFields {
     bedRefused: { bedType: [...BED_TYPES] },
     doorLocked: { lock: [...LOCKS] },
     pickedUp: { itemType: [...NOTED_ITEMS] },
+    dizzyChanged: { dizzy: ['true', 'false'] },
   };
 }
 
