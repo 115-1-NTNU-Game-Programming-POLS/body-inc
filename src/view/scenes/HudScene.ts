@@ -1,10 +1,11 @@
 import Phaser from 'phaser';
 import type { FixedStepLoop } from '../../app/loop.ts';
 import {
-  GLUCOSE as METER, glucoseOf, MINUTES_PER_DAY, selectBoss, selectClock, selectGauge, selectHearts, selectInteractable, selectTick, TICK_HZ,
+  acetaldehydeCrates, GLUCOSE as METER, glucoseOf, isDizzy, MINUTES_PER_DAY, selectBoss, selectClock, selectFactory, selectGauge, selectHearts, selectInteractable,
+  selectTick, TICK_HZ, waitingCrates,
   type BossSummary, type ChapterState, type GameEvent, type GameState,
 } from '../../core/index.ts';
-import { str } from '../../app/content.ts';
+import { str, TAGS } from '../../app/content.ts';
 import { issueMessage, type SaveIssue } from '../../app/storage.ts';
 import { addText, updateText } from '../text/fonts.ts';
 import type { WorldNote } from './WorldScene.ts';
@@ -56,6 +57,10 @@ export class HudScene extends Phaser.Scene {
   private shownHalves = -1;
   private shownGauge = '';
   private shownTime = '';
+  private status!: Phaser.GameObjects.Text;
+  /** Dims the room while the operator is dizzy (design doc 7.7: the screen darkens). */
+  private haze!: Phaser.GameObjects.Rectangle;
+  private shownStatus = '';
   /** Message keys already on screen, and where the next notice stacks up from. */
   private readonly noticed = new Set<string>();
   private noticeBottom = 0;
@@ -72,6 +77,8 @@ export class HudScene extends Phaser.Scene {
     this.shownTime = '';
     this.noticed.clear();
     this.noticeBottom = this.scale.height - 12;
+    // First, so every HUD element draws over it.
+    this.haze = this.add.rectangle(0, 0, this.scale.width, this.scale.height, 0x10131c, 0.32).setOrigin(0, 0).setVisible(false);
     this.hearts = this.add.graphics();
     this.gauge = this.add.graphics();
     this.glucose = this.add.graphics();
@@ -86,6 +93,8 @@ export class HudScene extends Phaser.Scene {
     this.clock = addText(this, 12, this.controls.y + this.controls.displayHeight + 2, '', {
       role: 'print', weight: 400, size: 16, color: '#e8edf5', ...plate,
     });
+    this.status = addText(this, 12, 0, '', { role: 'print', weight: 700, size: 16, color: '#f2c94c', ...plate }).setVisible(false);
+    this.shownStatus = '';
     this.prompt = addText(this, this.scale.width / 2, this.scale.height - 72, str('hud.interact'), {
       role: 'print', weight: 700, size: 20, color: '#e8edf5', ...plate,
     }).setOrigin(0.5, 1).setVisible(false);
@@ -97,11 +106,13 @@ export class HudScene extends Phaser.Scene {
     // Conversations and event cards draw over the HUD and live exactly as long as it does: one run, from title to title.
     if (!this.scene.isActive('Dialogue')) this.scene.launch('Dialogue');
     if (!this.scene.isActive('Card')) this.scene.launch('Card');
+    if (!this.scene.isActive('Rescue')) this.scene.launch('Rescue');
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.game.events.off('world-note', onNote);
       this.game.events.off('save-issues', onIssues);
       this.scene.stop('Dialogue');
       this.scene.stop('Card');
+      this.scene.stop('Rescue');
     });
   }
 
@@ -270,7 +281,8 @@ export class HudScene extends Phaser.Scene {
     }
     this.renderGlucose(glucoseOf(loop.state.run.tags));
     this.renderBoss(game, time);
-    this.prompt.setVisible(loop.state.dialogue === null && loop.state.card === null &&selectInteractable(game) !== undefined);
+    this.renderStatus(loop.state);
+    this.prompt.setVisible(loop.state.dialogue === null && loop.state.card === null && !loop.state.rescue && selectInteractable(game) !== undefined);
     const seconds = (selectTick(game) / TICK_HZ).toFixed(1);
     const clock = selectClock(game);
     const minute = clock.minute % MINUTES_PER_DAY;
@@ -280,5 +292,22 @@ export class HudScene extends Phaser.Scene {
       this.shownTime = shown;
       updateText(this.clock, str('hud.rule_time').replace('{seconds}', seconds).replace('{clock}', hhmm));
     }
+  }
+
+  /** Under the clock: the factory's crate counts in a factory room, and the dizzy warning (design doc 7.7). */
+  private renderStatus(state: ChapterState): void {
+    const lines: string[] = [];
+    if (selectFactory(state.game)) {
+      lines.push(str('hud.line').replace('{n}', String(waitingCrates(state.run.tags, TAGS))).replace('{m}', String(acetaldehydeCrates(state.run.tags, TAGS))));
+    }
+    const dizzy = glucoseOf(state.run.tags) !== undefined && isDizzy(state.run.tags);
+    if (dizzy) lines.push(str('hud.dizzy'));
+    this.haze.setVisible(dizzy);
+    const text = lines.join('\n');
+    this.status.setY(this.clock.y + this.clock.displayHeight + 2);
+    if (text === this.shownStatus) return;
+    this.shownStatus = text;
+    this.status.setVisible(text !== '');
+    if (text !== '') updateText(this.status, text);
   }
 }

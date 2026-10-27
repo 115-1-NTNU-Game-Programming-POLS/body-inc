@@ -1,6 +1,6 @@
 import type { TickInput } from '../core/index.ts';
 
-export type Action = 'up' | 'down' | 'left' | 'right' | 'attack' | 'dodge' | 'stamp' | 'interact' | 'pick1' | 'pick2' | 'pick3';
+export type Action = 'up' | 'down' | 'left' | 'right' | 'attack' | 'dodge' | 'stamp' | 'interact' | 'pick1' | 'pick2' | 'pick3' | 'pick4' | 'pick5' | 'pick6';
 
 /** Default bindings (design doc 5.2). Stored per player later; core only ever sees TickInput. */
 export const DEFAULT_BINDINGS: Readonly<Record<Action, readonly string[]>> = {
@@ -15,9 +15,13 @@ export const DEFAULT_BINDINGS: Readonly<Record<Action, readonly string[]>> = {
   pick1: ['Digit1', 'Numpad1'],
   pick2: ['Digit2', 'Numpad2'],
   pick3: ['Digit3', 'Numpad3'],
+  // A rescue panel lists six actions (design doc 7.7).
+  pick4: ['Digit4', 'Numpad4'],
+  pick5: ['Digit5', 'Numpad5'],
+  pick6: ['Digit6', 'Numpad6'],
 };
 
-const PICKS = ['pick1', 'pick2', 'pick3'] as const;
+const PICKS = ['pick1', 'pick2', 'pick3', 'pick4', 'pick5', 'pick6'] as const;
 
 /**
  * Tracks held keys by KeyboardEvent.code, so bindings work on any keyboard layout. Mouse

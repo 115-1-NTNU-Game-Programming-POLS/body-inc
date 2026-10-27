@@ -223,7 +223,7 @@ export class WorldScene extends Phaser.Scene {
    */
   private openHandbook(e: KeyboardEvent): void {
     const s = this.loop.state;
-    if (e.repeat || this.leaving || s.dialogue || s.card || this.scene.isActive('Handbook')) return;
+    if (e.repeat || this.leaving || s.dialogue || s.card || s.rescue || this.scene.isActive('Handbook')) return;
     this.scene.pause();
     this.scene.launch('Handbook');
   }
