@@ -60,11 +60,46 @@ export const STAMP = {
 } as const;
 
 /**
+ * Folder (design doc 6.1). A tap swings in a string of three for 2, 2 and 4; holding the key
+ * raises a guard over the front 120 degrees. The first 9 guard frames are the parry (退件): a
+ * shot goes back at its thrower for twice a staple's damage, a melee enemy is stunned for 1.2 s,
+ * and the gauge gains 15. Later frames only block. Areas are never blocked, so every boss move
+ * stays avoidable by dodging alone (design doc 5.3). The swing's frames, reach, the hold
+ * threshold and the string's gap are not in the design doc and are placeholders for playtesting.
+ */
+export const FOLDER = {
+  damage: [2, 2, 4],
+  /** The swing's box exists on this frame; design doc 5.3 caps light-attack startup at 6. */
+  hitFrame: 3,
+  swingTicks: 10,
+  /** Hit-stop on the enemy hit; the finisher of the string is 6 (design doc 5.3). */
+  hitFreeze: [3, 3, 6],
+  /** A swing that begins within this many ticks of the last one ending continues the string. */
+  comboGapTicks: Math.round(0.3 * TICK_HZ),
+  swingReachPx: 20,
+  swingHalfW: 18,
+  swingHalfH: 14,
+  /** Holding the attack key this long, counted from the press, raises the guard instead of swinging again. */
+  holdTicks: 6,
+  guardHalfAngleDeg: 60,
+  parryFrames: 9,
+  parryStunTicks: Math.round(1.2 * TICK_HZ),
+  reflectDamage: 2 * STAPLER.damage,
+  /** Chosen slow, like holding fire: not part of the 15% cap (design doc 6.1). */
+  guardSpeedFactor: 0.4,
+  /** Attacks and the guard wait this long after a swap (design doc 6.1: 0.15 s); a dodge does not. */
+  swapTicks: Math.round(0.15 * TICK_HZ),
+} as const;
+
+/**
  * Gauge charge per source before the P multiplier (design doc 5.4). Other stationery (+1.5) and
- * folder parries (+15) join when those tools exist. An immune bounce is not a hit and charges nothing.
+ * folder parries (+15) are joined by the highlighter and the tape when those exist. An immune
+ * bounce is not a hit and charges nothing.
  */
 export const GAUGE = {
   staple: 0.8,
+  folder: 1.5,
+  parry: 15,
   perfectDodge: 10,
 } as const;
 
@@ -111,7 +146,7 @@ export const SALESMAN = {
 /**
  * Flyer archetype (design doc 5.3, performance 3): keeps 3 to 6 tiles away and throws one sheet
  * after a tier-1 telegraph. Speeds, range and the pause are placeholders the design doc does not
- * fix. The folder parry that sends the sheet back arrives with the folder.
+ * fix. The folder's parry sends the sheet back (FOLDER).
  */
 export const FLYER = {
   speed: tilesPerSecond(1.2),

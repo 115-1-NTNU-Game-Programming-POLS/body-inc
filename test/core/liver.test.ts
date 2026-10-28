@@ -117,6 +117,21 @@ describe('the factory room', () => {
     expect(run(empty, { move: { x: 0, y: 0 }, attackPressed: true }, 30).events.some((e) => e.type === 'immuneBounce')).toBe(false);
   });
 
+  it('a swing of the folder at an alcohol crate only wobbles it too: no tool shortens the wait', () => {
+    const s = at(FACTORY, 'alcohol:2');
+    const [t] = crateTiles(s.game.room, 2);
+    const feet = place(s, (t!.col + 0.5) * TILE, (t!.row + 1.5) * TILE);
+    const armed = { ...feet, game: { ...feet.game, operator: { ...feet.game.operator, tool: 'folder' as const, aim: { x: 0, y: -1 } } } };
+    const swung = run(armed, { move: { x: 0, y: 0 }, attackPressed: true }, 12);
+    expect(swung.events).toContainEqual(expect.objectContaining({ type: 'swing' }));
+    expect(swung.events).toContainEqual(expect.objectContaining({ type: 'immuneBounce', enemy: 'alcohol_barrel' }));
+    expect(swung.events.some((e) => e.type === 'hit')).toBe(false);
+    expect(amount(swung.state.run.tags, TAGS, 'alcohol')).toBe(2);
+    // The control: with no crate waiting, the same swing bounces nothing.
+    const bare = place(at(FACTORY), (t!.col + 0.5) * TILE, (t!.row + 1.5) * TILE);
+    const bareArmed = { ...bare, game: { ...bare.game, operator: { ...bare.game.operator, tool: 'folder' as const, aim: { x: 0, y: -1 } } } };
+    expect(run(bareArmed, { move: { x: 0, y: 0 }, attackPressed: true }, 12).events.some((e) => e.type === 'immuneBounce')).toBe(false);
+  });
   it('acetaldehyde crates come out at the outlet as boxes of their own type', () => {
     const s = at(FACTORY, 'acetaldehyde:2');
     const crates = spawned(s);

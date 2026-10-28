@@ -6,7 +6,7 @@ import { OPERATOR_BODY, type TickInput } from '../combat/operator.ts';
 import type { ChapterFile } from '../content/generated.ts';
 import type { DialogueState } from '../dialogue/runner.ts';
 import type { DialogueTable, Effect } from '../dialogue/lines.ts';
-import { createGame, sendStacksHome, step, syncFactory, type DomainEvent, type GameState } from '../game.ts';
+import { createGame, sendStacksHome, step, syncFactory, type DomainEvent, type GameState, type HeldTool } from '../game.ts';
 import { isSpawnedCrate } from '../liver/factory.ts';
 import { acetaldehydeCrates, intakeCrate, waitingCrates, type LineParams } from '../liver/line.ts';
 import { passBody } from '../outer/body.ts';
@@ -157,6 +157,8 @@ interface Carry {
   readonly gauge: number;
   readonly halves: number;
   readonly stacks: number;
+  /** The tool in hand; the stapler when absent. */
+  readonly tool?: HeldTool;
 }
 
 function build(ctx: ChapterContent, run: Run, place: Place, carry: Carry): GameState {
@@ -186,6 +188,8 @@ function build(ctx: ChapterContent, run: Run, place: Place, carry: Carry): GameS
     delivered: idsHere(run, run.fired).filter((id) => model.objects.some((o) => o.id === id && o.kind === 'Box')),
     boxes: boxesHere(run),
     stampLocked: !run.tools.includes('stamp'),
+    folderLocked: !run.tools.includes('folder'),
+    ...(carry.tool ? { tool: carry.tool } : {}),
     waiting: waitingCrates(run.tags, ctx.dict),
     acetaldehyde: acetaldehydeCrates(run.tags, ctx.dict),
     ...(start ? { start } : {}),
@@ -576,7 +580,7 @@ function stepRoom(ctx: ChapterContent, state: ChapterState, input: TickInput): C
         const next: Run = { ...run, roomId: cp.roomId, tags: cp.tags, tools: cp.tools, fired, entries: run.entries + 1 };
         // Only sleep clears adenosine, so the stacks come back with the operator.
         const built = build(ctx, next, { kind: 'at', x: cp.x, y: cp.y }, {
-          clock: cp.clock, gauge: game.operator.gauge, halves: game.operator.maxHalves, stacks: game.operator.stacks,
+          clock: cp.clock, gauge: game.operator.gauge, halves: game.operator.maxHalves, stacks: game.operator.stacks, tool: game.operator.tool,
         });
         return done(plain(remember(next, built), built), [{ type: 'returnedToCheckpoint', room: cp.roomId }]);
       }
@@ -632,7 +636,7 @@ function stepRoom(ctx: ChapterContent, state: ChapterState, input: TickInput): C
     const next: Run = { ...run, roomId: dest.room, entries: run.entries + 1 };
     // Only sleep clears adenosine, so a door must not: the stacks ride along into the next room.
     const built = build(ctx, next, { kind: 'door', door: dest.door }, {
-      clock: game.clock, gauge: game.operator.gauge, halves: game.operator.halves, stacks: game.operator.stacks,
+      clock: game.clock, gauge: game.operator.gauge, halves: game.operator.halves, stacks: game.operator.stacks, tool: game.operator.tool,
     });
     return done(plain(remember(next, built), built), [{ type: 'roomChanged', from: run.roomId, to: dest.room }]);
   }

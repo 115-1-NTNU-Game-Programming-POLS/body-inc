@@ -5,12 +5,13 @@ import { newBossState, type BossDef, type BossTable } from './combat/bosses/boss
 import { proposalOpen, stepCaffeine } from './combat/bosses/caffeine.ts';
 import type { Enemy } from './content/generated.ts';
 import type { EnemyTable } from './combat/enemies.ts';
-import { BASE_HALVES, BOSS, CLING, DODGE, ENEMY_HIT_FREEZE, GAUGE, HURT, STAMP, STAPLER } from './combat/frames.ts';
+import { BASE_HALVES, BOSS, CLING, DODGE, ENEMY_HIT_FREEZE, FOLDER, GAUGE, HURT, SALESMAN, STAMP, STAPLER } from './combat/frames.ts';
+import { guardCovers, parryOpen, swingBox } from './combat/folder.ts';
 import { circleTouchesBox, shotBox, zoneContinues, zoneLive, type Shot, type ShotSpec, type Zone, type ZoneSpec } from './combat/hazards.ts';
 import type { Vec } from './combat/movement.ts';
 import {
   bufferInput, gaugeFull, hurtOperator, inDodgeIframes, isInvincible, newOperator, OPERATOR_BODY, OPERATOR_HURT, stepOperator, unit,
-  type OperatorState, type TickInput,
+  type HeldTool, type OperatorState, type TickInput,
 } from './combat/operator.ts';
 import { advance, startClock, type RuleClock } from './clock.ts';
 import { seedStreams, type RngStreams } from './rng.ts';
@@ -27,7 +28,8 @@ import {
 import { playerStart, type RoomObject } from './rooms/tiled.ts';
 import { TICK_HZ, TILE } from './time.ts';
 
-export { NO_INPUT, OPERATOR_BODY, OPERATOR_HURT, type OperatorAction, type OperatorState, type TickInput } from './combat/operator.ts';
+export { NO_INPUT, OPERATOR_BODY, OPERATOR_HURT, type HeldTool, type OperatorAction, type OperatorState, type TickInput } from './combat/operator.ts';
+export { guardCovers, parryOpen, swingBox } from './combat/folder.ts';
 export type { EnemyPhase, EnemyState } from './combat/actors.ts';
 export type { Shot, Zone } from './combat/hazards.ts';
 
@@ -45,6 +47,10 @@ export interface Projectile {
   readonly vx: number;
   readonly vy: number;
   readonly ticksLeft: number;
+  /** A staple does STAPLER.damage; a shot the folder sent back does more (FOLDER.reflectDamage). */
+  readonly damage?: number;
+  /** Sent back by a parry: it charges no gauge (the parry already did) and throws no lever. */
+  readonly reflected?: true;
 }
 
 export interface GameState {
@@ -91,6 +97,8 @@ export interface GameState {
   readonly delivered: readonly number[];
   /** Set until the chairman hands over the stamp (design doc 5.4): the stamp key does nothing. */
   readonly stampLocked?: true;
+  /** Set until the general affairs office hands over the folder (design doc 7.4): the swap key does nothing. */
+  readonly folderLocked?: true;
   /**
    * How far clinging enemies can see the operator, when the caffeine cloak cuts it below
    * CLING.senseRangePx (design doc 7.4); 0 means they cannot see the operator at all. The chapter
@@ -119,6 +127,14 @@ export interface FactoryState {
 export type DomainEvent =
   | { readonly type: 'bumpWall'; readonly axis: 'x' | 'y' }
   | { readonly type: 'fire'; readonly weapon: 'stapler' }
+  /** A swing of the folder began; `combo` is its place in the string, 0 to 2. */
+  | { readonly type: 'swing'; readonly combo: number }
+  | { readonly type: 'toolSwapped'; readonly tool: HeldTool }
+  | { readonly type: 'guardRaised' }
+  /** The guard stopped an attack without the parry: shots vanish, a strike is spent. */
+  | { readonly type: 'blocked'; readonly source: number; readonly kind: 'shot' | 'strike' }
+  /** 退件: the parry window caught an attack. A shot flies back; a strike stuns its thrower. */
+  | { readonly type: 'parry'; readonly source: number; readonly kind: 'shot' | 'strike' }
   | { readonly type: 'dodge' }
   | { readonly type: 'perfectDodge'; readonly source: number }
   | { readonly type: 'telegraph'; readonly source: number; readonly tier: 1 | 2 | 3; readonly move?: string }
@@ -252,6 +268,10 @@ export interface GameOptions {
   readonly delivered?: readonly number[];
   /** The stamp is not handed over yet. */
   readonly stampLocked?: boolean;
+  /** The folder is not handed over yet. */
+  readonly folderLocked?: boolean;
+  /** The tool in hand carried in from the last room; the stapler when absent. */
+  readonly tool?: HeldTool;
   /** In a factory room: alcohol crates waiting in receiving. */
   readonly waiting?: number;
   /** In a factory room: acetaldehyde crates to put out round the outlet at entry. */
@@ -345,7 +365,9 @@ export function createGame(room: EnteredRoom, seed: number, table: EnemyTable, o
   }
   const start = options.start ?? playerStart(room);
   const spawned = spawnEnemies(room, table, options.bosses, 1);
-  const operator = { ...newOperator(start.x, start.y, BASE_HALVES, gauge), halves, stacks: carried };
+  // A tool carried in is only believed while the folder is handed over, so a locked folder is never in hand.
+  const tool: HeldTool = options.tool === 'folder' && !options.folderLocked ? 'folder' : 'stapler';
+  const operator = { ...newOperator(start.x, start.y, BASE_HALVES, gauge), halves, stacks: carried, tool };
   const body = boxAt(OPERATOR_BODY, operator.x, operator.y);
   const delivered = ascending(options.delivered ?? []);
   const boxes = settleBoxes(room, options.boxes ?? new Map(), occupantsOf(operator, spawned.enemies).bodies, delivered);
@@ -392,6 +414,7 @@ export function createGame(room: EnteredRoom, seed: number, table: EnemyTable, o
     push: null,
     delivered,
     ...(options.stampLocked ? { stampLocked: true as const } : {}),
+    ...(options.folderLocked ? { folderLocked: true as const } : {}),
     ...(factory ? { factory } : {}),
   };
 }
@@ -432,7 +455,8 @@ function forcedLeave(state: GameState): GameState {
     const reset: EnemyState = { ...e, x: e.homeX, y: e.homeY, hp: e.maxHp, phase: 'idle', phaseTicks: 0, frozen: 0 };
     return e.boss ? { ...reset, boss: newBossState(state.bosses[e.boss.def]!) } : reset;
   });
-  const operator = withStacks(newOperator(start.x, start.y, state.operator.maxHalves, state.operator.gauge), enemies, state.carried);
+  // The tool in hand stays in hand: a retry takes nothing away (design doc 5.6).
+  const operator = withStacks({ ...newOperator(start.x, start.y, state.operator.maxHalves, state.operator.gauge), tool: state.operator.tool }, enemies, state.carried);
   // A solved switch stays solved (design doc 5.6); a plate is only down while someone or a box is on it.
   const body = boxAt(OPERATOR_BODY, operator.x, operator.y);
   const clear = occupantsOf(operator, enemies).bodies;
@@ -589,7 +613,11 @@ interface MovedBoxes {
 export function step(state: GameState, pressed: TickInput): StepResult {
   const now = state.tick;
   const events: DomainEvent[] = [];
-  const input = state.stampLocked && pressed.stampPressed ? { ...pressed, stampPressed: false } : pressed;
+  const input: TickInput = {
+    ...pressed,
+    ...(state.stampLocked && pressed.stampPressed ? { stampPressed: false } : {}),
+    ...(state.folderLocked && pressed.swapPressed ? { swapPressed: false } : {}),
+  };
 
   if (state.freeze > 0) {
     return { state: { ...state, tick: now + 1, freeze: state.freeze - 1, operator: bufferInput(state.operator, input, now) }, events };
@@ -604,6 +632,9 @@ export function step(state: GameState, pressed: TickInput): StepResult {
   if (s.blockedY) events.push({ type: 'bumpWall', axis: 'y' });
   if (s.dodged) events.push({ type: 'dodge' });
   if (s.stampRaised) events.push({ type: 'stampRaised' });
+  if (s.swapped) events.push({ type: 'toolSwapped', tool: s.swapped });
+  if (s.swung !== undefined) events.push({ type: 'swing', combo: s.swung });
+  if (s.guardRaised) events.push({ type: 'guardRaised' });
 
   // A running belt under the feet carries the operator along. Walking against it is slower; a fast
   // belt (4 tiles/s) outruns an operator slowed below that, by held fire or clinging stacks.
@@ -764,16 +795,46 @@ export function step(state: GameState, pressed: TickInput): StepResult {
     }
   }
 
+  // A weapon landing on a hittable enemy. The flag decides what it does, not a large health pool
+  // (design doc 5.1, 5.5): immune ones bounce it with no hit-stop and no damage, reforming ones
+  // scatter, the rest lose `amount`. `gain` is the gauge the hit charges before P, 0 for none.
+  const hitEnemy = (target: EnemyState, amount: number, freeze: number, gain: number): void => {
+    if (target.category === 'immune') {
+      events.push({ type: 'immuneBounce', target: target.id, enemy: target.type, solution: target.solution ?? '' });
+    } else if (target.category === 'reforming') {
+      enemies.set(target.id, { ...target, phase: 'dispersed', phaseTicks: 0, frozen: 0 });
+      events.push({ type: 'dispersed', target: target.id, enemy: target.type });
+      if (gain > 0) op = charge(op, gain, state.p, events);
+    } else {
+      if (gain > 0) op = charge(op, gain, state.p, events);
+      enemies.set(target.id, damage(target, amount, freeze, events));
+    }
+  };
+
+  // The folder's swing has a box on one frame and covers every hittable enemy in it, lowest id first.
+  // Alcohol crates in the dock only wobble under it, like under a staple: no tool shortens the wait.
+  if (s.swingHit !== undefined) {
+    const box = swingBox(op);
+    for (const e of byId()) {
+      if (isHittable(e) && overlaps(box, enemyHurtbox(e))) hitEnemy(e, FOLDER.damage[s.swingHit]!, FOLDER.hitFreeze[s.swingHit]!, GAUGE.folder);
+    }
+    const f = state.factory;
+    if (f && crateTiles(room, f.waiting).some((t) => overlaps(box, tileBox(t)))) {
+      events.push({ type: 'immuneBounce', target: linesOf(room).receiving!.id, enemy: ALCOHOL_CRATE, solution: f.solution });
+    }
+  }
+
   // Staples: move, pin a lever they reach (design doc 6.1 shoots far switches), stop at walls,
   // hit the lowest-id hittable enemy they overlap. Levers come before walls because they are
   // usually mounted on one. A staple only ever turns a lever on: held fire would otherwise flick
-  // it on and off six times a second.
+  // it on and off six times a second. A shot the folder sent back flies like a staple but throws
+  // no lever and charges no gauge.
   const flying: Projectile[] = [];
   for (const p0 of projectiles.sort((a, b) => a.id - b.id)) {
     const p = { ...p0, x: p0.x + p0.vx, y: p0.y + p0.vy, ticksLeft: p0.ticksLeft - 1 };
     if (p.ticksLeft < 0) continue;
     const box = centeredBox(p.x, p.y, STAPLE_HALF, STAPLE_HALF);
-    const lever = leverAt(state.room, box);
+    const lever = p.reflected ? undefined : leverAt(state.room, box);
     if (lever) {
       // A crate may sit on a lever (only doors and the like are kept clear), and then it takes the staple.
       // Only a crate over the lever itself counts: one beside it must not eat a staple that grazes it.
@@ -796,17 +857,7 @@ export function step(state: GameState, pressed: TickInput): StepResult {
     if (isSolid(grid, col, row)) continue;
     const target = byId().find((e) => isHittable(e) && overlaps(box, enemyHurtbox(e)));
     if (!target) { flying.push(p); continue; }
-    if (target.category === 'immune') {
-      // No hit-stop and no damage: the flag decides, not a large health pool (design doc 5.1, 5.5).
-      events.push({ type: 'immuneBounce', target: target.id, enemy: target.type, solution: target.solution ?? '' });
-    } else if (target.category === 'reforming') {
-      enemies.set(target.id, { ...target, phase: 'dispersed', phaseTicks: 0, frozen: 0 });
-      events.push({ type: 'dispersed', target: target.id, enemy: target.type });
-      op = charge(op, GAUGE.staple, state.p, events);
-    } else {
-      op = charge(op, GAUGE.staple, state.p, events);
-      enemies.set(target.id, damage(target, STAPLER.damage, ENEMY_HIT_FREEZE, events));
-    }
+    hitEnemy(target, p.damage ?? STAPLER.damage, ENEMY_HIT_FREEZE, p.reflected ? 0 : GAUGE.staple);
   }
 
   // A closed boss stops attacking at once: its shots and areas go with it. A closed ordinary
@@ -837,8 +888,25 @@ export function step(state: GameState, pressed: TickInput): StepResult {
   };
   const typeOf = (id: number) => enemies.get(id)?.type ?? 'unknown';
 
+  // The guard faces the way the operator aims. A strike or shot that comes from inside its 120
+  // degrees is caught: a parry (退件) in the first FOLDER.parryFrames, a plain block after. Areas
+  // are never caught, so a boss move stays avoidable by dodging alone (design doc 5.3).
+  const caught = (from: Vec): 'parry' | 'block' | undefined => {
+    if (op.action.kind !== 'guard' || !guardCovers(op.aim, from)) return undefined;
+    return parryOpen(op.action) ? 'parry' : 'block';
+  };
+
   for (const e of byId()) {
     if (!isMelee(e) || e.phase !== 'strike' || e.strikeSpent || e.frozen > 0 || !overlaps(strikeBox(e), hurt)) continue;
+    const c = caught({ x: e.x - op.x, y: e.y - op.y });
+    if (c) {
+      events.push({ type: c === 'parry' ? 'parry' : 'blocked', source: e.id, kind: 'strike' });
+      // The stunned enemy wakes into the last tick of its recovery, so the stun is the whole pause.
+      const stunned = c === 'parry' ? { frozen: FOLDER.parryStunTicks, phase: 'recover' as const, phaseTicks: SALESMAN.recoverTicks - 1 } : {};
+      enemies.set(e.id, { ...e, strikeSpent: true, ...stunned });
+      if (c === 'parry') op = charge(op, GAUGE.parry, state.p, events);
+      continue;
+    }
     if (absorb(e.id, 1, { x: e.x, y: e.y }, e.type) !== 'ignored') enemies.set(e.id, { ...e, strikeSpent: true });
   }
 
@@ -847,6 +915,23 @@ export function step(state: GameState, pressed: TickInput): StepResult {
     const sh = { ...sh0, x: sh0.x + sh0.vx, y: sh0.y + sh0.vy, ticksLeft: sh0.ticksLeft - 1 };
     if (sh.ticksLeft < 0 || isSolid(grid, Math.floor(sh.x / TILE), Math.floor(sh.y / TILE))) continue;
     if (!sh.spent && overlaps(shotBox(sh), hurt)) {
+      const c = caught({ x: -sh.vx, y: -sh.vy });
+      if (c) {
+        events.push({ type: c === 'parry' ? 'parry' : 'blocked', source: sh.owner, kind: 'shot' });
+        if (c === 'parry') {
+          op = charge(op, GAUGE.parry, state.p, events);
+          // Back at the thrower; if it is gone, back the way it came.
+          const owner = enemies.get(sh.owner);
+          const toOwner = owner ? unit({ x: owner.x - sh.x, y: owner.y - 8 - sh.y }) : { x: 0, y: 0 };
+          const back = toOwner.x !== 0 || toOwner.y !== 0 ? toOwner : unit({ x: -sh.vx, y: -sh.vy });
+          const speed = Math.hypot(sh.vx, sh.vy);
+          flying.push({
+            id: nextId++, x: sh.x, y: sh.y, vx: back.x * speed, vy: back.y * speed, ticksLeft: Math.ceil(STAPLER.rangePx / speed),
+            damage: FOLDER.reflectDamage, reflected: true,
+          });
+        }
+        continue;
+      }
       const r = absorb(sh.owner, sh.halves, { x: sh.x - sh.vx, y: sh.y - sh.vy }, typeOf(sh.owner));
       if (r === 'hit') continue;
       if (r === 'dodged') { movedShots.push({ ...sh, spent: true }); continue; }
@@ -932,6 +1017,9 @@ export const selectFrozen = (s: GameState): boolean => s.freeze > 0;
 export const selectGauge = (s: GameState): { readonly value: number; readonly max: number } =>
   ({ value: s.operator.gauge, max: STAMP.gaugeMax });
 export const selectClock = (s: GameState): RuleClock => s.clock;
+/** The tool in hand, and whether a second one is handed over to swap to, for the HUD. */
+export const selectTool = (s: GameState): { readonly tool: HeldTool; readonly canSwap: boolean } =>
+  ({ tool: s.operator.tool, canSwap: s.folderLocked !== true });
 /** The NPC, bed, pickup or toggle switch the interact key would use right now, for the HUD prompt; same rule as the key. */
 export function selectInteractable(s: GameState): { readonly object: number; readonly kind: string } | undefined {
   if (s.operator.action.kind !== 'free') return undefined;

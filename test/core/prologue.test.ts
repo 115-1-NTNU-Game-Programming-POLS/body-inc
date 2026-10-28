@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { BOSSES, DIALOGUES, ENEMIES, PARAMS, TAGS } from '../../src/app/content.ts';
 import {
   answeredCards, bedAfter, decode, EMPTY_TAGS, encode, GLUCOSE, glucoseOf, loadDialogueTable, openingFor, OuterError, parseRoom, playCards,
-  PUSH, readDeck, resumeChapter, selectPort, setAmount, setFlag, STAMP, startChapter, stepChapter, stepGlucose, STORY, storyAtEnd, toolsAtStart,
+  PUSH, readDeck, resumeChapter, selectPort, setAmount, setFlag, STAMP, startChapter, stepChapter, stepGlucose, STORY, storyAtEnd, TOOLS, toolsAtStart,
   record, type ChapterContent, type ChapterFile, type ChapterState, type Checkpoint, type DialogueTable, type GameEvent, type TagState, type TickInput, type TiledMap,
 } from '../../src/core/index.ts';
 
@@ -289,7 +289,7 @@ describe('the stamp is handed over (design doc 7.3)', () => {
     expect(types(run(locked, s, STAMP_KEY, 3).events)).not.toContain('stampRaised');
     // The control: every tool is the default.
     const open = chapter([]);
-    expect(startChapter(open).run.tools).toEqual(['stamp']);
+    expect(startChapter(open).run.tools).toEqual([...TOOLS]);
     expect(types(run(open, full(startChapter(open)), STAMP_KEY, 3).events)).toContain('stampRaised');
   });
 
@@ -333,7 +333,7 @@ describe('the stamp is handed over (design doc 7.3)', () => {
     const base: ChapterFile = { version: 1, id: 'x', start: 'x/a', links: [] };
     expect(toolsAtStart({ ...base, tools: [] })).toEqual([]);
     expect(toolsAtStart({ ...base, tools: [] }, ['stamp'])).toEqual(['stamp']);
-    expect(toolsAtStart(base)).toEqual(['stamp']);
+    expect(toolsAtStart(base)).toEqual([...TOOLS]);
   });
 
   it('an event card may hand out a tool; an opening or closing card may not', () => {

@@ -1,5 +1,5 @@
 import { moveAndCollide, type Body, type SolidGrid } from '../collision/grid.ts';
-import { BUFFER_TICKS, CLING, DODGE, HURT, STAMP, STAPLER } from './frames.ts';
+import { BUFFER_TICKS, CLING, DODGE, FOLDER, HURT, STAMP, STAPLER } from './frames.ts';
 import { approach, desiredVelocity, facingFor, type Facing, type Vec } from './movement.ts';
 
 /**
@@ -13,6 +13,8 @@ export interface TickInput {
   readonly attackPressed?: boolean;
   readonly dodgePressed?: boolean;
   readonly stampPressed?: boolean;
+  /** Swap the stapler and the folder; not buffered, since it is a deliberate press. */
+  readonly swapPressed?: boolean;
   /** Talk to an NPC or use a bed; not buffered, since it is only meaningful while standing next to one. */
   readonly interactPressed?: boolean;
   /** A fresh press of up (-1) or down (1); only a conversation's choice reads it. */
@@ -26,13 +28,20 @@ export const NO_INPUT: TickInput = { move: { x: 0, y: 0 } };
 /**
  * Dodge frames 1-13 move, 14-19 are recovery. Hurt frames 1-12 are knockback, after the freeze
  * (frame 0 means not started). Stamp frames 1 to STAMP.startupTicks raise it, and it lands on
- * the frame after (STAMP_LAND). `frame` is the frame executed on the latest tick (frames.ts).
+ * the frame after (STAMP_LAND). A swing of the folder runs frames 1 to FOLDER.swingTicks and hits
+ * on FOLDER.hitFrame; a guard runs while the attack key is held, frame 1 being the tick it was
+ * raised. `frame` is the frame executed on the latest tick (frames.ts).
  */
 export type OperatorAction =
   | { readonly kind: 'free' }
   | { readonly kind: 'dodge'; readonly frame: number; readonly dir: Vec; readonly perfect: boolean }
   | { readonly kind: 'hurt'; readonly frame: number; readonly dir: Vec }
-  | { readonly kind: 'stamp'; readonly frame: number };
+  | { readonly kind: 'stamp'; readonly frame: number }
+  | { readonly kind: 'swing'; readonly frame: number; readonly combo: number }
+  | { readonly kind: 'guard'; readonly frame: number };
+
+/** The tool in hand: the stapler, or the folder once the chapter has handed it over (design doc 6.1). */
+export type HeldTool = 'stapler' | 'folder';
 
 export interface OperatorState {
   readonly x: number;
@@ -63,6 +72,14 @@ export interface OperatorState {
   readonly bufferedStamp: number | null;
   /** Rejection gauge, 0 to STAMP.gaugeMax (design doc 5.4). */
   readonly gauge: number;
+  readonly tool: HeldTool;
+  /** Ticks the attack key has been held without a break, counted from the press; the guard needs FOLDER.holdTicks. */
+  readonly held: number;
+  /** Which swing of the string the next one is (0 to 2), valid while the tick is at most `comboUntil`. */
+  readonly combo: number;
+  readonly comboUntil: number;
+  /** Attacks and the guard wait until this tick after a swap. */
+  readonly swapUntil: number;
 }
 
 /** Operator feet box: narrower than the 32 px frame so doorways two tiles wide feel roomy. */
@@ -81,6 +98,7 @@ export function newOperator(x: number, y: number, maxHalves: number, gauge = 0):
     x, y, vx: 0, vy: 0, facing: 'down', aim: { x: 0, y: 1 }, slows: [], stacks: 0, halves: maxHalves, maxHalves,
     action: { kind: 'free' }, dodgeReadyAt: 0, invulnUntil: 0, shotReadyAt: 0, nextShotAt: null,
     bufferedAttack: null, bufferedDodge: null, bufferedStamp: null, gauge,
+    tool: 'stapler', held: 0, combo: 0, comboUntil: 0, swapUntil: 0,
   };
 }
 
@@ -124,13 +142,30 @@ export interface OperatorStep {
   readonly stampRaised?: boolean;
   /** The stamp comes down this tick; game.ts resolves what it covers. */
   readonly stampLanded?: boolean;
+  /** A swing of the folder began this tick; the number is its place in the string, 0 to 2. */
+  readonly swung?: number;
+  /** The swing's box exists this tick (FOLDER.hitFrame); game.ts resolves what it covers. */
+  readonly swingHit?: number;
+  /** The guard was raised this tick (its frame 1). */
+  readonly guardRaised?: boolean;
+  /** The tool in hand after a swap this tick. */
+  readonly swapped?: HeldTool;
   readonly blockedX: boolean;
   readonly blockedY: boolean;
 }
 
+/**
+ * A key held since the press raises the guard instead of swinging again: from FOLDER.holdTicks on,
+ * unless a fresh press is waiting in the buffer, which starts the next swing of the string.
+ */
+const wantsGuard = (op: OperatorState, input: TickInput, now: number): boolean =>
+  op.tool === 'folder' && input.attack === true && op.held >= FOLDER.holdTicks && !live(op.bufferedAttack, now);
+
 /** Advances the operator one unfrozen tick. `now` is the tick being simulated. */
 export function stepOperator(grid: SolidGrid, op0: OperatorState, input: TickInput, now: number): OperatorStep {
   let op = bufferInput(op0, input, now);
+  const held = input.attack === true ? op.held + 1 : 0;
+  if (held !== op.held) op = { ...op, held };
   const a = op.action;
 
   // An action that ran its last frame on the previous tick ends here, and this tick is free.
@@ -151,7 +186,17 @@ export function stepOperator(grid: SolidGrid, op0: OperatorState, input: TickInp
       fired: false, dodged: false, stampLanded: frame === STAMP_LAND, blockedX: false, blockedY: false,
     };
   }
-  if (a.kind !== 'free') op = { ...op, action: { kind: 'free' } };
+  // A swing stands still for its frames. Once its box has landed, a key held since the press turns
+  // the rest of it into the guard, so a parry does not wait for the whole swing to play out.
+  if (a.kind === 'swing' && a.frame < FOLDER.swingTicks && !(a.frame >= FOLDER.hitFrame && wantsGuard(op, input, now))) {
+    const frame = a.frame + 1;
+    return {
+      op: { ...op, vx: 0, vy: 0, action: { ...a, frame } },
+      fired: false, dodged: false, ...(frame === FOLDER.hitFrame ? { swingHit: a.combo } : {}), blockedX: false, blockedY: false,
+    };
+  }
+  const keepGuard = a.kind === 'guard' && op.tool === 'folder' && input.attack === true;
+  if (a.kind !== 'free' && !keepGuard) op = { ...op, action: { kind: 'free' } };
 
   // Free: a dodge takes priority over firing and cancels a pending staple (recovery is cancelable).
   if (live(op.bufferedDodge, now) && now >= op.dodgeReadyAt) {
@@ -171,35 +216,66 @@ export function stepOperator(grid: SolidGrid, op0: OperatorState, input: TickInp
     };
   }
 
+  // A swap puts the other tool in hand at once. It only keeps attacks and the guard waiting (the
+  // drawer flips for 0.15 s), so walking and dodging go on.
+  let swapped: HeldTool | undefined;
+  if (input.swapPressed === true) {
+    swapped = op.tool === 'folder' ? 'stapler' : 'folder';
+    op = { ...op, tool: swapped, nextShotAt: null, swapUntil: now + FOLDER.swapTicks, action: { kind: 'free' } };
+  }
+  const lockout = now < op.swapUntil;
+
+  if (op.tool === 'folder' && !lockout && !keepGuard && live(op.bufferedAttack, now)) {
+    const index = now <= op.comboUntil ? op.combo : 0;
+    const stick = unit(input.move);
+    const aim = stick.x === 0 && stick.y === 0 ? op.aim : stick;
+    return {
+      op: {
+        ...op, bufferedAttack: null, vx: 0, vy: 0, aim, facing: facingFor(aim, op.facing),
+        action: { kind: 'swing', frame: 1, combo: index },
+        combo: (index + 1) % FOLDER.damage.length,
+        comboUntil: now + FOLDER.swingTicks + FOLDER.comboGapTicks,
+      },
+      fired: false, dodged: false, swung: index, ...(swapped ? { swapped } : {}), blockedX: false, blockedY: false,
+    };
+  }
+  const guard = swapped === undefined && op.tool === 'folder' && (keepGuard || (!lockout && wantsGuard(op, input, now)));
+
   // A shot is scheduled only once its startup fits before shotReadyAt, so releasing the key
   // mid-volley stops the volley instead of leaving a shot queued for the next cycle.
   let { nextShotAt, shotReadyAt, bufferedAttack } = op;
-  const lead = STAPLER.startupFrame - 1;
-  const wants = input.attack === true || live(bufferedAttack, now);
-  if (nextShotAt === null && wants && now + lead >= shotReadyAt) {
-    nextShotAt = now + lead;
-    bufferedAttack = null;
-  }
   let fired = false;
-  if (nextShotAt !== null && now >= nextShotAt) {
-    fired = true;
-    shotReadyAt = now + STAPLER.intervalTicks;
-    nextShotAt = null;
+  if (op.tool === 'stapler' && !lockout) {
+    const lead = STAPLER.startupFrame - 1;
+    const wants = input.attack === true || live(bufferedAttack, now);
+    if (nextShotAt === null && wants && now + lead >= shotReadyAt) {
+      nextShotAt = now + lead;
+      bufferedAttack = null;
+    }
+    if (nextShotAt !== null && now >= nextShotAt) {
+      fired = true;
+      shotReadyAt = now + STAPLER.intervalTicks;
+      nextShotAt = null;
+    }
   }
 
   const stick = unit(input.move);
   const aim = stick.x === 0 && stick.y === 0 ? op.aim : stick;
-  const factor = input.attack === true ? STAPLER.holdSpeedFactor : 1;
+  const factor = guard ? FOLDER.guardSpeedFactor : op.tool === 'stapler' && input.attack === true ? STAPLER.holdSpeedFactor : 1;
   const want = desiredVelocity(input.move, [...op.slows, ...(op.bodySlow ? [op.bodySlow] : []), ...Array<number>(op.stacks).fill(CLING.slowPerStack)]);
   const v = approach({ x: op.vx, y: op.vy }, { x: want.x * factor, y: want.y * factor });
   const m = moveAndCollide(grid, OPERATOR_BODY, op.x, op.y, v.x, v.y);
+  const guardFrame = a.kind === 'guard' && keepGuard ? a.frame + 1 : 1;
   return {
     op: {
       ...op, x: m.x, y: m.y, vx: m.blockedX ? 0 : v.x, vy: m.blockedY ? 0 : v.y,
       facing: facingFor(input.move, op.facing), aim, nextShotAt, shotReadyAt, bufferedAttack,
+      action: guard ? { kind: 'guard', frame: guardFrame } : op.action,
     },
     fired,
     dodged: false,
+    ...(guard && !keepGuard ? { guardRaised: true } : {}),
+    ...(swapped ? { swapped } : {}),
     blockedX: m.blockedX && v.x !== 0,
     blockedY: m.blockedY && v.y !== 0,
   };
