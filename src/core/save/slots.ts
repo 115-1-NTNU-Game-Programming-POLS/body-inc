@@ -170,11 +170,12 @@ export const STORY: SlotDef<StoryData> = {
       if (!isRecord(data) || !isRecord(data['checkpoint'])) return data;
       return { ...data, checkpoint: { ...data['checkpoint'], boxes: [] } };
     },
-    // Version 4 keeps tools and the next chapter's entry. Before it every chapter started with the stamp.
+    // Version 4 keeps tools and the next chapter's entry. Before it every chapter started with the
+    // stamp, which was the only tool then; the folder, added later, must not appear in an old save.
     3: (data) => {
       if (!isRecord(data)) return data;
       const cp = data['checkpoint'];
-      return { ...data, entry: null, checkpoint: isRecord(cp) ? { ...cp, tools: [...TOOLS] } : cp };
+      return { ...data, entry: null, checkpoint: isRecord(cp) ? { ...cp, tools: ['stamp'] } : cp };
     },
   },
 };

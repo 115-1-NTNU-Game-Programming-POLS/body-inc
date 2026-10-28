@@ -1,6 +1,6 @@
 import type { TickInput } from '../core/index.ts';
 
-export type Action = 'up' | 'down' | 'left' | 'right' | 'attack' | 'dodge' | 'stamp' | 'interact' | 'pick1' | 'pick2' | 'pick3' | 'pick4' | 'pick5' | 'pick6';
+export type Action = 'up' | 'down' | 'left' | 'right' | 'attack' | 'dodge' | 'stamp' | 'swap' | 'interact' | 'pick1' | 'pick2' | 'pick3' | 'pick4' | 'pick5' | 'pick6';
 
 /** Default bindings (design doc 5.2). Stored per player later; core only ever sees TickInput. */
 export const DEFAULT_BINDINGS: Readonly<Record<Action, readonly string[]>> = {
@@ -11,6 +11,8 @@ export const DEFAULT_BINDINGS: Readonly<Record<Action, readonly string[]>> = {
   attack: ['KeyJ', 'Mouse0'],
   dodge: ['Space', 'KeyK'],
   stamp: ['KeyR', 'Mouse1'],
+  // The mouse wheel of design doc 5.2 is not tracked yet.
+  swap: ['KeyF'],
   interact: ['KeyE', 'Enter'],
   pick1: ['Digit1', 'Numpad1'],
   pick2: ['Digit2', 'Numpad2'],
@@ -138,6 +140,7 @@ export class KeyboardInput {
       attackPressed: this.wasPressed('attack'),
       dodgePressed: this.wasPressed('dodge'),
       stampPressed: this.wasPressed('stamp'),
+      swapPressed: this.wasPressed('swap'),
       interactPressed: this.wasPressed('interact'),
       menuStep,
       ...(pick > 0 ? { pick } : {}),

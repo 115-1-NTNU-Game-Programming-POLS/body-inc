@@ -13,6 +13,8 @@
     "immuneBounce": { "bounce": true, "note": "solution.{solution}" },
     "heartLost": { "flashOperator": 2, "shake": { "px": 4, "seconds": 0.12 }, "particles": [{ "preset": "sweat", "count": 1 }] },
     "perfectDodge": { "note": "perfect_dodge" },
+    "parry": { "shake": { "px": 3, "seconds": 0.1 }, "particles": [{ "preset": "paper", "count": 6 }, { "preset": "ink", "count": 3 }], "note": "folder.parry" },
+    "blocked": { "particles": [{ "preset": "paper", "count": 3 }], "note": "folder.blocked" },
     "stampLanded": { "shake": { "px": 6, "seconds": 0.15 }, "particles": [{ "preset": "ink", "count": 10 }], "note": "stamp.rejected" },
     "stampVoid": { "bounce": true, "note": "stamp_void.{solution}" },
     "clung": { "particles": [{ "preset": "fuzz", "count": 4 }] },

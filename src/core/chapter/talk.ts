@@ -40,6 +40,10 @@ export function withTools(a: Applied): Applied {
     if (e.tool === 'stamp') {
       const { stampLocked: _, ...open } = game;
       game = { ...open, operator: { ...game.operator, gauge: STAMP.gaugeMax } };
+    } else if (e.tool === 'folder') {
+      // It stays in the pocket until the swap key takes it out (design doc 6.1).
+      const { folderLocked: _, ...open } = game;
+      game = open;
     }
   }
   return { run, game, events: a.events };

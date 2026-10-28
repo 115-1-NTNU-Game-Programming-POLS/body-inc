@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import type { FixedStepLoop } from '../../app/loop.ts';
 import {
   acetaldehydeCrates, GLUCOSE as METER, glucoseOf, isDizzy, MINUTES_PER_DAY, selectBoss, selectClock, selectFactory, selectGauge, selectHearts, selectInteractable,
-  selectTick, TICK_HZ, waitingCrates,
+  selectTick, selectTool, TICK_HZ, waitingCrates,
   type BossSummary, type ChapterState, type GameEvent, type GameState,
 } from '../../core/index.ts';
 import { str, TAGS } from '../../app/content.ts';
@@ -294,9 +294,11 @@ export class HudScene extends Phaser.Scene {
     }
   }
 
-  /** Under the clock: the factory's crate counts in a factory room, and the dizzy warning (design doc 7.7). */
+  /** Under the clock: the tool in hand once there is a second to swap to, the factory's crate counts in a factory room, and the dizzy warning (design doc 7.7). */
   private renderStatus(state: ChapterState): void {
     const lines: string[] = [];
+    const { tool, canSwap } = selectTool(state.game);
+    if (canSwap) lines.push(str(`hud.tool.${tool}`));
     if (selectFactory(state.game)) {
       lines.push(str('hud.line').replace('{n}', String(waitingCrates(state.run.tags, TAGS))).replace('{m}', String(acetaldehydeCrates(state.run.tags, TAGS))));
     }

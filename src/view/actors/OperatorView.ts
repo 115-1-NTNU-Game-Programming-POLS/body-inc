@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { tagKey, type ManifestEntry } from '../../app/assets.ts';
-import { DODGE, inDodgeIframes, STAMP_LAND, STAPLER, type OperatorState } from '../../core/index.ts';
+import { DODGE, FOLDER, inDodgeIframes, parryOpen, STAMP_LAND, STAPLER, swingBox, type OperatorState } from '../../core/index.ts';
 
 /**
  * Where clinging stacks ride, in latch order: back, left shoulder, top of the head (art
@@ -23,6 +23,8 @@ export class OperatorView {
   private readonly sprite: Phaser.GameObjects.Sprite;
   private readonly key: string;
   private readonly stacks: Phaser.GameObjects.Sprite[];
+  /** The folder's swing and guard: no folder frames are in the atlas yet, so they are drawn as shapes. */
+  private readonly folderFx: Phaser.GameObjects.Graphics;
   private flashUntil = 0;
   private lastFireTick = -1e9;
   private lastGhostTick = -1;
@@ -34,6 +36,7 @@ export class OperatorView {
     this.sprite.setOrigin(entry.anchor[0] / entry.frame[0], entry.anchor[1] / entry.frame[1]);
     this.stacks = STACK_ANCHORS.map(() => scene.add.sprite(0, 0, mini.key, '0')
       .setOrigin(mini.anchor[0] / mini.frame[0], mini.anchor[1] / mini.frame[1]).setVisible(false));
+    this.folderFx = scene.add.graphics();
   }
 
   /** Draws one mini per clinging stack; the core state decides how many there are. */
@@ -78,6 +81,9 @@ export class OperatorView {
       }
     } else if (a.kind === 'hurt') {
       this.still(`hurt_${dir}`);
+    } else if (a.kind === 'swing' || a.kind === 'guard') {
+      // The stapler's push pose stands in until the atlas has folder frames (art direction 5.3).
+      this.still(`attack_${dir}`, a.kind === 'swing' && a.frame >= FOLDER.hitFrame ? 1 : 0);
     } else if (tick - this.lastFireTick < STAPLER.intervalTicks) {
       // Push 5 frames, recoil 5: one cycle per staple.
       this.still(`attack_${dir}`, tick - this.lastFireTick < 5 ? 1 : 0);
@@ -91,6 +97,23 @@ export class OperatorView {
     this.sprite.setAlpha(invuln && Math.floor(tick / BLINK_TICKS) % 2 === 0 ? 0.5 : 1);
     if (tick < this.flashUntil) this.sprite.setTintFill(0xffffff);
     else this.sprite.clearTint();
+    this.renderFolder(cur, a);
+  }
+
+  /** The guard as a 120 degree wedge, white while it parries and teal after; a swing as a short white slash. */
+  private renderFolder(cur: Readonly<OperatorState>, a: OperatorState['action']): void {
+    const g = this.folderFx.clear().setDepth(this.sprite.depth + 2);
+    if (a.kind === 'guard') {
+      const half = (FOLDER.guardHalfAngleDeg * Math.PI) / 180;
+      const base = Math.atan2(cur.aim.y, cur.aim.x);
+      g.fillStyle(parryOpen(a) ? 0xffffff : 0x2a9d8f, parryOpen(a) ? 0.6 : 0.3);
+      g.slice(this.sprite.x, this.sprite.y - 10, 24, base - half, base + half, false);
+      g.fillPath();
+    } else if (a.kind === 'swing' && a.frame >= FOLDER.hitFrame && a.frame < FOLDER.hitFrame + 3) {
+      const b = swingBox(cur);
+      g.fillStyle(0xffffff, 0.5);
+      g.fillEllipse((b.left + b.right) / 2, (b.top + b.bottom) / 2, b.right - b.left, b.bottom - b.top);
+    }
   }
 
   /** Teal afterimage at 0.5 opacity fading out (art direction 5.3). */
