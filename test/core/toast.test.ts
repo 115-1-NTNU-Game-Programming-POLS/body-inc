@@ -184,6 +184,20 @@ describe('乾杯三巡: the song (design doc 7.7)', () => {
     expect(walk.states[woke - 1]!.operator.x).toBeLessThan(at.x);
   });
 
+  it('cannot be worn down while he waits: staples from just outside the wake distance pass him by', () => {
+    // Staple reach (7 tiles from the muzzle) outruns the wake distance measured feet to feet.
+    const g = fight({ x: HOME.x - DEF.wakeDistance - 4, y: HOME.y }, 'stapler');
+    const aimed = { ...g, operator: { ...g.operator, aim: { x: 1, y: 0 } } };
+    const fire = (t: number) => press({ attack: true, attackPressed: t === 0 });
+    const r = run(aimed, 600, fire);
+    expect(r.events.flat().filter((e) => e.type === 'hit')).toEqual([]);
+    // Control: the same staples land on him once he is awake, so they do reach.
+    const awake = run(withBoss(aimed, { part: 'breath', ticks: -10_000 }), 60, fire);
+    expect(awake.events.flat().filter((e) => e.type === 'hit').length).toBeGreaterThan(0);
+    expect(boss(r.state).hp).toBe(DEF.budget);
+    expect(boss(r.state).boss.part).toBe('wait');
+  });
+
   it('sings round by round at a quicker beat, breathes after each, and repeats the last round', () => {
     const lines: number[] = [];
     const breaths: number[] = [];
@@ -345,6 +359,14 @@ describe('the venue in the liver chapter', () => {
     expect(CHAPTER.links).toContainEqual({ a: 'liver/factory#door-e', b: 'liver/rooftop#door-w' });
     expect(CHAPTER.links).toContainEqual({ a: 'liver/rooftop#door-e', b: 'liver/corner#door-w' });
     expect([eastDoor.props['lock'], eastDoor.props['lockParam']]).toEqual(['resource', 'toast_conceded']);
+    // The way back west too: it runs through the factory's queued door, which his cups keep shut.
+    const westDoor = liver.rooms.get(ROOFTOP)!.objects.find((o) => o.kind === 'Door' && o.props['socket'] === 'W')!;
+    expect([westDoor.props['lock'], westDoor.props['lockParam']]).toEqual(['resource', 'toast_conceded']);
+    const back = (s: ChapterState) => go(s, { move: { x: -1, y: 0 } }, 120);
+    const shut = back(at());
+    expect(shut.events.map((e) => e.type)).toContain('doorLocked');
+    expect(shut.state.run.roomId).toBe(ROOFTOP);
+    expect(back(at('toast_conceded')).state.run.roomId).toBe('liver/factory');
     expect(at().game.enemies.map((e) => e.type)).toEqual(['toast']);
     expect(at('toast_conceded').game.enemies).toEqual([]);
   });
@@ -411,11 +433,18 @@ describe('the venue in the liver chapter', () => {
   });
 
   it('a conversation already opening that tick does not lose the concession; it opens on the next', () => {
-    const s = conceded(at());
-    const talked = { ...s, run: { ...s.run, fired: [...s.run.fired, `${ROOFTOP}#concession`] } };
-    expect(go(talked, NONE, 1).state.dialogue).toBeNull();
-    // The key is what marks it shown; without it, it is still owed.
-    expect(go(s, NONE, 1).state.dialogue).not.toBeNull();
+    // Standing in the intro trigger as he gives up: the intro claims the tick.
+    const s0 = conceded(at());
+    const s: ChapterState = { ...s0, game: { ...s0.game, operator: { ...s0.game.operator, x: 3 * TILE + 16, y: 224 } } };
+    const first = go(s, NONE, 1);
+    expect(first.events).toContainEqual({ type: 'dialogueOpened', dialogueId: 'liver.toast.intro' });
+    expect(first.state.run.fired).not.toContain(`${ROOFTOP}#concession`);
+    // The intro ends on the operator's reply; closed here as if it had been answered.
+    const after = go({ ...first.state, dialogue: null }, NONE, 1);
+    expect(after.events).toContainEqual({ type: 'dialogueOpened', dialogueId: 'liver.toast.concede' });
+    // The key is what marks it shown; with it, nothing more is owed.
+    const shown = { ...s0, run: { ...s0.run, fired: [...s0.run.fired, `${ROOFTOP}#concession`] } };
+    expect(go(shown, NONE, 1).state.dialogue).toBeNull();
   });
 
   it('a return to a checkpoint from before the concession brings him and his concession back', () => {
@@ -440,5 +469,29 @@ describe('the venue in the liver chapter', () => {
     expect(holds(back.state.run.tags, TAGS, compileCondition(TAGS, 'toast_conceded'))).toBe(false);
     expect(back.state.game.enemies.map((e) => [e.type, e.phase])).toEqual([['toast', 'idle']]);
     expect(amount(back.state.run.tags, TAGS, 'alcohol')).toBe(0);
+  });
+
+  it('a return also takes back the scenes seen since the punch, so the rescue can be done again', () => {
+    const CORNER = 'liver/corner';
+    const { pending: _, ...s0 } = startChapter(liver, { room: CORNER, tags: tags('toast_conceded') });
+    const scene = (id: number) => `${CORNER}#${id}`;
+    // The rescue (#3) and the closing conversation (#4) seen after the punch; the toast card before it.
+    const before = 'liver/party#7';
+    const cp = {
+      chapter: 'liver', roomId: CORNER, x: 64, y: 224, tags: s0.run.tags, clock: s0.game.clock,
+      fired: [before], switches: [], boxes: [], tools: s0.run.tools,
+    };
+    const hurt = boxAt(OPERATOR_HURT, s0.game.operator.x, s0.game.operator.y);
+    const shot: Shot = { id: 999, owner: 0, kind: 'cup', x: (hurt.left + hurt.right) / 2, y: (hurt.top + hurt.bottom) / 2, vx: 0, vy: 0.01, ticksLeft: 5, halves: 1, half: 4, spent: false };
+    const dying: ChapterState = {
+      ...s0,
+      run: { ...s0.run, checkpoint: cp, fired: [before, scene(3), scene(4)] },
+      game: { ...s0.game, shots: [shot], operator: { ...s0.game.operator, halves: 1 } },
+    };
+    const back = go(dying, NONE, 1);
+    expect(back.events).toContainEqual(expect.objectContaining({ type: 'returnedToCheckpoint' }));
+    expect(back.state.run.fired).toEqual([before]);
+    const again = go(back.state, { move: { x: 1, y: 0 } }, 120);
+    expect(again.events).toContainEqual({ type: 'rescueOpened', rescue: 'akai' });
   });
 });

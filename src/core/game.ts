@@ -465,7 +465,8 @@ function forcedLeave(state: GameState): GameState {
       const { summoner: _, ...own } = e;
       return own;
     }
-    const reset: EnemyState = { ...e, x: e.homeX, y: e.homeY, hp: e.maxHp, phase: 'idle', phaseTicks: 0, frozen: 0 };
+    const { shooed: _, ...fresh } = e;
+    const reset: EnemyState = { ...fresh, x: e.homeX, y: e.homeY, hp: e.maxHp, phase: 'idle', phaseTicks: 0, frozen: 0 };
     return e.boss ? { ...reset, boss: newBossState(state.bosses[e.boss.def]!) } : reset;
   });
   // The tool in hand stays in hand: a retry takes nothing away (design doc 5.6).

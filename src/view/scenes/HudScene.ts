@@ -141,14 +141,28 @@ export class HudScene extends Phaser.Scene {
     const text = addText(this, sx, sy, n.text, {
       role: 'hand', weight: 400, size: 22, color: '#2b2b2b', backgroundColor: '#d9d6cf', padding: { x: 8, y: 4 },
     }).setOrigin(0.5, 1);
+    // Kept whole on screen and under the top-left HUD, whatever the object's place in the room.
+    const floor = this.hudBottom();
+    const half = text.displayWidth / 2;
+    text.setPosition(Phaser.Math.Clamp(sx, half + 8, this.scale.width - half - 8), Math.min(Math.max(sy, floor + text.displayHeight), this.scale.height - 8));
     // Notes from one spot come in bursts (a toast landing, then a refusal line); older ones move up
-    // out of the way instead of being covered, newest first.
-    let ceiling = text.getBounds();
+    // out of the way instead of being covered, newest first. One with no room left under the HUD goes.
+    const placed = [text.getBounds()];
+    const overlaps = (a: Phaser.Geom.Rectangle, b: Phaser.Geom.Rectangle) =>
+      a.right > b.left && a.left < b.right && a.bottom > b.top && a.top < b.bottom;
     for (const old of [...this.notes].reverse()) {
-      const b = old.getBounds();
-      if (b.right <= ceiling.left || b.left >= ceiling.right || b.top >= ceiling.bottom || b.bottom <= ceiling.top) continue;
-      old.setY(ceiling.top - 2);
-      ceiling = old.getBounds();
+      let b = old.getBounds();
+      for (let hit = placed.find((p) => overlaps(p, b)); hit; hit = placed.find((p) => overlaps(p, b))) {
+        old.setY(hit.top - 2);
+        b = old.getBounds();
+      }
+      if (b.top < floor) {
+        this.notes.splice(this.notes.indexOf(old), 1);
+        this.tweens.killTweensOf(old);
+        old.destroy();
+        continue;
+      }
+      placed.push(b);
     }
     this.notes.push(text);
     this.tweens.add({
@@ -159,6 +173,19 @@ export class HudScene extends Phaser.Scene {
         text.destroy();
       },
     });
+  }
+
+  /** Lowest edge of what the HUD draws along the top of the screen. */
+  private hudBottom(): number {
+    const edges = [this.clock, this.status, this.glucoseLabel].filter((t) => t.visible).map((t) => t.getBounds().bottom);
+    if (this.plate) edges.push(PLATE.y + PLATE.h + 4);
+    return Math.max(GAUGE_Y + GAUGE_H + 4, ...edges) + 4;
+  }
+
+  /** Right of the glucose meter is where the boss plate goes, so while it is up the label sits under the meter. */
+  private placeGlucoseLabel(): void {
+    if (this.plate) this.glucoseLabel.setOrigin(0, 0).setPosition(GLUCOSE.x, GAUGE_Y + GAUGE_H + 8);
+    else this.glucoseLabel.setOrigin(0, 0.5).setPosition(GLUCOSE.x + GLUCOSE.w + 12, GAUGE_Y + GAUGE_H / 2 + 2);
   }
 
   private drawHearts(halves: number, maxHalves: number): void {
@@ -220,6 +247,7 @@ export class HudScene extends Phaser.Scene {
       // The control hint line sits under the plate's left edge, so it moves below the plate.
       this.controls.setY(PLATE.y + PLATE.h + 12);
       this.clock.setY(this.controls.y + this.controls.displayHeight + 2);
+      this.placeGlucoseLabel();
     }
     const p = this.plate;
     if (boss.caffeine && time - p.lastSample >= CURVE.everyMs) {
@@ -244,6 +272,7 @@ export class HudScene extends Phaser.Scene {
     this.plate = undefined;
     this.controls.setY(GAUGE_Y + GAUGE_H + 12);
     this.clock.setY(this.controls.y + this.controls.displayHeight + 2);
+    this.placeGlucoseLabel();
   }
 
   private drawPlate(p: Plate, boss: BossSummary): void {

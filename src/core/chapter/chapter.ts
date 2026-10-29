@@ -408,18 +408,22 @@ function passTime(ctx: ChapterContent, run: Run, game: GameState, minutes: numbe
 
 /** The `fired` id of a toast boss's concession in its room, beside object ids. */
 const CONCESSION = 'concession';
+const SCENES: readonly string[] = ['dialogue', 'card', 'rescue'];
 
 /**
- * Beds and pickups used since the punch come back on a return to it: the clock and the tags go
- * back to the punch, so the nap or the coffee they gave is undone too. A handbook page is the
- * exception, since the page it gave outlives every run and is not undone.
+ * Beds, pickups and once-triggers' scenes used since the punch come back on a return to it: the
+ * clock and the tags go back to the punch, so the nap, the coffee or the tags a scene set are
+ * undone too, and a scene kept spent could never set them again (a rescue after a concession that
+ * the return took back). A handbook page is the exception, since the page it gave outlives every
+ * run and is not undone.
  */
 const undoneByReturn = (ctx: ChapterContent, key: string): boolean => {
   const [room = '', id = ''] = key.split('#');
   // The concession's tags go back with the return, so the boss is back and so is his concession.
   if (id === CONCESSION) return true;
   return ctx.rooms.get(room)?.objects.some((o) => String(o.id) === id
-    && (o.kind === 'Bed' || (o.kind === 'Pickup' && o.props['itemType'] !== 'handbook'))) ?? false;
+    && (o.kind === 'Bed' || (o.kind === 'Pickup' && o.props['itemType'] !== 'handbook')
+      || (o.kind === 'Trigger' && SCENES.includes(String(o.props['event']))))) ?? false;
 };
 
 /** A conversation or an event card. Only one is on screen at a time, and only one opens per tick. */

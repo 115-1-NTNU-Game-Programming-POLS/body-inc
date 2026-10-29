@@ -135,11 +135,14 @@ const room = (s: Shell, role: string, est: number, objects: { id: number }[]) =>
 
 {
   const s = shell('liver', 71);
-  socket(s, 'W', true);
+  socket(s, 'W', false);
   socket(s, 'E', false);
   writeRoom('liver/rooftop.tmj', room(s, 'core', 120, [
     start(64, 224),
-    door(2, 'W'),
+    // Shut behind the operator until he gives up: the way back runs through the factory's queued
+    // door, which his landed cups keep shut for minutes, and he would be met again at full budget.
+    // Nothing here costs a heart, so being shut in is never a trap.
+    door(2, 'W', 'resource', 'toast_conceded'),
     // He gives up rather than being beaten; that conversation sets the tag, and from then on the
     // way to the classmate is open and he is no longer at the venue.
     door(3, 'E', 'resource', 'toast_conceded'),

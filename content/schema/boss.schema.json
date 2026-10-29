@@ -44,7 +44,7 @@
       "required": ["lines", "beatSeconds"],
       "properties": {
         "lines": { "description": "Lines sung this round, one wave each.", "type": "integer", "minimum": 1 },
-        "beatSeconds": { "description": "From one wave to the next; no shorter than the tier-1 telegraph.", "type": "number", "exclusiveMinimum": 0 }
+        "beatSeconds": { "description": "From one wave to the next; longer than the 0.5 s tier-1 telegraph, so each line's warning plays out before the next begins.", "type": "number", "exclusiveMinimum": 0 }
       }
     },
     "BossRing": {

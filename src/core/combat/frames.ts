@@ -180,7 +180,7 @@ export const CHEERS = {
   circleTicks: 120,
   windupTicks: TELEGRAPH.tier1Ticks,
   throwTicks: 8,
-  /** Backs away for this long after a toast, and after any weapon lands on him. */
+  /** Backs away for this long after a toast, and after the first weapon to land on him since his last toast (backOff). */
   backOffTicks: 45,
   shotSpeed: tilesPerSecond(3.5),
   shotRangePx: 7 * TILE,
