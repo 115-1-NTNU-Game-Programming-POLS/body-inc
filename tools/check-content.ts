@@ -199,7 +199,7 @@ export function checkContent(contentDir: string): string[] {
     // The chapter opens it the moment his budget runs out; a missing id would stop the game mid-fight.
     const ids = dialogueIds(contentDir);
     for (const def of bosses?.values() ?? []) {
-      if (def.behaviour === 'toast' && !ids.has(def.concedeDialogue)) {
+      if (def.concedeDialogue !== undefined && !ids.has(def.concedeDialogue)) {
         const file = bossFiles.find(([, v]) => (v.value as ContentTypes['boss']).id === def.id)?.[1].file ?? where;
         out.push(`${file}：concedeDialogue「${def.concedeDialogue}」不存在於對話（content/dialogue/*.csv）`);
       }

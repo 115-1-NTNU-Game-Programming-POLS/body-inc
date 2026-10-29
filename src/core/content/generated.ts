@@ -39,7 +39,7 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
         "$ref": "#/$defs/BossWorkOrder"
       },
       "concedeDialogue": {
-        "description": "Toast: the conversation that opens when his budget runs out; it sets whatever lets the chapter go on.",
+        "description": "The conversation that opens when his case is closed (toast: when his budget runs out). Required for toast, optional for caffeine; it sets whatever lets the chapter go on.",
         "type": "string",
         "minLength": 1
       },
@@ -2883,7 +2883,7 @@ export interface BossFile {
   readonly behaviour: "caffeine" | "toast";
   readonly song?: BossSong;
   readonly workOrder?: BossWorkOrder;
-  /** Toast: the conversation that opens when his budget runs out; it sets whatever lets the chapter go on. */
+  /** The conversation that opens when his case is closed (toast: when his budget runs out). Required for toast, optional for caffeine; it sets whatever lets the chapter go on. */
   readonly concedeDialogue?: string;
   /** Annual budget, the boss's health (design doc 5.8). */
   readonly budget: number;

@@ -568,13 +568,13 @@ function stepRoom(ctx: ChapterContent, state: ChapterState, input: TickInput): C
    */
   const claimConcession = () => {
     if (opening) return;
-    const boss = game.enemies.find((x) => x.boss?.behaviour === 'toast' && x.phase === 'closed');
-    const def = boss ? game.bosses[boss.boss!.def] : undefined;
-    if (def?.behaviour !== 'toast') return;
+    const boss = game.enemies.find((x) => x.boss !== undefined && x.phase === 'closed');
+    const id = boss ? game.bosses[boss.boss!.def]?.concedeDialogue : undefined;
+    if (id === undefined) return;
     const key = `${run.roomId}#${CONCESSION}`;
     if (run.fired.includes(key)) return;
     run = { ...run, fired: [...run.fired, key] };
-    opening = { kind: 'dialogue', id: def.concedeDialogue, spent: key };
+    opening = { kind: 'dialogue', id, spent: key };
   };
 
   for (const e of r.events) {
