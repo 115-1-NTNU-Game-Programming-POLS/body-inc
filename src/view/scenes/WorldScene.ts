@@ -14,6 +14,7 @@ import type { CardsData } from './OpeningScene.ts';
 import { saveStory } from './run.ts';
 import { BossView } from '../actors/BossView.ts';
 import { EnemyView, SKINS } from '../actors/EnemyView.ts';
+import { DRAWN_TYPES, ExamLayer, type DrawnView } from '../actors/ExamView.ts';
 import { OperatorView } from '../actors/OperatorView.ts';
 import { Mechanisms } from '../actors/Mechanisms.ts';
 import { drawRoomObjects } from '../actors/RoomObjects.ts';
@@ -41,7 +42,8 @@ export class WorldScene extends Phaser.Scene {
   private hazards!: HazardView;
   private mechanisms!: Mechanisms;
   private entry!: (key: string) => ManifestEntry;
-  private readonly enemyViews = new Map<number, EnemyView>();
+  private readonly enemyViews = new Map<number, EnemyView | DrawnView>();
+  private exam!: ExamLayer;
   private readonly bossViews = new Map<number, BossView>();
   private readonly staples = new Map<number, Phaser.GameObjects.Image>();
   private readonly pending: GameEvent[] = [];
@@ -89,6 +91,7 @@ export class WorldScene extends Phaser.Scene {
     };
     this.operator = new OperatorView(this, this.entry('operator'), this.entry('adenosine-mini'));
     this.hazards = new HazardView(this);
+    this.exam = new ExamLayer(this, this.entry('exam'));
     this.syncViews(chapter.game);
     this.overlay = new CollisionOverlay(this, chapter.game);
     this.feedback = new FeedbackPlayer(this, FEEDBACK, STRINGS, {
@@ -159,6 +162,7 @@ export class WorldScene extends Phaser.Scene {
     this.operator.renderStacks(cur.stacks);
 
     this.syncViews(state);
+    this.exam.update(state, time);
     const before = new Map<number, Readonly<EnemyState>>(selectEnemies(prevState).map((e) => [e.id, e]));
     for (const e of selectEnemies(state)) {
       if (e.boss) {
@@ -223,7 +227,7 @@ export class WorldScene extends Phaser.Scene {
    */
   private openHandbook(e: KeyboardEvent): void {
     const s = this.loop.state;
-    if (e.repeat || this.leaving || s.dialogue || s.card || s.rescue || this.scene.isActive('Handbook')) return;
+    if (e.repeat || this.leaving || s.dialogue || s.card || s.rescue || s.exam || this.scene.isActive('Handbook')) return;
     this.scene.pause();
     this.scene.launch('Handbook');
   }
@@ -249,6 +253,10 @@ export class WorldScene extends Phaser.Scene {
     const ids = new Set(state.enemies.map((e) => e.id));
     for (const e of state.enemies) {
       if (this.enemyViews.has(e.id) || this.bossViews.has(e.id)) continue;
+      if (DRAWN_TYPES.has(e.type)) {
+        this.enemyViews.set(e.id, this.exam.viewFor(e));
+        continue;
+      }
       const skin = SKINS[e.type];
       if (!skin) throw new Error(`no skin for enemy type ${e.type}; add it to SKINS in EnemyView.ts`);
       if (e.boss) this.bossViews.set(e.id, new BossView(this, this.entry(skin), this.entry('adenosine-mini')));

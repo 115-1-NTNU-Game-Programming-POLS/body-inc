@@ -1,0 +1,11 @@
+dialogueId,order,speaker,expression,text,condition,effect,next,fact
+midterm.intro,1,narrator,normal,第 8 週，期中考週。演算法週二上機考、週四紙筆考，考場都在大腦的大會議室。,,,,
+midterm.intro,2,narrator,normal,上機考的課綱第一頁寫著：「本課程上機考不得使用 AI 助手。」每門課規定不同，要看課綱。,,,,
+midterm.intro,3,brain,normal,營運長，考卷已經在會議室等了。,,,,
+midterm.intro,4,brain,sleepy,我……那個……昨晚的筆記放哪了？,sleep_debt>=2,,,17
+midterm.sticky,1,liver,memo,便利貼：「血糖我有在顧，你專心考。」,,,,21
+midterm.paper,1,exam,stern,我不是來害你的，我是來確認你有沒有讀。,,,,
+midterm.paper,2,exam,stern,上機考打中測資，紙筆考依序蓋章。順序錯了，要重來。,,,,
+midterm.after,1,exam,approve,收卷。有讀的，我都看得出來。,,,,
+midterm.after,2,narrator,normal,走出考場，系學會在群組宣布：「期中考辛苦了，週五系烤，大家都來！」,,,,
+midterm.after,3,brain,normal,先回去睡一覺吧，營運長。,,,,17

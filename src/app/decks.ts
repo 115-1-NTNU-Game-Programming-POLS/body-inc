@@ -1,7 +1,19 @@
-import type { Deck, RescueTable, RoomObject } from '../core/index.ts';
+import type { Deck, ExamTable, RescueTable, RoomObject } from '../core/index.ts';
 
 type Rooms = ReadonlyMap<string, { readonly objects: readonly Pick<RoomObject, 'id' | 'kind' | 'props'>[] }>;
 
+/** Exams that rooms open but content/exams lacks; the map check's rule again, at Boot. */
+export function missingExams(rooms: Rooms, exams: ExamTable): string[] {
+  const out: string[] = [];
+  for (const [path, room] of rooms) {
+    for (const o of room.objects) {
+      if (o.kind !== 'Trigger' || o.props['event'] !== 'exam') continue;
+      const id = String(o.props['eventId']);
+      if (!exams.has(id)) out.push(`${path}: Trigger #${o.id} opens exam "${id}", which content/exams does not define`);
+    }
+  }
+  return out;
+}
 /** Rescues that rooms open but content/rescue.json lacks; the map check's rule again, at Boot. */
 export function missingRescues(rooms: Rooms, rescues: RescueTable): string[] {
   const out: string[] = [];

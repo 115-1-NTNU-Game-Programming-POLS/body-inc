@@ -1,5 +1,6 @@
 import { boxAt, centeredBox, type Box } from '../collision/boxes.ts';
 import { moveAndCollide, type Body, type SolidGrid } from '../collision/grid.ts';
+import type { Enemy } from '../content/generated.ts';
 import type { BossState } from './bosses/boss.ts';
 import type { Archetype, Category } from './enemies.ts';
 import { CHEERS, CLING, FLYER, REFORM_TICKS, SALESMAN } from './frames.ts';
@@ -48,6 +49,20 @@ export interface EnemyState {
   readonly summoner?: number;
   /** Cheers kid: a weapon has made him back off since his last toast, so the next one cannot. */
   readonly shooed?: true;
+  /** Exam test case: its drift in pixels per tick, turned back by walls (core/exam/fight.ts). */
+  readonly drift?: Vec;
+}
+
+export function enemyFrom(def: Enemy, id: number, x: number, y: number, respawnTicks: number, extra: Partial<EnemyState> = {}): EnemyState {
+  const hp = def.performance ?? 0;
+  return {
+    id, type: def.id, category: def.category,
+    ...(def.archetype ? { archetype: def.archetype } : {}),
+    ...(def.solution ? { solution: def.solution } : {}),
+    x, y, homeX: x, homeY: y, hp, maxHp: hp, phase: 'idle', phaseTicks: 0, frozen: 0,
+    strikeDir: { x: 0, y: 1 }, strikeSpent: false, respawnTicks, clings: def.clings === true,
+    ...extra,
+  };
 }
 
 export const ENEMY_BODY: Body = { halfW: 7, height: 10 };
@@ -124,6 +139,7 @@ export function stepEnemy(grid: SolidGrid, e0: EnemyState, target: Vec, senseRan
     const m = moveAndCollide(grid, ENEMY_BODY, e.x, e.y, (dx / d) * CLING.driftSpeed, (dy / d) * CLING.driftSpeed);
     return out({ ...e, x: m.x, y: m.y });
   }
+  if (e.archetype === 'testcase') return out(stepTestcase(grid, e));
   if (e.archetype === 'flyer') return stepFlyer(grid, e, target, out);
   if (e.archetype === 'cheers') return stepCheers(grid, e, target, out);
   if (e.archetype !== 'salesman') return out(e);
@@ -211,6 +227,15 @@ function stepCheers(grid: SolidGrid, e: EnemyState, target: Vec, out: Out): Enem
     default:
       return out(e);
   }
+}
+
+/** An exam test case drifts in a straight line and turns back off a wall on the axis it hit. */
+function stepTestcase(grid: SolidGrid, e: EnemyState): EnemyState {
+  const d = e.drift;
+  if (!d) return e;
+  const m = moveAndCollide(grid, ENEMY_BODY, e.x, e.y, d.x, d.y);
+  const drift = m.blockedX || m.blockedY ? { x: m.blockedX ? -d.x : d.x, y: m.blockedY ? -d.y : d.y } : d;
+  return { ...e, x: m.x, y: m.y, drift };
 }
 
 /**

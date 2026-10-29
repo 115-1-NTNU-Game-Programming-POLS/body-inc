@@ -25,7 +25,10 @@
         "adenosine",
         "opportunist_bacteria",
         "alcohol_barrel",
-        "cold_virus"
+        "cold_virus",
+        "exam_paper",
+        "testcase",
+        "testcase_bonus"
       ],
       "valuesAsFlags": false
     },
@@ -85,7 +88,8 @@
         "checkpoint",
         "clock_advance",
         "end",
-        "rescue"
+        "rescue",
+        "exam"
       ],
       "valuesAsFlags": false
     },

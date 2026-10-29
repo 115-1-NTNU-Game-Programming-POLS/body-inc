@@ -1,4 +1,4 @@
-﻿import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import feedbackJson from '../../content/feedback.json';
 import stringsJson from '../../content/strings/zh-TW.json';
 import enemiesJson from '../../content/enemies.json';
@@ -135,8 +135,8 @@ describe('feedback table', () => {
   const FIELDS = noteFields(TABLE);
 
   it('the real table names only known events, presets and strings', () => {
-    expect(FIELDS.immuneBounce?.['solution']).toEqual(['conveyor', 'guards']);
-    expect(FIELDS.stampVoid?.['solution']).toEqual(['conveyor', 'guards', 'sleep', 'territory']);
+    expect(FIELDS.immuneBounce?.['solution']).toEqual(['answer', 'conveyor', 'guards']);
+    expect(FIELDS.stampVoid?.['solution']).toEqual(['answer', 'conveyor', 'guards', 'sleep', 'territory']);
     expect(feedbackProblems(FEEDBACK, STRINGS, FIELDS)).toEqual([]);
   });
 
@@ -154,6 +154,8 @@ describe('feedback table', () => {
       'pickedUp: note "pickup.{itemType}" uses unknown placeholder "{itemType}"',
       'bedRefused: note "bed.refused.{bedType}" uses unknown placeholder "{bedType}"',
       'dizzyChanged: note "dizzy.{dizzy}" uses unknown placeholder "{dizzy}"',
+      'examAnswered: note "exam.answered.{how}" uses unknown placeholder "{how}"',
+      'proofStamped: note "exam.stamp.{ok}" uses unknown placeholder "{ok}"',
     ]);
   });
 

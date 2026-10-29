@@ -583,14 +583,15 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
             "type": "string"
           },
           "archetype": {
-            "description": "One of the five shared behaviours of design doc 5.3, or the cheers kid of design doc 7.7, who is closed by refusals and not by hits.",
+            "description": "One of the five shared behaviours of design doc 5.3, the cheers kid of design doc 7.7, who is closed by refusals and not by hits, or an exam test case (design doc 7.6), which drifts and is answered by one hit.",
             "enum": [
               "salesman",
               "flyer",
               "manager",
               "convener",
               "contractor",
-              "cheers"
+              "cheers",
+              "testcase"
             ]
           },
           "performance": {
@@ -605,6 +606,290 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
           "boss": {
             "description": "Id of the file in content/bosses that runs this enemy; its budget replaces performance and its moves replace an archetype.",
             "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "exam": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "ExamFile",
+    "description": "One exam fight of the story (design doc 7.6, 8.9): segments of questions the operator answers while the paper throws a barrage. A Trigger with event exam and this id opens the forecast; the fight then runs in the room and the score goes through core/exam/scoring.ts. Rules the schema cannot state (enemy categories, telegraph lengths, the gap between waves) are checked in core/exam/fight.ts. Text lives in content/strings under exam.<id>.*.",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "version",
+      "id",
+      "paper",
+      "caseEnemy",
+      "bonusEnemy",
+      "readiness",
+      "adenosine",
+      "cloakSeconds",
+      "hitsForZero",
+      "gapSeconds",
+      "breakSeconds",
+      "afterDialogue",
+      "segments",
+      "notes"
+    ],
+    "properties": {
+      "version": {
+        "const": 1
+      },
+      "id": {
+        "description": "What an exam Trigger's eventId names; also the prefix of its strings.",
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_]*$"
+      },
+      "paper": {
+        "description": "Enemy id of the exam paper: an immune enemy that stands in the room as a Spawn and throws the barrage. Hitting it answers nothing.",
+        "type": "string"
+      },
+      "caseEnemy": {
+        "description": "Enemy id of a test case (皜祈?): defeatable, archetype testcase, closed by one hit.",
+        "type": "string"
+      },
+      "bonusEnemy": {
+        "description": "Enemy id of the bonus question: like a test case, faster and gone after a few seconds.",
+        "type": "string"
+      },
+      "readiness": {
+        "$ref": "#/$defs/ExamBars"
+      },
+      "adenosine": {
+        "$ref": "#/$defs/ExamAdenosine"
+      },
+      "cloakSeconds": {
+        "description": "Longest the caffeine cloak lasts in the fight, whatever the residue (design doc 8.9: 60).",
+        "type": "number",
+        "exclusiveMinimum": 0
+      },
+      "hitsForZero": {
+        "description": "Hits taken in one segment at which the hit part of the performance reaches 0; fewer hits score in proportion.",
+        "type": "integer",
+        "minimum": 1
+      },
+      "gapSeconds": {
+        "description": "Pause between two questions, with no barrage.",
+        "type": "number",
+        "minimum": 0
+      },
+      "breakSeconds": {
+        "description": "Pause between two segments.",
+        "type": "number",
+        "minimum": 0
+      },
+      "afterDialogue": {
+        "description": "Conversation that opens once the result panel is closed.",
+        "type": "string",
+        "minLength": 1
+      },
+      "segments": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 2,
+        "items": {
+          "$ref": "#/$defs/ExamSegment"
+        }
+      },
+      "notes": {
+        "description": "Provenance of the numbers (DOC, ASSUME), as in content/params.json.",
+        "type": "object",
+        "additionalProperties": {
+          "type": "string"
+        }
+      }
+    },
+    "$defs": {
+      "ExamBars": {
+        "description": "Readiness bars in percent. A segment's bar is its tag, never below the floor (design doc 7.6: 50%). The base score is 60 at passAt and grows in proportion, times the S of the exam morning.",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "floor",
+          "passAt"
+        ],
+        "properties": {
+          "floor": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "passAt": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "maximum": 100
+          }
+        }
+      },
+      "ExamAdenosine": {
+        "description": "Adenosine in the exam room (design doc 8.9): perDebtHour per hour of sleep debt, at most max; three clinging stacks fail the question being answered.",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "enemy",
+          "perDebtHour",
+          "max"
+        ],
+        "properties": {
+          "enemy": {
+            "type": "string"
+          },
+          "perDebtHour": {
+            "type": "number",
+            "minimum": 0
+          },
+          "max": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "ExamSegment": {
+        "description": "One sitting: oj is the computer test (moving test cases hit with stationery), proof the written test (proof steps stamped in order with the interact key).",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "readinessTag",
+          "stages"
+        ],
+        "properties": {
+          "kind": {
+            "enum": [
+              "oj",
+              "proof"
+            ]
+          },
+          "readinessTag": {
+            "description": "Number tag holding this segment's readiness in percent: practice for oj, sleep-archived memory for proof (design doc 7.6).",
+            "type": "string"
+          },
+          "stages": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 3,
+            "items": {
+              "$ref": "#/$defs/ExamStage"
+            }
+          }
+        }
+      },
+      "ExamStage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "questions",
+          "barrage"
+        ],
+        "properties": {
+          "questions": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/$defs/ExamQuestion"
+            }
+          },
+          "barrage": {
+            "$ref": "#/$defs/ExamBarrage"
+          },
+          "bonus": {
+            "$ref": "#/$defs/ExamBonus"
+          }
+        }
+      },
+      "ExamQuestion": {
+        "description": "An oj question names cases and speedTiles; a proof question names steps.",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "seconds"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "seconds": {
+            "description": "Time to answer it.",
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "cases": {
+            "description": "oj: test cases on the floor at once.",
+            "type": "integer",
+            "minimum": 1
+          },
+          "speedTiles": {
+            "description": "oj: how fast the test cases drift, in tiles per second.",
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "steps": {
+            "description": "proof: steps to stamp in order; their text is exam.<id>.<question>.step.<n>.",
+            "type": "integer",
+            "minimum": 2,
+            "maximum": 6
+          }
+        }
+      },
+      "ExamBarrage": {
+        "description": "The paper's distraction barrage: every everySeconds a tier-1 telegraph, then a fan of shots aimed at the operator.",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "everySeconds",
+          "shots",
+          "spreadDeg",
+          "shotSpeedTiles",
+          "rangeTiles"
+        ],
+        "properties": {
+          "everySeconds": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "shots": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "spreadDeg": {
+            "type": "number",
+            "minimum": 0
+          },
+          "shotSpeedTiles": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "rangeTiles": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          }
+        }
+      },
+      "ExamBonus": {
+        "description": "The bonus question (??憿?: one fast case that appears atSeconds into the stage's first question and is gone after seconds.",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "atSeconds",
+          "seconds",
+          "speedTiles"
+        ],
+        "properties": {
+          "atSeconds": {
+            "type": "number",
+            "minimum": 0
+          },
+          "seconds": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "speedTiles": {
+            "type": "number",
+            "exclusiveMinimum": 0
           }
         }
       }
@@ -2570,13 +2855,14 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
   }
 };
 
-export type SchemaName = "boss" | "chapter" | "deck" | "enemies" | "feedback" | "handbook" | "params" | "report" | "rescue" | "scheduleCards" | "speakers" | "strings" | "tags";
+export type SchemaName = "boss" | "chapter" | "deck" | "enemies" | "exam" | "feedback" | "handbook" | "params" | "report" | "rescue" | "scheduleCards" | "speakers" | "strings" | "tags";
 
 export interface ContentTypes {
   readonly boss: BossFile;
   readonly chapter: ChapterFile;
   readonly deck: DeckFile;
   readonly enemies: EnemiesFile;
+  readonly exam: ExamFile;
   readonly feedback: FeedbackFile;
   readonly handbook: HandbookFile;
   readonly params: ParamsFile;
@@ -2764,14 +3050,98 @@ export interface Enemy {
   readonly category: "defeatable" | "reforming" | "immune";
   /** Key into solutions; required for reforming and immune enemies, absent for defeatable ones. */
   readonly solution?: string;
-  /** One of the five shared behaviours of design doc 5.3, or the cheers kid of design doc 7.7, who is closed by refusals and not by hits. */
-  readonly archetype?: "salesman" | "flyer" | "manager" | "convener" | "contractor" | "cheers";
+  /** One of the five shared behaviours of design doc 5.3, the cheers kid of design doc 7.7, who is closed by refusals and not by hits, or an exam test case (design doc 7.6), which drifts and is answered by one hit. */
+  readonly archetype?: "salesman" | "flyer" | "manager" | "convener" | "contractor" | "cheers" | "testcase";
   /** Hits to close the case, or for the cheers kid the refusals; defeatable enemies only. */
   readonly performance?: number;
   /** Drifts toward the operator and clings on contact, one slow stack each (design doc 5.5); reforming enemies only. */
   readonly clings?: boolean;
   /** Id of the file in content/bosses that runs this enemy; its budget replaces performance and its moves replace an archetype. */
   readonly boss?: string;
+}
+
+/** One exam fight of the story (design doc 7.6, 8.9): segments of questions the operator answers while the paper throws a barrage. A Trigger with event exam and this id opens the forecast; the fight then runs in the room and the score goes through core/exam/scoring.ts. Rules the schema cannot state (enemy categories, telegraph lengths, the gap between waves) are checked in core/exam/fight.ts. Text lives in content/strings under exam.<id>.*. */
+export interface ExamFile {
+  readonly version: 1;
+  /** What an exam Trigger's eventId names; also the prefix of its strings. */
+  readonly id: string;
+  /** Enemy id of the exam paper: an immune enemy that stands in the room as a Spawn and throws the barrage. Hitting it answers nothing. */
+  readonly paper: string;
+  /** Enemy id of a test case (皜祈?): defeatable, archetype testcase, closed by one hit. */
+  readonly caseEnemy: string;
+  /** Enemy id of the bonus question: like a test case, faster and gone after a few seconds. */
+  readonly bonusEnemy: string;
+  readonly readiness: ExamBars;
+  readonly adenosine: ExamAdenosine;
+  /** Longest the caffeine cloak lasts in the fight, whatever the residue (design doc 8.9: 60). */
+  readonly cloakSeconds: number;
+  /** Hits taken in one segment at which the hit part of the performance reaches 0; fewer hits score in proportion. */
+  readonly hitsForZero: number;
+  /** Pause between two questions, with no barrage. */
+  readonly gapSeconds: number;
+  /** Pause between two segments. */
+  readonly breakSeconds: number;
+  /** Conversation that opens once the result panel is closed. */
+  readonly afterDialogue: string;
+  readonly segments: readonly ExamSegment[];
+  /** Provenance of the numbers (DOC, ASSUME), as in content/params.json. */
+  readonly notes: Readonly<Record<string, string>>;
+}
+
+/** Readiness bars in percent. A segment's bar is its tag, never below the floor (design doc 7.6: 50%). The base score is 60 at passAt and grows in proportion, times the S of the exam morning. */
+export interface ExamBars {
+  readonly floor: number;
+  readonly passAt: number;
+}
+
+/** Adenosine in the exam room (design doc 8.9): perDebtHour per hour of sleep debt, at most max; three clinging stacks fail the question being answered. */
+export interface ExamAdenosine {
+  readonly enemy: string;
+  readonly perDebtHour: number;
+  readonly max: number;
+}
+
+/** One sitting: oj is the computer test (moving test cases hit with stationery), proof the written test (proof steps stamped in order with the interact key). */
+export interface ExamSegment {
+  readonly kind: "oj" | "proof";
+  /** Number tag holding this segment's readiness in percent: practice for oj, sleep-archived memory for proof (design doc 7.6). */
+  readonly readinessTag: string;
+  readonly stages: readonly ExamStage[];
+}
+
+export interface ExamStage {
+  readonly questions: readonly ExamQuestion[];
+  readonly barrage: ExamBarrage;
+  readonly bonus?: ExamBonus;
+}
+
+/** An oj question names cases and speedTiles; a proof question names steps. */
+export interface ExamQuestion {
+  readonly id: string;
+  /** Time to answer it. */
+  readonly seconds: number;
+  /** oj: test cases on the floor at once. */
+  readonly cases?: number;
+  /** oj: how fast the test cases drift, in tiles per second. */
+  readonly speedTiles?: number;
+  /** proof: steps to stamp in order; their text is exam.<id>.<question>.step.<n>. */
+  readonly steps?: number;
+}
+
+/** The paper's distraction barrage: every everySeconds a tier-1 telegraph, then a fan of shots aimed at the operator. */
+export interface ExamBarrage {
+  readonly everySeconds: number;
+  readonly shots: number;
+  readonly spreadDeg: number;
+  readonly shotSpeedTiles: number;
+  readonly rangeTiles: number;
+}
+
+/** The bonus question (??憿?: one fast case that appears atSeconds into the stage's first question and is gone after seconds. */
+export interface ExamBonus {
+  readonly atSeconds: number;
+  readonly seconds: number;
+  readonly speedTiles: number;
 }
 
 /** Domain event type to presentation (architecture section 4). Cross-checks (known event types, preset and string references) are in app/feedback.ts. */

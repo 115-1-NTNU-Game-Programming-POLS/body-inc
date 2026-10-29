@@ -1,10 +1,9 @@
 import { boxAt, centeredBox, overlaps, type Box } from './collision/boxes.ts';
 import { isSolid, moveAndCollide } from './collision/grid.ts';
-import { backOff, ENEMY_BODY, enemyCenter, enemyHurtbox, isHittable, isMelee, stepEnemy, strikeBox, type EnemyState } from './combat/actors.ts';
+import { backOff, ENEMY_BODY, enemyCenter, enemyFrom, enemyHurtbox, isHittable, isMelee, stepEnemy, strikeBox, type EnemyState } from './combat/actors.ts';
 import { newBossState, type BossDef, type BossTable, type ToastState } from './combat/bosses/boss.ts';
 import { proposalOpen, stepCaffeine } from './combat/bosses/caffeine.ts';
 import { breathing, stepToast } from './combat/bosses/toast.ts';
-import type { Enemy } from './content/generated.ts';
 import type { EnemyTable } from './combat/enemies.ts';
 import { BASE_HALVES, BOSS, CLING, DODGE, ENEMY_HIT_FREEZE, FOLDER, GAUGE, HURT, SALESMAN, STAMP, STAPLER } from './combat/frames.ts';
 import { guardCovers, parryOpen, swingBox } from './combat/folder.ts';
@@ -15,6 +14,7 @@ import {
   type HeldTool, type OperatorState, type TickInput,
 } from './combat/operator.ts';
 import { advance, startClock, type RuleClock } from './clock.ts';
+import { sitting, startExam, stepExam, type ExamDef, type ExamKind, type ExamState, type ExamTally, type ExamTick } from './exam/fight.ts';
 import { seedStreams, type RngStreams } from './rng.ts';
 import {
   advanceSlide, beltAt, boxAhead, boxPixel, canEnter, CONVEYOR_TICKS, conveyorRunning, conveyorsOf, directionOf, filledPorts, nearest, onPort,
@@ -108,6 +108,10 @@ export interface GameState {
   readonly senseCapPx?: number;
   /** Only in a liver factory room (core/liver/factory.ts). */
   readonly factory?: FactoryState;
+  /** The exam being sat in this room, from the forecast's close on (core/exam/fight.ts). */
+  readonly exam?: ExamState;
+  /** Its definition, kept in state like the bosses' so a replay needs nothing else. */
+  readonly examDef?: ExamDef;
 }
 
 export interface FactoryState {
@@ -189,7 +193,22 @@ export type DomainEvent =
   /** The operator took an item; what it does beyond leaving the room (and opening a key lock) is the chapter's. */
   | { readonly type: 'pickedUp'; readonly object: number; readonly itemType: string; readonly itemId: string }
   | { readonly type: 'talk'; readonly object: number; readonly npc: string; readonly dialogueId: string }
-  | { readonly type: 'bedUse'; readonly object: number; readonly bedType: string };
+  | { readonly type: 'bedUse'; readonly object: number; readonly bedType: string }
+  /** The exam began, with this many adenosine in the room for the night's sleep debt. */
+  | { readonly type: 'examStarted'; readonly exam: string; readonly adenosine: number }
+  | { readonly type: 'examQuestion'; readonly segment: number; readonly kind: ExamKind; readonly question: string }
+  /** A question ended with `share` of it answered: solved, out of time, or failed by three stacks. */
+  | { readonly type: 'examAnswered'; readonly segment: number; readonly question: string; readonly share: number; readonly how: 'solved' | 'time' | 'stacks' }
+  /** The pause before segment `segment` (from 0) begins. */
+  | { readonly type: 'examBreak'; readonly segment: number; readonly kind: ExamKind }
+  | { readonly type: 'examFinished'; readonly exam: string; readonly tallies: readonly ExamTally[] }
+  /** A proof step was stamped; out of order (`ok` false) every stamp of the question is undone. `stamped` is how many stand now. */
+  | { readonly type: 'proofStamped'; readonly order: number; readonly ok: boolean; readonly stamped: number }
+  | { readonly type: 'bonusShown'; readonly target: number }
+  /** A hit in the exam: no heart is lost (the exam never ends the story), but the performance counts it. */
+  | { readonly type: 'examHit'; readonly source: number; readonly cause: string }
+  /** Three stacks in the exam: the question being answered fails, in place of the forced nap (design doc 5.5). */
+  | { readonly type: 'examStacked' };
 
 export interface StepResult {
   readonly state: GameState;
@@ -209,18 +228,6 @@ export function spawnHomes(o: RoomObject): { x: number; y: number }[] {
 
 const STAPLE_HALF = 2;
 const STAPLE_LIFE = Math.ceil(STAPLER.rangePx / STAPLER.speed);
-
-function enemyFrom(def: Enemy, id: number, x: number, y: number, respawnTicks: number, extra: Partial<EnemyState> = {}): EnemyState {
-  const hp = def.performance ?? 0;
-  return {
-    id, type: def.id, category: def.category,
-    ...(def.archetype ? { archetype: def.archetype } : {}),
-    ...(def.solution ? { solution: def.solution } : {}),
-    x, y, homeX: x, homeY: y, hp, maxHp: hp, phase: 'idle', phaseTicks: 0, frozen: 0,
-    strikeDir: { x: 0, y: 1 }, strikeSpent: false, respawnTicks, clings: def.clings === true,
-    ...extra,
-  };
-}
 
 /**
  * Enemies come from the Spawns enterRoom kept, so inactive variants and failed `when`s never
@@ -933,12 +940,14 @@ export function step(state: GameState, pressed: TickInput): StepResult {
     if (isInvincible(op, now) || freeze > 0) return 'ignored';
     return undefined;
   };
+  // In an exam a hit still knocks back and freezes, but costs no heart: it counts against the performance.
+  const examining = sitting(state.exam);
   const absorb = (source: number, halves: number, from: Vec, cause: string): 'dodged' | 'ignored' | 'hit' => {
     const slipped = evade(source);
     if (slipped) return slipped;
-    op = hurtOperator(op, halves, from, now);
+    op = hurtOperator(op, examining ? 0 : halves, from, now);
     freeze = HURT.freezeTicks;
-    events.push({ type: 'heartLost', halves, cause });
+    events.push(examining ? { type: 'examHit', source, cause } : { type: 'heartLost', halves, cause });
     return 'hit';
   };
   const typeOf = (id: number) => enemies.get(id)?.type ?? 'unknown';
@@ -1063,7 +1072,7 @@ export function step(state: GameState, pressed: TickInput): StepResult {
 
   // Clinging: at most one enemy latches on per tick, and never through i-frames, so a dodge
   // through a crowd is still the answer. Reaching the cap is a forced nap (design doc 5.5); in
-  // an exam fight it fails the current question instead, which arrives with the exam fight.
+  // an exam it fails the question being answered instead, and the clock does not move.
   let clock = state.clock;
   let carried = state.carried;
   // Under a full cloak they cannot see the operator, so they do not grab either (design doc 7.4).
@@ -1078,14 +1087,17 @@ export function step(state: GameState, pressed: TickInput): StepResult {
         // The stacks go home and reform there: the nap clears the stacks, not the adenosine.
         for (const e of byId()) enemies.set(e.id, stackHome(e));
         carried = 0;
-        clock = advance(clock, CLING.napMinutes);
-        events.push({ type: 'forcedNap', minutes: CLING.napMinutes });
+        if (examining) events.push({ type: 'examStacked' });
+        else {
+          clock = advance(clock, CLING.napMinutes);
+          events.push({ type: 'forcedNap', minutes: CLING.napMinutes });
+        }
       }
     }
   }
   op = withStacks(op, enemies.values(), carried);
 
-  const next: GameState = {
+  let next: GameState = {
     ...state, tick: now + 1, rng, clock, operator: op, enemies: byId(), projectiles: flying,
     shots: settled.size === 0 ? movedShots : movedShots.map((sh) => (settled.has(waveKey(sh) ?? '') ? { ...sh, spent: true } : sh)),
     zones: [...zones.values()].sort((a, b) => a.id - b.id), nextId, freeze,
@@ -1094,6 +1106,15 @@ export function step(state: GameState, pressed: TickInput): StepResult {
     touching: onNow.map((o) => o.id), carried, switches, doorsOpen: doorsOpenNow, taken, boxes, push, delivered: moved.delivered,
     ...(factory ? { factory } : {}),
   };
+  // The exam reads what this tick did (hits, answered cases, a stack failure) and moves its own clock.
+  if (examining && next.exam && next.examDef) {
+    const r = stepExam(next.examDef, {
+      exam: next.exam, grid, enemies: next.enemies, rng: next.rng, nextId: next.nextId, operator: op,
+      interact: input.interactPressed === true, happened: events,
+    });
+    next = withExam(next, r);
+    events.push(...r.events);
+  }
   // A forced leave clears the freeze, so the freeze event is only emitted when it will happen.
   if (op.halves <= 0) {
     // The room is already reset by now, so a door, trigger or bed touched on the lethal tick would
@@ -1105,6 +1126,29 @@ export function step(state: GameState, pressed: TickInput): StepResult {
   if (freeze > 0) events.push({ type: 'freeze', frames: freeze });
   return { state: next, events };
 }
+
+/** The room after an exam tick: its enemies, new shots (numbered from the shared counter) and clock. */
+function withExam(state: GameState, r: ExamTick): GameState {
+  let nextId = r.nextId;
+  const kept = r.dropShotsOf === undefined ? state.shots : state.shots.filter((sh) => sh.owner !== r.dropShotsOf);
+  const shots = [...kept, ...r.shots.map((sh) => ({ ...sh, id: nextId++, spent: false }))];
+  return { ...state, exam: r.exam, enemies: r.enemies, shots, rng: r.rng, nextId };
+}
+
+/**
+ * The forecast has been read: the exam begins in this room (core/exam/fight.ts). `residue` is the
+ * caffeine as it begins and `sleepDebt` the night's, which set the cloak and the adenosine.
+ */
+export function beginExam(state: GameState, def: ExamDef, residue: number, sleepDebt: number): StepResult {
+  const r = startExam(def, {
+    grid: withBoxes(state.room.grid, state.boxes), enemies: state.enemies, rng: state.rng, nextId: state.nextId,
+    op: { x: state.operator.x, y: state.operator.y }, residue, sleepDebt,
+  });
+  return { state: withExam({ ...state, examDef: def }, r), events: r.events };
+}
+
+export const selectExam = (s: GameState): { readonly state: ExamState; readonly def: ExamDef } | undefined =>
+  (s.exam && s.examDef ? { state: s.exam, def: s.examDef } : undefined);
 
 export const selectOperator = (s: GameState): Readonly<OperatorState> => s.operator;
 export const selectEnemies = (s: GameState): readonly Readonly<EnemyState>[] => s.enemies;

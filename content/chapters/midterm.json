@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "id": "midterm",
+  "start": "midterm/hall",
+  "next": "liver",
+  "intro": "midterm.intro",
+  "links": [
+    { "a": "midterm/hall#door-e", "b": "midterm/exam-room#door-w" },
+    { "a": "midterm/exam-room#door-e", "b": "midterm/corridor#door-w" }
+  ]
+}

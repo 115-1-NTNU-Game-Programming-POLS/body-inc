@@ -9,7 +9,7 @@ import type { KeyboardInput } from './input.ts';
  */
 export function releaseKeysOnClose(loop: { onEvent(fn: (e: GameEvent) => void): () => void }, keys: Pick<KeyboardInput, 'ignoreHeld'>): () => void {
   return loop.onEvent((e) => {
-    if (e.type === 'dialogueClosed' || e.type === 'cardChosen' || e.type === 'rescueDone') keys.ignoreHeld();
+    if (e.type === 'dialogueClosed' || e.type === 'cardChosen' || e.type === 'rescueDone' || e.type === 'examClosed') keys.ignoreHeld();
   });
 }
 

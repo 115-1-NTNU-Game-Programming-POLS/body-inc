@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "chapter": "midterm",
+  "opening": [
+    {
+      "id": "bedtime",
+      "options": [
+        { "id": "at_23", "effect": "" },
+        { "id": "at_01", "effect": "tag:sleep_debt=2" },
+        { "id": "at_03", "effect": "tag:sleep_debt=4" }
+      ]
+    },
+    {
+      "id": "morning_coffee",
+      "options": [
+        { "id": "drink", "effect": "tag:caffeine=100" },
+        { "id": "skip", "effect": "" }
+      ]
+    },
+    {
+      "id": "breakfast",
+      "options": [
+        { "id": "eat", "effect": "tag:breakfast" },
+        { "id": "skip", "effect": "" }
+      ]
+    }
+  ],
+  "events": []
+}

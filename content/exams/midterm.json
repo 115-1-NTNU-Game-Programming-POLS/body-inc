@@ -1,0 +1,68 @@
+{
+  "version": 1,
+  "id": "midterm",
+  "paper": "exam_paper",
+  "caseEnemy": "testcase",
+  "bonusEnemy": "testcase_bonus",
+  "readiness": { "floor": 50, "passAt": 60 },
+  "adenosine": { "enemy": "adenosine", "perDebtHour": 2, "max": 10 },
+  "cloakSeconds": 60,
+  "hitsForZero": 8,
+  "gapSeconds": 1.5,
+  "breakSeconds": 3,
+  "afterDialogue": "midterm.after",
+  "segments": [
+    {
+      "kind": "oj",
+      "readinessTag": "exam_practice",
+      "stages": [
+        {
+          "questions": [
+            { "id": "oj1", "seconds": 25, "cases": 3, "speedTiles": 1 },
+            { "id": "oj2", "seconds": 30, "cases": 4, "speedTiles": 1.3 }
+          ],
+          "barrage": { "everySeconds": 3, "shots": 3, "spreadDeg": 20, "shotSpeedTiles": 3.5, "rangeTiles": 10 },
+          "bonus": { "atSeconds": 8, "seconds": 4, "speedTiles": 3 }
+        },
+        {
+          "questions": [
+            { "id": "oj3", "seconds": 35, "cases": 5, "speedTiles": 1.6 }
+          ],
+          "barrage": { "everySeconds": 2.4, "shots": 5, "spreadDeg": 18, "shotSpeedTiles": 3.5, "rangeTiles": 10 },
+          "bonus": { "atSeconds": 10, "seconds": 4, "speedTiles": 3.5 }
+        }
+      ]
+    },
+    {
+      "kind": "proof",
+      "readinessTag": "exam_archived",
+      "stages": [
+        {
+          "questions": [
+            { "id": "invariant", "seconds": 35, "steps": 4 }
+          ],
+          "barrage": { "everySeconds": 3, "shots": 3, "spreadDeg": 20, "shotSpeedTiles": 3.5, "rangeTiles": 10 },
+          "bonus": { "atSeconds": 10, "seconds": 4, "speedTiles": 3 }
+        },
+        {
+          "questions": [
+            { "id": "recurrence", "seconds": 30, "steps": 3 },
+            { "id": "greedy", "seconds": 35, "steps": 4 }
+          ],
+          "barrage": { "everySeconds": 2.4, "shots": 5, "spreadDeg": 18, "shotSpeedTiles": 3.5, "rangeTiles": 10 },
+          "bonus": { "atSeconds": 10, "seconds": 4, "speedTiles": 3.5 }
+        }
+      ]
+    }
+  ],
+  "notes": {
+    "readiness": "DOC each readiness bar has a floor of 50% (7.6); passAt 60 is ASSUME: a bar at 60% and S = 1 gives the base score of 60 that design doc 8.9 puts at the pass threshold, so a full bar gives 100",
+    "adenosine": "DOC adenosine = 2 x sleep debt, at most 10, reforming after 6 s; three stacks fail the question being answered (8.9)",
+    "cloakSeconds": "DOC the morning coffee's cloak lasts at most 60 s in the fight (8.9); the residue decays on the boss clock (bossSecondsPerHour), so a cup of 100 blinds adenosine for 30 s and lets it see 2 tiles for 30 s more",
+    "hitsForZero": "ASSUME the hit part of the performance (25%, 8.9) falls by one eighth per hit taken in a segment; the design doc gives no mapping from hits",
+    "segments": "DOC a computer test of moving test cases and a written test of proof steps stamped in order, about 2 minutes each in two stages, with a barrage (7.6); question counts, times, case counts, speeds and barrage numbers are ASSUME",
+    "bonus": "DOC the bonus questions are 15% of the performance (8.9); one fast case per stage is ASSUME",
+    "gapSeconds": "ASSUME",
+    "breakSeconds": "ASSUME"
+  }
+}
