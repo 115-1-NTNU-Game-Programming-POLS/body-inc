@@ -26,18 +26,23 @@ interface Outcome {
   readonly events: readonly (EffectEvent | RefusalEvent)[];
 }
 
-export function onToast(dict: TagDictionary, tags: TagState, clock: RuleClock, e: Extract<DomainEvent, { type: 'toasted' }>, k: BodyParams): Outcome {
+/**
+ * `from` is the enemy type of the wave's thrower (`cheers` for the kid, `toast` for the boss), so
+ * the log entry says who poured the cup or had it refused: `<from>.toast` and `refuse.<from>`.
+ * Every refusal counts the same towards the lines and the page, whoever offered the drink.
+ */
+export function onToast(dict: TagDictionary, tags: TagState, clock: RuleClock, e: Extract<DomainEvent, { type: 'toasted' }>, from: string, k: BodyParams): Outcome {
   const effects: Effect[] = [{ kind: 'amount', name: 'alcohol', mode: 'add', value: e.cups }];
-  return applyEffects(dict, tags, clock, effects, { kind: 'event', key: 'cheers.toast' }, k);
+  return applyEffects(dict, tags, clock, effects, { kind: 'event', key: `${from}.toast` }, k);
 }
 
-export function onRefusal(dict: TagDictionary, tags: TagState, clock: RuleClock, k: BodyParams): Outcome {
+export function onRefusal(dict: TagDictionary, tags: TagState, clock: RuleClock, from: string, k: BodyParams): Outcome {
   const before = amount(tags, dict, 'refusals');
   const after = before + 1;
   const effects: Effect[] = [
     { kind: 'amount', name: 'refusals', mode: 'add', value: 1 },
     ...(before < CHEERS.refusalsForPage && after >= CHEERS.refusalsForPage ? [{ kind: 'unlock', id: REFUSAL.page } as const] : []),
   ];
-  const out = applyEffects(dict, tags, clock, effects, { kind: 'choice', key: 'refuse.cheers' }, k);
+  const out = applyEffects(dict, tags, clock, effects, { kind: 'choice', key: `refuse.${from}` }, k);
   return { tags: out.tags, events: [{ type: 'refusalSaid', line: ((after - 1) % REFUSAL.lines) + 1 }, ...out.events] };
 }

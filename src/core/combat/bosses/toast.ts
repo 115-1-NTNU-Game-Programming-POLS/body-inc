@@ -1,7 +1,7 @@
 import type { DomainEvent } from '../../game.ts';
 import { TICK_HZ } from '../../time.ts';
 import type { EnemyState } from '../actors.ts';
-import { TELEGRAPH } from '../frames.ts';
+import { CHEERS, TELEGRAPH } from '../frames.ts';
 import type { ShotSpec } from '../hazards.ts';
 import type { Vec } from '../movement.ts';
 import type { ToastDef, ToastState } from './boss.ts';
@@ -21,9 +21,6 @@ export interface ToastTick {
   readonly events: readonly DomainEvent[];
 }
 
-/** Half the side of a wave's box, as for the cheers kid's. */
-const SHOT_HALF = 4;
-
 function ring(e: EnemyState, def: ToastDef, wave: number, target: Vec): ShotSpec[] {
   const ox = e.x;
   const oy = e.y - 4;
@@ -33,7 +30,7 @@ function ring(e: EnemyState, def: ToastDef, wave: number, target: Vec): ShotSpec
     const a = base + (i * 2 * Math.PI) / shots;
     return {
       owner: e.id, kind: 'toast', x: ox, y: oy, vx: Math.cos(a) * shotSpeed, vy: Math.sin(a) * shotSpeed,
-      ticksLeft: shotTicks, halves: 0, cups, wave, half: SHOT_HALF,
+      ticksLeft: shotTicks, halves: 0, cups, wave, half: CHEERS.shotHalf,
     };
   });
 }

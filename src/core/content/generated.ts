@@ -197,7 +197,7 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
         }
       },
       "BossWorkOrder": {
-        "description": "Toast: alcohol work orders on the operator while he sings, one per cup waiting in receiving.",
+        "description": "Toast: alcohol work orders on the operator from the moment he wakes until he concedes, breaths included, one per cup waiting in receiving.",
         "type": "object",
         "additionalProperties": false,
         "required": [
@@ -2649,7 +2649,7 @@ export interface BossRing {
   readonly cups: number;
 }
 
-/** Toast: alcohol work orders on the operator while he sings, one per cup waiting in receiving. */
+/** Toast: alcohol work orders on the operator from the moment he wakes until he concedes, breaths included, one per cup waiting in receiving. */
 export interface BossWorkOrder {
   readonly slowPerStack: number;
   readonly maxStacks: number;

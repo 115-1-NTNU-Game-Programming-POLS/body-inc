@@ -81,7 +81,7 @@ export function stepCaffeine(e: EnemyState, ctx: CaffeineContext): BossTick {
 
   const b0 = e.boss as CaffeineState;
   const residue = b0.residue * def.decayPerTick;
-  let b: CaffeineState ={ ...b0, residue, boosted: b0.boosted || residue >= def.boostMin };
+  let b: CaffeineState = { ...b0, residue, boosted: b0.boosted || residue >= def.boostMin };
   const done = (): BossTick => ({ enemy: { ...e, x, y, boss: b }, rng, shots, zones, summons, events, powerCut, powerBack });
 
   if (b.review > 0) {

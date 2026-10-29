@@ -205,25 +205,51 @@ describe('the cheers kid (design doc 7.7)', () => {
     expect(kid(s).phase).toBe('closed');
   });
 
-  it('weapons only make him back off: no damage, no gauge, and a wind-up is called off', () => {
-    // Staples from the stapler, during his wind-up.
+  /** The stapler held on the kid, the operator turned to face him before every tick. */
+  function holdFire(g: GameState, ticks: number): Run {
+    const events: DomainEvent[][] = [];
+    let s = g;
+    for (let t = 0; t < ticks; t++) {
+      const k = kid(s);
+      const len = Math.hypot(k.x - s.operator.x, k.y - s.operator.y) || 1;
+      s = { ...s, operator: { ...s.operator, aim: { x: (k.x - s.operator.x) / len, y: (k.y - s.operator.y) / len } } };
+      const r = step(s, press({ attack: true, attackPressed: t === 0 }));
+      s = r.state;
+      events.push([...r.events]);
+    }
+    return { state: s, events };
+  }
+
+  it('weapons only make him back off: no damage, no gauge, and he gains distance', () => {
     const g = game('stapler');
-    const windup = CHEERS.circleTicks;
-    const before = run(g, windup).state;
-    expect(kid(before).phase).toBe('windup');
-    const k = kid(before);
-    const len = Math.hypot(k.x - before.operator.x, k.y - before.operator.y);
-    const aimed = { ...before, operator: { ...before.operator, aim: { x: (k.x - before.operator.x) / len, y: (k.y - before.operator.y) / len } } };
-    // A staple takes about 13 ticks to cross the three tiles; his wind-up lasts 30.
-    const r = run(aimed, 20, () => press({ attack: true, attackPressed: true }));
-    expect(ofType(r, 'backedOff').length).toBeGreaterThan(0);
+    const r = holdFire(g, 20);
+    expect(ofType(r, 'backedOff')).toHaveLength(1);
     expect(ofType(r, 'hit')).toEqual([]);
     expect(kid(r.state).hp).toBe(3);
     expect(r.state.operator.gauge).toBe(0);
-    expect(r.state.shots).toEqual([]);
     expect(kid(r.state).phase).toBe('recover');
-    // Backing off, he gains distance.
-    expect(distance(r.state)).toBeGreaterThan(distance(aimed));
+    expect(distance(r.state)).toBeGreaterThan(distance(g));
+  });
+
+  it('a staple during his wind-up does not lower the cup: the wave still comes', () => {
+    const before = run(game('stapler'), CHEERS.circleTicks).state;
+    expect(kid(before).phase).toBe('windup');
+    // A staple takes about 13 ticks to cross the three tiles; his wind-up lasts 30.
+    const r = holdFire(before, CHEERS.windupTicks + 2);
+    expect(ofType(r, 'backedOff')).toEqual([]);
+    expect(r.state.shots.filter((s) => s.kind === 'toast')).toHaveLength(1);
+  });
+
+  it('backs off only for a while: held stapler fire neither keeps him back nor stops a raised cup', () => {
+    // Once between two toasts: the staples after the first change nothing until he has toasted.
+    const r = holdFire(game('stapler'), 900);
+    const toasts = r.events.flatMap((es, t) => (es.some((e) => e.type === 'telegraph') ? [t] : []));
+    const backs = r.events.flatMap((es, t) => (es.some((e) => e.type === 'backedOff') ? [t] : []));
+    expect(backs.length).toBeGreaterThan(1);
+    expect(toasts.length).toBeGreaterThanOrEqual(3);
+    for (let i = 1; i < backs.length; i++) expect(toasts.some((t) => t > backs[i - 1]! && t < backs[i]!)).toBe(true);
+    // Every cup he raised was thrown and landed, staples or not; the last may still be in the air.
+    expect(ofType(r, 'toasted').length).toBeGreaterThanOrEqual(toasts.length - 1);
   });
 
   it('a swing and the stamp only make him back off too', () => {
@@ -264,7 +290,7 @@ describe('what a toast and a refusal do in the chapter', () => {
     const events: { type: string; line?: number; id?: string }[] = [];
     let t = tags;
     for (let i = 0; i < n; i++) {
-      const out = onRefusal(TAGS, t, clock, PARAMS);
+      const out = onRefusal(TAGS, t, clock, 'cheers', PARAMS);
       t = out.tags;
       events.push(...out.events);
     }
@@ -272,7 +298,7 @@ describe('what a toast and a refusal do in the chapter', () => {
   };
 
   it('a wave that lands is a cup in receiving, logged as the toast', () => {
-    const out = onToast(TAGS, EMPTY_TAGS, clock, { type: 'toasted', source: 1, cups: 1 }, PARAMS);
+    const out = onToast(TAGS, EMPTY_TAGS, clock, { type: 'toasted', source: 1, cups: 1 }, 'cheers', PARAMS);
     expect(amount(out.tags, TAGS, 'alcohol')).toBe(1);
     expect(out.tags.log.nodes.map((n) => [n.kind, n.key])).toContainEqual(['event', 'cheers.toast']);
   });

@@ -21,7 +21,7 @@
     "budget": "ASSUME: about four breaths of held stapler fire at the breath factor, so three rounds and a repeat when the player refuses during the song; the design doc gives no number",
     "song": "DOC a ring of toast waves per chorus line, the beat quickening with the song, a 3 s breath after each chorus as his weak point, three rounds (7.7); line counts, beats, intro and the breath factor are ASSUME. wakeTiles 7 is ASSUME, measured on liver/rooftop: from the west door every point west of the intro trigger is more than 7 tiles from him, so the conversation always comes first",
     "ring": "DOC each wave that lands is one crate of alcohol in receiving (7.7); shot count, speed and range are ASSUME",
-    "workOrder": "DOC 5% slower per work order, at most 3 (7.7); one work order per cup waiting in receiving, only while he sings, is ASSUME",
+    "workOrder": "DOC 5% slower per work order, at most 3 (7.7); one work order per cup waiting in receiving, only from his waking to his concession (breaths included), is ASSUME",
     "concedeDialogue": "DOC he is not beaten but says 好啦不勸你了，可是阿凱好像不太對 (7.7)"
   }
 }
