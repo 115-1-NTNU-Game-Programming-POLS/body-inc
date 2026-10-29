@@ -29,6 +29,7 @@ import type { Deck } from '../outer/deck.ts';
 import { openCard, stepCard, type CardState } from './cards.ts';
 import { applyEffects } from './effects.ts';
 import { GLUCOSE, isDizzy, openGlucose, stepGlucose, type GlucoseEvent } from './glucose.ts';
+import { onRefusal, onToast, type RefusalEvent } from './refusal.ts';
 import { openTalk, stepTalk } from './talk.ts';
 
 /**
@@ -111,6 +112,8 @@ export type ChapterEvent =
   /** An action on the rescue panel; `done` is how many correct steps are done after it. */
   | { readonly type: 'rescueStep'; readonly rescue: string; readonly action: string; readonly outcome: 'step' | 'early' | 'myth'; readonly done: number }
   | { readonly type: 'rescueDone'; readonly rescue: string }
+  /** The operator refused a toast wave and says line `line` of the refusing-drinks handbook page. */
+  | RefusalEvent
   | { readonly type: 'chapterEnded' };
 
 export type GameEvent = DomainEvent | ChapterEvent;
@@ -542,6 +545,14 @@ function stepRoom(ctx: ChapterContent, state: ChapterState, input: TickInput): C
         // Taken off the books at once: a time clock punched later in the tick saves the lower count.
         run = { ...run, tags: intakeCrate(run.tags, ctx.dict) };
         break;
+      case 'toasted':
+      case 'refused': {
+        // Like a crate, counted at once, so a time clock punched later in the tick saves it.
+        const out = e.type === 'toasted' ? onToast(ctx.dict, run.tags, game.clock, e, ctx.params) : onRefusal(ctx.dict, run.tags, game.clock, ctx.params);
+        run = { ...run, tags: out.tags };
+        extra.push(...out.events);
+        break;
+      }
       case 'boxMoved': {
         if (e.object < 0) break;
         // Like a lever, a box outlives the visit and the forced leave; settleBoxes decides on entry what stays.

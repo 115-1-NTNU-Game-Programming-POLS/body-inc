@@ -1,6 +1,6 @@
 import { boxAt, centeredBox, overlaps, type Box } from './collision/boxes.ts';
 import { isSolid, moveAndCollide } from './collision/grid.ts';
-import { ENEMY_BODY, enemyCenter, enemyHurtbox, isHittable, isMelee, stepEnemy, strikeBox, type EnemyState } from './combat/actors.ts';
+import { backOff, ENEMY_BODY, enemyCenter, enemyHurtbox, isHittable, isMelee, stepEnemy, strikeBox, type EnemyState } from './combat/actors.ts';
 import { newBossState, type BossDef, type BossTable } from './combat/bosses/boss.ts';
 import { proposalOpen, stepCaffeine } from './combat/bosses/caffeine.ts';
 import type { Enemy } from './content/generated.ts';
@@ -135,6 +135,12 @@ export type DomainEvent =
   | { readonly type: 'blocked'; readonly source: number; readonly kind: 'shot' | 'strike' }
   /** 退件: the parry window caught an attack. A shot flies back; a strike stuns its thrower. */
   | { readonly type: 'parry'; readonly source: number; readonly kind: 'shot' | 'strike' }
+  /** A toast wave landed (design doc 7.7): no heart is lost, and the chapter adds the cups to receiving. */
+  | { readonly type: 'toasted'; readonly source: number; readonly cups: number }
+  /** 婉拒: the guard met a toast wave, on any of its frames; `parry` when it was inside the parry window. */
+  | { readonly type: 'refused'; readonly source: number; readonly parry: boolean }
+  /** A weapon landed on a cheers kid, who only backs off (design doc 7.7). */
+  | { readonly type: 'backedOff'; readonly target: number; readonly enemy: string }
   | { readonly type: 'dodge' }
   | { readonly type: 'perfectDodge'; readonly source: number }
   | { readonly type: 'telegraph'; readonly source: number; readonly tier: 1 | 2 | 3; readonly move?: string }
@@ -764,6 +770,13 @@ export function step(state: GameState, pressed: TickInput): StepResult {
     return order.map((id) => enemies.get(id)!);
   };
 
+  // Hitting a cheers kid is no answer (design doc 7.7): he only backs off, and nothing is charged,
+  // so he cannot be farmed for the gauge. Only refusals close his case.
+  const shoo = (e: EnemyState): void => {
+    enemies.set(e.id, backOff(e));
+    events.push({ type: 'backedOff', target: e.id, enemy: e.type });
+  };
+
   // The stamp covers every hittable enemy whose feet are within the radius of the operator's.
   // Only defeatable ones take damage; on the rest it is void, and the gauge is gone either way.
   if (s.stampLanded) {
@@ -772,6 +785,10 @@ export function step(state: GameState, pressed: TickInput): StepResult {
       if (!isHittable(e) || Math.hypot(e.x - op.x, e.y - op.y) > STAMP.radiusPx) continue;
       if (e.category !== 'defeatable') {
         events.push({ type: 'stampVoid', target: e.id, enemy: e.type, solution: e.solution ?? '' });
+        continue;
+      }
+      if (e.archetype === 'cheers') {
+        shoo(e);
         continue;
       }
       if (!e.boss) {
@@ -800,7 +817,9 @@ export function step(state: GameState, pressed: TickInput): StepResult {
   // (design doc 5.1, 5.5): immune ones bounce it with no hit-stop and no damage, reforming ones
   // scatter, the rest lose `amount`. `gain` is the gauge the hit charges before P, 0 for none.
   const hitEnemy = (target: EnemyState, amount: number, freeze: number, gain: number): void => {
-    if (target.category === 'immune') {
+    if (target.archetype === 'cheers') {
+      shoo(target);
+    } else if (target.category === 'immune') {
       events.push({ type: 'immuneBounce', target: target.id, enemy: target.type, solution: target.solution ?? '' });
     } else if (target.category === 'reforming') {
       enemies.set(target.id, { ...target, phase: 'dispersed', phaseTicks: 0, frozen: 0 });
@@ -871,7 +890,8 @@ export function step(state: GameState, pressed: TickInput): StepResult {
   // id order. Dodge i-frames absorb any of them; the first six i-frames make it perfect.
   let freeze = 0;
   const hurt = boxAt(OPERATOR_HURT, op.x, op.y);
-  const absorb = (source: number, halves: number, from: Vec, cause: string): 'dodged' | 'ignored' | 'hit' => {
+  /** How an attack meets the operator before it can land: dodged through, passed by invincibility, or `undefined` when it lands. */
+  const evade = (source: number): 'dodged' | 'ignored' | undefined => {
     const a = op.action;
     if (inDodgeIframes(a)) {
       if (a.frame <= DODGE.perfectLast && !a.perfect) {
@@ -882,6 +902,11 @@ export function step(state: GameState, pressed: TickInput): StepResult {
       return 'dodged';
     }
     if (isInvincible(op, now) || freeze > 0) return 'ignored';
+    return undefined;
+  };
+  const absorb = (source: number, halves: number, from: Vec, cause: string): 'dodged' | 'ignored' | 'hit' => {
+    const slipped = evade(source);
+    if (slipped) return slipped;
     op = hurtOperator(op, halves, from, now);
     freeze = HURT.freezeTicks;
     events.push({ type: 'heartLost', halves, cause });
@@ -911,10 +936,39 @@ export function step(state: GameState, pressed: TickInput): StepResult {
     if (absorb(e.id, 1, { x: e.x, y: e.y }, e.type) !== 'ignored') enemies.set(e.id, { ...e, strikeSpent: true });
   }
 
+  // 婉拒 (design doc 7.7): a cheers kid's performance counts refusals, not hits, and the last one
+  // sends him off, which closes his case. A wave still in the air after he has gone is refused all the same.
+  const refuse = (owner: number, parry: boolean): void => {
+    events.push({ type: 'refused', source: owner, parry });
+    if (parry) op = charge(op, GAUGE.parry, state.p, events);
+    const kid = enemies.get(owner);
+    if (!kid || kid.archetype !== 'cheers' || kid.phase === 'closed') return;
+    const hp = kid.hp - 1;
+    if (hp > 0) {
+      enemies.set(owner, { ...kid, hp });
+      return;
+    }
+    enemies.set(owner, { ...kid, hp: 0, phase: 'closed', phaseTicks: 0, frozen: 0 });
+    events.push({ type: 'caseClosed', target: owner, enemy: kid.type });
+  };
+
   const movedShots: Shot[] = [];
   for (const sh0 of shots.sort((a, b) => a.id - b.id)) {
     const sh = { ...sh0, x: sh0.x + sh0.vx, y: sh0.y + sh0.vy, ticksLeft: sh0.ticksLeft - 1 };
     if (sh.ticksLeft < 0 || isSolid(grid, Math.floor(sh.x / TILE), Math.floor(sh.y / TILE))) continue;
+    if (!sh.spent && sh.cups !== undefined && overlaps(shotBox(sh), hurt)) {
+      // A toast wave costs no heart. Any guard frame refuses it, and nothing flies back; landing adds cups.
+      const c = caught({ x: -sh.vx, y: -sh.vy });
+      if (c) {
+        refuse(sh.owner, c === 'parry');
+        continue;
+      }
+      const r = evade(sh.owner);
+      if (r === 'dodged') movedShots.push({ ...sh, spent: true });
+      else if (r === 'ignored') movedShots.push(sh);
+      else events.push({ type: 'toasted', source: sh.owner, cups: sh.cups });
+      continue;
+    }
     if (!sh.spent && overlaps(shotBox(sh), hurt)) {
       const c = caught({ x: -sh.vx, y: -sh.vy });
       if (c) {

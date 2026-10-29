@@ -147,6 +147,7 @@ describe('feedback table', () => {
     ]);
     expect(feedbackProblems(FEEDBACK, STRINGS, {})).toEqual([
       'immuneBounce: note "solution.{solution}" uses unknown placeholder "{solution}"',
+      'refusalSaid: note "refusal.line.{line}" uses unknown placeholder "{line}"',
       'stampVoid: note "stamp_void.{solution}" uses unknown placeholder "{solution}"',
       'bossStage: note "boss_stage.{stage}" uses unknown placeholder "{stage}"',
       'doorLocked: note "door.locked.{lock}" uses unknown placeholder "{lock}"',

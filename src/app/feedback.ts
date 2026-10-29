@@ -1,4 +1,4 @@
-import type { EnemyTable, FeedbackFile, GameEvent, StringsFile } from '../core/index.ts';
+import { REFUSAL, type EnemyTable, type FeedbackFile, type GameEvent, type StringsFile } from '../core/index.ts';
 import { OBJECT_CLASSES } from '../core/rooms/classes.ts';
 
 /** The values of an enum member, from the class definition, so a new value needs its note. */
@@ -27,6 +27,7 @@ export type StringTable = StringsFile;
 /** A Record keyed by the union, so adding an event to core without listing it here fails to compile. */
 const ALL_EVENTS: Record<GameEvent['type'], true> = {
   bumpWall: true, fire: true, swing: true, toolSwapped: true, guardRaised: true, blocked: true, parry: true,
+  toasted: true, refused: true, backedOff: true, refusalSaid: true,
   dodge: true, perfectDodge: true, telegraph: true, hit: true, caseClosed: true,
   dispersed: true, reformed: true, respawned: true, immuneBounce: true, heartLost: true, freeze: true, forcedLeave: true,
   gaugeFull: true, stampRaised: true, stampLanded: true, stampVoid: true, clung: true, forcedNap: true,
@@ -93,6 +94,7 @@ export function noteFields(table: EnemyTable): NoteFields {
     doorLocked: { lock: [...LOCKS] },
     pickedUp: { itemType: [...NOTED_ITEMS] },
     dizzyChanged: { dizzy: ['true', 'false'] },
+    refusalSaid: { line: Array.from({ length: REFUSAL.lines }, (_, i) => String(i + 1)) },
   };
 }
 

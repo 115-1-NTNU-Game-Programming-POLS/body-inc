@@ -10,7 +10,7 @@
  "tilewidth": 32,
  "tileheight": 32,
  "nextlayerid": 4,
- "nextobjectid": 8,
+ "nextobjectid": 10,
  "class": "Room",
  "properties": [
   {
@@ -690,6 +690,46 @@
        "name": "eventId",
        "type": "string",
        "value": "toast"
+      }
+     ]
+    },
+    {
+     "id": 8,
+     "name": "cheers",
+     "type": "Spawn",
+     "x": 304,
+     "y": 272,
+     "width": 0,
+     "height": 0,
+     "rotation": 0,
+     "visible": true,
+     "point": true,
+     "properties": [
+      {
+       "name": "enemyType",
+       "type": "string",
+       "propertytype": "EnemyType",
+       "value": "cheers"
+      }
+     ]
+    },
+    {
+     "id": 9,
+     "name": "cheers",
+     "type": "Spawn",
+     "x": 432,
+     "y": 304,
+     "width": 0,
+     "height": 0,
+     "rotation": 0,
+     "visible": true,
+     "point": true,
+     "properties": [
+      {
+       "name": "enemyType",
+       "type": "string",
+       "propertytype": "EnemyType",
+       "value": "cheers"
       }
      ]
     }

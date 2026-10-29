@@ -462,17 +462,18 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
             "type": "string"
           },
           "archetype": {
-            "description": "One of the five shared behaviours of design doc 5.3.",
+            "description": "One of the five shared behaviours of design doc 5.3, or the cheers kid of design doc 7.7, who is closed by refusals and not by hits.",
             "enum": [
               "salesman",
               "flyer",
               "manager",
               "convener",
-              "contractor"
+              "contractor",
+              "cheers"
             ]
           },
           "performance": {
-            "description": "Hits to close the case; defeatable enemies only.",
+            "description": "Hits to close the case, or for the cheers kid the refusals; defeatable enemies only.",
             "type": "integer",
             "minimum": 1
           },
@@ -2601,9 +2602,9 @@ export interface Enemy {
   readonly category: "defeatable" | "reforming" | "immune";
   /** Key into solutions; required for reforming and immune enemies, absent for defeatable ones. */
   readonly solution?: string;
-  /** One of the five shared behaviours of design doc 5.3. */
-  readonly archetype?: "salesman" | "flyer" | "manager" | "convener" | "contractor";
-  /** Hits to close the case; defeatable enemies only. */
+  /** One of the five shared behaviours of design doc 5.3, or the cheers kid of design doc 7.7, who is closed by refusals and not by hits. */
+  readonly archetype?: "salesman" | "flyer" | "manager" | "convener" | "contractor" | "cheers";
+  /** Hits to close the case, or for the cheers kid the refusals; defeatable enemies only. */
   readonly performance?: number;
   /** Drifts toward the operator and clings on contact, one slow stack each (design doc 5.5); reforming enemies only. */
   readonly clings?: boolean;
