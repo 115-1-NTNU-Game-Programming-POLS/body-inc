@@ -89,6 +89,35 @@ describe('the cheers kid (design doc 7.7)', () => {
     expect(kid(near.state).x).toBeGreaterThan(START.x + TILE);
   });
 
+  it('pinned in a corner inside the ring, he still raises his cup once due, from where he is', () => {
+    // Top-right corner, the operator just inside the ring: backing away runs into the walls.
+    const corner = { x: 18 * TILE + 16, y: TILE + 16 };
+    const g = game('folder', [corner]);
+    const pinned = { ...g, operator: { ...g.operator, x: corner.x - 40, y: corner.y + 40 } };
+    const r = run(pinned, CHEERS.circleTicks + 10);
+    expect(ofType(r, 'telegraph')).toHaveLength(1);
+    expect(distance(r.state)).toBeLessThan(CHEERS.nearPx);
+    // Control: in the open, a kid due but inside the ring backs out to it before raising his cup.
+    const due = run(game(), CHEERS.circleTicks - 2).state;
+    const k = kid(due);
+    const len = distance(due);
+    const close = { ...due, operator: { ...due.operator, x: k.x - ((k.x - due.operator.x) / len) * 40, y: k.y - ((k.y - due.operator.y) / len) * 40 } };
+    const open = run(close, 10);
+    expect(ofType(open, 'telegraph')).toEqual([]);
+    expect(distance(open.state)).toBeGreaterThan(40);
+  });
+
+  it('a refusal is charged to the kid whose wave it was, not the first one in the room', () => {
+    const g = game('folder', [{ x: START.x + 3 * TILE, y: START.y }, { x: START.x - 3 * TILE, y: START.y }]);
+    const h = arrival(g);
+    // Facing the second kid (the one on the left); the first kid's wave lands from behind.
+    const r = guardFrom(g, h - 4, h + 4, 1);
+    const second = r.state.enemies[1]!;
+    expect(ofType(r, 'refused').map((e) => e.source)).toEqual([second.id]);
+    expect(second.hp).toBe(2);
+    expect(r.state.enemies[0]!.hp).toBe(3);
+  });
+
   it('raises the cup for a tier-1 telegraph, then sends a toast wave that costs no heart', () => {
     const r = run(game(), CHEERS.circleTicks + CHEERS.windupTicks + 2);
     expect(firstTick(r, 'telegraph')).toBe(CHEERS.circleTicks - 1);
@@ -274,6 +303,14 @@ describe('the cheers kid (design doc 7.7)', () => {
     const dying = { ...r.state, operator: { ...r.state.operator, halves: 0 } };
     const after = run(dying, 1);
     expect(kid(after.state).hp).toBe(3);
+  });
+
+  it('a forced leave also forgets that a weapon already sent him off, so the next one does again', () => {
+    const shooed = holdFire(game('stapler'), 20);
+    expect(ofType(shooed, 'backedOff')).toHaveLength(1);
+    const dying = { ...shooed.state, operator: { ...shooed.state.operator, halves: 0 } };
+    const back = run(dying, 1).state;
+    expect(ofType(holdFire(back, 20), 'backedOff')).toHaveLength(1);
   });
 
   it('replays to the same hash', () => {

@@ -160,7 +160,7 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
             "minimum": 1
           },
           "beatSeconds": {
-            "description": "From one wave to the next; no shorter than the tier-1 telegraph.",
+            "description": "From one wave to the next; longer than the 0.5 s tier-1 telegraph, so each line's warning plays out before the next begins.",
             "type": "number",
             "exclusiveMinimum": 0
           }
@@ -2636,7 +2636,7 @@ export interface BossSong {
 export interface BossRound {
   /** Lines sung this round, one wave each. */
   readonly lines: number;
-  /** From one wave to the next; no shorter than the tier-1 telegraph. */
+  /** From one wave to the next; longer than the 0.5 s tier-1 telegraph, so each line's warning plays out before the next begins. */
   readonly beatSeconds: number;
 }
 

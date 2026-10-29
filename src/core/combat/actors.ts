@@ -56,8 +56,13 @@ export const ENEMY_HURT: Body = { halfW: 9, height: 16 };
 export const BOSS_BODY: Body = { halfW: 14, height: 12 };
 export const BOSS_HURT: Body = { halfW: 20, height: 44 };
 
+/**
+ * A toast boss still waiting for the operator is not in the fight yet: staple reach (7 tiles from
+ * the muzzle) outruns his wake distance, so he could otherwise be worn down without ever singing.
+ */
 export const isHittable = (e: EnemyState): boolean =>
-  e.phase !== 'dispersed' && e.phase !== 'closed' && e.phase !== 'attached' && e.phase !== 'pinned';
+  e.phase !== 'dispersed' && e.phase !== 'closed' && e.phase !== 'attached' && e.phase !== 'pinned'
+  && !(e.boss?.behaviour === 'toast' && e.boss.part === 'wait');
 
 export const enemyHurtbox = (e: EnemyState): Box => boxAt(e.boss ? BOSS_HURT : ENEMY_HURT, e.x, e.y);
 
@@ -156,7 +161,7 @@ export const backOff = (e: EnemyState): EnemyState =>
 
 /**
  * Cheers kid: keeps to a ring round the operator and walks round it; once CHEERS.circleTicks have
- * passed since he last backed off and he is on the ring, he raises his cup for the tier-1
+ * passed since he last backed off and he is on the ring (or pinned inside it), he raises his cup for the tier-1
  * telegraph and sends a toast wave where the operator stands at release, then backs away. Which
  * way he circles follows his id, so the walk replays the same.
  */
@@ -172,8 +177,13 @@ function stepCheers(grid: SolidGrid, e: EnemyState, target: Vec, out: Out): Enem
     case 'idle': {
       if (d === 0) return out(e);
       if (d > CHEERS.farPx) return out(walk(dx / d, dy / d));
-      if (d < CHEERS.nearPx) return out(walk(-dx / d, -dy / d));
-      if (e.phaseTicks >= CHEERS.circleTicks) {
+      const due = e.phaseTicks >= CHEERS.circleTicks;
+      if (d < CHEERS.nearPx) {
+        const away = walk(-dx / d, -dy / d);
+        // Pinned against a wall he would never reach the ring, so once due he toasts from where he is.
+        if (!due || away.x !== e.x || away.y !== e.y) return out(away);
+      }
+      if (due) {
         return out(to(e, 'windup', { strikeDir: cardinal(dx, dy), strikeSpent: false }), { telegraph: true });
       }
       const turn = e.id % 2 === 0 ? 1 : -1;

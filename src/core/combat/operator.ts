@@ -86,6 +86,8 @@ export interface OperatorState {
    * before then takes it back, so every press is one flip.
    */
   readonly swapPending: boolean;
+  /** Tick of the press that made the swap pending, so an attack pressed before it goes first. */
+  readonly swapAt: number;
 }
 
 /** Operator feet box: narrower than the 32 px frame so doorways two tiles wide feel roomy. */
@@ -104,7 +106,7 @@ export function newOperator(x: number, y: number, maxHalves: number, gauge = 0):
     x, y, vx: 0, vy: 0, facing: 'down', aim: { x: 0, y: 1 }, slows: [], stacks: 0, halves: maxHalves, maxHalves,
     action: { kind: 'free' }, dodgeReadyAt: 0, invulnUntil: 0, shotReadyAt: 0, nextShotAt: null,
     bufferedAttack: null, bufferedDodge: null, bufferedStamp: null, gauge,
-    tool: 'stapler', held: 0, combo: 0, comboUntil: 0, swapUntil: 0, swapPending: false,
+    tool: 'stapler', held: 0, combo: 0, comboUntil: 0, swapUntil: 0, swapPending: false, swapAt: 0,
   };
 }
 
@@ -121,6 +123,7 @@ export function bufferInput(op: OperatorState, input: TickInput, now: number): O
   return {
     ...op,
     swapPending: input.swapPressed ? !op.swapPending : op.swapPending,
+    swapAt: input.swapPressed && !op.swapPending ? now : op.swapAt,
     bufferedAttack: input.attackPressed ? now : op.bufferedAttack,
     bufferedDodge: input.dodgePressed ? now : op.bufferedDodge,
     // A press without a full gauge does nothing and is not kept, or it would fire by itself once
@@ -168,6 +171,22 @@ export interface OperatorStep {
 const wantsGuard = (op: OperatorState, input: TickInput, now: number): boolean =>
   op.tool === 'folder' && input.attack === true && op.held >= FOLDER.holdTicks && !live(op.bufferedAttack, now);
 
+/**
+ * A pending swap waits while an attack pressed before it is still to be done with the tool in
+ * hand: a buffered press older than the swap, or a staple already on its way out.
+ */
+const attackFirst = (op: OperatorState, now: number): boolean =>
+  (live(op.bufferedAttack, now) && op.bufferedAttack! < op.swapAt) || (op.tool === 'stapler' && op.nextShotAt !== null);
+
+/**
+ * Puts the other tool in hand. The drawer then keeps attacks and the guard waiting for
+ * FOLDER.swapTicks, unless a dodge cancels it (design doc 6.1: 可被閃身取消).
+ */
+function swapTool(op: OperatorState, now: number, drawer: boolean): OperatorState {
+  const tool: HeldTool = op.tool === 'folder' ? 'stapler' : 'folder';
+  return { ...op, tool, swapPending: false, nextShotAt: null, swapUntil: drawer ? now + FOLDER.swapTicks : now };
+}
+
 /** Advances the operator one unfrozen tick. `now` is the tick being simulated. */
 export function stepOperator(grid: SolidGrid, op0: OperatorState, input: TickInput, now: number): OperatorStep {
   let op = bufferInput(op0, input, now);
@@ -184,7 +203,10 @@ export function stepOperator(grid: SolidGrid, op0: OperatorState, input: TickInp
     };
   }
   if (a.kind === 'dodge' && a.frame < DODGE_LAST) {
-    return { ...stepDodge(grid, op, a, a.frame + 1, now), fired: false, dodged: false };
+    // A swap pressed mid-dodge happens at once, the dodge having cancelled the drawer.
+    const swap = op.swapPending && !attackFirst(op, now);
+    if (swap) op = swapTool(op, now, false);
+    return { ...stepDodge(grid, op, a, a.frame + 1, now), fired: false, dodged: false, ...(swap ? { swapped: op.tool } : {}) };
   }
   if (a.kind === 'stamp' && a.frame < STAMP_LAND) {
     const frame = a.frame + 1;
@@ -212,10 +234,16 @@ export function stepOperator(grid: SolidGrid, op0: OperatorState, input: TickInp
   if (live(op.bufferedDodge, now) && now >= op.dodgeReadyAt) {
     const stick = unit(input.move);
     const dir = stick.x === 0 && stick.y === 0 ? op.aim : stick;
-    const started: OperatorState = {
+    // A drawer already flipping needs no cancelling here: the dodge outlasts it (DODGE vs FOLDER.swapTicks).
+    const swap = op.swapPending && !attackFirst({ ...op, nextShotAt: null }, now);
+    let started: OperatorState = {
       ...op, bufferedDodge: null, nextShotAt: null, aim: dir, facing: facingFor(dir, op.facing),
     };
-    return { ...stepDodge(grid, started, { kind: 'dodge', frame: 0, dir, perfect: false }, 1, now), fired: false, dodged: true };
+    if (swap) started = swapTool(started, now, false);
+    return {
+      ...stepDodge(grid, started, { kind: 'dodge', frame: 0, dir, perfect: false }, 1, now), fired: false, dodged: true,
+      ...(swap ? { swapped: started.tool } : {}),
+    };
   }
 
   // The whole gauge is spent on the press, whatever the stamp later covers (design doc 5.4).
@@ -229,9 +257,9 @@ export function stepOperator(grid: SolidGrid, op0: OperatorState, input: TickInp
   // A swap puts the other tool in hand at once. It only keeps attacks and the guard waiting (the
   // drawer flips for 0.15 s), so walking and dodging go on.
   let swapped: HeldTool | undefined;
-  if (op.swapPending) {
-    swapped = op.tool === 'folder' ? 'stapler' : 'folder';
-    op = { ...op, tool: swapped, swapPending: false, nextShotAt: null, swapUntil: now + FOLDER.swapTicks, action: { kind: 'free' } };
+  if (op.swapPending && !attackFirst(op, now)) {
+    op = { ...swapTool(op, now, true), action: { kind: 'free' } };
+    swapped = op.tool;
   }
   const lockout = now < op.swapUntil;
 

@@ -89,11 +89,34 @@ describe('swapping tools (design doc 6.1)', () => {
     expect(ofType(r, 'guardRaised')).toEqual([]);
   });
 
-  it('drops a staple that was scheduled but not yet fired, so it does not come back with the stapler', () => {
-    // Pressed on tick 0 the staple would leave on tick 2; the swap on tick 1 takes the stapler out of hand first.
-    const r = run(stapler(), 40, (t) => press({ attackPressed: t === 0, swapPressed: t === 1 || t === 20 }));
-    expect(ofType(r, 'toolSwapped').map((e) => e.tool)).toEqual(['folder', 'stapler']);
-    expect(ofType(r, 'fire')).toEqual([]);
+  it('an attack pressed before F is done with the tool in hand, and only then the swap', () => {
+    // Pressed on tick 0 the staple leaves on tick 2, so the swap pressed on tick 1 waits for it.
+    const staple = run(stapler(), 40, (t) => press({ attackPressed: t === 0, swapPressed: t === 1 || t === 20 }));
+    expect(ofType(staple, 'fire')).toHaveLength(1);
+    expect(ofType(staple, 'toolSwapped').map((e) => e.tool)).toEqual(['folder', 'stapler']);
+    expect(firstTick(staple, 'fire')).toBeLessThan(firstTick(staple, 'toolSwapped'));
+    // Pressed during a hit-stop, both wait for it to end and keep their order.
+    const frozen = run({ ...stapler(), freeze: 4 }, 40, (t) => press({ attackPressed: t === 0, swapPressed: t === 1 }));
+    expect(ofType(frozen, 'fire')).toHaveLength(1);
+    expect(firstTick(frozen, 'fire')).toBeLessThan(firstTick(frozen, 'toolSwapped'));
+    // The next blow of a combo pressed during the swing, then F: the blow lands before the folder goes.
+    const combo = run(folderGame(), 40, (t) => press({ attack: t === 0 || t === 5, attackPressed: t === 0 || t === 5, swapPressed: t === 6 }));
+    expect(ofType(combo, 'swing').map((e) => e.combo)).toEqual([0, 1]);
+    const second = combo.events.findIndex((es, t) => t > 0 && es.some((e) => e.type === 'swing'));
+    expect(firstTick(combo, 'toolSwapped')).toBeGreaterThan(second);
+    expect(combo.state.operator.tool).toBe('stapler');
+  });
+
+  it('F during a dodge swaps at once, with no drawer left to wait for when the dodge ends', () => {
+    // F two ticks before the dodge ends, attack pressed from then on: the first swing comes as soon
+    // as the dodge allows, exactly as if the folder had been in hand all along.
+    const late = 17;
+    const attacks = (t: number) => t >= late ? { attack: true, attackPressed: true } : {};
+    const baseline = run(folderGame(), 40, (t) => press({ dodgePressed: t === 0, ...attacks(t) }));
+    const midDodge = run(stapler(), 40, (t) => press({ dodgePressed: t === 0, swapPressed: t === late, ...attacks(t) }));
+    expect(firstTick(midDodge, 'toolSwapped')).toBe(late);
+    expect(firstTick(baseline, 'swing')).toBeLessThan(late + FOLDER.swapTicks);
+    expect(firstTick(midDodge, 'swing')).toBe(firstTick(baseline, 'swing'));
   });
   it('a press during a swing or hit-stop is kept until the operator is free, not eaten', () => {
     // The swing runs ticks 0 to FOLDER.swingTicks - 1; the swap waits for the tick after.
@@ -181,6 +204,16 @@ describe('the swing (design doc 6.1)', () => {
     const late = run(dummy(), 12, (t) => press({ attack: t === 0, attackPressed: t === 0, dodgePressed: t === 5 }));
     expect(firstTick(late, 'dodge')).toBe(5);
     expect(late.state.operator.action.kind).toBe('dodge');
+  });
+
+  it('a dodge still cooling down cancels nothing: the swing plays out', () => {
+    const cooling = (g: GameState): GameState => ({ ...g, operator: { ...g.operator, dodgeReadyAt: 1000 } });
+    const input = (t: number) => press({ attack: t === 0, attackPressed: t === 0, dodgePressed: t === 5 });
+    const r = run(cooling(dummy()), 6, input);
+    expect(ofType(r, 'dodge')).toEqual([]);
+    expect(r.state.operator.action).toMatchObject({ kind: 'swing', frame: 6 });
+    // Control: the same tick's press cancels the swing once the dodge is ready.
+    expect(run(dummy(), 6, input).state.operator.action.kind).toBe('dodge');
   });
 
   it('misses an enemy behind it', () => {
