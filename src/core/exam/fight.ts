@@ -262,8 +262,8 @@ export interface ExamState {
   readonly barrage: number;
   /** Frame of the fan's tier-1 telegraph, counted from 1; 0 when none is raised. */
   readonly windup: number;
-  /** The bonus case on the floor, its age and how long it stays. */
-  readonly bonus: { readonly id: number; readonly age: number; readonly life: number } | null;
+  /** The bonus case on the floor, its age, how long it stays, and the segment whose tally it counts for. */
+  readonly bonus: { readonly id: number; readonly age: number; readonly life: number; readonly segment: number } | null;
   /** The stage's bonus has been offered. */
   readonly bonusShown: boolean;
   readonly tallies: readonly ExamTally[];
@@ -433,8 +433,8 @@ const out = (w: Work): ExamTick => ({
   ...(w.dropShotsOf !== undefined ? { dropShotsOf: w.dropShotsOf } : {}),
 });
 
-function tally(w: Work, change: (t: ExamTally) => ExamTally): void {
-  w.exam = { ...w.exam, tallies: w.exam.tallies.map((t, i) => (i === w.exam.segment ? change(t) : t)) };
+function tally(w: Work, change: (t: ExamTally) => ExamTally, segment = w.exam.segment): void {
+  w.exam = { ...w.exam, tallies: w.exam.tallies.map((t, i) => (i === segment ? change(t) : t)) };
 }
 
 /** The share of the open question answered right now: cases closed, or steps stamped. */
@@ -456,6 +456,12 @@ function close(def: ExamDef, w: Work, share: number, how: 'solved' | 'time' | 's
   const seg = def.segments[w.exam.segment]!;
   const lastQuestion = w.exam.question + 1 >= seg.stages[w.exam.stage]!.questions.length;
   const lastStage = w.exam.stage + 1 >= seg.stages.length;
+  // A stage's bonus goes with the stage, so an unanswered one never runs into the next stage or segment.
+  const bonus = w.exam.bonus;
+  if (lastQuestion && bonus) {
+    w.enemies = w.enemies.filter((e) => e.id !== bonus.id);
+    w.exam = { ...w.exam, bonus: null };
+  }
   if (!lastQuestion || !lastStage) return;
   if (w.exam.segment + 1 < def.segments.length) {
     w.exam = { ...w.exam, part: 'break' };
@@ -534,7 +540,7 @@ export function stepExam(def: ExamDef, input: ExamStepIn): ExamTick {
   let stacked = false;
   for (const e of input.happened) {
     if (e.type === 'examHit') tally(w, (t) => ({ ...t, hits: t.hits + 1 }));
-    else if (e.type === 'caseClosed' && e.target === w.exam.bonus?.id) tally(w, (t) => ({ ...t, bonusHit: t.bonusHit + 1 }));
+    else if (e.type === 'caseClosed' && e.target === w.exam.bonus?.id) tally(w, (t) => ({ ...t, bonusHit: t.bonusHit + 1 }), w.exam.bonus.segment);
     else if (e.type === 'examStacked') stacked = true;
   }
 
@@ -586,11 +592,12 @@ export function stepExam(def: ExamDef, input: ExamStepIn): ExamTick {
   const t = w.exam.ticks + 1;
   const stageTicks = w.exam.stageTicks + 1;
   w.exam = { ...w.exam, ticks: t, stageTicks };
-  if (stage.bonus && !w.exam.bonusShown && stageTicks >= stage.bonus.atTicks) {
+  // Only during the stage's first question: one answered before the bonus time offers none (see examResult).
+  if (stage.bonus && !w.exam.bonusShown && w.exam.question === 0 && stageTicks >= stage.bonus.atTicks) {
     const picked = pickSpots(input.grid, w.rng, 1, [{ at: feet, away: 4 * TILE }], 0);
     w.rng = picked.rng;
     const id = spawnDrifting(w, def.bonusEnemy, picked.spots[0]!, stage.bonus.speed);
-    w.exam = { ...w.exam, bonus: { id, age: 0, life: stage.bonus.ticks }, bonusShown: true };
+    w.exam = { ...w.exam, bonus: { id, age: 0, life: stage.bonus.ticks, segment: w.exam.segment }, bonusShown: true };
     tally(w, (x) => ({ ...x, bonusOffered: x.bonusOffered + 1 }));
     w.events.push({ type: 'bonusShown', target: id });
   }

@@ -5,7 +5,7 @@ import { tagsFromQuery } from '../../src/app/session.ts';
 import {
   amount, cloakSecondsFor, examResult, ExamTableError, flag, loadExamTable, LOCK_TICKS, parseRoom, questionOf, readContent, roomsOf, senseCap,
   startChapter, stateHash, stepAt, stepChapter, stepExam, TICK_HZ, TILE,
-  type ChapterContent, type ChapterState, type ExamDef, type ExamTally, type GameEvent, type TickInput, type TiledMap,
+  type ChapterContent, type ChapterState, type ExamDef, type ExamState, type ExamTally, type GameEvent, type TickInput, type TiledMap,
 } from '../../src/core/index.ts';
 import { CLING } from '../../src/core/combat/frames.ts';
 
@@ -290,6 +290,48 @@ describe('the score (design doc 8.9)', () => {
     expect(tired.total).toBeLessThan(rested.total);
     expect(rested.practiceOnly).toBe(true);
     expect(examResult(DEF, [tally({}), tally({})], tags('exam_practice:80,exam_archived:80'), TAGS, PARAMS).practiceOnly).toBe(false);
+  });
+});
+
+describe('the bonus case belongs to its stage (review of PR #29)', () => {
+  const tick = (s: ChapterState, exam: ExamState, happened: GameEvent[] = [], enemies = s.game.enemies) => stepExam(DEF, {
+    exam, grid: s.game.room.grid, enemies, rng: s.game.rng, nextId: s.game.nextId,
+    operator: s.game.operator, interact: false, happened: happened as never,
+  });
+  const atStage = (stage: number, question: number): { s: ChapterState; exam: ExamState } => {
+    const s = seated();
+    const at = DEF.segments[0]!.stages[stage]!.bonus!.atTicks;
+    return { s, exam: { ...s.game.exam!, stage, question, ticks: 0, stageTicks: at - 1, bonusShown: false } };
+  };
+
+  it('appears only during the stage\'s first question: a stage whose first question was answered early offers none', () => {
+    const late = atStage(0, 1);
+    expect(tick(late.s, late.exam).events.some((e) => e.type === 'bonusShown')).toBe(false);
+    const first = atStage(0, 0);
+    expect(tick(first.s, first.exam).events.some((e) => e.type === 'bonusShown')).toBe(true);
+  });
+
+  it('leaves when its stage ends, so it never crosses into the next segment', () => {
+    // The computer test's last stage, its one question open, the bonus just out.
+    const { s, exam } = atStage(1, 0);
+    const shown = tick(s, exam);
+    const bonus = shown.exam.bonus!;
+    expect(bonus).not.toBeNull();
+    const closed = tick(s, shown.exam, [{ type: 'examStacked' }], shown.enemies);
+    expect(closed.exam.part).toBe('break');
+    expect(closed.exam.bonus).toBeNull();
+    expect(closed.enemies.some((e) => e.id === bonus.id)).toBe(false);
+  });
+
+  it('a hit on it counts for the segment that offered it, never above what was offered', () => {
+    const { s, exam } = atStage(0, 0);
+    const shown = tick(s, exam);
+    const bonus = shown.exam.bonus!;
+    // Moved to the written test by hand, as an old bonus would have been before the fix.
+    const later = { ...shown.exam, segment: 1, stage: 0, question: 0, stageTicks: 0, bonusShown: true };
+    const hit = tick(s, later, [{ type: 'caseClosed', target: bonus.id } as unknown as GameEvent], shown.enemies);
+    expect(hit.exam.tallies[0]).toMatchObject({ bonusOffered: 1, bonusHit: 1 });
+    expect(hit.exam.tallies[1]).toMatchObject({ bonusOffered: 0, bonusHit: 0 });
   });
 });
 
