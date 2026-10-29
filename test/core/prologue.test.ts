@@ -450,18 +450,18 @@ describe('story slot version 4', () => {
 });
 
 describe('the shipped prologue', () => {
-  it('is the first chapter, leads into the greybox chapter, starts without the stamp and with the meter', async () => {
+  it('is the first chapter, leads into the brain chapter, starts without the stamp and with the meter', async () => {
     const { CHAPTERS, DECKS } = await import('../../src/app/content.ts');
     const prologue = [...CHAPTERS.values()][0]!;
     expect(prologue.id).toBe('prologue');
-    expect(prologue.next).toBe('greybox');
+    expect(prologue.next).toBe('brain');
     expect(prologue.tools).toEqual([]);
     expect(prologue.glucose).toBe(true);
     expect(DIALOGUES.has(prologue.intro!)).toBe(true);
-    // Its closing card asks the greybox chapter's first opening question, so the morning skips it.
+    // Its closing card asks the brain chapter's first opening question, so the morning skips it.
     const closing = DECKS.get('prologue')!.closing.map((c) => c.id);
     expect(closing).toEqual(['bedtime']);
-    expect(DECKS.get('greybox')!.opening.map((c) => c.id)).toContain('bedtime');
+    expect(DECKS.get('brain')!.opening.map((c) => c.id)).toContain('bedtime');
   });
 });
 

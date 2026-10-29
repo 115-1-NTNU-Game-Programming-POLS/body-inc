@@ -6,6 +6,8 @@
     { "id": "caffeine", "body": ["handbook.caffeine.1", "handbook.caffeine.2"] },
     { "id": "sleep_debt", "body": ["handbook.sleep_debt.1"] },
     { "id": "short_nap", "body": ["handbook.short_nap.1"] },
+    { "id": "screens", "body": ["handbook.screens.1", "handbook.screens.2"] },
+    { "id": "energy_drinks", "body": ["handbook.energy_drinks.1", "handbook.energy_drinks.2"] },
     { "id": "alcohol_metabolism", "body": ["handbook.alcohol_metabolism.1", "handbook.alcohol_metabolism.2", "handbook.alcohol_metabolism.3", "handbook.alcohol_metabolism.4"] },
     { "id": "eating_before_sleep", "body": ["handbook.eating_before_sleep.1", "handbook.eating_before_sleep.2"] },
     { "id": "refusing_drinks", "body": ["handbook.refusing_drinks.1", "handbook.refusing_drinks.2", "handbook.refusing_drinks.3"] },

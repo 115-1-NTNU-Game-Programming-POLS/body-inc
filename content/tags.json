@@ -16,6 +16,8 @@
     { "name": "dizzy", "type": "boolean", "sources": ["rule"], "duration": "untilWake", "facts": ["31"] },
     { "name": "roommate", "type": "boolean", "sources": ["card"], "duration": "untilWake", "facts": ["general"] },
     { "name": "toast_conceded", "type": "boolean", "sources": ["event"], "duration": "persistent", "facts": ["general"] },
+    { "name": "caffeine_settled", "type": "boolean", "sources": ["event"], "duration": "persistent", "facts": ["9", "26"] },
+    { "name": "phones_off", "type": "number", "unit": "devices", "sources": ["event"], "duration": "persistent", "facts": ["5"] },
     { "name": "rescued", "type": "boolean", "sources": ["event"], "duration": "persistent", "facts": ["2"] },
     { "name": "dup_medication", "type": "boolean", "sources": ["event"], "duration": "persistent", "facts": ["pending:13"] },
     { "name": "stress", "type": "number", "sources": ["card", "event"], "duration": "persistent", "facts": ["23", "28"] },

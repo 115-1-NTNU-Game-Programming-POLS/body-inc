@@ -12,6 +12,7 @@
     "liver": { "style": "memo", "portrait": true },
     "muscle": { "style": "box", "portrait": true },
     "narrator": { "style": "box", "portrait": false },
+    "phone": { "style": "box", "portrait": false },
     "stomach": { "style": "box", "portrait": true },
     "toast-boss": { "style": "box", "portrait": true }
   }

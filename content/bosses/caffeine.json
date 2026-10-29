@@ -10,6 +10,7 @@
   "drink": { "seconds": 1, "refillDelaySeconds": 8, "burstCups": 2, "tolerantFromCup": 3 },
   "summon": { "enemy": "adenosine", "count": 2, "everySeconds": 10, "max": 8, "seconds": 0.6 },
   "powerCutSeconds": 8,
+  "concedeDialogue": "brain.caffeine.negotiation",
   "moves": {
     "cup_throw": { "tier": 1, "weight": 3, "telegraphSeconds": 0.5, "recoverSeconds": 0.5, "halves": 1, "shots": 3, "spreadDeg": 18, "shotSpeedTiles": 4.5, "rangeTiles": 9 },
     "splash": { "tier": 2, "weight": 2, "telegraphSeconds": 0.8, "recoverSeconds": 0.6, "halves": 1, "radiusTiles": 1.5, "activeTicks": 6 },
@@ -24,6 +25,7 @@
     "drink": "DOC each cup adds params.cup and the tolerant boost starts at the third cup (7.4); seconds, refillDelaySeconds and burstCups are ASSUME",
     "summon": "DOC stage 2 summons adenosine (7.4); counts and timing are ASSUME",
     "powerCutSeconds": "DOC 8 s (7.4)",
+    "concedeDialogue": "DOC the renewal negotiation of 7.4: absurd clauses stamped out, the right ones kept",
     "moves": "DOC tiers and telegraph lengths (5.3), cup barrage (7.4), signature move costs a whole heart (5.3); shapes, sizes and weights are ASSUME"
   }
 }

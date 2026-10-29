@@ -28,8 +28,8 @@ describe('deck check (build plan P1)', () => {
   it('passes on the shipped deck and logs every combination and the spread', () => {
     const r = checkDecks();
     expect(r.problems).toEqual([]);
-    // Six greybox combinations, twelve midterm ones, four liver ones, and the prologue's one: no opening cards.
-    expect(r.report.filter((l) => l.startsWith('  ') && l.includes('敵人'))).toHaveLength(23);
+    // Six brain combinations, six greybox ones, twelve midterm ones, four liver ones, and the prologue's one: no opening cards.
+    expect(r.report.filter((l) => l.startsWith('  ') && l.includes('敵人'))).toHaveLength(29);
     expect(r.report).toContainEqual(expect.stringMatching(/^ {2}（沒有章首卡）：敵人 3/));
     expect(r.report).toContainEqual(expect.stringMatching(/^ {4}morning_coffee：drink \d+\.\d\d，skip \d+\.\d\d$/));
     expect(r.report).toContainEqual(expect.stringMatching(/咖啡因斗篷下平均看得見 47%/));
