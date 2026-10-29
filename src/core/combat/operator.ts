@@ -13,7 +13,7 @@ export interface TickInput {
   readonly attackPressed?: boolean;
   readonly dodgePressed?: boolean;
   readonly stampPressed?: boolean;
-  /** Swap the stapler and the folder; not buffered, since it is a deliberate press. */
+  /** Swap the stapler and the folder; a press during an action waits for it to end (OperatorState.swapPending). */
   readonly swapPressed?: boolean;
   /** Talk to an NPC or use a bed; not buffered, since it is only meaningful while standing next to one. */
   readonly interactPressed?: boolean;
@@ -80,6 +80,12 @@ export interface OperatorState {
   readonly comboUntil: number;
   /** Attacks and the guard wait until this tick after a swap. */
   readonly swapUntil: number;
+  /**
+   * A swap pressed during an action or hit-stop, done on the next free tick (design doc 5.3: input
+   * is buffered, not eaten). It does not expire, since a swap is deliberate, and a second press
+   * before then takes it back, so every press is one flip.
+   */
+  readonly swapPending: boolean;
 }
 
 /** Operator feet box: narrower than the 32 px frame so doorways two tiles wide feel roomy. */
@@ -98,7 +104,7 @@ export function newOperator(x: number, y: number, maxHalves: number, gauge = 0):
     x, y, vx: 0, vy: 0, facing: 'down', aim: { x: 0, y: 1 }, slows: [], stacks: 0, halves: maxHalves, maxHalves,
     action: { kind: 'free' }, dodgeReadyAt: 0, invulnUntil: 0, shotReadyAt: 0, nextShotAt: null,
     bufferedAttack: null, bufferedDodge: null, bufferedStamp: null, gauge,
-    tool: 'stapler', held: 0, combo: 0, comboUntil: 0, swapUntil: 0,
+    tool: 'stapler', held: 0, combo: 0, comboUntil: 0, swapUntil: 0, swapPending: false,
   };
 }
 
@@ -111,9 +117,10 @@ export function unit(v: Vec): Vec {
 
 /** Records presses; used every tick, including frozen ones, so input during hit-stop counts. */
 export function bufferInput(op: OperatorState, input: TickInput, now: number): OperatorState {
-  if (!input.attackPressed && !input.dodgePressed && !input.stampPressed) return op;
+  if (!input.attackPressed && !input.dodgePressed && !input.stampPressed && !input.swapPressed) return op;
   return {
     ...op,
+    swapPending: input.swapPressed ? !op.swapPending : op.swapPending,
     bufferedAttack: input.attackPressed ? now : op.bufferedAttack,
     bufferedDodge: input.dodgePressed ? now : op.bufferedDodge,
     // A press without a full gauge does nothing and is not kept, or it would fire by itself once
@@ -186,9 +193,12 @@ export function stepOperator(grid: SolidGrid, op0: OperatorState, input: TickInp
       fired: false, dodged: false, stampLanded: frame === STAMP_LAND, blockedX: false, blockedY: false,
     };
   }
-  // A swing stands still for its frames. Once its box has landed, a key held since the press turns
-  // the rest of it into the guard, so a parry does not wait for the whole swing to play out.
-  if (a.kind === 'swing' && a.frame < FOLDER.swingTicks && !(a.frame >= FOLDER.hitFrame && wantsGuard(op, input, now))) {
+  // A swing stands still for its frames. Once its box has landed the rest is recovery: a dodge
+  // cancels it (design doc 5.3), and a key held since the press turns it into the guard, so a
+  // parry does not wait for the whole swing to play out.
+  const cancelled = a.kind === 'swing' && a.frame >= FOLDER.hitFrame
+    && ((live(op.bufferedDodge, now) && now >= op.dodgeReadyAt) || wantsGuard(op, input, now));
+  if (a.kind === 'swing' && a.frame < FOLDER.swingTicks && !cancelled) {
     const frame = a.frame + 1;
     return {
       op: { ...op, vx: 0, vy: 0, action: { ...a, frame } },
@@ -219,9 +229,9 @@ export function stepOperator(grid: SolidGrid, op0: OperatorState, input: TickInp
   // A swap puts the other tool in hand at once. It only keeps attacks and the guard waiting (the
   // drawer flips for 0.15 s), so walking and dodging go on.
   let swapped: HeldTool | undefined;
-  if (input.swapPressed === true) {
+  if (op.swapPending) {
     swapped = op.tool === 'folder' ? 'stapler' : 'folder';
-    op = { ...op, tool: swapped, nextShotAt: null, swapUntil: now + FOLDER.swapTicks, action: { kind: 'free' } };
+    op = { ...op, tool: swapped, swapPending: false, nextShotAt: null, swapUntil: now + FOLDER.swapTicks, action: { kind: 'free' } };
   }
   const lockout = now < op.swapUntil;
 

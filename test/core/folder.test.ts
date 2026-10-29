@@ -95,6 +95,21 @@ describe('swapping tools (design doc 6.1)', () => {
     expect(ofType(r, 'toolSwapped').map((e) => e.tool)).toEqual(['folder', 'stapler']);
     expect(ofType(r, 'fire')).toEqual([]);
   });
+  it('a press during a swing or hit-stop is kept until the operator is free, not eaten', () => {
+    // The swing runs ticks 0 to FOLDER.swingTicks - 1; the swap waits for the tick after.
+    const swing = run(folderGame(), 20, (t) => press({ attack: t === 0, attackPressed: t === 0, swapPressed: t === 2 }));
+    expect(ofType(swing, 'toolSwapped').map((e) => e.tool)).toEqual(['stapler']);
+    expect(firstTick(swing, 'toolSwapped')).toBe(FOLDER.swingTicks);
+    const frozen = run({ ...stapler(), freeze: 3 }, 6, (t) => press({ swapPressed: t === 0 }));
+    expect(firstTick(frozen, 'toolSwapped')).toBe(3);
+  });
+
+  it('a second press before the swap happens takes it back', () => {
+    const r = run(folderGame(), 20, (t) => press({ attack: t === 0, attackPressed: t === 0, swapPressed: t === 2 || t === 4 }));
+    expect(ofType(r, 'toolSwapped')).toEqual([]);
+    expect(r.state.operator.tool).toBe('folder');
+  });
+
   it('a forced leave keeps the tool in hand', () => {
     const g = folderGame();
     const dying = { ...g, operator: { ...g.operator, halves: 0 } };
@@ -156,6 +171,16 @@ describe('the swing (design doc 6.1)', () => {
   it('stands the operator still for the swing', () => {
     const r = run(dummy(), 8, (t) => press({ move: RIGHT, attack: t === 0, attackPressed: t === 0 }));
     expect(r.state.operator.x).toBe(START.x);
+  });
+
+  it('a dodge cancels the recovery after the hit, but not the startup before it (design doc 5.3)', () => {
+    // Pressed on tick 1, the dodge waits for the hit on tick 2 and starts on tick 3.
+    const early = run(dummy(), 12, (t) => press({ attack: t === 0, attackPressed: t === 0, dodgePressed: t === 1 }));
+    expect(firstTick(early, 'hit')).toBe(FOLDER.hitFrame - 1);
+    expect(firstTick(early, 'dodge')).toBe(FOLDER.hitFrame);
+    const late = run(dummy(), 12, (t) => press({ attack: t === 0, attackPressed: t === 0, dodgePressed: t === 5 }));
+    expect(firstTick(late, 'dodge')).toBe(5);
+    expect(late.state.operator.action.kind).toBe('dodge');
   });
 
   it('misses an enemy behind it', () => {
@@ -285,6 +310,17 @@ describe('the guard and the parry (design doc 6.1)', () => {
     expect(windUp(FOLDER.parryFrames)).toBeGreaterThanOrEqual(h + FOLDER.parryStunTicks);
     // And no longer than that: the stun replaces the recovery instead of coming on top of it.
     expect(windUp(FOLDER.parryFrames)).toBeLessThanOrEqual(h + FOLDER.parryStunTicks + 3);
+  });
+
+  it('a swing at a stunned salesman does not cut the stun short to its own hit-stop', () => {
+    const h = arrival(salesman());
+    const parried = guardedAt(salesman(), h, 5, h + 1).state;
+    // Release on tick 0 drops the guard; a tap on tick 1 lands on tick 3.
+    const after = (swing: boolean) => run(parried, 6, (t) => press({ attack: swing && t === 1, attackPressed: swing && t === 1 }));
+    const hit = after(true);
+    expect(ofType(hit, 'hit')).toHaveLength(1);
+    expect(hit.state.enemies[0]!.frozen).toBeGreaterThan(FOLDER.hitFreeze[2]);
+    expect(hit.state.enemies[0]!.frozen).toBe(after(false).state.enemies[0]!.frozen);
   });
 
   it('a strike met after the window is blocked: no damage and no stun, but nothing charged', () => {

@@ -529,7 +529,8 @@ function damage(e: EnemyState, amount: number, freeze: number, events: DomainEve
     return { ...e, hp: 0, phase: 'closed', phaseTicks: 0, frozen: 0 };
   }
   events.push({ type: 'hit', target: e.id, enemy: e.type, hpLeft: hp });
-  return { ...e, hp, frozen: e.boss ? 0 : freeze };
+  // A hit never cuts short a longer freeze already running, such as a parry's stun or the stamp's.
+  return { ...e, hp, frozen: e.boss ? 0 : Math.max(e.frozen, freeze) };
 }
 
 function interactionOf(o: RoomObject): DomainEvent {
