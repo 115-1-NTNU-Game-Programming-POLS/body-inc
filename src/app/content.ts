@@ -1,4 +1,5 @@
 import caffeineJson from '../../content/bosses/caffeine.json';
+import toastJson from '../../content/bosses/toast.json';
 import greyboxChapter from '../../content/chapters/greybox.json';
 import liverChapter from '../../content/chapters/liver.json';
 import prologueChapter from '../../content/chapters/prologue.json';
@@ -31,7 +32,7 @@ export const str = (key: string): string => {
 };
 export const PARAMS = readContent('params', paramsJson).defaults;
 /** Every file in content/bosses. One left out stops startup: its enemy then names a boss with no file. */
-export const BOSS_FILES: readonly unknown[] = [caffeineJson];
+export const BOSS_FILES: readonly unknown[] = [caffeineJson, toastJson];
 export const BOSSES: BossTable = loadBossTable(BOSS_FILES, ENEMIES, PARAMS);
 
 /**

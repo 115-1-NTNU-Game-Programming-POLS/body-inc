@@ -39,6 +39,7 @@ export { boxAt, centeredBox, overlaps, type Box } from './collision/boxes.ts';
 export { BOSS_BODY, BOSS_HURT, ENEMY_BODY, ENEMY_HURT, enemyCenter, enemyHurtbox, isHittable, isMelee, strikeBox } from './combat/actors.ts';
 export * from './combat/bosses/boss.ts';
 export { proposalOpen } from './combat/bosses/caffeine.ts';
+export { breathing } from './combat/bosses/toast.ts';
 export { circleTouchesBox, shotBox, zoneFill, zoneLive } from './combat/hazards.ts';
 export { MOVE } from './combat/movement.ts';
 export { gaugeFull, inDodgeIframes, isInvincible, STAMP_LAND } from './combat/operator.ts';

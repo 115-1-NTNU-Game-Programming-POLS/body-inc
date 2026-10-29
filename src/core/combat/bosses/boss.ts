@@ -37,9 +37,9 @@ export interface CaffeineParams {
   readonly bossSecondsPerHour: number;
 }
 
-export interface BossDef {
+export interface CaffeineDef {
+  readonly behaviour: 'caffeine';
   readonly id: string;
-  readonly behaviour: BossFile['behaviour'];
   readonly budget: number;
   readonly stage2Budget: number;
   readonly speed: number;
@@ -62,6 +62,25 @@ export interface BossDef {
   readonly boostTolerant: number;
 }
 
+/** The toast boss (design doc 7.7): a song of rounds, a ring of toast waves per line, a breath after each round. */
+export interface ToastDef {
+  readonly behaviour: 'toast';
+  readonly id: string;
+  readonly budget: number;
+  /** Pixels from the operator's feet to his spawn point at which he stops waiting. */
+  readonly wakeDistance: number;
+  readonly introTicks: number;
+  readonly rounds: readonly { readonly lines: number; readonly beatTicks: number }[];
+  readonly breathTicks: number;
+  readonly breathDamageFactor: number;
+  readonly ring: { readonly shots: number; readonly shotSpeed: number; readonly shotTicks: number; readonly cups: number };
+  readonly workOrder: { readonly slowPerStack: number; readonly maxStacks: number };
+  /** Opened by the chapter when he gives up. */
+  readonly concedeDialogue: string;
+}
+
+export type BossDef = CaffeineDef | ToastDef;
+
 export type BossTable = ReadonlyMap<string, BossDef>;
 
 export class BossTableError extends Error {
@@ -75,9 +94,12 @@ export class BossTableError extends Error {
 const ticks = (seconds: number): number => Math.round(seconds * TICK_HZ);
 
 /** Actions every boss controller runs itself; BossState.move uses these ids beside the move table's. */
-export const RESERVED_MOVES: readonly string[] = ['drink', 'summon'];
+export const RESERVED_MOVES: readonly string[] = ['drink', 'summon', 'toast'];
 
-function moveProblems(where: string, m: BossFile['moves'][string]): string[] {
+const CAFFEINE_FIELDS = ['stage2Budget', 'speedTiles', 'rangeTiles', 'restSeconds', 'drink', 'summon', 'powerCutSeconds', 'moves'] as const;
+const TOAST_FIELDS = ['song', 'workOrder', 'concedeDialogue'] as const;
+
+function moveProblems(where: string, m: NonNullable<BossFile['moves']>[string]): string[] {
   const out: string[] = [];
   const t = ticks(m.telegraphSeconds);
   const area = m.radiusTiles !== undefined || m.activeTicks !== undefined;
@@ -101,6 +123,90 @@ function moveProblems(where: string, m: BossFile['moves'][string]): string[] {
   return out;
 }
 
+/** The fields of the other behaviour are refused, so a file never carries numbers nothing reads. */
+function fieldProblems(where: string, f: BossFile): string[] {
+  const [need, foreign] = f.behaviour === 'caffeine' ? [CAFFEINE_FIELDS, TOAST_FIELDS] : [TOAST_FIELDS, CAFFEINE_FIELDS];
+  return [
+    ...need.filter((k) => f[k] === undefined).map((k) => `${where}: a ${f.behaviour} boss needs ${k}`),
+    ...foreign.filter((k) => f[k] !== undefined).map((k) => `${where}: ${k} belongs to another behaviour; a ${f.behaviour} boss does not read it`),
+  ];
+}
+
+function caffeineDef(f: BossFile, where: string, enemies: EnemyTable, caffeine: CaffeineParams, problems: string[]): CaffeineDef | undefined {
+  if (f.stage2Budget! >= f.budget) problems.push(`${where}: stage2Budget must be below budget`);
+  const [near, far] = f.rangeTiles as [number, number];
+  if (near >= far) problems.push(`${where}: rangeTiles must be [near, far] with near < far`);
+  const summoned = enemies.enemies.get(f.summon!.enemy);
+  if (!summoned) problems.push(`${where}: summon.enemy "${f.summon!.enemy}" is not in content/enemies.json`);
+  else if (summoned.boss !== undefined) problems.push(`${where}: a boss cannot summon another boss`);
+  const moves = f.moves!;
+  const ids = Object.keys(moves).sort();
+  if (ids.length === 0) problems.push(`${where}: needs at least one move`);
+  for (const id of ids) problems.push(...moveProblems(`${where} move "${id}"`, moves[id]!));
+  for (const id of ids.filter((m) => RESERVED_MOVES.includes(m))) problems.push(`${where}: "${id}" is a built-in action, not a move name`);
+  if (!summoned) return undefined;
+  return {
+    behaviour: 'caffeine',
+    id: f.id,
+    budget: f.budget,
+    stage2Budget: f.stage2Budget!,
+    speed: tilesPerSecond(f.speedTiles!),
+    nearPx: near * TILE,
+    farPx: far * TILE,
+    restTicks: ticks(f.restSeconds!),
+    drinkTicks: ticks(f.drink!.seconds),
+    refillDelayTicks: ticks(f.drink!.refillDelaySeconds),
+    burstCups: f.drink!.burstCups,
+    tolerantFromCup: f.drink!.tolerantFromCup,
+    summon: { enemy: summoned, count: f.summon!.count, everyTicks: ticks(f.summon!.everySeconds), max: f.summon!.max, ticks: ticks(f.summon!.seconds) },
+    powerCutTicks: ticks(f.powerCutSeconds!),
+    moves: ids.map((id) => {
+      const m = moves[id]!;
+      const speed = tilesPerSecond(m.shotSpeedTiles ?? 1);
+      return {
+        id, tier: m.tier, weight: m.weight,
+        telegraphTicks: ticks(m.telegraphSeconds),
+        activeTicks: m.tier === 1 ? 1 : m.activeTicks ?? 1,
+        recoverTicks: ticks(m.recoverSeconds),
+        halves: m.halves,
+        shots: m.shots ?? 0,
+        spreadRad: ((m.spreadDeg ?? 0) * Math.PI) / 180,
+        shotSpeed: speed,
+        shotTicks: Math.ceil(((m.rangeTiles ?? 0) * TILE) / speed),
+        radius: (m.radiusTiles ?? 0) * TILE,
+      };
+    }),
+    cup: caffeine.cup,
+    decayPerTick: 0.5 ** (1 / (caffeine.halfLife * caffeine.bossSecondsPerHour * TICK_HZ)),
+    boostMin: caffeine.boostMin,
+    boost: caffeine.boost,
+    boostTolerant: caffeine.boostTolerant,
+  };
+}
+
+function toastDef(f: BossFile, where: string, problems: string[]): ToastDef {
+  const song = f.song!;
+  const rounds = song.rounds.map((r) => ({ lines: r.lines, beatTicks: ticks(r.beatSeconds) }));
+  // Each line telegraphs its wave for the whole tier-1 warning before the next line starts.
+  rounds.forEach((r, i) => {
+    if (r.beatTicks <= TELEGRAPH.tier1Ticks) problems.push(`${where}: round ${i + 1} beatSeconds must be longer than the 0.5 s tier-1 telegraph`);
+  });
+  const speed = tilesPerSecond(song.ring.shotSpeedTiles);
+  return {
+    behaviour: 'toast',
+    id: f.id,
+    budget: f.budget,
+    wakeDistance: song.wakeTiles * TILE,
+    introTicks: ticks(song.introSeconds),
+    rounds,
+    breathTicks: ticks(song.breathSeconds),
+    breathDamageFactor: song.breathDamageFactor,
+    ring: { shots: song.ring.shots, shotSpeed: speed, shotTicks: Math.ceil((song.ring.rangeTiles * TILE) / speed), cups: song.ring.cups },
+    workOrder: { slowPerStack: f.workOrder!.slowPerStack, maxStacks: f.workOrder!.maxStacks },
+    concedeDialogue: f.concedeDialogue!,
+  };
+}
+
 /** Validates each file against the boss schema and cross-checks it with the enemy table. */
 export function loadBossTable(files: readonly unknown[], enemies: EnemyTable, caffeine: CaffeineParams): BossTable {
   const problems: string[] = [];
@@ -115,55 +221,11 @@ export function loadBossTable(files: readonly unknown[], enemies: EnemyTable, ca
     const where = `boss "${f.id}"`;
     if (out.has(f.id)) problems.push(`${where}: defined twice`);
     if (![...enemies.enemies.values()].some((e) => e.boss === f.id)) problems.push(`${where}: no enemy in content/enemies.json has boss "${f.id}"`);
-    if (f.stage2Budget >= f.budget) problems.push(`${where}: stage2Budget must be below budget`);
-    const [near, far] = f.rangeTiles as [number, number];
-    if (near >= far) problems.push(`${where}: rangeTiles must be [near, far] with near < far`);
-    const summoned = enemies.enemies.get(f.summon.enemy);
-    if (!summoned) problems.push(`${where}: summon.enemy "${f.summon.enemy}" is not in content/enemies.json`);
-    else if (summoned.boss !== undefined) problems.push(`${where}: a boss cannot summon another boss`);
-    const ids = Object.keys(f.moves).sort();
-    if (ids.length === 0) problems.push(`${where}: needs at least one move`);
-    for (const id of ids) problems.push(...moveProblems(`${where} move "${id}"`, f.moves[id]!));
-    for (const id of ids.filter((m) => RESERVED_MOVES.includes(m))) problems.push(`${where}: "${id}" is a built-in action, not a move name`);
-    if (!summoned) continue;
-
-    out.set(f.id, {
-      id: f.id,
-      behaviour: f.behaviour,
-      budget: f.budget,
-      stage2Budget: f.stage2Budget,
-      speed: tilesPerSecond(f.speedTiles),
-      nearPx: near * TILE,
-      farPx: far * TILE,
-      restTicks: ticks(f.restSeconds),
-      drinkTicks: ticks(f.drink.seconds),
-      refillDelayTicks: ticks(f.drink.refillDelaySeconds),
-      burstCups: f.drink.burstCups,
-      tolerantFromCup: f.drink.tolerantFromCup,
-      summon: { enemy: summoned, count: f.summon.count, everyTicks: ticks(f.summon.everySeconds), max: f.summon.max, ticks: ticks(f.summon.seconds) },
-      powerCutTicks: ticks(f.powerCutSeconds),
-      moves: ids.map((id) => {
-        const m = f.moves[id]!;
-        const speed = tilesPerSecond(m.shotSpeedTiles ?? 1);
-        return {
-          id, tier: m.tier, weight: m.weight,
-          telegraphTicks: ticks(m.telegraphSeconds),
-          activeTicks: m.tier === 1 ? 1 : m.activeTicks ?? 1,
-          recoverTicks: ticks(m.recoverSeconds),
-          halves: m.halves,
-          shots: m.shots ?? 0,
-          spreadRad: ((m.spreadDeg ?? 0) * Math.PI) / 180,
-          shotSpeed: speed,
-          shotTicks: Math.ceil(((m.rangeTiles ?? 0) * TILE) / speed),
-          radius: (m.radiusTiles ?? 0) * TILE,
-        };
-      }),
-      cup: caffeine.cup,
-      decayPerTick: 0.5 ** (1 / (caffeine.halfLife * caffeine.bossSecondsPerHour * TICK_HZ)),
-      boostMin: caffeine.boostMin,
-      boost: caffeine.boost,
-      boostTolerant: caffeine.boostTolerant,
-    });
+    const missing = fieldProblems(where, f);
+    problems.push(...missing);
+    if (missing.length > 0) continue;
+    const def = f.behaviour === 'caffeine' ? caffeineDef(f, where, enemies, caffeine, problems) : toastDef(f, where, problems);
+    if (def) out.set(f.id, def);
   }
   for (const e of enemies.enemies.values()) {
     if (e.boss !== undefined && !files.some((f) => (f as { id?: unknown }).id === e.boss)) {
@@ -178,7 +240,8 @@ export function loadBossTable(files: readonly unknown[], enemies: EnemyTable, ca
  * A boss's own state beside its EnemyState. `stage` is the fight stage (design doc 7.4), not
  * the enemy phase; `move.frame` counts from 1 on the tick the move starts.
  */
-export interface BossState {
+export interface CaffeineState {
+  readonly behaviour: 'caffeine';
   readonly def: string;
   readonly stage: 1 | 2 | 3;
   readonly residue: number;
@@ -196,15 +259,47 @@ export interface BossState {
   readonly summonIn: number;
 }
 
-/** The fight opens with a cup (design doc 7.4: each cup he drinks adds 100). */
+/**
+ * The toast boss's place in the song. `stage` is the round (乾杯三巡), held at the last once the
+ * song repeats; `ticks` counts within the part, or within the line while singing.
+ */
+export interface ToastState {
+  readonly behaviour: 'toast';
+  readonly def: string;
+  readonly stage: 1 | 2 | 3;
+  /** `wait` until the operator comes within wakeDistance, then `intro` for introTicks. */
+  readonly part: 'wait' | 'intro' | 'sing' | 'breath';
+  /** Lines sung so far this round. */
+  readonly line: number;
+  readonly ticks: number;
+  /** Waves sent so far: the id that ties a ring's shots together. */
+  readonly waves: number;
+  /** The line being telegraphed, so the view can raise the bubble; null between waves and while breathing. */
+  readonly move: { readonly id: 'toast'; readonly frame: number } | null;
+}
+
+export type BossState = CaffeineState | ToastState;
+
+/** The caffeine fight opens with a cup (design doc 7.4: each cup he drinks adds 100); the toast fight with him waiting. */
 export function newBossState(def: BossDef): BossState {
+  if (def.behaviour === 'toast') return { behaviour: 'toast', def: def.id, stage: 1, part: 'wait', line: 0, ticks: 0, waves: 0, move: null };
   return {
-    def: def.id, stage: 1, residue: 0, cups: 0, burst: 1, boosted: false, lowTicks: 0, move: null,
+    behaviour: 'caffeine', def: def.id, stage: 1, residue: 0, cups: 0, burst: 1, boosted: false, lowTicks: 0, move: null,
     rest: def.restTicks, review: 0, stunned: 0, summonIn: 0,
   };
 }
 
-export function bossMove(def: BossDef, id: string): BossMoveDef {
+/** Strings the nameplate shows for a boss enemy: its name, a label per stage and, for toast, the breath. */
+export function bossStringKeys(enemyType: string, def: BossDef): string[] {
+  const stages = def.behaviour === 'toast' ? def.rounds.length : 3;
+  return [
+    `boss.${enemyType}.name`,
+    ...Array.from({ length: stages }, (_, i) => `boss.${enemyType}.stage.${i + 1}`),
+    ...(def.behaviour === 'toast' ? [`boss.${enemyType}.breath`] : []),
+  ];
+}
+
+export function bossMove(def: CaffeineDef, id: string): BossMoveDef {
   const m = def.moves.find((x) => x.id === id);
   if (!m) throw new Error(`boss ${def.id} has no move ${id}`);
   return m;
@@ -213,7 +308,7 @@ export function bossMove(def: BossDef, id: string): BossMoveDef {
 export const moveLength = (m: BossMoveDef): number => m.telegraphTicks + m.activeTicks + m.recoverTicks;
 
 /** Movement and attack-rate factor from caffeine (design doc 7.4); telegraphs never shorten. */
-export function boostFactor(def: BossDef, b: BossState): number {
+export function boostFactor(def: CaffeineDef, b: CaffeineState): number {
   if (b.residue < def.boostMin) return 1;
   return b.cups >= def.tolerantFromCup ? def.boostTolerant : def.boost;
 }

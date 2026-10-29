@@ -3,14 +3,16 @@ import { describe, expect, it } from 'vitest';
 import {
   BOSS, boostFactor, BossTableError, createGame, DODGE, GameSetupError, loadBossTable, loadEnemyTable, NO_INPUT, REFORM_TICKS,
   stateHash, step, STAMP, STAMP_LAND, TELEGRAPH, TICK_HZ, TILE, ZONE_MAX_ACTIVE,
-  type BossState, type CaffeineParams, type DomainEvent, type EnemyState, type EnteredRoom, type GameState, type TickInput,
+  type CaffeineDef, type CaffeineParams, type CaffeineState, type DomainEvent, type EnemyState, type EnteredRoom, type GameState, type TickInput,
 } from '../../src/core/index.ts';
 
 const TABLE = loadEnemyTable(JSON.parse(readFileSync('content/enemies.json', 'utf8')));
 const PARAMS = JSON.parse(readFileSync('content/params.json', 'utf8')).defaults as CaffeineParams;
 const RAW = JSON.parse(readFileSync('content/bosses/caffeine.json', 'utf8'));
-const BOSSES = loadBossTable([RAW], TABLE, PARAMS);
-const DEF = BOSSES.get('caffeine')!;
+/** Every boss enemy needs its file, so the toast boss loads beside the caffeine boss this file is about. */
+const TOAST_RAW = JSON.parse(readFileSync('content/bosses/toast.json', 'utf8'));
+const BOSSES = loadBossTable([RAW, TOAST_RAW], TABLE, PARAMS);
+const DEF = BOSSES.get('caffeine')! as CaffeineDef;
 const HOME = { x: 320, y: 168 };
 
 /** Open 20 x 12 room with a one-tile border, the boss at HOME and the operator where asked. */
@@ -39,9 +41,10 @@ function arena(start: { x: number; y: number }, extra: { type: string; x: number
 const NEAR = { x: HOME.x, y: HOME.y + 4 * TILE };
 
 const fight = (start = NEAR, gauge = 0) => createGame(arena(start), 1, TABLE, { bosses: BOSSES, gauge });
-const boss = (s: GameState): EnemyState => s.enemies.find((e) => e.boss)!;
-const withBoss = (s: GameState, b: Partial<BossState>, e: Partial<EnemyState> = {}): GameState =>
-  ({ ...s, enemies: s.enemies.map((x) => (x.boss ? { ...x, ...e, boss: { ...x.boss, ...b } } : x)) });
+/** The caffeine boss, typed as such: every fight in this file is his. */
+const boss = (s: GameState) => s.enemies.find((e) => e.boss)! as EnemyState & { readonly boss: CaffeineState };
+const withBoss = (s: GameState, b: Partial<CaffeineState>, e: Partial<EnemyState> = {}): GameState =>
+  ({ ...s, enemies: s.enemies.map((x) => (x.boss ? { ...x, ...e, boss: { ...(x.boss as CaffeineState), ...b } } : x)) });
 /** Same boss, but its move table holds only `id`, so the next attack is that one. */
 const only = (s: GameState, id: string): GameState =>
   ({ ...s, bosses: { ...s.bosses, caffeine: { ...DEF, moves: DEF.moves.filter((m) => m.id === id) } } });
@@ -68,7 +71,7 @@ describe('boss definitions (design doc 5.3)', () => {
   const load = (edit: (raw: typeof RAW) => void) => {
     const raw = structuredClone(RAW);
     edit(raw);
-    return () => loadBossTable([raw], TABLE, PARAMS);
+    return () => loadBossTable([raw, TOAST_RAW], TABLE, PARAMS);
   };
 
   it('loads the caffeine boss with each tier at its telegraph length', () => {

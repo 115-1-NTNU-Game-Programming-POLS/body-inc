@@ -16,5 +16,9 @@ liver.factory.console,2,liver,normal,打它、蓋章都沒用，只能等產線�
 liver.factory.console,3,liver,normal,產線做出來的箱子，請推進第二產線。,,,,
 liver.warehouse.sign,1,liver,normal,產線忙碌中，暫停出貨。,mod.warehouse_locked,,,31
 liver.warehouse.sign,2,liver,normal,喝酒前先吃東西，倉庫才撐得住。,,,,31
+liver.toast.intro,1,narrator,normal,頂樓的系烤會場。敬酒部長拿著麥克風站在正中央。,,,,
+liver.toast.intro,2,toast-boss,pitch,乾了這杯，我們就是一家人！,,,,
+liver.toast.intro,3,narrator,normal,舉起公文夾婉拒，光波就不會變成收貨區的箱子；他每唱完一段要換氣。,,,,
+liver.toast.concede,1,toast-boss,defeated,好啦不勸你了，可是阿凱好像不太對。,,tag:toast_conceded,,
 liver.end,1,narrator,normal,救護車開走了。你改拿烏龍茶，跟學弟妹和大四學長乾杯。,,,,
 liver.end,2,narrator,normal,學長說：「好啊，敬你。」你補一句：「期末 office hour 見。」,,,,

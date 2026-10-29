@@ -20,9 +20,17 @@
     "stamp_void.guards": { "text": "查無可駁回事項\n本件屬入境管制，請找保全。", "fact": "" },
     "forced_nap": { "text": "強制打盹：時鐘前進 1 小時", "fact": "" },
     "boss.caffeine.name": { "text": "續杯經理　卡費因", "fact": "" },
-    "boss.stage.1": { "text": "早晨推銷", "fact": "" },
-    "boss.stage.2": { "text": "耐受", "fact": "33" },
-    "boss.stage.3": { "text": "斷電", "fact": "pending:2" },
+    "boss.caffeine.stage.1": { "text": "早晨推銷", "fact": "" },
+    "boss.caffeine.stage.2": { "text": "耐受", "fact": "33" },
+    "boss.caffeine.stage.3": { "text": "斷電", "fact": "pending:2" },
+    "boss.toast.name": { "text": "敬酒部長", "fact": "" },
+    "boss.toast.stage.1": { "text": "第一巡", "fact": "" },
+    "boss.toast.stage.2": { "text": "第二巡", "fact": "" },
+    "boss.toast.stage.3": { "text": "第三巡", "fact": "" },
+    "boss.toast.breath": { "text": "換氣中：弱點", "fact": "" },
+    "boss.toast.breathing": { "text": "部長在換氣，趁現在！", "fact": "" },
+    "boss.toast.next_round": { "text": "下一巡，節奏加快", "fact": "" },
+    "boss.toast.conceded": { "text": "年度預算歸零：不勸了", "fact": "" },
     "boss.residue": { "text": "殘留 {residue}", "fact": "" },
     "boss.drink": { "text": "續杯！", "fact": "" },
     "boss_stage.2": { "text": "怎麼越喝越沒感覺……", "fact": "33" },
@@ -315,6 +323,7 @@
     "dizzy.true": { "text": "頭暈冒冷汗：肝醣倉庫停止出貨", "fact": "31" },
     "dizzy.false": { "text": "倉庫恢復出貨，血糖回來了", "fact": "21" },
     "hud.dizzy": { "text": "頭暈冒冷汗：空腹喝酒，肝醣倉庫暫停出貨，移速 −15%", "fact": "31" },
-    "hud.line": { "text": "收貨區 {n} 箱　乙醛 {m} 箱", "fact": "" }
+    "hud.line": { "text": "收貨區 {n} 箱　乙醛 {m} 箱", "fact": "" },
+    "hud.work_orders": { "text": "酒精工單 {n} 層：收貨區的箱子拖慢腳步", "fact": "" }
   }
 }

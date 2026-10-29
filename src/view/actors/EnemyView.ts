@@ -13,6 +13,7 @@ export const SKINS: Readonly<Record<string, string>> = {
   dummy: 'suit-base',
   flyer: 'flyer',
   caffeine: 'caffeine',
+  toast: 'toast-boss',
   adenosine: 'adenosine',
   alcohol_barrel: 'alcohol-barrel',
 };

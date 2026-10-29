@@ -1,14 +1,17 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "BossFile",
-  "description": "One boss: budget, stages and move table (architecture section 4, content/bosses). Rules the schema cannot state (telegraph lengths per tier, live windows no longer than the dodge i-frames, the summoned enemy existing) are checked in core/combat/bosses/boss.ts.",
+  "description": "One boss: budget, stages and move table (architecture section 4, content/bosses). Which fields a boss needs depends on its behaviour: caffeine uses stage2Budget to moves, toast uses song and workOrder. Rules the schema cannot state (the fields of each behaviour, telegraph lengths per tier, live windows no longer than the dodge i-frames, the summoned enemy existing) are checked in core/combat/bosses/boss.ts.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["version", "id", "behaviour", "budget", "stage2Budget", "speedTiles", "rangeTiles", "restSeconds", "drink", "summon", "powerCutSeconds", "moves", "notes"],
+  "required": ["version", "id", "behaviour", "budget", "notes"],
   "properties": {
     "version": { "const": 1 },
     "id": { "description": "Matches the boss field of the enemy in content/enemies.json.", "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
-    "behaviour": { "description": "Which core controller runs this boss.", "enum": ["caffeine"] },
+    "behaviour": { "description": "Which core controller runs this boss.", "enum": ["caffeine", "toast"] },
+    "song": { "$ref": "#/$defs/BossSong" },
+    "workOrder": { "$ref": "#/$defs/BossWorkOrder" },
+    "concedeDialogue": { "description": "Toast: the conversation that opens when his budget runs out; it sets whatever lets the chapter go on.", "type": "string", "minLength": 1 },
     "budget": { "description": "Annual budget, the boss's health (design doc 5.8).", "type": "integer", "minimum": 1 },
     "stage2Budget": { "description": "Stage 2 starts once the budget falls to this.", "type": "integer", "minimum": 1 },
     "speedTiles": { "description": "Walking speed in tiles per second before caffeine.", "type": "number", "exclusiveMinimum": 0 },
@@ -21,6 +24,50 @@
     "notes": { "description": "Provenance of the numbers (DOC, ASSUME), as in content/params.json.", "type": "object", "additionalProperties": { "type": "string" } }
   },
   "$defs": {
+    "BossSong": {
+      "description": "Toast: the song of 乾杯三巡 (design doc 7.7). Each round sings its lines, one ring of toast waves per line, then breathes; after the last round the last one repeats.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["wakeTiles", "introSeconds", "rounds", "breathSeconds", "breathDamageFactor", "ring"],
+      "properties": {
+        "wakeTiles": { "description": "He waits, silent, until the operator comes this close; the room's intro conversation should fire before that.", "type": "number", "exclusiveMinimum": 0 },
+        "introSeconds": { "description": "From waking to the first line.", "type": "number", "minimum": 0 },
+        "rounds": { "description": "At most three, one per stage of the nameplate.", "type": "array", "minItems": 1, "maxItems": 3, "items": { "$ref": "#/$defs/BossRound" } },
+        "breathSeconds": { "description": "The breath after each round's last line, his weak point.", "type": "number", "exclusiveMinimum": 0 },
+        "breathDamageFactor": { "description": "Damage multiplier while he breathes.", "type": "number", "minimum": 1 },
+        "ring": { "$ref": "#/$defs/BossRing" }
+      }
+    },
+    "BossRound": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["lines", "beatSeconds"],
+      "properties": {
+        "lines": { "description": "Lines sung this round, one wave each.", "type": "integer", "minimum": 1 },
+        "beatSeconds": { "description": "From one wave to the next; no shorter than the tier-1 telegraph.", "type": "number", "exclusiveMinimum": 0 }
+      }
+    },
+    "BossRing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["shots", "shotSpeedTiles", "rangeTiles", "cups"],
+      "properties": {
+        "shots": { "description": "Shots evenly round the ring, one aimed at the operator.", "type": "integer", "minimum": 1 },
+        "shotSpeedTiles": { "type": "number", "exclusiveMinimum": 0 },
+        "rangeTiles": { "type": "number", "exclusiveMinimum": 0 },
+        "cups": { "description": "Cups one landed wave adds to the liver's receiving area.", "type": "integer", "minimum": 1 }
+      }
+    },
+    "BossWorkOrder": {
+      "description": "Toast: alcohol work orders on the operator while he sings, one per cup waiting in receiving.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["slowPerStack", "maxStacks"],
+      "properties": {
+        "slowPerStack": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
+        "maxStacks": { "type": "integer", "minimum": 1 }
+      }
+    },
     "BossDrink": {
       "type": "object",
       "additionalProperties": false,

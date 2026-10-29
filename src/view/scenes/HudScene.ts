@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import type { FixedStepLoop } from '../../app/loop.ts';
 import {
   acetaldehydeCrates, GLUCOSE as METER, glucoseOf, isDizzy, MINUTES_PER_DAY, selectBoss, selectClock, selectFactory, selectGauge, selectHearts, selectInteractable,
-  selectTick, selectTool, TICK_HZ, waitingCrates,
+  selectTick, selectTool, TICK_HZ, waitingCrates, workOrders,
   type BossSummary, type ChapterState, type GameEvent, type GameState,
 } from '../../core/index.ts';
 import { str, TAGS } from '../../app/content.ts';
@@ -221,12 +221,12 @@ export class HudScene extends Phaser.Scene {
       this.clock.setY(this.controls.y + this.controls.displayHeight + 2);
     }
     const p = this.plate;
-    if (time - p.lastSample >= CURVE.everyMs) {
+    if (boss.caffeine && time - p.lastSample >= CURVE.everyMs) {
       p.lastSample = time;
-      p.history.push(boss.residue);
+      p.history.push(boss.caffeine.residue);
       if (p.history.length > CURVE.samples) p.history.shift();
     }
-    const key = `${boss.budget}/${boss.stage}/${p.history.length}/${p.lastSample}/${boss.defeated}`;
+    const key = `${boss.budget}/${boss.stage}/${p.history.length}/${p.lastSample}/${boss.defeated}/${boss.breathing}`;
     if (key === p.shown) return;
     p.shown = key;
     this.drawPlate(p, boss);
@@ -256,18 +256,21 @@ export class HudScene extends Phaser.Scene {
       g.lineStyle(2, INK, 1).strokeCircle(dx + i * 12, PLATE.y + 22, 4);
       if (i < boss.stage) g.fillStyle(INK).fillCircle(dx + i * 12, PLATE.y + 22, 4);
     }
-    updateText(p.stage, str(`boss.stage.${boss.stage}`));
+    updateText(p.stage, boss.breathing ? str(`boss.${boss.type}.breath`) : str(`boss.${boss.type}.stage.${boss.stage}`));
     // Annual budget bar, in ink: red belongs to warnings and the stamp (art direction 3.2).
     const bw = CURVE.x - 24 - (PLATE.x + 16);
     g.fillStyle(INK).fillRect(PLATE.x + 16, PLATE.y + 48, bw, 14);
     g.fillStyle(PAPER).fillRect(PLATE.x + 18, PLATE.y + 50, bw - 4, 10);
     g.fillStyle(INK).fillRect(PLATE.x + 18, PLATE.y + 50, Math.round(((bw - 4) * boss.budget) / boss.maxBudget), 10);
 
-    // Residue curve with the boost threshold dashed across it.
+    // Residue curve with the boost threshold dashed across it; only caffeine has one.
+    const caffeine = boss.caffeine;
+    p.residue.setVisible(caffeine !== undefined);
+    if (!caffeine) return;
     const top = Math.max(200, ...p.history);
     const yOf = (v: number) => CURVE.y + CURVE.h - (v / top) * CURVE.h;
     g.lineStyle(1, INK, 0.5).strokeRect(CURVE.x, CURVE.y, CURVE.w, CURVE.h);
-    const ty = Math.round(yOf(boss.boostMin));
+    const ty = Math.round(yOf(caffeine.boostMin));
     for (let x = CURVE.x; x < CURVE.x + CURVE.w; x += 6) g.fillStyle(INK, 0.6).fillRect(x, ty, 3, 1);
     g.lineStyle(2, INK, 1).beginPath();
     p.history.forEach((v, i) => {
@@ -276,7 +279,7 @@ export class HudScene extends Phaser.Scene {
       else g.lineTo(x, yOf(v));
     });
     g.strokePath();
-    updateText(p.residue, str('boss.residue').replace('{residue}', String(Math.round(boss.residue))));
+    updateText(p.residue, str('boss.residue').replace('{residue}', String(Math.round(caffeine.residue))));
   }
 
   override update(time: number): void {
@@ -321,6 +324,8 @@ export class HudScene extends Phaser.Scene {
     if (selectFactory(state.game)) {
       lines.push(str('hud.line').replace('{n}', String(waitingCrates(state.run.tags, TAGS))).replace('{m}', String(acetaldehydeCrates(state.run.tags, TAGS))));
     }
+    const orders = workOrders(state.game, waitingCrates(state.run.tags, TAGS)).stacks;
+    if (orders > 0) lines.push(str('hud.work_orders').replace('{n}', String(orders)));
     const dizzy = glucoseOf(state.run.tags) !== undefined && isDizzy(state.run.tags);
     if (dizzy) lines.push(str('hud.dizzy'));
     this.haze.setVisible(dizzy);
