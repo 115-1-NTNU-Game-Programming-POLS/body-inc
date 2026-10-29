@@ -3,8 +3,8 @@ import { describe, expect, it } from 'vitest';
 import { BOSSES, DECKS, DIALOGUES, ENEMIES, PARAMS, RESCUES, STRINGS, TAGS } from '../../src/app/content.ts';
 import { tagsFromQuery } from '../../src/app/session.ts';
 import {
-  amount, arrivalPoint, bossStringKeys, boxAt, BossTableError, createGame, FOLDER, holds, loadBossTable, NO_INPUT, parseRoom, readContent, roomsOf,
-  selectBoss, STAMP, STAMP_LAND, startChapter, stateHash, step, stepChapter, TELEGRAPH, TILE, workOrders,
+  amount, arrivalPoint, bossStringKeys, boxAt, BossTableError, createGame, FOLDER, holds, leaveNode, loadBossTable, NO_INPUT, openDialogue, parseRoom,
+  readContent, roomsOf, selectBoss, selectDialogue, STAMP, STAMP_LAND, startChapter, stateHash, step, stepChapter, TELEGRAPH, TILE, workOrders,
   type CaffeineParams, type ChapterContent, type ChapterState, type DomainEvent, type EnemyState, type EnteredRoom, type GameEvent,
   type GameState, type Shot, type TickInput, type TiledMap, type ToastDef, type ToastState,
 } from '../../src/core/index.ts';
@@ -109,6 +109,34 @@ describe('the toast boss definition (design doc 7.7)', () => {
       'boss "caffeine": a caffeine boss needs summon',
       'boss "caffeine": workOrder belongs to another behaviour; a caffeine boss does not read it',
     ]);
+  });
+
+  it('his intro offers the operator\'s reply of design doc 10.2, and both replies reach the tutorial line', () => {
+    /** Spoken lines in order, taking reply `pick` (0-based) wherever replies are offered. */
+    const walk = (id: string, pick: number): string[] => {
+      const said: string[] = [];
+      for (let s = openDialogue(DIALOGUES, id, () => true); s; s = leaveNode(DIALOGUES, s, () => true)) {
+        if (s.options.length > 0) s = { ...s, cursor: pick };
+        else said.push(DIALOGUES.get(id)!.lines[s.at]!.text);
+      }
+      return said;
+    };
+    const replies = (() => {
+      const s = openDialogue(DIALOGUES, 'liver.toast.intro', () => true)!;
+      return selectDialogue(DIALOGUES, leaveNode(DIALOGUES, s, () => true))!.options;
+    })();
+    expect(replies).toEqual(['我已經有家人了。', '我喝烏龍茶就好。']);
+    for (const pick of [0, 1]) {
+      const said = walk('liver.toast.intro', pick);
+      expect(said[0]).toBe('乾了這杯，我們就是一家人！');
+      expect(said).toHaveLength(3);
+      expect(said[2]).toContain('婉拒');
+    }
+    expect(walk('liver.toast.intro', 0)[1]).not.toBe(walk('liver.toast.intro', 1)[1]);
+    // Design doc 7.7's revised slogan, every clause, and rule 1 of section 11.2: he owns up to the reasonable use.
+    const end = walk('liver.end', 0).join('');
+    for (const clause of ['敬酒不勸酒', '說不要就是不要', '現場備有無酒精飲料', '未滿 18 歲不得供酒', '喝酒前先吃東西', '少量']) expect(end).toContain(clause);
+    expect(walk('liver.end', 0).length).toBeLessThanOrEqual(3);
   });
 
   it('every nameplate string exists, and the concession is a real conversation that sets the tag the door waits on', () => {
