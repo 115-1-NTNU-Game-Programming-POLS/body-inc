@@ -126,6 +126,15 @@ describe('content check (build plan S4)', () => {
     expect(problems).toContainEqual(expect.stringMatching(/speakers\.json speakers\.gut\.portrait：缺少必填欄位「portrait」/));
   });
 
+  it('a boss needs every nameplate string, and a toast boss a concession that exists', () => {
+    const dir = contentCopy();
+    edit(dir, 'bosses/toast.json', (j) => { j.concedeDialogue = 'liver.toast.concedes'; });
+    expect(checkContent(dir)).toEqual([expect.stringMatching(/bosses\/toast\.json：concedeDialogue「liver\.toast\.concedes」不存在於對話/)]);
+    const dir2 = contentCopy();
+    edit(dir2, 'strings/zh-TW.json', (j) => { delete j.strings['boss.toast.breath']; });
+    expect(checkContent(dir2)).toEqual([expect.stringMatching(/zh-TW\.json：Boss「toast」的名牌需要「boss\.toast\.breath」/)]);
+  });
+
   it('checks feedback notes against every strings file', () => {
     const dir = contentCopy();
     edit(dir, 'strings/zh-TW.json', (j) => { delete j.strings['solution.guards']; });

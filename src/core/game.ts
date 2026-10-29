@@ -799,7 +799,9 @@ export function step(state: GameState, pressed: TickInput): StepResult {
   // Hitting a cheers kid is no answer (design doc 7.7): he only backs off, and nothing is charged,
   // so he cannot be farmed for the gauge. Only refusals close his case.
   const shoo = (e: EnemyState): void => {
-    enemies.set(e.id, backOff(e));
+    const off = backOff(e);
+    if (off === e) return;
+    enemies.set(e.id, off);
     events.push({ type: 'backedOff', target: e.id, enemy: e.type });
   };
 
@@ -1201,9 +1203,10 @@ export function selectBoss(s: GameState): BossSummary | undefined {
 }
 
 /**
- * Alcohol work orders on the operator (design doc 7.7): while a toast boss sings in the room, one
- * per cup waiting in receiving, up to the boss's cap, each a slow. 0 without one, and 0 while he
- * still waits for the operator to come in.
+ * Alcohol work orders on the operator (design doc 7.7): once a toast boss in the room is awake, one
+ * per cup waiting in receiving, up to the boss's cap, each a slow. His breath does not lift them:
+ * the doc has them ease only as the line works the cups off. 0 without one, and 0 while he still
+ * waits for the operator to come in.
  */
 export function workOrders(s: GameState, waiting: number): { readonly stacks: number; readonly slow: number } {
   const e = s.enemies.find((x) => x.boss?.behaviour === 'toast' && x.phase !== 'closed' && (x.boss as ToastState).part !== 'wait');

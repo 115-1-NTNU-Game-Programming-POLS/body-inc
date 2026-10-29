@@ -255,7 +255,8 @@ describe('his weak point and his concession (design doc 7.7)', () => {
 });
 
 describe('alcohol work orders (design doc 7.7)', () => {
-  it('one per waiting cup while he sings, at most three, five percent each', () => {
+  it('one per waiting cup once he is awake, at most three, five percent each; his breath does not lift them', () => {
+    expect(workOrders(withBoss(fight(), { part: 'breath' }), 2)).toEqual({ stacks: 2, slow: 0.1 });
     expect(workOrders(fight(), 2)).toEqual({ stacks: 0, slow: 0 });
     const g = run(fight(), 1).state;
     expect(boss(g).boss.part).toBe('intro');
@@ -334,7 +335,24 @@ describe('the venue in the liver chapter', () => {
     }
   });
 
-  it('cups waiting in receiving slow the operator while he sings, under the 15% cap with dizziness', () => {
+  it('his cups and the refusals of them are logged under his name, and a refusal counts like any other', () => {
+    const withShot = (s: ChapterState, guard: boolean): ChapterState => {
+      const g = guard ? guarding(s.game) : s.game;
+      return { ...s, game: { ...g, shots: [onOperator(g, g.nextId, 1)], nextId: g.nextId + 1 } };
+    };
+    const keys = (s: ChapterState) => s.run.tags.log.nodes.map((n) => `${n.kind}:${n.key}`);
+    const landed = go(withShot(singing(at()), false), NONE, 1).state;
+    expect(keys(landed)).toContain('event:toast.toast');
+    expect(keys(landed)).not.toContain('event:cheers.toast');
+    expect(amount(landed.run.tags, TAGS, 'alcohol')).toBe(1);
+    const refused = go(withShot(singing(at()), true), { ...NONE, attack: true }, 1);
+    expect(keys(refused.state)).toContain('choice:refuse.toast');
+    expect(keys(refused.state)).not.toContain('choice:refuse.cheers');
+    expect(amount(refused.state.run.tags, TAGS, 'refusals')).toBe(1);
+    expect(refused.events).toContainEqual({ type: 'refusalSaid', line: 1 });
+  });
+
+  it('cups waiting in receiving slow the operator once he is awake, under the 15% cap with dizziness', () => {
     // At the west door he still waits for the operator to come in: no work orders yet.
     expect(go(at('alcohol:2'), NONE, 1).state.game.operator.bodySlow).toBeUndefined();
     expect(go(singing(at('alcohol:2')), NONE, 1).state.game.operator.bodySlow).toBeCloseTo(0.1);

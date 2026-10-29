@@ -572,7 +572,11 @@ function stepRoom(ctx: ChapterContent, state: ChapterState, input: TickInput): C
       case 'toasted':
       case 'refused': {
         // Like a crate, counted at once, so a time clock punched later in the tick saves it.
-        const out = e.type === 'toasted' ? onToast(ctx.dict, run.tags, game.clock, e, ctx.params) : onRefusal(ctx.dict, run.tags, game.clock, ctx.params);
+        // A thrower stays in the room's enemies after his case closes, so his wave still has a name.
+        const from = game.enemies.find((x) => x.id === e.source)?.type ?? 'cheers';
+        const out = e.type === 'toasted'
+          ? onToast(ctx.dict, run.tags, game.clock, e, from, ctx.params)
+          : onRefusal(ctx.dict, run.tags, game.clock, from, ctx.params);
         run = { ...run, tags: out.tags };
         extra.push(...out.events);
         break;

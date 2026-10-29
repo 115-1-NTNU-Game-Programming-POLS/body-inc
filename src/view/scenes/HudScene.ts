@@ -154,7 +154,8 @@ export class HudScene extends Phaser.Scene {
     this.tweens.add({
       targets: text, alpha: 0, delay: (NOTE_SECONDS - 0.4) * 1000, duration: 400,
       onComplete: () => {
-        this.notes.splice(this.notes.indexOf(text), 1);
+        const i = this.notes.indexOf(text);
+        if (i >= 0) this.notes.splice(i, 1);
         text.destroy();
       },
     });

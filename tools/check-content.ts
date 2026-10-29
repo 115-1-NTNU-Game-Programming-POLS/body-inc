@@ -12,6 +12,7 @@ import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { feedbackProblems, noteFields } from '../src/app/feedback.ts';
 import { handbookProblems } from '../src/app/handbook.ts';
+import { parseCsv } from '../src/core/dialogue/csv.ts';
 import type { ContentTypes, RescueProblemCode, SchemaName, SchemaProblem, TagDictionary } from '../src/core/index.ts';
 import {
   bossStringKeys, BossTableError, DictionaryError, EnemyTableError, HOST_TOKEN, OPERATOR_SPEAKER, loadBossTable, loadDictionary, loadEnemyTable, readRescues, RESCUE_PANEL_KEYS, rescueStringKeys, schemaProblems,
@@ -103,6 +104,18 @@ function walk(dir: string): string[] {
   });
 }
 
+/** Ids of the conversations in content/dialogue; whether the CSVs are well formed is check-dialogue's to say. */
+function dialogueIds(contentDir: string): Set<string> {
+  const ids = new Set<string>();
+  const dir = join(contentDir, 'dialogue');
+  if (!existsSync(dir)) return ids;
+  for (const f of readdirSync(dir).filter((n) => n.endsWith('.csv'))) {
+    const [, ...rows] = parseCsv(readFileSync(join(dir, f), 'utf8').replace(/^﻿/, ''));
+    for (const r of rows) if ((r[0] ?? '').trim() !== '') ids.add(r[0]!.trim());
+  }
+  return ids;
+}
+
 /** Loader errors become problems; any other exception is a bug and propagates. */
 function loaderProblems(file: string, load: () => void): string[] {
   try {
@@ -179,6 +192,14 @@ export function checkContent(contentDir: string): string[] {
       for (const [, s] of strings) {
         const have = (s.value as ContentTypes['strings']).strings;
         for (const k of bossStringKeys(e.id, def)) if (!have[k]) out.push(`${s.file}：Boss「${e.id}」的名牌需要「${k}」`);
+      }
+    }
+    // The chapter opens it the moment his budget runs out; a missing id would stop the game mid-fight.
+    const ids = dialogueIds(contentDir);
+    for (const def of bosses?.values() ?? []) {
+      if (def.behaviour === 'toast' && !ids.has(def.concedeDialogue)) {
+        const file = bossFiles.find(([, v]) => (v.value as ContentTypes['boss']).id === def.id)?.[1].file ?? where;
+        out.push(`${file}：concedeDialogue「${def.concedeDialogue}」不存在於對話（content/dialogue/*.csv）`);
       }
     }
   }

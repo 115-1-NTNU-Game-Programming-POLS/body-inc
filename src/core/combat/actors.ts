@@ -46,6 +46,8 @@ export interface EnemyState {
   readonly boss?: BossState;
   /** Id of the boss that summoned this enemy; summoned enemies leave on a forced leave. */
   readonly summoner?: number;
+  /** Cheers kid: a weapon has made him back off since his last toast, so the next one cannot. */
+  readonly shooed?: true;
 }
 
 export const ENEMY_BODY: Body = { halfW: 7, height: 10 };
@@ -143,8 +145,14 @@ export function stepEnemy(grid: SolidGrid, e0: EnemyState, target: Vec, senseRan
 
 type Out = (enemy: EnemyState, flags?: Partial<Omit<EnemyStep, 'enemy'>>) => EnemyStep;
 
-/** A weapon on a cheers kid only makes him back off (design doc 7.7): no damage, and a wind-up is called off. */
-export const backOff = (e: EnemyState): EnemyState => to(e, 'recover', { strikeSpent: true });
+/**
+ * A weapon on a cheers kid only makes him back off for a while (design doc 7.7: 暫時退開), and
+ * only once between two toasts: otherwise held stapler fire, a staple every 10 ticks against a
+ * 45-tick back-off, would keep him from ever toasting, and refusing is meant to be the only answer.
+ * A raised cup is not lowered. Returns the kid unchanged when the weapon does nothing.
+ */
+export const backOff = (e: EnemyState): EnemyState =>
+  e.shooed || e.phase === 'windup' ? e : to(e, 'recover', { strikeSpent: true, shooed: true });
 
 /**
  * Cheers kid: keeps to a ring round the operator and walks round it; once CHEERS.circleTicks have
@@ -177,7 +185,8 @@ function stepCheers(grid: SolidGrid, e: EnemyState, target: Vec, out: Out): Enem
       const ax = target.x - e.x;
       const ay = target.y - 4 - oy;
       const len = Math.hypot(ax, ay) || 1;
-      return out(to(e, 'strike'), {
+      const { shooed: _, ...toasted } = e;
+      return out(to(toasted, 'strike'), {
         shots: [{
           owner: e.id, kind: 'toast', x: e.x, y: oy, vx: (ax / len) * CHEERS.shotSpeed, vy: (ay / len) * CHEERS.shotSpeed,
           ticksLeft: Math.ceil(CHEERS.shotRangePx / CHEERS.shotSpeed), halves: 0, cups: CHEERS.cupsPerWave, half: CHEERS.shotHalf,

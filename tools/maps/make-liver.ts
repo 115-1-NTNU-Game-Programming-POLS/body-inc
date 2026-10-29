@@ -6,7 +6,7 @@
  *              intake fed by a belt along the south wall; the east door opens once receiving is empty
  *   warehouse  the glycogen warehouse with the liver's sign; the fasting page appears once dizzy
  *   rooftop    the venue where the toast boss sings (乾杯三巡); the east door opens once he gives up
- *   corner    the classmate who will not wake up: the rescue, then the end of the night
+ *   corner     the classmate who will not wake up: the rescue, then the end of the night
  *
  * Real art and layout come later; this places every L1 mechanism once, wired as an author would.
  *
