@@ -162,6 +162,35 @@ export const FLYER = {
 } as const;
 
 /**
+ * Cheers kid (乾杯小弟, design doc 7.7): circles the operator on a ring and, after a tier-1
+ * telegraph, sends a toast wave aimed where the operator stands at release. A wave that lands
+ * costs no heart but adds a cup to the liver's receiving; one the folder's guard meets is a
+ * refusal (婉拒), and his performance in content/enemies.json (3) counts refusals instead of hits:
+ * the last one sends him off, the only way to close his case. Weapons only make him back off.
+ * The ring, speeds, the orbit time and the pauses are placeholders the design doc does not fix.
+ */
+export const CHEERS = {
+  speed: tilesPerSecond(1.5),
+  nearPx: 2.5 * TILE,
+  farPx: 4 * TILE,
+  /**
+   * Ticks spent circling on the ring before each toast. Each landed cup costs the liver about
+   * 1.5 minutes of exploring, so a short orbit buries a player who has not learned to refuse yet.
+   */
+  circleTicks: 120,
+  windupTicks: TELEGRAPH.tier1Ticks,
+  throwTicks: 8,
+  /** Backs away for this long after a toast, and after any weapon lands on him. */
+  backOffTicks: 45,
+  shotSpeed: tilesPerSecond(3.5),
+  shotRangePx: 7 * TILE,
+  shotHalf: 4,
+  cupsPerWave: 1,
+  /** Total refusals in a run after which the kid hands over the handbook page (design doc 7.7). */
+  refusalsForPage: 10,
+} as const;
+
+/**
  * Rules shared by every boss (design doc 5.4): the stamp takes 40 budget; a stamp on a tier-3
  * proposal cancels it and puts the boss under review for 4 s, taking 1.5 times damage.
  */

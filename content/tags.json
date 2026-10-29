@@ -11,6 +11,7 @@
     { "name": "sugar_fatigue", "type": "boolean", "sources": ["card", "event"], "duration": "hours", "hours": 2, "facts": ["13"] },
     { "name": "late_snack", "type": "boolean", "sources": ["card"], "duration": "nextDay", "facts": ["14"] },
     { "name": "alcohol", "type": "number", "unit": "cups", "sources": ["event"], "duration": "persistent", "facts": ["22", "29", "pending:4"] },
+    { "name": "refusals", "type": "number", "unit": "times", "sources": ["rule"], "duration": "persistent", "facts": ["general"] },
     { "name": "acetaldehyde", "type": "number", "unit": "crates", "sources": ["rule"], "duration": "persistent", "facts": ["pending:4"] },
     { "name": "dizzy", "type": "boolean", "sources": ["rule"], "duration": "untilWake", "facts": ["31"] },
     { "name": "roommate", "type": "boolean", "sources": ["card"], "duration": "untilWake", "facts": ["general"] },

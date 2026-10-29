@@ -26,8 +26,8 @@
         "id": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
         "category": { "enum": ["defeatable", "reforming", "immune"] },
         "solution": { "description": "Key into solutions; required for reforming and immune enemies, absent for defeatable ones.", "type": "string" },
-        "archetype": { "description": "One of the five shared behaviours of design doc 5.3.", "enum": ["salesman", "flyer", "manager", "convener", "contractor"] },
-        "performance": { "description": "Hits to close the case; defeatable enemies only.", "type": "integer", "minimum": 1 },
+        "archetype": { "description": "One of the five shared behaviours of design doc 5.3, or the cheers kid of design doc 7.7, who is closed by refusals and not by hits.", "enum": ["salesman", "flyer", "manager", "convener", "contractor", "cheers"] },
+        "performance": { "description": "Hits to close the case, or for the cheers kid the refusals; defeatable enemies only.", "type": "integer", "minimum": 1 },
         "clings": { "description": "Drifts toward the operator and clings on contact, one slow stack each (design doc 5.5); reforming enemies only.", "type": "boolean" },
         "boss": { "description": "Id of the file in content/bosses that runs this enemy; its budget replaces performance and its moves replace an archetype.", "type": "string" }
       }

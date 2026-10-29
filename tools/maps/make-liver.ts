@@ -1,7 +1,7 @@
 /**
  * Writes the greybox liver chapter (design doc 7.7, build plan L1): public/assets/maps/liver/*.tmj.
  *
- *   party      start; the time clock, the three sobering-up myth stalls, the toast card on the way out
+ *   party      start; the time clock, the three sobering-up myth stalls, two cheers kids, the toast card on the way out
  *   factory    the dock where alcohol crates wait, the outlet of the first line and the second line's
  *              intake fed by a belt along the south wall; the east door opens once receiving is empty
  *   warehouse  the glycogen warehouse with the liver's sign; the fasting page appears once dizzy
@@ -25,6 +25,8 @@ const npc = (id: number, npcId: string, dialogueId: string, col: number, row: nu
   point(id, npcId, 'NPC', col * T + 16, row * T + 16, [str('npcId', undefined, npcId), str('dialogueId', undefined, dialogueId)]);
 const trigger = (id: number, name: string, event: string, eventId: string, col: number, row: number, cols: number, rows: number) =>
   rect(id, name, 'Trigger', col * T, row * T, cols * T, rows * T, [str('event', 'TriggerEvent', event), ...(eventId ? [str('eventId', undefined, eventId)] : [])]);
+const spawn = (id: number, enemyType: string, col: number, row: number) =>
+  point(id, enemyType, 'Spawn', col * T + 16, row * T + 16, [str('enemyType', 'EnemyType', enemyType)]);
 const handbook = (id: number, page: string, col: number, row: number, when = '') =>
   point(id, page, 'Pickup', col * T + 16, row * T + 16, [str('itemType', 'ItemType', 'handbook'), str('itemId', undefined, page), ...(when ? [str('when', undefined, when)] : [])]);
 const line = (id: number, stage: string, col: number, row: number, cols: number, rows: number) =>
@@ -90,6 +92,9 @@ const room = (s: Shell, role: string, est: number, objects: { id: number }[]) =>
     npc(6, 'stall-throat', 'liver.stall.throat', 13, 4),
     // Across the way out, so the toast card comes once the stalls are behind the operator.
     trigger(7, 'toast', 'card', 'toast', 16, 3, 1, 8),
+    // Two cheers kids between the stalls and the way out: only the folder's guard sends them off.
+    spawn(8, 'cheers', 9, 8),
+    spawn(9, 'cheers', 13, 9),
   ]));
 }
 
