@@ -37,6 +37,8 @@ const ALL_EVENTS: Record<GameEvent['type'], true> = {
   roomChanged: true, dialogueOpened: true, dialogueClosed: true, handbookUnlocked: true, bedRefused: true, napped: true,
   checkpointSaved: true, clockAdvanced: true, cardOpened: true, cardChosen: true, toolGranted: true, glucoseRefilled: true, dizzyChanged: true,
   rescueOpened: true, rescueStep: true, rescueDone: true,
+  examStarted: true, examQuestion: true, examAnswered: true, examBreak: true, examFinished: true, proofStamped: true, bonusShown: true, examHit: true, examStacked: true,
+  examForecast: true, examResult: true, examClosed: true,
   outerRequested: true, returnedToCheckpoint: true, chapterEnded: true,
 };
 /** Every event type core can emit; a feedback key outside this list is a typo. */
@@ -95,6 +97,8 @@ export function noteFields(table: EnemyTable): NoteFields {
     pickedUp: { itemType: [...NOTED_ITEMS] },
     dizzyChanged: { dizzy: ['true', 'false'] },
     refusalSaid: { line: Array.from({ length: REFUSAL.lines }, (_, i) => String(i + 1)) },
+    examAnswered: { how: ['solved', 'time', 'stacks'] },
+    proofStamped: { ok: ['true', 'false'] },
   };
 }
 

@@ -43,6 +43,8 @@ export interface MapContent {
   readonly cardIds?: ReadonlyMap<string, ReadonlySet<string>>;
   /** Rescue ids, read loosely from content/rescue.json: what is wrong inside one is check-content's to say. */
   readonly rescueIds?: ReadonlySet<string>;
+  /** Exam ids: the file names in content/exams, whose insides are check-content's to judge. */
+  readonly examIds?: ReadonlySet<string>;
   /** Chapter files by chapter id; a file that fails to parse or its schema is left out and reported in `problems`. */
   readonly chapters?: ReadonlyMap<string, ChapterFile>;
   /** Problems found while reading content (a chapter file that does not parse), reported first. */
@@ -108,6 +110,8 @@ export function loadMapContent(contentDir = join(ROOT, 'content')): MapContent {
       // A rescue file that does not parse is check-content's to report.
     }
   }
+  const examDir = join(contentDir, 'exams');
+  const examIds = new Set(existsSync(examDir) ? readdirSync(examDir).filter((n) => n.endsWith('.json')).map((n) => basename(n, '.json')) : []);
   return {
     dict: loadDictionary(json('tags.json')),
     enemies: loadEnemyTable(json('enemies.json')),
@@ -115,6 +119,7 @@ export function loadMapContent(contentDir = join(ROOT, 'content')): MapContent {
     handbookIds: new Set(handbook.map((p) => p.id)),
     cardIds,
     rescueIds,
+    examIds,
     chapters,
     problems,
   };
@@ -260,6 +265,9 @@ export function checkMaps(mapsDir: string, content: MapContent = loadMapContent(
       }
       if (o.kind === 'Trigger' && o.props['event'] === 'rescue' && !content.rescueIds?.has(id)) {
         out.push(`${file} ${where(room, { object: o.id })}：eventId「${id}」不存在於急救（content/rescue.json 的 rescues）`);
+      }
+      if (o.kind === 'Trigger' && o.props['event'] === 'exam' && !content.examIds?.has(id)) {
+        out.push(`${file} ${where(room, { object: o.id })}：eventId「${id}」不存在於考試（content/exams/*.json）`);
       }
       if (o.kind === 'Trigger' && o.props['event'] === 'clock_advance' && wholeMinutes(id) === undefined) {
         out.push(`${file} ${where(room, { object: o.id })}：clock_advance 的 eventId「${id}」必須是分鐘數，1 到 4 位數的整數，例如 20`);

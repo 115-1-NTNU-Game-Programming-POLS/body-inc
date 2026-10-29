@@ -32,7 +32,11 @@
     { "name": "exercise", "type": "boolean", "sources": ["card"], "duration": "untilWake", "facts": ["24", "pending:17"] },
     { "name": "skipped_dinner", "type": "boolean", "sources": ["rule"], "duration": "untilWake", "facts": ["pending:28"] },
     { "name": "comparison", "type": "boolean", "sources": ["event"], "duration": "untilWake", "facts": ["pending:30"] },
-    { "name": "core_dump", "type": "boolean", "sources": ["event"], "duration": "nextDay", "facts": ["17"] }
+    { "name": "core_dump", "type": "boolean", "sources": ["event"], "duration": "nextDay", "facts": ["17"] },
+    { "name": "exam_practice", "type": "number", "unit": "percent", "sources": ["card"], "duration": "persistent", "facts": ["general"] },
+    { "name": "exam_archived", "type": "number", "unit": "percent", "sources": ["card"], "duration": "persistent", "facts": ["17"] },
+    { "name": "midterm_score", "type": "number", "unit": "points", "sources": ["rule"], "duration": "persistent", "facts": ["general"] },
+    { "name": "midterm_taken", "type": "boolean", "sources": ["rule"], "duration": "persistent", "facts": ["general"] }
   ],
   "modifiers": [
     { "name": "mod.adenosine_sleepy", "when": "sleep_debt>0", "facts": ["pending:1"] },

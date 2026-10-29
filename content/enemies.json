@@ -5,7 +5,8 @@
     "conveyor": { "object": "Conveyor" },
     "guards": {},
     "territory": {},
-    "refuse": {}
+    "refuse": {},
+    "answer": {}
   },
   "enemies": [
     { "id": "salesman", "category": "defeatable", "archetype": "salesman", "performance": 4 },
@@ -19,6 +20,9 @@
     { "id": "adenosine", "category": "reforming", "solution": "sleep", "clings": true },
     { "id": "opportunist_bacteria", "category": "reforming", "solution": "territory" },
     { "id": "alcohol_barrel", "category": "immune", "solution": "conveyor" },
-    { "id": "cold_virus", "category": "immune", "solution": "guards" }
+    { "id": "cold_virus", "category": "immune", "solution": "guards" },
+    { "id": "exam_paper", "category": "immune", "solution": "answer" },
+    { "id": "testcase", "category": "defeatable", "archetype": "testcase", "performance": 1 },
+    { "id": "testcase_bonus", "category": "defeatable", "archetype": "testcase", "performance": 1 }
   ]
 }

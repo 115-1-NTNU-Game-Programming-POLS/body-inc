@@ -1,8 +1,8 @@
 import Phaser from 'phaser';
 import type { FixedStepLoop } from '../../app/loop.ts';
 import {
-  acetaldehydeCrates, GLUCOSE as METER, glucoseOf, isDizzy, MINUTES_PER_DAY, selectBoss, selectClock, selectFactory, selectGauge, selectHearts, selectInteractable,
-  selectTick, selectTool, TICK_HZ, waitingCrates, workOrders,
+  acetaldehydeCrates, GLUCOSE as METER, glucoseOf, isDizzy, MINUTES_PER_DAY, questionOf, selectBoss, selectClock, selectExam, selectFactory, selectGauge, selectHearts,
+  selectInteractable, selectTick, selectTool, stepAt, TICK_HZ, waitingCrates, workOrders,
   type BossSummary, type ChapterState, type GameEvent, type GameState,
 } from '../../core/index.ts';
 import { str, TAGS } from '../../app/content.ts';
@@ -32,6 +32,33 @@ const CURVE = { x: 708, y: 24, w: 160, h: 32, samples: 160, everyMs: 250 } as co
 const PAPER = 0xf4efe4;
 /** Glucose meter, beside the stamp pad on the same row. Not in art direction 8.3, which predates the prologue rules. */
 const GLUCOSE = { x: GAUGE_X + GAUGE_W + 20, w: 160 } as const;
+
+/**
+ * While an exam is sat: the question, its number in the segment and the seconds left, what is
+ * left to answer, and the hits taken this segment. Between segments, what comes next.
+ */
+function examLines(game: GameState): string[] {
+  const exam = selectExam(game);
+  if (!exam || exam.state.part === 'done') return [];
+  const { state: s, def } = exam;
+  const label = (segment: number) => str(`exam.${def.id}.segment.${def.segments[segment]!.kind}`);
+  if (s.part === 'break') return [str('exam.hud.break').replace('{label}', label(s.segment + 1))];
+  const seg = def.segments[s.segment]!;
+  const all = seg.stages.flatMap((st) => st.questions);
+  const q = questionOf(def, s);
+  const left = Math.max(0, Math.ceil((q.ticks - (s.part === 'run' ? s.ticks : q.ticks)) / TICK_HZ));
+  const prompt = str(`exam.${def.id}.${q.id}.prompt`);
+  const lines = [str('exam.hud.question').replace('{label}', label(s.segment)).replace('{n}', String(all.indexOf(q) + 1))
+    .replace('{total}', String(all.length)).replace('{seconds}', String(left))];
+  if (s.part === 'run' && q.steps > 0) {
+    lines.push(str('exam.hud.step').replace('{text}', prompt).replace('{value}', str(`exam.${def.id}.${q.id}.step.${s.next + 1}`)));
+  } else if (s.part === 'run') {
+    const open = s.cases.filter((id) => game.enemies.find((e) => e.id === id)?.phase !== 'closed').length;
+    lines.push(str('exam.hud.cases').replace('{text}', prompt).replace('{n}', String(open)));
+  }
+  lines.push(str('exam.hud.hits').replace('{n}', String(s.tallies[s.segment]!.hits)));
+  return lines;
+}
 
 interface Plate {
   readonly g: Phaser.GameObjects.Graphics;
@@ -110,12 +137,14 @@ export class HudScene extends Phaser.Scene {
     if (!this.scene.isActive('Dialogue')) this.scene.launch('Dialogue');
     if (!this.scene.isActive('Card')) this.scene.launch('Card');
     if (!this.scene.isActive('Rescue')) this.scene.launch('Rescue');
+    if (!this.scene.isActive('Exam')) this.scene.launch('Exam');
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.game.events.off('world-note', onNote);
       this.game.events.off('save-issues', onIssues);
       this.scene.stop('Dialogue');
       this.scene.stop('Card');
       this.scene.stop('Rescue');
+      this.scene.stop('Exam');
     });
   }
 
@@ -334,7 +363,10 @@ export class HudScene extends Phaser.Scene {
     this.renderGlucose(glucoseOf(loop.state.run.tags));
     this.renderBoss(game, time);
     this.renderStatus(loop.state);
-    this.prompt.setVisible(loop.state.dialogue === null && loop.state.card === null && !loop.state.rescue && selectInteractable(game) !== undefined);
+    const exam = selectExam(game);
+    const stampable = exam?.state.part === 'run' && game.operator.action.kind === 'free' && stepAt(exam.state, game.operator) !== undefined;
+    this.prompt.setVisible(loop.state.dialogue === null && loop.state.card === null && !loop.state.rescue && !loop.state.exam
+      && (selectInteractable(game) !== undefined || stampable));
     const seconds = (selectTick(game) / TICK_HZ).toFixed(1);
     const clock = selectClock(game);
     const minute = clock.minute % MINUTES_PER_DAY;
@@ -356,6 +388,7 @@ export class HudScene extends Phaser.Scene {
     }
     const orders = workOrders(state.game, waitingCrates(state.run.tags, TAGS)).stacks;
     if (orders > 0) lines.push(str('hud.work_orders').replace('{n}', String(orders)));
+    lines.push(...examLines(state.game));
     const dizzy = glucoseOf(state.run.tags) !== undefined && isDizzy(state.run.tags);
     if (dizzy) lines.push(str('hud.dizzy'));
     this.haze.setVisible(dizzy);

@@ -15,7 +15,8 @@ import { handbookProblems } from '../src/app/handbook.ts';
 import { parseCsv } from '../src/core/dialogue/csv.ts';
 import type { ContentTypes, RescueProblemCode, SchemaName, SchemaProblem, TagDictionary } from '../src/core/index.ts';
 import {
-  bossStringKeys, BossTableError, DictionaryError, EnemyTableError, HOST_TOKEN, OPERATOR_SPEAKER, loadBossTable, loadDictionary, loadEnemyTable, readRescues, RESCUE_PANEL_KEYS, rescueStringKeys, schemaProblems,
+  bossStringKeys, BossTableError, DictionaryError, EnemyTableError, EXAM_PANEL_KEYS, examStringKeys, ExamTableError, HOST_TOKEN, OPERATOR_SPEAKER, loadBossTable, loadDictionary, loadEnemyTable, loadExamTable,
+  readRescues, RESCUE_PANEL_KEYS, rescueStringKeys, schemaProblems,
   type BossTable, type EnemyTable,
 } from '../src/core/index.ts';
 
@@ -36,6 +37,7 @@ const RULES: ReadonlyArray<readonly [RegExp, SchemaName]> = [
   [/^handbook\.json$/, 'handbook'],
   [/^report\.json$/, 'report'],
   [/^rescue\.json$/, 'rescue'],
+  [/^exams\/[a-z0-9_]+\.json$/, 'exam'],
 ];
 
 /**
@@ -122,7 +124,7 @@ function loaderProblems(file: string, load: () => void): string[] {
     load();
     return [];
   } catch (e) {
-    if (e instanceof DictionaryError || e instanceof EnemyTableError || e instanceof BossTableError) return e.problems.map((p) => `${file}：${p}`);
+    if (e instanceof DictionaryError || e instanceof EnemyTableError || e instanceof BossTableError || e instanceof ExamTableError) return e.problems.map((p) => `${file}：${p}`);
     throw e;
   }
 }
@@ -265,8 +267,30 @@ export function checkContent(contentDir: string): string[] {
     }
   }
 
-  const cards = get<'scheduleCards'>('cards/schedule.json');
-  if (cards) {
+  // An exam goes through the game's own loader; then its file name, its conversation and every line its panels show.
+  const examFiles = [...valid.entries()].filter(([, v]) => v.schema === 'exam');
+  if (examFiles.length > 0 && enemyTable && dict && params) {
+    const ids = dialogueIds(contentDir);
+    for (const [rel, v] of examFiles) {
+      const f = v.value as ContentTypes['exam'];
+      const stem = rel.replace(/^exams\//, '').replace(/\.json$/, '');
+      if (f.id !== stem) out.push(`${v.file}：id「${f.id}」必須與檔名「${stem}」相同`);
+      if (!ids.has(f.afterDialogue)) out.push(`${v.file}：afterDialogue「${f.afterDialogue}」不存在於對話（content/dialogue/*.csv）`);
+      out.push(...loaderProblems(v.file, () => {
+        const def = loadExamTable([f], enemyTable!, dict!, params.value.defaults).get(f.id)!;
+        for (const [, s] of strings) {
+          const table = (s.value as ContentTypes['strings']).strings;
+          for (const k of examStringKeys(def)) if (!table[k]) out.push(`${v.file}：考試「${f.id}」在 ${s.file} 缺少文字「${k}」`);
+        }
+      }));
+    }
+    for (const [, s] of strings) {
+      const table = (s.value as ContentTypes['strings']).strings;
+      for (const k of EXAM_PANEL_KEYS) if (!table[k]) out.push(`content/exams：考試面板在 ${s.file} 缺少共用文字「${k}」`);
+    }
+  }
+
+  const cards = get<'scheduleCards'>('cards/schedule.json');  if (cards) {
     const seen = new Set<string>();
     for (const c of cards.value.cards) {
       if (seen.has(c.id)) out.push(`${cards.file}：日程卡 id「${c.id}」重複`);

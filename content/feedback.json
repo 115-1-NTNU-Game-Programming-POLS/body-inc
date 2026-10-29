@@ -38,6 +38,12 @@
     "napped": { "note": "napped" },
     "checkpointSaved": { "note": "checkpoint.saved" },
     "crateTaken": { "particles": [{ "preset": "paper", "count": 6 }], "note": "liver.crate_taken" },
-    "dizzyChanged": { "note": "dizzy.{dizzy}" }
+    "dizzyChanged": { "note": "dizzy.{dizzy}" },
+    "examHit": { "flashOperator": 2, "shake": { "px": 3, "seconds": 0.1 }, "particles": [{ "preset": "ink", "count": 3 }] },
+    "examAnswered": { "note": "exam.answered.{how}" },
+    "examStacked": { "particles": [{ "preset": "fuzz", "count": 10 }] },
+    "proofStamped": { "particles": [{ "preset": "ink", "count": 6 }], "note": "exam.stamp.{ok}" },
+    "bonusShown": { "note": "exam.bonus" },
+    "examBreak": { "note": "exam.break" }
   }
 }

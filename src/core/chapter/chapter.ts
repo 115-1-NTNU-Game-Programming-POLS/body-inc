@@ -13,6 +13,8 @@ import { passBody } from '../outer/body.ts';
 import { compileCondition } from '../tags/dictionary.ts';
 import type { Condition } from '../tags/condition.ts';
 import { openRescue, stepRescue, type RescueState, type RescueTable } from './rescue.ts';
+import { sitting, type ExamTable } from '../exam/fight.ts';
+import { finishExam, openForecast, stepExamPanel, type ExamPanel } from './exam.ts';
 import { portOf, tileOf } from '../rooms/boxes.ts';
 import { enterRoom } from '../rooms/entry.ts';
 import { arrivalPoint } from '../rooms/interact.ts';
@@ -87,6 +89,8 @@ export interface ChapterState {
   readonly pending?: string;
   /** The rescue panel on screen (rescue.ts); like a conversation it freezes the room. */
   readonly rescue?: RescueState;
+  /** An exam's forecast or result panel on screen (exam.ts); it freezes the room too. */
+  readonly exam?: ExamPanel;
 }
 
 /** What the chapter itself reports on top of a room's events. */
@@ -112,6 +116,11 @@ export type ChapterEvent =
   /** An action on the rescue panel; `done` is how many correct steps are done after it. */
   | { readonly type: 'rescueStep'; readonly rescue: string; readonly action: string; readonly outcome: 'step' | 'early' | 'myth'; readonly done: number }
   | { readonly type: 'rescueDone'; readonly rescue: string }
+  /** An exam Trigger opened the forecast; closing it begins the fight. */
+  | { readonly type: 'examForecast'; readonly exam: string }
+  /** The fight is over and the result panel shows the score, `total` in percent. */
+  | { readonly type: 'examResult'; readonly exam: string; readonly total: number }
+  | { readonly type: 'examClosed'; readonly exam: string }
   /** The operator refused a toast wave and says line `line` of the refusing-drinks handbook page. */
   | RefusalEvent
   | { readonly type: 'chapterEnded' };
@@ -133,6 +142,8 @@ export interface ChapterContent {
   readonly deck?: Deck;
   /** Rescue panels by id; needed when a room has a rescue Trigger. */
   readonly rescues?: RescueTable;
+  /** Exams by id; needed when a room has an exam Trigger. */
+  readonly exams?: ExamTable;
 }
 
 export interface ChapterParams extends SleepCoefficients, MetabolismParams, Partial<LineParams> {
@@ -359,6 +370,7 @@ function onTrigger(ctx: ChapterContent, run: Run, game: GameState, e: Extract<Do
     case 'dialogue':
     case 'card':
     case 'rescue':
+    case 'exam':
       return { run, game, events: [], opens: { kind: e.trigger, id: e.eventId }, ...(once ? { spent: key } : {}) };
     case 'end':
       return { run, game, events: [{ type: 'chapterEnded' }] };
@@ -408,7 +420,7 @@ function passTime(ctx: ChapterContent, run: Run, game: GameState, minutes: numbe
 
 /** The `fired` id of a toast boss's concession in its room, beside object ids. */
 const CONCESSION = 'concession';
-const SCENES: readonly string[] = ['dialogue', 'card', 'rescue'];
+const SCENES: readonly string[] = ['dialogue', 'card', 'rescue', 'exam'];
 
 /**
  * Beds, pickups and once-triggers' scenes used since the punch come back on a return to it: the
@@ -428,7 +440,7 @@ const undoneByReturn = (ctx: ChapterContent, key: string): boolean => {
 
 /** A conversation or an event card. Only one is on screen at a time, and only one opens per tick. */
 export interface Modal {
-  readonly kind: 'dialogue' | 'card' | 'rescue';
+  readonly kind: 'dialogue' | 'card' | 'rescue' | 'exam';
   readonly id: string;
 }
 
@@ -440,6 +452,7 @@ export interface Modal {
 export function stepChapter(ctx: ChapterContent, state: ChapterState, input: TickInput): ChapterResult {
   if (state.pending !== undefined) return openPending(ctx, state);
   if (state.rescue) return stepRescue(ctx, state, input);
+  if (state.exam) return stepExamPanel(ctx, state, input);
   return state.dialogue ? stepTalk(ctx, state, input) : state.card ? stepCard(ctx, state, input) : stepRoom(ctx, state, input);
 }
 
@@ -453,7 +466,8 @@ function openPending(ctx: ChapterContent, state: ChapterState): ChapterResult {
 
 /** The room as the cloak leaves it: adenosine sees less while the residual is high (design doc 7.4). */
 function cloaked(ctx: ChapterContent, run: Run, game: GameState): GameState {
-  const cap = senseCap(caffeineOf(run.tags, ctx.dict));
+  // In the exam the residue runs on the boss clock (exam/fight.ts), not the chapter's.
+  const cap = senseCap(sitting(game.exam) ? game.exam!.residue : caffeineOf(run.tags, ctx.dict));
   if (cap !== undefined) return game.senseCapPx === cap ? game : { ...game, senseCapPx: cap };
   if (game.senseCapPx === undefined) return game;
   const { senseCapPx: _, ...rest } = game;
@@ -501,10 +515,12 @@ function stepRoom(ctx: ChapterContent, state: ChapterState, input: TickInput): C
   const r = step(unlockedNow(ctx, state.run, cloaked(ctx, state.run, bodyNow(ctx, state.run, state.game))), input);
   let { run } = state;
   let game = r.state;
-  // The chapter clock runs while exploring (design doc 7.2); a conversation or a card stops it.
-  const explored = run.explored + 1;
-  if (explored < ticksPerMinute(ctx.params)) run = { ...run, explored };
-  else ({ run, game } = passTime(ctx, { ...run, explored: 0 }, game, 1));
+  // The chapter clock runs while exploring (design doc 7.2); a conversation, a card or an exam stops it.
+  if (!sitting(state.game.exam)) {
+    const explored = run.explored + 1;
+    if (explored < ticksPerMinute(ctx.params)) run = { ...run, explored };
+    else ({ run, game } = passTime(ctx, { ...run, explored: 0 }, game, 1));
+  }
   const extra: ChapterEvent[] = [];
   if (ctx.chapter.glucose === true) {
     const was = state.game.operator;
@@ -514,6 +530,7 @@ function stepRoom(ctx: ChapterContent, state: ChapterState, input: TickInput): C
     extra.push(...g.events);
   }
   let through: Extract<DomainEvent, { type: 'doorEntered' }> | undefined;
+  let finished: Extract<DomainEvent, { type: 'examFinished' }> | undefined;
   /** The first conversation or card asked for this tick; one at a time, so a second request is dropped. */
   let opening: (Modal & { readonly spent?: string }) | undefined;
   /**
@@ -607,6 +624,9 @@ function stepRoom(ctx: ChapterContent, state: ChapterState, input: TickInput): C
         // Left for last: a trigger or bed touched on the same tick still belongs to the room being left.
         through ??= e;
         break;
+      case 'examFinished':
+        finished = e;
+        break;
       case 'forcedLeave': {
         // Without a checkpoint the room has already restarted at its start, which is all there is to return to.
         if (!run.checkpoint) {
@@ -631,6 +651,8 @@ function stepRoom(ctx: ChapterContent, state: ChapterState, input: TickInput): C
         opening ??= { kind: 'dialogue', id: e.dialogueId };
         break;
       case 'triggerEntered': {
+        // Nothing opens over an exam being sat, and nothing is spent: a knockback onto a trigger is not a visit.
+        if (sitting(state.game.exam)) break;
         const a = onTrigger(ctx, run, game, e);
         ({ run, game } = a);
         extra.push(...a.events);
@@ -661,6 +683,15 @@ function stepRoom(ctx: ChapterContent, state: ChapterState, input: TickInput): C
   // A door crossed on the same tick waits: it is forgotten as touched, so it fires again once the
   // conversation or card is over.
   const holdDoor = (g: GameState): GameState => (through ? { ...g, touching: g.touching.filter((id) => id !== through!.object) } : g);
+  if (finished) {
+    // The result is owed above all else: the score is set as the panel opens.
+    giveBack(opening?.spent);
+    const out = finishExam(ctx, plain(run, holdDoor(game)), finished.exam, finished.tallies);
+    return done(out.state, out.events);
+  }
+  if (opening?.kind === 'exam') {
+    return done({ ...plain(run, holdDoor(game)), exam: openForecast(ctx, run, opening.id) }, [{ type: 'examForecast', exam: opening.id }]);
+  }
   if (opening?.kind === 'card') {
     return done({ ...plain(run, holdDoor(game)), card: openCard(ctx, opening.id) }, [{ type: 'cardOpened', card: opening.id }]);
   }

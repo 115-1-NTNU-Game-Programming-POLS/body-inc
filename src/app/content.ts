@@ -2,6 +2,7 @@ import caffeineJson from '../../content/bosses/caffeine.json';
 import toastJson from '../../content/bosses/toast.json';
 import greyboxChapter from '../../content/chapters/greybox.json';
 import liverChapter from '../../content/chapters/liver.json';
+import midtermChapter from '../../content/chapters/midterm.json';
 import prologueChapter from '../../content/chapters/prologue.json';
 import enemiesJson from '../../content/enemies.json';
 import feedbackJson from '../../content/feedback.json';
@@ -12,8 +13,8 @@ import speakersJson from '../../content/speakers.json';
 import stringsJson from '../../content/strings/zh-TW.json';
 import tagsJson from '../../content/tags.json';
 import {
-  loadBossTable, loadDeck, loadDictionary, loadDialogueTable, loadEnemyTable, loadRescues, readContent,
-  type BossTable, type ChapterFile, type Deck, type DialogueFile, type DialogueTable, type EnemyTable, type RescueTable, type TagDictionary,
+  loadBossTable, loadDeck, loadDictionary, loadDialogueTable, loadEnemyTable, loadExamTable, loadRescues, readContent,
+  type BossTable, type ChapterFile, type Deck, type DialogueFile, type DialogueTable, type EnemyTable, type ExamTable, type RescueTable, type TagDictionary,
 } from '../core/index.ts';
 import { speakerProblems, type Speakers } from './dialogue.ts';
 import { feedbackProblems, noteFields, type FeedbackTable, type StringTable } from './feedback.ts';
@@ -35,6 +36,10 @@ export const PARAMS = readContent('params', paramsJson).defaults;
 export const BOSS_FILES: readonly unknown[] = [caffeineJson, toastJson];
 export const BOSSES: BossTable = loadBossTable(BOSS_FILES, ENEMIES, PARAMS);
 
+/** Every file in content/exams, found by pattern; check-content words the problems this load throws on. */
+const examSources = import.meta.glob<unknown>('../../content/exams/*.json', { import: 'default', eager: true });
+export const EXAMS: ExamTable = loadExamTable(Object.values(examSources), ENEMIES, TAGS, PARAMS);
+
 /**
  * Every CSV in content/dialogue, found by pattern so that a new file needs no change here. The
  * check (tools/check-dialogue.ts) reports problems in Chinese; this load stops startup on any.
@@ -55,7 +60,7 @@ if (speakerIssues.length > 0) throw new Error(`content/dialogue:\n  ${speakerIss
  * chapter's `next`. A chapter left out here is never loaded, so its rooms never reach the game
  * even though the map check passes them.
  */
-export const CHAPTER_FILES: readonly unknown[] = [prologueChapter, greyboxChapter, liverChapter];
+export const CHAPTER_FILES: readonly unknown[] = [prologueChapter, greyboxChapter, midtermChapter, liverChapter];
 /** The rescue sequences rooms open with a `rescue` Trigger; check-content words the problems this load throws on. */
 export const RESCUES: RescueTable = loadRescues(readContent('rescue', rescueJson), TAGS);
 export const CHAPTERS: ReadonlyMap<string, ChapterFile> = new Map(CHAPTER_FILES.map((f) => {

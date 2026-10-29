@@ -64,7 +64,7 @@ export const OBJECT_CLASSES: Readonly<Record<string, ClassSpec>> = {
     facing: enumOf('Facing', ['down', 'up', 'left', 'right']),
   },
   Trigger: {
-    event: enumOf('TriggerEvent', ['dialogue', 'card', 'cutscene', 'checkpoint', 'clock_advance', 'end', 'rescue']),
+    event: enumOf('TriggerEvent', ['dialogue', 'card', 'cutscene', 'checkpoint', 'clock_advance', 'end', 'rescue', 'exam']),
     eventId: { type: 'string', default: '' },
     once: { type: 'bool', default: true },
     when: { type: 'condition' },
