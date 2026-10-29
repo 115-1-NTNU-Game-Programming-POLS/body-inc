@@ -2,14 +2,15 @@ import { boxAt, centeredBox, type Box } from '../collision/boxes.ts';
 import { moveAndCollide, type Body, type SolidGrid } from '../collision/grid.ts';
 import type { BossState } from './bosses/boss.ts';
 import type { Archetype, Category } from './enemies.ts';
-import { CLING, FLYER, REFORM_TICKS, SALESMAN } from './frames.ts';
+import { CHEERS, CLING, FLYER, REFORM_TICKS, SALESMAN } from './frames.ts';
 import type { ShotSpec } from './hazards.ts';
 import type { Vec } from './movement.ts';
 
 /**
  * Enemy runtime state. Behaviour is a pure function of (state, what it perceives). Archetypes
- * with behaviour: salesman (approach, tier-1 telegraph, melee strike) and flyer (keep range,
- * tier-1 telegraph, one thrown sheet); the others stand still until their packages. A boss is
+ * with behaviour: salesman (approach, tier-1 telegraph, melee strike), flyer (keep range,
+ * tier-1 telegraph, one thrown sheet) and the cheers kid (circle, tier-1 telegraph, one toast
+ * wave); the others stand still until their packages. A boss is
  * an enemy with `boss` set, stepped by its controller in combat/bosses instead.
  *
  * Phases: idle, windup (telegraph), strike (melee hitbox live or throw pose), recover; dispersed
@@ -117,6 +118,7 @@ export function stepEnemy(grid: SolidGrid, e0: EnemyState, target: Vec, senseRan
     return out({ ...e, x: m.x, y: m.y });
   }
   if (e.archetype === 'flyer') return stepFlyer(grid, e, target, out);
+  if (e.archetype === 'cheers') return stepCheers(grid, e, target, out);
   if (e.archetype !== 'salesman') return out(e);
 
   switch (e.phase) {
@@ -140,6 +142,57 @@ export function stepEnemy(grid: SolidGrid, e0: EnemyState, target: Vec, senseRan
 }
 
 type Out = (enemy: EnemyState, flags?: Partial<Omit<EnemyStep, 'enemy'>>) => EnemyStep;
+
+/** A weapon on a cheers kid only makes him back off (design doc 7.7): no damage, and a wind-up is called off. */
+export const backOff = (e: EnemyState): EnemyState => to(e, 'recover', { strikeSpent: true });
+
+/**
+ * Cheers kid: keeps to a ring round the operator and walks round it; once CHEERS.circleTicks have
+ * passed since he last backed off and he is on the ring, he raises his cup for the tier-1
+ * telegraph and sends a toast wave where the operator stands at release, then backs away. Which
+ * way he circles follows his id, so the walk replays the same.
+ */
+function stepCheers(grid: SolidGrid, e: EnemyState, target: Vec, out: Out): EnemyStep {
+  const dx = target.x - e.x;
+  const dy = target.y - e.y;
+  const d = Math.hypot(dx, dy);
+  const walk = (ux: number, uy: number): EnemyState => {
+    const m = moveAndCollide(grid, ENEMY_BODY, e.x, e.y, ux * CHEERS.speed, uy * CHEERS.speed);
+    return { ...e, x: m.x, y: m.y };
+  };
+  switch (e.phase) {
+    case 'idle': {
+      if (d === 0) return out(e);
+      if (d > CHEERS.farPx) return out(walk(dx / d, dy / d));
+      if (d < CHEERS.nearPx) return out(walk(-dx / d, -dy / d));
+      if (e.phaseTicks >= CHEERS.circleTicks) {
+        return out(to(e, 'windup', { strikeDir: cardinal(dx, dy), strikeSpent: false }), { telegraph: true });
+      }
+      const turn = e.id % 2 === 0 ? 1 : -1;
+      return out(walk((-dy / d) * turn, (dx / d) * turn));
+    }
+    case 'windup': {
+      if (e.phaseTicks < CHEERS.windupTicks) return out(e);
+      const oy = e.y - 4;
+      const ax = target.x - e.x;
+      const ay = target.y - 4 - oy;
+      const len = Math.hypot(ax, ay) || 1;
+      return out(to(e, 'strike'), {
+        shots: [{
+          owner: e.id, kind: 'toast', x: e.x, y: oy, vx: (ax / len) * CHEERS.shotSpeed, vy: (ay / len) * CHEERS.shotSpeed,
+          ticksLeft: Math.ceil(CHEERS.shotRangePx / CHEERS.shotSpeed), halves: 0, cups: CHEERS.cupsPerWave, half: CHEERS.shotHalf,
+        }],
+      });
+    }
+    case 'strike':
+      return out(e.phaseTicks >= CHEERS.throwTicks ? to(e, 'recover') : e);
+    case 'recover':
+      if (e.phaseTicks >= CHEERS.backOffTicks) return out(to(e, 'idle'));
+      return out(d === 0 ? e : walk(-dx / d, -dy / d));
+    default:
+      return out(e);
+  }
+}
 
 /**
  * Flyer: backs off inside 3 tiles, closes in beyond 6, and in between raises a sheet for the

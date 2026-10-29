@@ -64,6 +64,8 @@ export class HudScene extends Phaser.Scene {
   /** Message keys already on screen, and where the next notice stacks up from. */
   private readonly noticed = new Set<string>();
   private noticeBottom = 0;
+  /** World notes still on screen, oldest first. */
+  private readonly notes: Phaser.GameObjects.Text[] = [];
 
   constructor() {
     super('Hud');
@@ -76,6 +78,7 @@ export class HudScene extends Phaser.Scene {
     this.shownGauge = '';
     this.shownTime = '';
     this.noticed.clear();
+    this.notes.length = 0;
     this.noticeBottom = this.scale.height - 12;
     // First, so every HUD element draws over it.
     this.haze = this.add.rectangle(0, 0, this.scale.width, this.scale.height, 0x10131c, 0.32).setOrigin(0, 0).setVisible(false);
@@ -138,7 +141,23 @@ export class HudScene extends Phaser.Scene {
     const text = addText(this, sx, sy, n.text, {
       role: 'hand', weight: 400, size: 22, color: '#2b2b2b', backgroundColor: '#d9d6cf', padding: { x: 8, y: 4 },
     }).setOrigin(0.5, 1);
-    this.tweens.add({ targets: text, alpha: 0, delay: (NOTE_SECONDS - 0.4) * 1000, duration: 400, onComplete: () => text.destroy() });
+    // Notes from one spot come in bursts (a toast landing, then a refusal line); older ones move up
+    // out of the way instead of being covered, newest first.
+    let ceiling = text.getBounds();
+    for (const old of [...this.notes].reverse()) {
+      const b = old.getBounds();
+      if (b.right <= ceiling.left || b.left >= ceiling.right || b.top >= ceiling.bottom || b.bottom <= ceiling.top) continue;
+      old.setY(ceiling.top - 2);
+      ceiling = old.getBounds();
+    }
+    this.notes.push(text);
+    this.tweens.add({
+      targets: text, alpha: 0, delay: (NOTE_SECONDS - 0.4) * 1000, duration: 400,
+      onComplete: () => {
+        this.notes.splice(this.notes.indexOf(text), 1);
+        text.destroy();
+      },
+    });
   }
 
   private drawHearts(halves: number, maxHalves: number): void {

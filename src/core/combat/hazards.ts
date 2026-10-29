@@ -15,6 +15,8 @@ export interface Shot {
   readonly vy: number;
   readonly ticksLeft: number;
   readonly halves: number;
+  /** A toast wave (design doc 7.7): landing adds this many cups instead of costing hearts, and the guard refuses it. */
+  readonly cups?: number;
   /** Half the side of the shot's box. */
   readonly half: number;
   /** Dodged through: it flies on but can no longer hurt. */
