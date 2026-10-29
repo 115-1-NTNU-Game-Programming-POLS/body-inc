@@ -14,8 +14,8 @@ import { feedbackProblems, noteFields } from '../src/app/feedback.ts';
 import { handbookProblems } from '../src/app/handbook.ts';
 import type { ContentTypes, RescueProblemCode, SchemaName, SchemaProblem, TagDictionary } from '../src/core/index.ts';
 import {
-  BossTableError, DictionaryError, EnemyTableError, HOST_TOKEN, OPERATOR_SPEAKER, loadBossTable, loadDictionary, loadEnemyTable, readRescues, RESCUE_PANEL_KEYS, rescueStringKeys, schemaProblems,
-  type EnemyTable,
+  bossStringKeys, BossTableError, DictionaryError, EnemyTableError, HOST_TOKEN, OPERATOR_SPEAKER, loadBossTable, loadDictionary, loadEnemyTable, readRescues, RESCUE_PANEL_KEYS, rescueStringKeys, schemaProblems,
+  type BossTable, type EnemyTable,
 } from '../src/core/index.ts';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -170,7 +170,17 @@ export function checkContent(contentDir: string): string[] {
   const invalidBoss = walk(root).some((p) => /[\\/]bosses[\\/]/.test(p) && !valid.has(relative(root, p).replaceAll('\\', '/')));
   if (enemyTable && params && !invalidBoss) {
     const where = bossFiles.length === 1 ? bossFiles[0]![1].file : 'content/bosses';
-    out.push(...loaderProblems(where, () => loadBossTable(bossFiles.map(([, v]) => v.value), enemyTable!, params.value.defaults)));
+    let bosses: BossTable | undefined;
+    out.push(...loaderProblems(where, () => { bosses = loadBossTable(bossFiles.map(([, v]) => v.value), enemyTable!, params.value.defaults); }));
+    // The nameplate reads these by key; a missing one would show the raw key mid-fight.
+    for (const e of bosses ? enemyTable.enemies.values() : []) {
+      const def = e.boss === undefined ? undefined : bosses!.get(e.boss);
+      if (!def) continue;
+      for (const [, s] of strings) {
+        const have = (s.value as ContentTypes['strings']).strings;
+        for (const k of bossStringKeys(e.id, def)) if (!have[k]) out.push(`${s.file}：Boss「${e.id}」的名牌需要「${k}」`);
+      }
+    }
   }
 
   if (params) {

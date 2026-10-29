@@ -5,7 +5,7 @@ import { TICK_HZ } from '../../time.ts';
 import { BOSS_BODY, ENEMY_BODY, type EnemyState } from '../actors.ts';
 import type { ShotSpec, ZoneSpec } from '../hazards.ts';
 import type { Vec } from '../movement.ts';
-import { bossMove, boostFactor, moveLength, type BossDef, type BossMoveDef, type BossState } from './boss.ts';
+import { bossMove, boostFactor, moveLength, type BossMoveDef, type CaffeineDef, type CaffeineState } from './boss.ts';
 
 /**
  * The caffeine boss, boss.caffeine.name in the strings (design doc 7.4), v1. Stage 1: he drinks, and caffeine at or above the boost
@@ -19,7 +19,7 @@ import { bossMove, boostFactor, moveLength, type BossDef, type BossMoveDef, type
  */
 export interface CaffeineContext {
   readonly grid: SolidGrid;
-  readonly def: BossDef;
+  readonly def: CaffeineDef;
   readonly target: Vec;
   readonly rng: RngStreams;
   /** Enemies this boss summoned that still exist, whatever their phase. */
@@ -42,7 +42,7 @@ export interface BossTick {
 /** Offsets of summoned adenosine around his feet, so a pair does not stack on one point. */
 const SUMMON_OFFSETS: readonly Vec[] = [{ x: -24, y: 14 }, { x: 24, y: 14 }, { x: -12, y: 26 }, { x: 12, y: 26 }];
 
-function pick(def: BossDef, rng: RngStreams): [BossMoveDef, RngStreams] {
+function pick(def: CaffeineDef, rng: RngStreams): [BossMoveDef, RngStreams] {
   const total = def.moves.reduce((s, m) => s + m.weight, 0);
   const [f, next] = drawFloat(rng, 'enemies');
   let r = f * total;
@@ -79,9 +79,9 @@ export function stepCaffeine(e: EnemyState, ctx: CaffeineContext): BossTick {
   let x = e.x;
   let y = e.y;
 
-  const b0 = e.boss!;
+  const b0 = e.boss as CaffeineState;
   const residue = b0.residue * def.decayPerTick;
-  let b: BossState = { ...b0, residue, boosted: b0.boosted || residue >= def.boostMin };
+  let b: CaffeineState ={ ...b0, residue, boosted: b0.boosted || residue >= def.boostMin };
   const done = (): BossTick => ({ enemy: { ...e, x, y, boss: b }, rng, shots, zones, summons, events, powerCut, powerBack });
 
   if (b.review > 0) {
@@ -178,7 +178,7 @@ export function stepCaffeine(e: EnemyState, ctx: CaffeineContext): BossTick {
 }
 
 /** True while the boss shows a tier-3 proposal, which a landing stamp rejects (design doc 5.4). */
-export function proposalOpen(def: BossDef, b: BossState): boolean {
+export function proposalOpen(def: CaffeineDef, b: CaffeineState): boolean {
   if (!b.move || b.move.id === 'drink' || b.move.id === 'summon') return false;
   const m = bossMove(def, b.move.id);
   return m.tier === 3 && b.move.frame <= m.telegraphTicks;

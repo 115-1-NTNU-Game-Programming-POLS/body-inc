@@ -5,7 +5,8 @@
  *   factory    the dock where alcohol crates wait, the outlet of the first line and the second line's
  *              intake fed by a belt along the south wall; the east door opens once receiving is empty
  *   warehouse  the glycogen warehouse with the liver's sign; the fasting page appears once dizzy
- *   corner     the classmate who will not wake up: the rescue, then the end of the night
+ *   rooftop    the venue where the toast boss sings (乾杯三巡); the east door opens once he gives up
+ *   corner    the classmate who will not wake up: the rescue, then the end of the night
  *
  * Real art and layout come later; this places every L1 mechanism once, wired as an author would.
  *
@@ -129,6 +130,21 @@ const room = (s: Shell, role: string, est: number, objects: { id: number }[]) =>
     npc(3, 'liver', 'liver.warehouse.sign', 7, 6),
     // Shown only to a run that has been dizzy, as design doc 7.7 hangs it on the warehouse door.
     handbook(4, 'fasting_alcohol', 13, 6, 'dizzy'),
+  ]));
+}
+
+{
+  const s = shell('liver', 71);
+  socket(s, 'W', true);
+  socket(s, 'E', false);
+  writeRoom('liver/rooftop.tmj', room(s, 'core', 120, [
+    start(64, 224),
+    door(2, 'W'),
+    // He gives up rather than being beaten; that conversation sets the tag, and from then on the
+    // way to the classmate is open and he is no longer at the venue.
+    door(3, 'E', 'resource', 'toast_conceded'),
+    point(4, 'toast', 'Spawn', 320, 168, [str('enemyType', 'EnemyType', 'toast'), str('when', undefined, '!toast_conceded')]),
+    trigger(5, 'toast-intro', 'dialogue', 'liver.toast.intro', 3, 3, 1, 8),
   ]));
 }
 

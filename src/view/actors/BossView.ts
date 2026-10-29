@@ -83,6 +83,10 @@ export class BossView implements ActorFx {
     }
     const b = cur.boss;
     const p = prev ?? cur;
+    if (b.behaviour === 'toast' || def.behaviour === 'toast') {
+      this.renderToast(p, cur, alpha, tick);
+      return;
+    }
     const boosted = b.residue >= def.boostMin;
     // Caffeine shows as a quicker animation and a 1 px tremor (art direction 5.5).
     const jitter = boosted && b.stunned === 0 && b.review === 0 && Math.floor(tick / 3) % 2 === 0 ? 1 : 0;
@@ -135,6 +139,31 @@ export class BossView implements ActorFx {
 
     if (tick < this.flashUntil || flash) this.sprite.setTintFill(0xffffff);
     else if (b.stunned > 0) this.sprite.setTint(0x9aa0ab);
+    else this.sprite.clearTint();
+  }
+
+  /**
+   * The toast boss stands and sings: the bubble and the tier-1 flash before each wave, the breath
+   * pose with a dashed ring while he is open, and the surprised pose once he has given up. He does
+   * not slide out, since he is not beaten (design doc 7.7).
+   */
+  private renderToast(p: Readonly<EnemyState>, cur: Readonly<EnemyState>, alpha: number, tick: number): void {
+    const b = cur.boss;
+    if (b?.behaviour !== 'toast') return;
+    const x = Math.round(p.x + (cur.x - p.x) * alpha);
+    const y = Math.round(p.y + (cur.y - p.y) * alpha);
+    this.sprite.setPosition(x, y).setDepth(y);
+    const g = this.marks.clear();
+    const telegraphing = b.move !== null && cur.phase !== 'closed';
+    this.bubble.setVisible(telegraphing).setPosition(x, y - this.entry.frame[1] + 4);
+    if (cur.phase === 'closed') this.pose('surprised_down');
+    else if (b.part === 'breath') {
+      this.pose('breath_down');
+      dashedCircle(g, x, y - BOSS_HURT.height / 2, BOSS_HURT.halfW + 10, INK, tick / 40);
+    } else if (telegraphing) this.pose('wave_down');
+    else this.pose('idle_down', true);
+    const flash = telegraphing && tier1Flash(b.move!.frame - 1);
+    if (tick < this.flashUntil || flash) this.sprite.setTintFill(0xffffff);
     else this.sprite.clearTint();
   }
 }

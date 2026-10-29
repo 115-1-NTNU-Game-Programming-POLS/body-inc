@@ -15,6 +15,7 @@
     { "id": "dummy", "category": "defeatable", "performance": 6 },
     { "id": "deadline_imp", "category": "defeatable" },
     { "id": "caffeine", "category": "defeatable", "boss": "caffeine" },
+    { "id": "toast", "category": "defeatable", "boss": "toast" },
     { "id": "adenosine", "category": "reforming", "solution": "sleep", "clings": true },
     { "id": "opportunist_bacteria", "category": "reforming", "solution": "territory" },
     { "id": "alcohol_barrel", "category": "immune", "solution": "conveyor" },

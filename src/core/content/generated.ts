@@ -6,7 +6,7 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
   "boss": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "title": "BossFile",
-    "description": "One boss: budget, stages and move table (architecture section 4, content/bosses). Rules the schema cannot state (telegraph lengths per tier, live windows no longer than the dodge i-frames, the summoned enemy existing) are checked in core/combat/bosses/boss.ts.",
+    "description": "One boss: budget, stages and move table (architecture section 4, content/bosses). Which fields a boss needs depends on its behaviour: caffeine uses stage2Budget to moves, toast uses song and workOrder. Rules the schema cannot state (the fields of each behaviour, telegraph lengths per tier, live windows no longer than the dodge i-frames, the summoned enemy existing) are checked in core/combat/bosses/boss.ts.",
     "type": "object",
     "additionalProperties": false,
     "required": [
@@ -14,14 +14,6 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
       "id",
       "behaviour",
       "budget",
-      "stage2Budget",
-      "speedTiles",
-      "rangeTiles",
-      "restSeconds",
-      "drink",
-      "summon",
-      "powerCutSeconds",
-      "moves",
       "notes"
     ],
     "properties": {
@@ -36,8 +28,20 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
       "behaviour": {
         "description": "Which core controller runs this boss.",
         "enum": [
-          "caffeine"
+          "caffeine",
+          "toast"
         ]
+      },
+      "song": {
+        "$ref": "#/$defs/BossSong"
+      },
+      "workOrder": {
+        "$ref": "#/$defs/BossWorkOrder"
+      },
+      "concedeDialogue": {
+        "description": "Toast: the conversation that opens when his budget runs out; it sets whatever lets the chapter go on.",
+        "type": "string",
+        "minLength": 1
       },
       "budget": {
         "description": "Annual budget, the boss's health (design doc 5.8).",
@@ -95,6 +99,123 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
       }
     },
     "$defs": {
+      "BossSong": {
+        "description": "Toast: the song of 乾杯三巡 (design doc 7.7). Each round sings its lines, one ring of toast waves per line, then breathes; after the last round the last one repeats.",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "wakeTiles",
+          "introSeconds",
+          "rounds",
+          "breathSeconds",
+          "breathDamageFactor",
+          "ring"
+        ],
+        "properties": {
+          "wakeTiles": {
+            "description": "He waits, silent, until the operator comes this close; the room's intro conversation should fire before that.",
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "introSeconds": {
+            "description": "From waking to the first line.",
+            "type": "number",
+            "minimum": 0
+          },
+          "rounds": {
+            "description": "At most three, one per stage of the nameplate.",
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 3,
+            "items": {
+              "$ref": "#/$defs/BossRound"
+            }
+          },
+          "breathSeconds": {
+            "description": "The breath after each round's last line, his weak point.",
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "breathDamageFactor": {
+            "description": "Damage multiplier while he breathes.",
+            "type": "number",
+            "minimum": 1
+          },
+          "ring": {
+            "$ref": "#/$defs/BossRing"
+          }
+        }
+      },
+      "BossRound": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "lines",
+          "beatSeconds"
+        ],
+        "properties": {
+          "lines": {
+            "description": "Lines sung this round, one wave each.",
+            "type": "integer",
+            "minimum": 1
+          },
+          "beatSeconds": {
+            "description": "From one wave to the next; no shorter than the tier-1 telegraph.",
+            "type": "number",
+            "exclusiveMinimum": 0
+          }
+        }
+      },
+      "BossRing": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "shots",
+          "shotSpeedTiles",
+          "rangeTiles",
+          "cups"
+        ],
+        "properties": {
+          "shots": {
+            "description": "Shots evenly round the ring, one aimed at the operator.",
+            "type": "integer",
+            "minimum": 1
+          },
+          "shotSpeedTiles": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "rangeTiles": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "cups": {
+            "description": "Cups one landed wave adds to the liver's receiving area.",
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "BossWorkOrder": {
+        "description": "Toast: alcohol work orders on the operator while he sings, one per cup waiting in receiving.",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "slowPerStack",
+          "maxStacks"
+        ],
+        "properties": {
+          "slowPerStack": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "maximum": 1
+          },
+          "maxStacks": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
       "BossDrink": {
         "type": "object",
         "additionalProperties": false,
@@ -2467,30 +2588,71 @@ export interface ContentTypes {
   readonly tags: TagsFile;
 }
 
-/** One boss: budget, stages and move table (architecture section 4, content/bosses). Rules the schema cannot state (telegraph lengths per tier, live windows no longer than the dodge i-frames, the summoned enemy existing) are checked in core/combat/bosses/boss.ts. */
+/** One boss: budget, stages and move table (architecture section 4, content/bosses). Which fields a boss needs depends on its behaviour: caffeine uses stage2Budget to moves, toast uses song and workOrder. Rules the schema cannot state (the fields of each behaviour, telegraph lengths per tier, live windows no longer than the dodge i-frames, the summoned enemy existing) are checked in core/combat/bosses/boss.ts. */
 export interface BossFile {
   readonly version: 1;
   /** Matches the boss field of the enemy in content/enemies.json. */
   readonly id: string;
   /** Which core controller runs this boss. */
-  readonly behaviour: "caffeine";
+  readonly behaviour: "caffeine" | "toast";
+  readonly song?: BossSong;
+  readonly workOrder?: BossWorkOrder;
+  /** Toast: the conversation that opens when his budget runs out; it sets whatever lets the chapter go on. */
+  readonly concedeDialogue?: string;
   /** Annual budget, the boss's health (design doc 5.8). */
   readonly budget: number;
   /** Stage 2 starts once the budget falls to this. */
-  readonly stage2Budget: number;
+  readonly stage2Budget?: number;
   /** Walking speed in tiles per second before caffeine. */
-  readonly speedTiles: number;
+  readonly speedTiles?: number;
   /** Preferred distance from the operator, [near, far] in tiles. */
-  readonly rangeTiles: readonly number[];
+  readonly rangeTiles?: readonly number[];
   /** Pause between moves before caffeine; caffeine shortens it. */
-  readonly restSeconds: number;
-  readonly drink: BossDrink;
-  readonly summon: BossSummon;
+  readonly restSeconds?: number;
+  readonly drink?: BossDrink;
+  readonly summon?: BossSummon;
   /** How long the stage-3 power cut holds the boss still. */
-  readonly powerCutSeconds: number;
-  readonly moves: Readonly<Record<string, BossMove>>;
+  readonly powerCutSeconds?: number;
+  readonly moves?: Readonly<Record<string, BossMove>>;
   /** Provenance of the numbers (DOC, ASSUME), as in content/params.json. */
   readonly notes: Readonly<Record<string, string>>;
+}
+
+/** Toast: the song of 乾杯三巡 (design doc 7.7). Each round sings its lines, one ring of toast waves per line, then breathes; after the last round the last one repeats. */
+export interface BossSong {
+  /** He waits, silent, until the operator comes this close; the room's intro conversation should fire before that. */
+  readonly wakeTiles: number;
+  /** From waking to the first line. */
+  readonly introSeconds: number;
+  /** At most three, one per stage of the nameplate. */
+  readonly rounds: readonly BossRound[];
+  /** The breath after each round's last line, his weak point. */
+  readonly breathSeconds: number;
+  /** Damage multiplier while he breathes. */
+  readonly breathDamageFactor: number;
+  readonly ring: BossRing;
+}
+
+export interface BossRound {
+  /** Lines sung this round, one wave each. */
+  readonly lines: number;
+  /** From one wave to the next; no shorter than the tier-1 telegraph. */
+  readonly beatSeconds: number;
+}
+
+export interface BossRing {
+  /** Shots evenly round the ring, one aimed at the operator. */
+  readonly shots: number;
+  readonly shotSpeedTiles: number;
+  readonly rangeTiles: number;
+  /** Cups one landed wave adds to the liver's receiving area. */
+  readonly cups: number;
+}
+
+/** Toast: alcohol work orders on the operator while he sings, one per cup waiting in receiving. */
+export interface BossWorkOrder {
+  readonly slowPerStack: number;
+  readonly maxStacks: number;
 }
 
 export interface BossDrink {

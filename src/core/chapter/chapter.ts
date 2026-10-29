@@ -6,7 +6,7 @@ import { OPERATOR_BODY, type TickInput } from '../combat/operator.ts';
 import type { ChapterFile } from '../content/generated.ts';
 import type { DialogueState } from '../dialogue/runner.ts';
 import type { DialogueTable, Effect } from '../dialogue/lines.ts';
-import { createGame, sendStacksHome, step, syncFactory, type DomainEvent, type GameState, type HeldTool } from '../game.ts';
+import { createGame, sendStacksHome, step, syncFactory, workOrders, type DomainEvent, type GameState, type HeldTool } from '../game.ts';
 import { isSpawnedCrate } from '../liver/factory.ts';
 import { acetaldehydeCrates, intakeCrate, waitingCrates, type LineParams } from '../liver/line.ts';
 import { passBody } from '../outer/body.ts';
@@ -406,6 +406,9 @@ function passTime(ctx: ChapterContent, run: Run, game: GameState, minutes: numbe
   return { run: { ...run, tags: passBody(run.tags, ctx.dict, minutes, ctx.params, clock.minute) }, game: { ...game, clock } };
 }
 
+/** The `fired` id of a toast boss's concession in its room, beside object ids. */
+const CONCESSION = 'concession';
+
 /**
  * Beds and pickups used since the punch come back on a return to it: the clock and the tags go
  * back to the punch, so the nap or the coffee they gave is undone too. A handbook page is the
@@ -413,6 +416,8 @@ function passTime(ctx: ChapterContent, run: Run, game: GameState, minutes: numbe
  */
 const undoneByReturn = (ctx: ChapterContent, key: string): boolean => {
   const [room = '', id = ''] = key.split('#');
+  // The concession's tags go back with the return, so the boss is back and so is his concession.
+  if (id === CONCESSION) return true;
   return ctx.rooms.get(room)?.objects.some((o) => String(o.id) === id
     && (o.kind === 'Bed' || (o.kind === 'Pickup' && o.props['itemType'] !== 'handbook'))) ?? false;
 };
@@ -459,12 +464,16 @@ function unlockedNow(ctx: ChapterContent, run: Run, game: GameState): GameState 
 }
 
 /**
- * The room as the body leaves it at the start of a tick: the factory's crates match the tags, and
- * a dizzy operator walks 15% slower (design doc 7.7).
+ * The room as the body leaves it at the start of a tick: the factory's crates match the tags, a
+ * dizzy operator walks 15% slower, and while the toast boss sings each cup waiting in receiving is
+ * a work order that slows the operator further (design doc 7.7). The cap of design doc 5.1 still
+ * holds over the sum.
  */
 function bodyNow(ctx: ChapterContent, run: Run, game: GameState): GameState {
-  const synced = syncFactory(game, waitingCrates(run.tags, ctx.dict), acetaldehydeCrates(run.tags, ctx.dict));
-  const slow = ctx.chapter.glucose === true && isDizzy(run.tags) ? GLUCOSE.dizzySlow : 0;
+  const waiting = waitingCrates(run.tags, ctx.dict);
+  const synced = syncFactory(game, waiting, acetaldehydeCrates(run.tags, ctx.dict));
+  const dizzy = ctx.chapter.glucose === true && isDizzy(run.tags) ? GLUCOSE.dizzySlow : 0;
+  const slow = Math.round((dizzy + workOrders(synced, waiting).slow) * 1e6) / 1e6;
   const { bodySlow, ...op } = synced.operator;
   if ((bodySlow ?? 0) === slow) return synced;
   return { ...synced, operator: slow > 0 ? { ...op, bodySlow: slow } : op };
@@ -530,6 +539,21 @@ function stepRoom(ctx: ChapterContent, state: ChapterState, input: TickInput): C
     if (id === '' || run.fired.includes(key)) return;
     run = { ...run, fired: [...run.fired, key] };
     opening = { kind: 'dialogue', id, spent: key };
+  };
+  /**
+   * The toast boss's concession (design doc 7.7) is owed like a filled port's conversation: asked
+   * for on every tick a given-up toast boss stands in the room until it is shown, since that
+   * conversation is what lets the chapter go on.
+   */
+  const claimConcession = () => {
+    if (opening) return;
+    const boss = game.enemies.find((x) => x.boss?.behaviour === 'toast' && x.phase === 'closed');
+    const def = boss ? game.bosses[boss.boss!.def] : undefined;
+    if (def?.behaviour !== 'toast') return;
+    const key = `${run.roomId}#${CONCESSION}`;
+    if (run.fired.includes(key)) return;
+    run = { ...run, fired: [...run.fired, key] };
+    opening = { kind: 'dialogue', id: def.concedeDialogue, spent: key };
   };
 
   for (const e of r.events) {
@@ -625,6 +649,7 @@ function stepRoom(ctx: ChapterContent, state: ChapterState, input: TickInput): C
   }
 
   claimPort();
+  claimConcession();
   // A door crossed on the same tick waits: it is forgotten as touched, so it fires again once the
   // conversation or card is over.
   const holdDoor = (g: GameState): GameState => (through ? { ...g, touching: g.touching.filter((id) => id !== through!.object) } : g);

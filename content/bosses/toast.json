@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "id": "toast",
+  "behaviour": "toast",
+  "budget": 150,
+  "song": {
+    "wakeTiles": 7,
+    "introSeconds": 1.5,
+    "rounds": [
+      { "lines": 4, "beatSeconds": 1.6 },
+      { "lines": 5, "beatSeconds": 1.3 },
+      { "lines": 6, "beatSeconds": 1 }
+    ],
+    "breathSeconds": 3,
+    "breathDamageFactor": 2,
+    "ring": { "shots": 12, "shotSpeedTiles": 3, "rangeTiles": 9, "cups": 1 }
+  },
+  "workOrder": { "slowPerStack": 0.05, "maxStacks": 3 },
+  "concedeDialogue": "liver.toast.concede",
+  "notes": {
+    "budget": "ASSUME: about four breaths of held stapler fire at the breath factor, so three rounds and a repeat when the player refuses during the song; the design doc gives no number",
+    "song": "DOC a ring of toast waves per chorus line, the beat quickening with the song, a 3 s breath after each chorus as his weak point, three rounds (7.7); line counts, beats, intro and the breath factor are ASSUME. wakeTiles 7 is ASSUME, measured on liver/rooftop: from the west door every point west of the intro trigger is more than 7 tiles from him, so the conversation always comes first",
+    "ring": "DOC each wave that lands is one crate of alcohol in receiving (7.7); shot count, speed and range are ASSUME",
+    "workOrder": "DOC 5% slower per work order, at most 3 (7.7); one work order per cup waiting in receiving, only while he sings, is ASSUME",
+    "concedeDialogue": "DOC he is not beaten but says 好啦不勸你了，可是阿凱好像不太對 (7.7)"
+  }
+}

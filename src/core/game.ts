@@ -1,8 +1,9 @@
 import { boxAt, centeredBox, overlaps, type Box } from './collision/boxes.ts';
 import { isSolid, moveAndCollide } from './collision/grid.ts';
 import { backOff, ENEMY_BODY, enemyCenter, enemyHurtbox, isHittable, isMelee, stepEnemy, strikeBox, type EnemyState } from './combat/actors.ts';
-import { newBossState, type BossDef, type BossTable } from './combat/bosses/boss.ts';
+import { newBossState, type BossDef, type BossTable, type ToastState } from './combat/bosses/boss.ts';
 import { proposalOpen, stepCaffeine } from './combat/bosses/caffeine.ts';
+import { breathing, stepToast } from './combat/bosses/toast.ts';
 import type { Enemy } from './content/generated.ts';
 import type { EnemyTable } from './combat/enemies.ts';
 import { BASE_HALVES, BOSS, CLING, DODGE, ENEMY_HIT_FREEZE, FOLDER, GAUGE, HURT, SALESMAN, STAMP, STAPLER } from './combat/frames.ts';
@@ -165,6 +166,12 @@ export type DomainEvent =
   | { readonly type: 'powerCut'; readonly target: number; readonly seconds: number }
   | { readonly type: 'proposalRejected'; readonly target: number }
   | { readonly type: 'bossDefeated'; readonly target: number; readonly enemy: string }
+  /** The toast boss finished a round and breathes: his weak point (design doc 7.7). */
+  | { readonly type: 'bossBreath'; readonly target: number; readonly seconds: number }
+  /** The toast boss starts the next round of the song, at a quicker beat (乾杯三巡). */
+  | { readonly type: 'bossRound'; readonly target: number; readonly round: 1 | 2 | 3 }
+  /** The toast boss's budget ran out: he is not beaten but gives up toasting (design doc 7.7). */
+  | { readonly type: 'bossConceded'; readonly target: number; readonly enemy: string }
   /** The operator stepped onto an unlocked door; the chapter decides where it leads. */
   | { readonly type: 'doorEntered'; readonly object: number; readonly door: string; readonly socket: string }
   | { readonly type: 'doorLocked'; readonly object: number; readonly lock: string }
@@ -519,14 +526,26 @@ function charge(op: OperatorState, amount: number, p: number, events: DomainEven
   return { ...op, gauge };
 }
 
+/** How much a hit on a boss counts: 1.5 times under review (design doc 5.4), the toast boss's breath factor while he breathes (7.7). */
+function bossFactor(e: EnemyState, bosses: Readonly<Record<string, BossDef>>): number {
+  const b = e.boss;
+  if (!b) return 1;
+  if (b.behaviour === 'caffeine') return b.review > 0 ? BOSS.reviewDamageFactor : 1;
+  const def = bosses[b.def]!;
+  return def.behaviour === 'toast' && breathing(b) ? def.breathDamageFactor : 1;
+}
+
 /**
- * Damage to a defeatable enemy. A boss has no hit-stop, so hits never stretch its telegraphs,
- * and takes 1.5 times damage under review (design doc 5.4).
+ * Damage to a defeatable enemy. A boss has no hit-stop, so hits never stretch its telegraphs.
+ * The toast boss is not beaten when his budget runs out: he gives up (design doc 7.7).
  */
-function damage(e: EnemyState, amount: number, freeze: number, events: DomainEvent[]): EnemyState {
-  const factor = e.boss && e.boss.review > 0 ? BOSS.reviewDamageFactor : 1;
-  const hp = Math.round((e.hp - amount * factor) * 1e6) / 1e6;
+function damage(e: EnemyState, amount: number, freeze: number, events: DomainEvent[], bosses: Readonly<Record<string, BossDef>>): EnemyState {
+  const hp = Math.round((e.hp - amount * bossFactor(e, bosses)) * 1e6) / 1e6;
   if (hp <= 0) {
+    if (e.boss?.behaviour === 'toast') {
+      events.push({ type: 'bossConceded', target: e.id, enemy: e.type });
+      return { ...e, hp: 0, phase: 'closed', phaseTicks: 0, frozen: 0, boss: { ...e.boss, move: null } };
+    }
     if (e.boss) {
       events.push({ type: 'bossDefeated', target: e.id, enemy: e.type });
       return { ...e, hp: 0, phase: 'closed', phaseTicks: 0, frozen: 0, boss: { ...e.boss, move: null } };
@@ -727,6 +746,13 @@ export function step(state: GameState, pressed: TickInput): StepResult {
   for (const e of ordered) {
     if (e.boss && e.phase !== 'closed') {
       const def = state.bosses[e.boss.def]!;
+      if (def.behaviour === 'toast') {
+        const r = stepToast(e, def, target);
+        enemies.set(e.id, r.enemy);
+        events.push(...r.events);
+        newShots.push(...r.shots);
+        continue;
+      }
       const summoned = ordered.filter((x) => x.summoner === e.id).length;
       const r = stepCaffeine(e, { grid, def, target, rng, summoned });
       rng = r.rng;
@@ -792,16 +818,16 @@ export function step(state: GameState, pressed: TickInput): StepResult {
         continue;
       }
       if (!e.boss) {
-        enemies.set(e.id, damage(e, STAMP.damage, STAMP.hitFreeze, events));
+        enemies.set(e.id, damage(e, STAMP.damage, STAMP.hitFreeze, events, state.bosses));
         continue;
       }
       const def = state.bosses[e.boss.def]!;
-      const rejected = proposalOpen(def, e.boss);
-      let hit = damage(e, BOSS.stampDamage, 0, events);
-      if (rejected && hit.phase !== 'closed') {
+      const rejected = def.behaviour === 'caffeine' && e.boss.behaviour === 'caffeine' && proposalOpen(def, e.boss);
+      let hit = damage(e, BOSS.stampDamage, 0, events, state.bosses);
+      if (rejected && hit.phase !== 'closed' && hit.boss?.behaviour === 'caffeine') {
         // The proposal is stamped: the move is cancelled and the boss sits under review.
         for (const [id, z] of zones) if (z.owner === e.id) zones.delete(id);
-        hit = { ...hit, boss: { ...hit.boss!, move: null, review: BOSS.reviewTicks } };
+        hit = { ...hit, boss: { ...hit.boss, move: null, review: BOSS.reviewTicks } };
         events.push({ type: 'proposalRejected', target: e.id });
       }
       enemies.set(e.id, hit);
@@ -827,7 +853,7 @@ export function step(state: GameState, pressed: TickInput): StepResult {
       if (gain > 0) op = charge(op, gain, state.p, events);
     } else {
       if (gain > 0) op = charge(op, gain, state.p, events);
-      enemies.set(target.id, damage(target, amount, freeze, events));
+      enemies.set(target.id, damage(target, amount, freeze, events, state.bosses));
     }
   };
 
@@ -953,20 +979,37 @@ export function step(state: GameState, pressed: TickInput): StepResult {
   };
 
   const movedShots: Shot[] = [];
+  // A ring is one wave: once any of its shots is refused or lands, the rest of it is spent.
+  const settled = new Set<string>();
+  const waveKey = (sh: Shot): string | undefined => (sh.wave === undefined ? undefined : `${sh.owner}:${sh.wave}`);
+  const settle = (sh: Shot): void => {
+    const k = waveKey(sh);
+    if (k !== undefined) settled.add(k);
+  };
   for (const sh0 of shots.sort((a, b) => a.id - b.id)) {
     const sh = { ...sh0, x: sh0.x + sh0.vx, y: sh0.y + sh0.vy, ticksLeft: sh0.ticksLeft - 1 };
     if (sh.ticksLeft < 0 || isSolid(grid, Math.floor(sh.x / TILE), Math.floor(sh.y / TILE))) continue;
-    if (!sh.spent && sh.cups !== undefined && overlaps(shotBox(sh), hurt)) {
-      // A toast wave costs no heart. Any guard frame refuses it, and nothing flies back; landing adds cups.
+    if (sh.cups !== undefined) {
+      // A toast wave costs no heart and is never an ordinary shot, even once its ring is settled.
+      // Any guard frame refuses it, and nothing flies back; landing adds cups.
+      const live = !sh.spent && !settled.has(waveKey(sh) ?? '');
+      if (!live || !overlaps(shotBox(sh), hurt)) {
+        movedShots.push(sh);
+        continue;
+      }
       const c = caught({ x: -sh.vx, y: -sh.vy });
       if (c) {
         refuse(sh.owner, c === 'parry');
+        settle(sh);
         continue;
       }
       const r = evade(sh.owner);
       if (r === 'dodged') movedShots.push({ ...sh, spent: true });
       else if (r === 'ignored') movedShots.push(sh);
-      else events.push({ type: 'toasted', source: sh.owner, cups: sh.cups });
+      else {
+        events.push({ type: 'toasted', source: sh.owner, cups: sh.cups });
+        settle(sh);
+      }
       continue;
     }
     if (!sh.spent && overlaps(shotBox(sh), hurt)) {
@@ -1041,7 +1084,8 @@ export function step(state: GameState, pressed: TickInput): StepResult {
 
   const next: GameState = {
     ...state, tick: now + 1, rng, clock, operator: op, enemies: byId(), projectiles: flying,
-    shots: movedShots, zones: [...zones.values()].sort((a, b) => a.id - b.id), nextId, freeze,
+    shots: settled.size === 0 ? movedShots : movedShots.map((sh) => (settled.has(waveKey(sh) ?? '') ? { ...sh, spent: true } : sh)),
+    zones: [...zones.values()].sort((a, b) => a.id - b.id), nextId, freeze,
     // What the door check saw, not a fresh count: a lever pinned by a staple after the check must
     // still count as newly opened next tick for an operator already pressed against its door.
     touching: onNow.map((o) => o.id), carried, switches, doorsOpen: doorsOpenNow, taken, boxes, push, delivered: moved.delivered,
@@ -1136,8 +1180,10 @@ export interface BossSummary {
   readonly budget: number;
   readonly maxBudget: number;
   readonly stage: 1 | 2 | 3;
-  readonly residue: number;
-  readonly boostMin: number;
+  /** The caffeine boss's residue curve; absent for other bosses. */
+  readonly caffeine?: { readonly residue: number; readonly boostMin: number };
+  /** The toast boss is breathing, his weak point. */
+  readonly breathing: boolean;
   readonly defeated: boolean;
 }
 
@@ -1145,8 +1191,24 @@ export interface BossSummary {
 export function selectBoss(s: GameState): BossSummary | undefined {
   const e = s.enemies.find((x) => x.boss);
   if (!e?.boss) return undefined;
+  const b = e.boss;
+  const def = s.bosses[b.def]!;
   return {
-    id: e.id, type: e.type, budget: e.hp, maxBudget: e.maxHp, stage: e.boss.stage, residue: e.boss.residue,
-    boostMin: s.bosses[e.boss.def]!.boostMin, defeated: e.phase === 'closed',
+    id: e.id, type: e.type, budget: e.hp, maxBudget: e.maxHp, stage: b.stage,
+    ...(b.behaviour === 'caffeine' && def.behaviour === 'caffeine' ? { caffeine: { residue: b.residue, boostMin: def.boostMin } } : {}),
+    breathing: b.behaviour === 'toast' && breathing(b) && e.phase !== 'closed', defeated: e.phase === 'closed',
   };
+}
+
+/**
+ * Alcohol work orders on the operator (design doc 7.7): while a toast boss sings in the room, one
+ * per cup waiting in receiving, up to the boss's cap, each a slow. 0 without one, and 0 while he
+ * still waits for the operator to come in.
+ */
+export function workOrders(s: GameState, waiting: number): { readonly stacks: number; readonly slow: number } {
+  const e = s.enemies.find((x) => x.boss?.behaviour === 'toast' && x.phase !== 'closed' && (x.boss as ToastState).part !== 'wait');
+  const def = e ? s.bosses[e.boss!.def] : undefined;
+  if (def?.behaviour !== 'toast') return { stacks: 0, slow: 0 };
+  const stacks = Math.min(def.workOrder.maxStacks, Math.max(0, waiting));
+  return { stacks, slow: Math.round(stacks * def.workOrder.slowPerStack * 1e6) / 1e6 };
 }
