@@ -190,6 +190,24 @@ describe('the memory files (design doc 7.4, 7.6)', () => {
   });
 });
 
+describe('the nap sofa (design doc 7.4)', () => {
+  const sofa = brain.rooms.get('brain/open-office')!.objects.find((o) => o.kind === 'Bed')!;
+  const lie = (s: ChapterState) => go(s, { ...NONE, interactPressed: true }, 1);
+
+  it('hands over 〈短暫午睡〉 only when the sofa is used, and once', () => {
+    const s = at('brain/open-office', '', { x: sofa.x + sofa.width / 2, y: sofa.y + sofa.height / 2 });
+    expect(sofa.props['unlocks']).toBe('short_nap');
+    const first = lie(s);
+    expect(first.events).toContainEqual({ type: 'napped', minutes: 20 });
+    expect(first.events).toContainEqual({ type: 'handbookUnlocked', id: 'short_nap' });
+    // The sofa is once per chapter, so a second lie-down gives nothing.
+    const again = lie(go(first.state, NONE, 20).state);
+    expect(again.events.map((e) => e.type)).not.toContain('handbookUnlocked');
+    // Walking past it, or being refused, gives nothing either.
+    expect(go(s, NONE, 5).events.map((e) => e.type)).not.toContain('handbookUnlocked');
+  });
+});
+
 describe('the phone spirits (design doc 7.4)', () => {
   /** The third spirit's trigger, with `others` of the other two already switched off. */
   const third = (others: number) => at('brain/hippocampus', `phones_off:${others}`, { x: 15 * TILE, y: 5 * TILE });

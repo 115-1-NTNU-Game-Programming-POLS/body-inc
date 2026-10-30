@@ -305,6 +305,12 @@ describe('map check', () => {
       expect(at('nobody')).toEqual(['eventId「nobody」不存在於急救（content/rescue.json 的 rescues）']);
     });
 
+    it('a bed may unlock only a handbook page that exists', () => {
+      const bed = (page: string) => ({ type: 'Bed', properties: [prop('bedType', 'nap'), prop('unlocks', page)] });
+      expect(check({ a: map([bed('short_nap')]) })).toEqual([]);
+      expect(check({ a: map([bed('nope')]) })).toEqual([expect.stringContaining('unlocks「nope」不存在於手冊頁')]);
+    });
+
     it('dialogue and handbook ids must exist', () => {
       const out = check({
         a: map([

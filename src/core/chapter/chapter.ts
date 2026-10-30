@@ -429,7 +429,9 @@ function onBed(ctx: ChapterContent, run: Run, game: GameState, e: Extract<Domain
   const key = `${run.roomId}#${o.id}`;
   if (run.fired.includes(key)) return refused;
   const slept = passTime(ctx, { ...run, fired: [...run.fired, key] }, game, NAP.minutes);
-  return { run: slept.run, game: sendStacksHome(slept.game), events: [{ type: 'napped', minutes: NAP.minutes }] };
+  const page = String(o.props['unlocks'] ?? '').trim();
+  const woke = page === '' ? { tags: slept.run.tags, events: [] } : applyEffects(ctx.dict, slept.run.tags, slept.game.clock, [{ kind: 'unlock', id: page }], { kind: 'activity', key: 'nap' }, ctx.params);
+  return { run: { ...slept.run, tags: woke.tags }, game: sendStacksHome(slept.game), events: [{ type: 'napped', minutes: NAP.minutes }, ...woke.events] };
 }
 
 /**

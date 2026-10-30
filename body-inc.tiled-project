@@ -616,6 +616,11 @@
           "name": "requires",
           "type": "string",
           "value": ""
+        },
+        {
+          "name": "unlocks",
+          "type": "string",
+          "value": ""
         }
       ]
     }

@@ -192,7 +192,7 @@ const room = (
     door(3, 'E'),
     adenosine(4, 4),
     adenosine(5, 9),
-    rect(6, 'nap', 'Bed', 3 * T, 9 * T, 2 * T, T, [str('bedType', 'BedType', 'nap')]),
+    rect(6, 'nap', 'Bed', 3 * T, 9 * T, 2 * T, T, [str('bedType', 'BedType', 'nap'), str('unlocks', undefined, 'short_nap')]),
     // A strip across the floor before the east door, so the group chat comes on the way to the archive.
     trigger(7, 'group-chat', 'card', 'group_chat', 16, 3, 1, 8),
   ], {

@@ -276,6 +276,10 @@ export function checkMaps(mapsDir: string, content: MapContent = loadMapContent(
       if (o.kind === 'Pickup' && o.props['itemType'] === 'handbook' && !content.handbookIds.has(id.trim())) {
         out.push(`${file} ${where(room, { object: o.id })}：itemId「${id.trim()}」不存在於手冊頁（content/handbook.json）`);
       }
+      const unlocks = String(o.props['unlocks'] ?? '').trim();
+      if (o.kind === 'Bed' && unlocks !== '' && !content.handbookIds.has(unlocks)) {
+        out.push(`${file} ${where(room, { object: o.id })}：unlocks「${unlocks}」不存在於手冊頁（content/handbook.json）`);
+      }
     }
     // The game moves a box off a body as the room starts, so a box drawn there would not be where the author put it.
     const bodies: { what: string; box: Box; from?: RoomObject }[] = [

@@ -801,6 +801,11 @@
        "type": "string",
        "propertytype": "BedType",
        "value": "nap"
+      },
+      {
+       "name": "unlocks",
+       "type": "string",
+       "value": "short_nap"
       }
      ]
     },
