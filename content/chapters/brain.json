@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "id": "brain",
+  "start": "brain/lobby",
+  "next": "midterm",
+  "intro": "brain.intro",
+  "tools": [],
+  "links": [
+    { "a": "brain/lobby#door-n", "b": "brain/coffee-am#door-s" },
+    { "a": "brain/lobby#door-w", "b": "brain/coffee-pm#door-e" },
+    { "a": "brain/lobby#door-e", "b": "brain/general-affairs#door-w" },
+    { "a": "brain/general-affairs#door-e", "b": "brain/tutorial#door-w" },
+    { "a": "brain/tutorial#door-e", "b": "brain/open-office#door-w" },
+    { "a": "brain/open-office#door-e", "b": "brain/hippocampus#door-w" },
+    { "a": "brain/hippocampus#door-e", "b": "brain/arena#door-w" },
+    { "a": "brain/arena#door-e", "b": "brain/rooftop#door-w" }
+  ]
+}

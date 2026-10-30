@@ -11,7 +11,7 @@
     "behaviour": { "description": "Which core controller runs this boss.", "enum": ["caffeine", "toast"] },
     "song": { "$ref": "#/$defs/BossSong" },
     "workOrder": { "$ref": "#/$defs/BossWorkOrder" },
-    "concedeDialogue": { "description": "Toast: the conversation that opens when his budget runs out; it sets whatever lets the chapter go on.", "type": "string", "minLength": 1 },
+    "concedeDialogue": { "description": "The conversation that opens when his case is closed (toast: when his budget runs out). Required for toast, optional for caffeine; it sets whatever lets the chapter go on.", "type": "string", "minLength": 1 },
     "budget": { "description": "Annual budget, the boss's health (design doc 5.8).", "type": "integer", "minimum": 1 },
     "stage2Budget": { "description": "Stage 2 starts once the budget falls to this.", "type": "integer", "minimum": 1 },
     "speedTiles": { "description": "Walking speed in tiles per second before caffeine.", "type": "number", "exclusiveMinimum": 0 },

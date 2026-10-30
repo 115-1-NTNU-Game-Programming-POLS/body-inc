@@ -2,7 +2,7 @@
   "version": 1,
   "id": "prologue",
   "start": "prologue/lobby",
-  "next": "greybox",
+  "next": "brain",
   "intro": "prologue.interview",
   "tools": [],
   "glucose": true,

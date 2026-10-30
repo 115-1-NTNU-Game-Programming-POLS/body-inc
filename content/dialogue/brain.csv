@@ -1,0 +1,32 @@
+dialogueId,order,speaker,expression,text,condition,effect,next,fact
+brain.intro,1,narrator,normal,演算法作業明天早上八點截止。最大那組測資一直回 TLE，小晨買了一大杯咖啡，決定撐一晚。,,,,
+brain.intro,2,brain,normal,時間超過限制？誰的時間？我們的工時嗎？,sleep_debt<2,,,
+brain.intro,3,brain,sleepy,時間超……我們的願景是……那個……,sleep_debt>=2,,,
+brain.intro,4,brain,normal,營運長，今天的任務是撐到晚上十一點，然後準時上床。咖啡機在一樓，總務處有你要的公文夾。,,,,
+brain.clerk,1,narrator,normal,總務處的窗口遞出一個公文夾：「簽收一下。有人推銷，舉起來婉拒就好。」,,grant:folder,,
+brain.clerk,2,narrator,normal,按 F 換成公文夾，按住攻擊鍵舉起它；剛舉起的前 0.15 秒可以把東西彈回去。,,,,
+brain.tutorial.sign,1,brain,normal,試喝杯從那邊飛過來了。用公文夾退件，杯子會原路回到他手上。,,,,
+brain.coffee.am,1,narrator,normal,早上八點開放的咖啡機。這時喝一杯，到晚上十一點只剩一小部分。,,,,26
+brain.coffee.pm,1,narrator,normal,下午五點才開的咖啡機。喝了能過走廊，但睡前的就寢門會付出代價。,,,,26
+brain.phone,1,phone,normal,最新評測出爐了！再看一支就好？,,,,
+brain.phone,2,operator,,再看一支。,,clock:30,4,
+brain.phone,3,operator,,關機。,,tag:phones_off+1,8,
+brain.phone,4,phone,normal,這支真的是最後一支。,,,,
+brain.phone,5,operator,,再看一支。,,clock:30,7,
+brain.phone,6,operator,,關機。,,tag:phones_off+1,8,
+brain.phone,7,narrator,normal,又過了半小時。內容很精彩，腦袋也很興奮，你終於把它關了。,,tag:phones_off+1,,5
+brain.phone,8,narrator,normal,螢幕暗了。,,,,
+brain.phone,9,narrator,normal,三台手機精都關了，員工手冊多了一頁。,phones_off>=3,unlock:screens,,5
+brain.caffeine.intro,1,caffeine,pitch,董事長，續約了嗎？提神三十秒，效果立刻見！,,,,
+brain.caffeine.intro,2,brain,warning,營運長，他每喝一杯就變快。他喝完的時候閃開，等他慢下來再蓋章。,,,,26
+brain.caffeine.negotiation,1,caffeine,defeated,好啦好啦，續約條款我來擬。第一條：每天只能喝十杯！,,,,
+brain.caffeine.negotiation,2,operator,,駁回。成人每天不要超過 300 毫克。,,,4,9
+brain.caffeine.negotiation,3,operator,,駁回。十杯太多了。,,,4,9
+brain.caffeine.negotiation,4,caffeine,defeated,那第二條：下午隨時都能喝！,,,,
+brain.caffeine.negotiation,5,operator,,駁回。下午三點以後不能喝。,,,7,26
+brain.caffeine.negotiation,6,operator,,駁回。睡前喝，睡不著別怪我。,,,7,26
+brain.caffeine.negotiation,7,caffeine,defeated,好啦。早上一杯其實還行，下午三點以後別找我。,,tag:caffeine_settled,,
+brain.caffeine.negotiation,8,narrator,normal,修約完成：卡費因經理僅限上午上班，下午三點後不得進入大樓；每日總量依衛福部建議不超過 300 毫克，購買時請看杯身紅黃綠標示。,,,,9
+brain.rooftop.door,1,brain,normal,就寢門的規矩：咖啡因殘留低於 15 才打得開。,,,,26
+brain.rooftop.door,2,brain,sleepy,還沒退的話，只能在門前等。等的時候，腺苷還在累積。,caffeine>=15,,,26
+brain.rooftop.door,3,brain,normal,殘留退下去了。進去睡吧，夜班清潔隊在等你。,caffeine<15,,,

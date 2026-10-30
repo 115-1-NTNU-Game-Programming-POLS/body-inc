@@ -52,6 +52,8 @@ export interface CaffeineDef {
   readonly tolerantFromCup: number;
   readonly summon: { readonly enemy: Enemy; readonly count: number; readonly everyTicks: number; readonly max: number; readonly ticks: number };
   readonly powerCutTicks: number;
+  /** Opened by the chapter once his case is closed; optional, since a chapter may end the fight without one. */
+  readonly concedeDialogue?: string;
   /** Sorted by id, so a weighted draw does not depend on the order of keys in the file. */
   readonly moves: readonly BossMoveDef[];
   readonly cup: number;
@@ -98,6 +100,8 @@ export const RESERVED_MOVES: readonly string[] = ['drink', 'summon', 'toast'];
 
 const CAFFEINE_FIELDS = ['stage2Budget', 'speedTiles', 'rangeTiles', 'restSeconds', 'drink', 'summon', 'powerCutSeconds', 'moves'] as const;
 const TOAST_FIELDS = ['song', 'workOrder', 'concedeDialogue'] as const;
+/** A caffeine boss may also carry concedeDialogue; only these are refused on it. */
+const TOAST_ONLY_FIELDS = ['song', 'workOrder'] as const;
 
 function moveProblems(where: string, m: NonNullable<BossFile['moves']>[string]): string[] {
   const out: string[] = [];
@@ -125,7 +129,7 @@ function moveProblems(where: string, m: NonNullable<BossFile['moves']>[string]):
 
 /** The fields of the other behaviour are refused, so a file never carries numbers nothing reads. */
 function fieldProblems(where: string, f: BossFile): string[] {
-  const [need, foreign] = f.behaviour === 'caffeine' ? [CAFFEINE_FIELDS, TOAST_FIELDS] : [TOAST_FIELDS, CAFFEINE_FIELDS];
+  const [need, foreign] = f.behaviour === 'caffeine' ? [CAFFEINE_FIELDS, TOAST_ONLY_FIELDS] : [TOAST_FIELDS, CAFFEINE_FIELDS];
   return [
     ...need.filter((k) => f[k] === undefined).map((k) => `${where}: a ${f.behaviour} boss needs ${k}`),
     ...foreign.filter((k) => f[k] !== undefined).map((k) => `${where}: ${k} belongs to another behaviour; a ${f.behaviour} boss does not read it`),
@@ -160,6 +164,7 @@ function caffeineDef(f: BossFile, where: string, enemies: EnemyTable, caffeine: 
     tolerantFromCup: f.drink!.tolerantFromCup,
     summon: { enemy: summoned, count: f.summon!.count, everyTicks: ticks(f.summon!.everySeconds), max: f.summon!.max, ticks: ticks(f.summon!.seconds) },
     powerCutTicks: ticks(f.powerCutSeconds!),
+    ...(f.concedeDialogue !== undefined ? { concedeDialogue: f.concedeDialogue } : {}),
     moves: ids.map((id) => {
       const m = moves[id]!;
       const speed = tilesPerSecond(m.shotSpeedTiles ?? 1);
