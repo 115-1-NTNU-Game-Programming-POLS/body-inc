@@ -253,6 +253,41 @@ describe('the nap sofa (design doc 7.4)', () => {
   });
 });
 
+describe('the chairman\'s pie in the chapter (design doc 7.4)', () => {
+  const press = (s: ChapterState) => go(s, { ...NONE, partnerPressed: true }, 1);
+
+  it('every room of the chapter starts with it ready, and L raises it', () => {
+    expect(CHAPTER.partner).toBe('chairman');
+    for (const room of roomsOf(CHAPTER)) expect(at(room).game.pie).toEqual({ ticksLeft: 0, cooldown: 0, radiusPx: 0 });
+    const raised = press(at('brain/tutorial'));
+    expect(raised.events).toContainEqual(expect.objectContaining({ type: 'pieRaised', sleepy: false }));
+    expect(raised.state.game.pie?.ticksLeft).toBeGreaterThan(0);
+  });
+
+  it('is smaller and shorter after a short night, by the night\'s S', () => {
+    const slept = (q: string) => press(at('brain/tutorial', q)).state.game.pie!;
+    const full = slept('');
+    const tired = slept('sleep_debt:4');
+    // S = max(0.3, 1 - 0.07 x debt) = 0.72 at 4 hours.
+    expect(tired.radiusPx / full.radiusPx).toBeCloseTo(0.72, 5);
+    expect(press(at('brain/tutorial', 'sleep_debt:4')).events).toContainEqual(expect.objectContaining({ type: 'pieRaised', sleepy: true }));
+  });
+
+  it('is the chapter\'s doing: a chapter without a partner has none and L does nothing', () => {
+    const { partner: _, ...rest } = CHAPTER;
+    const plain: ChapterContent = { ...brain, chapter: rest };
+    const { pending: __, ...s } = startChapter(plain, { room: 'brain/tutorial' });
+    expect(s.game.pie).toBeUndefined();
+    expect(stepChapter(plain, s, { ...NONE, partnerPressed: true }).events.map((e) => e.type)).not.toContain('pieRaised');
+  });
+
+  it('is taught on the tutorial sign, with the key', () => {
+    const sign = DIALOGUES.get('brain.tutorial.sign')!.lines.map((l) => l.text).join('');
+    expect(sign).toContain('L');
+    expect(sign).toContain('大餅');
+  });
+});
+
 describe('the energy-drink salesman (design doc 7.4)', () => {
   const TUTORIAL = 'brain/tutorial';
   const seller = (s: ChapterState) => s.game.enemies.find((e) => e.type === 'energy_seller');

@@ -405,6 +405,12 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
         },
         "uniqueItems": true
       },
+      "partner": {
+        "description": "The partner who walks with the operator through this chapter. The chairman gives the L key his pie shield (design doc 5.1): it stops thrown shots for a few seconds, its size and duration times S, and then has to cool down. Absent: L does nothing.",
+        "enum": [
+          "chairman"
+        ]
+      },
       "glucose": {
         "description": "Shows the blood glucose meter and runs its rules in this chapter (design doc 7.3).",
         "type": "boolean"
@@ -3119,6 +3125,8 @@ export interface ChapterFile {
   readonly intro?: string;
   /** Tools the operator has from the start of this chapter. Absent means every tool; the prologue lists none, since the chairman hands over the stamp at its end (design doc 5.4). Tools granted earlier in the run are kept. */
   readonly tools?: readonly "stamp"[];
+  /** The partner who walks with the operator through this chapter. The chairman gives the L key his pie shield (design doc 5.1): it stops thrown shots for a few seconds, its size and duration times S, and then has to cool down. Absent: L does nothing. */
+  readonly partner?: "chairman";
   /** Shows the blood glucose meter and runs its rules in this chapter (design doc 7.3). */
   readonly glucose?: boolean;
   /** Number or boolean tags that cross the day boundary into the next chapter. Without this only the closing cards decide what the next chapter starts with, so nothing the operator did in the rooms would reach it. */

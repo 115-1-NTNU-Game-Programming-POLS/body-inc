@@ -18,6 +18,8 @@
     "toasted": { "note": "cheers.toasted" },
     "refused": { "particles": [{ "preset": "paper", "count": 4 }] },
     "refusalSaid": { "note": "refusal.line.{line}" },
+    "pieRaised": { "note": "pie.raised.{sleepy}" },
+    "pieBlocked": { "particles": [{ "preset": "paper", "count": 4 }] },
     "canTaken": { "pulse": { "amount": 0.01, "beats": 6, "seconds": 3 } },
     "palpitation": { "note": "can.palpitation" },
     "canDisco": { "note": "can.disco" },

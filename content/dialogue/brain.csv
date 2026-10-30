@@ -6,6 +6,7 @@ brain.intro,4,brain,normal,營運長，今天的任務是撐到晚上十一點�
 brain.clerk,1,narrator,normal,總務處的窗口遞出一個公文夾：「簽收一下。有人推銷，舉起來婉拒就好。」,,grant:folder,,
 brain.clerk,2,narrator,normal,按 F 換成公文夾，按住攻擊鍵舉起它；剛舉起的前 0.15 秒可以把東西彈回去。,,,,
 brain.tutorial.sign,1,brain,normal,試喝杯從那邊飛過來了。用公文夾退件，杯子會原路回到他手上。,,,,
+brain.tutorial.sign,2,brain,normal,按 L 讓董事長畫大餅：大餅擋得住飛來的東西，擋不住地上的範圍，用完要等一陣子。,,,,
 brain.coffee.am,1,narrator,normal,早上八點開放的咖啡機。這時喝一杯，到晚上十一點只剩一小部分。,,,,26
 brain.coffee.pm,1,narrator,normal,下午五點才開的咖啡機。喝了能過走廊，但睡前的就寢門會付出代價。,,,,26
 brain.phone,1,phone,normal,最新評測出爐了！再看一支就好？,,,,

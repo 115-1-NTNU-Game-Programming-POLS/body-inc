@@ -215,6 +215,7 @@ function build(ctx: ChapterContent, run: Run, place: Place, carry: Carry): GameS
     boxes: boxesHere(run),
     stampLocked: !run.tools.includes('stamp'),
     folderLocked: !run.tools.includes('folder'),
+    pie: ctx.chapter.partner === 'chairman',
     ...(carry.tool ? { tool: carry.tool } : {}),
     waiting: waitingCrates(run.tags, ctx.dict),
     acetaldehyde: acetaldehydeCrates(run.tags, ctx.dict),

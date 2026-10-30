@@ -7,6 +7,7 @@ import { breathing, stepToast } from './combat/bosses/toast.ts';
 import type { EnemyTable } from './combat/enemies.ts';
 import { BASE_HALVES, BOSS, CLING, DODGE, ENEMY_HIT_FREEZE, FOLDER, GAUGE, HURT, SALESMAN, STAMP, STAPLER } from './combat/frames.ts';
 import { guardCovers, parryOpen, swingBox } from './combat/folder.ts';
+import { pieCovers, PIE_READY, stepPie, sleepOfSpirit, type PieState } from './combat/pie.ts';
 import { circleTouchesBox, shotBox, zoneContinues, zoneLive, type Shot, type ShotSpec, type Zone, type ZoneSpec } from './combat/hazards.ts';
 import type { Vec } from './combat/movement.ts';
 import {
@@ -108,6 +109,8 @@ export interface GameState {
   readonly senseCapPx?: number;
   /** Multiplier on how many enemies a boss summons and keeps alive; the chapter sets it every tick from the climax choice. */
   readonly summonScale?: number;
+  /** The chairman's pie shield (core/combat/pie.ts); present only in a chapter whose partner has it. A new room starts it ready. */
+  readonly pie?: PieState;
   /** Only in a liver factory room (core/liver/factory.ts). */
   readonly factory?: FactoryState;
   /** The exam being sat in this room, from the forecast's close on (core/exam/fight.ts). */
@@ -144,6 +147,10 @@ export type DomainEvent =
   | { readonly type: 'parry'; readonly source: number; readonly kind: 'shot' | 'strike' }
   /** A toast wave landed (design doc 7.7): no heart is lost, and the chapter adds the cups to receiving. */
   | { readonly type: 'toasted'; readonly source: number; readonly cups: number }
+  /** The chairman raised the pie shield (design doc 7.4); `sleepy` when S is below 1, so he fumbles his line. */
+  | { readonly type: 'pieRaised'; readonly radiusPx: number; readonly seconds: number; readonly sleepy: boolean }
+  /** The shield stopped a thrown shot. */
+  | { readonly type: 'pieBlocked'; readonly source: number }
   /** An energy-drink can landed (design doc 7.4): no heart is lost, and the chapter adds the caffeine. */
   | { readonly type: 'canTaken'; readonly source: number }
   /** 婉拒: the guard met a toast wave, on any of its frames; `parry` when it was inside the parry window. */
@@ -296,6 +303,8 @@ export interface GameOptions {
   readonly folderLocked?: boolean;
   /** The tool in hand carried in from the last room; the stapler when absent. */
   readonly tool?: HeldTool;
+  /** The chapter's partner has the pie shield, ready at entry. */
+  readonly pie?: boolean;
   /** In a factory room: alcohol crates waiting in receiving. */
   readonly waiting?: number;
   /** In a factory room: acetaldehyde crates to put out round the outlet at entry. */
@@ -439,6 +448,7 @@ export function createGame(room: EnteredRoom, seed: number, table: EnemyTable, o
     delivered,
     ...(options.stampLocked ? { stampLocked: true as const } : {}),
     ...(options.folderLocked ? { folderLocked: true as const } : {}),
+    ...(options.pie ? { pie: PIE_READY } : {}),
     ...(factory ? { factory } : {}),
   };
 }
@@ -673,6 +683,13 @@ export function step(state: GameState, pressed: TickInput): StepResult {
   if (s.swapped) events.push({ type: 'toolSwapped', tool: s.swapped });
   if (s.swung !== undefined) events.push({ type: 'swing', combo: s.swung });
   if (s.guardRaised) events.push({ type: 'guardRaised' });
+  // The partner's skill can be raised in any state but a hurt one, and does not touch the operator's own action.
+  let pie = state.pie;
+  if (pie) {
+    const r = stepPie(pie, input.partnerPressed === true && op.action.kind !== 'hurt', state.p);
+    pie = r.pie;
+    if (r.raised) events.push({ type: 'pieRaised', radiusPx: pie.radiusPx, seconds: pie.ticksLeft / TICK_HZ, sleepy: sleepOfSpirit(state.p) < 1 });
+  }
 
   // A running belt under the feet carries the operator along. Walking against it is slower; a fast
   // belt (4 tiles/s) outruns an operator slowed below that, by held fire or clinging stacks.
@@ -1005,6 +1022,11 @@ export function step(state: GameState, pressed: TickInput): StepResult {
   for (const sh0 of shots.sort((a, b) => a.id - b.id)) {
     const sh = { ...sh0, x: sh0.x + sh0.vx, y: sh0.y + sh0.vy, ticksLeft: sh0.ticksLeft - 1 };
     if (sh.ticksLeft < 0 || isSolid(grid, Math.floor(sh.x / TILE), Math.floor(sh.y / TILE))) continue;
+    // The pie stops any shot that has come inside it; areas and strikes are not shots and pass.
+    if (!sh.spent && pieCovers(pie, op, sh)) {
+      events.push({ type: 'pieBlocked', source: sh.owner });
+      continue;
+    }
     if (sh.cups !== undefined) {
       // A toast wave costs no heart and is never an ordinary shot, even once its ring is settled.
       // Any guard frame refuses it, and nothing flies back; landing adds cups.
@@ -1115,6 +1137,7 @@ export function step(state: GameState, pressed: TickInput): StepResult {
     // What the door check saw, not a fresh count: a lever pinned by a staple after the check must
     // still count as newly opened next tick for an operator already pressed against its door.
     touching: onNow.map((o) => o.id), carried, switches, doorsOpen: doorsOpenNow, taken, boxes, push, delivered: moved.delivered,
+    ...(pie ? { pie } : {}),
     ...(factory ? { factory } : {}),
   };
   // The exam reads what this tick did (hits, answered cases, a stack failure) and moves its own clock.
@@ -1177,6 +1200,14 @@ export const selectClock = (s: GameState): RuleClock => s.clock;
 /** The tool in hand, and whether a second one is handed over to swap to, for the HUD. */
 export const selectTool = (s: GameState): { readonly tool: HeldTool; readonly canSwap: boolean } =>
   ({ tool: s.operator.tool, canSwap: s.folderLocked !== true });
+/** The partner's pie shield for the HUD: whether it is up, cooling or ready, the seconds left on that, and S. Absent without a partner. */
+export function selectPie(s: GameState): { readonly phase: 'ready' | 'up' | 'cooling'; readonly seconds: number; readonly scale: number } | undefined {
+  const p = s.pie;
+  if (!p) return undefined;
+  const scale = sleepOfSpirit(s.p);
+  if (p.ticksLeft > 0) return { phase: 'up', seconds: Math.ceil(p.ticksLeft / TICK_HZ), scale };
+  return p.cooldown > 0 ? { phase: 'cooling', seconds: Math.ceil(p.cooldown / TICK_HZ), scale } : { phase: 'ready', seconds: 0, scale };
+}
 /** The NPC, bed, pickup or toggle switch the interact key would use right now, for the HUD prompt; same rule as the key. */
 export function selectInteractable(s: GameState): { readonly object: number; readonly kind: string } | undefined {
   if (s.operator.action.kind !== 'free') return undefined;

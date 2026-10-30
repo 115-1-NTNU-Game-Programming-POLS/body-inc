@@ -43,6 +43,7 @@ export { proposalOpen } from './combat/bosses/caffeine.ts';
 export { breathing } from './combat/bosses/toast.ts';
 export { circleTouchesBox, shotBox, zoneFill, zoneLive } from './combat/hazards.ts';
 export { MOVE } from './combat/movement.ts';
+export { PIE, sleepOfSpirit, type PieState } from './combat/pie.ts';
 export { gaugeFull, inDodgeIframes, isInvincible, STAMP_LAND } from './combat/operator.ts';
 export * from './spirit.ts';
 export * from './content/generated.ts';

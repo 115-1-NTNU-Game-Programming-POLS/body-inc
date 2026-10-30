@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import type { FixedStepLoop } from '../../app/loop.ts';
 import {
   acetaldehydeCrates, GLUCOSE as METER, glucoseOf, isDizzy, MINUTES_PER_DAY, questionOf, selectBoss, selectClock, selectExam, selectFactory, selectGauge, selectHearts,
-  selectInteractable, selectTick, selectTool, stepAt, TICK_HZ, waitingCrates, workOrders,
+  selectInteractable, selectPie, selectTick, selectTool, stepAt, TICK_HZ, waitingCrates, workOrders,
   type BossSummary, type ChapterState, type GameEvent, type GameState,
 } from '../../core/index.ts';
 import { str, TAGS } from '../../app/content.ts';
@@ -383,6 +383,12 @@ export class HudScene extends Phaser.Scene {
     const lines: string[] = [];
     const { tool, canSwap } = selectTool(state.game);
     if (canSwap) lines.push(str(`hud.tool.${tool}`));
+    const pie = selectPie(state.game);
+    if (pie) {
+      const line = str(`hud.pie.${pie.phase}`).replace('{seconds}', String(pie.seconds));
+      // Tired days show their S, so the small pie does not look like a bug (art direction 6.6).
+      lines.push(pie.scale < 1 ? `${line}　${str('hud.pie.scale').replace('{s}', pie.scale.toFixed(2))}` : line);
+    }
     if (selectFactory(state.game)) {
       lines.push(str('hud.line').replace('{n}', String(waitingCrates(state.run.tags, TAGS))).replace('{m}', String(acetaldehydeCrates(state.run.tags, TAGS))));
     }
