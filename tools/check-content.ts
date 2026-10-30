@@ -49,7 +49,7 @@ export const PLACEHOLDERS: ReadonlySet<string> = new Set([
   HOST_TOKEN,
   '{D}', '{Dr}', '{N}', '{action}', '{cap}', '{cause}', '{clock}', '{cups}', '{day}', '{debt}', '{dept}', '{education}', '{exam}', '{g}', '{h}', '{label}',
   '{list}', '{m}', '{missed}', '{n}', '{number}', '{opinion}', '{option}', '{orders}', '{page}', '{r}', '{residue}', '{rmin}',
-  '{seconds}', '{sign}', '{situation}', '{stay}', '{step}', '{symptom}', '{text}', '{time}', '{title}', '{total}', '{unlock}', '{value}',
+  '{s}', '{seconds}', '{sign}', '{situation}', '{stay}', '{step}', '{symptom}', '{text}', '{time}', '{title}', '{total}', '{unlock}', '{value}',
 ]);
 
 /**
