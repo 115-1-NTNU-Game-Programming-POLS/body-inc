@@ -9,11 +9,11 @@
  *   general-affairs  the clerk hands over the folder (grant:folder)
  *   tutorial         a flyer's sheets to parry and an energy-drink salesman to close; the 〈咖啡因與能量飲料〉 page
  *   open-office      2F: clock vents with their adenosine (more at sleep_debt>=2), the nap sofa, the group-chat card
- *   hippocampus      3F: three phone spirits that eat time until switched off; the time clock before the boss
+ *   hippocampus      3F: six memory files, three phone spirits that eat time until switched off; the time clock before the boss
  *   arena            4F: the caffeine boss; the east door opens once the renewal is settled
- *   rooftop          the sleep door (bed needing caffeine<15), the 〈睡眠債〉 page, and the end of the chapter
+ *   rooftop          the sleep door (bed needing caffeine<50; the archive halves its crew as the residual rises), the 〈睡眠債〉 page, and the end of the chapter
  *
- * Real art and the memory-file archive of design doc 7.4 come later; this places the mechanisms the
+ * Real art, the staging desk and the hourly fade of design doc 7.4 come later; this places the mechanisms the
  * greybox already has, wired as an author would wire them in Tiled.
  *
  *   node tools/maps/make-brain.ts
@@ -29,9 +29,10 @@ const point = (id: number, name: string, type: string, x: number, y: number, pro
   ({ id, name, type, x, y, width: 0, height: 0, rotation: 0, visible: true, point: true, properties });
 
 const start = (x: number, y: number) => point(1, 'start', 'PlayerStart', x, y);
-const trigger = (id: number, name: string, event: string, eventId: string, col: number, row: number, cols: number, rows: number, when = '') =>
+const trigger = (id: number, name: string, event: string, eventId: string, col: number, row: number, cols: number, rows: number, when = '', once = false) =>
   rect(id, name, 'Trigger', col * T, row * T, cols * T, rows * T, [
     str('event', 'TriggerEvent', event), ...(eventId ? [str('eventId', undefined, eventId)] : []), ...(when ? [str('when', undefined, when)] : []),
+    ...(once ? [{ name: 'once', type: 'bool', value: true }] : []),
   ]);
 const door = (id: number, socket: 'N' | 'S' | 'E' | 'W', lock = 'none', lockParam = '') => {
   const bounds: Record<'N' | 'S' | 'E' | 'W', readonly [number, number, number, number]> = {
@@ -215,7 +216,8 @@ const room = (
   }));
 }
 
-// 3F hippocampus: three phone spirits that cost half an hour a time until switched off.
+// 3F hippocampus: six memory files (filed only by sleep) and three phone spirits that cost half an
+// hour a time until switched off.
 {
   const s = shell('brain', 53);
   side(s, 'W', true);
@@ -229,6 +231,14 @@ const room = (
     trigger(6, 'phone-3', 'dialogue', 'brain.phone', 14, 4, 2, 2),
     // The last punch before the boss, so a forced leave in the arena returns here.
     timeClock(7, 16, 8),
+    // A strip across the floor at the west door, so the room explains its files before the first one is in reach.
+    trigger(8, 'files-note', 'dialogue', 'brain.memory.intro', 2, 3, 1, 8, '', true),
+    pickup(9, 'memory', '', 208, 144),
+    pickup(10, 'memory', '', 144, 304),
+    pickup(11, 'memory', '', 272, 208),
+    pickup(12, 'memory', '', 400, 176),
+    pickup(13, 'memory', '', 432, 304),
+    pickup(14, 'memory', '', 560, 112),
   ]));
 }
 
@@ -246,14 +256,14 @@ const room = (
   ], { storyOnly: true }));
 }
 
-// The roof: the sleep door needs the caffeine residue below 15, and ends the chapter.
+// The roof: the sleep door needs the caffeine residue below 50, and ends the chapter by filing the memory files.
 {
   const s = shell('brain-night', 57);
   side(s, 'W', true);
   writeRoom('brain/rooftop.tmj', room(s, 'brain', 'rest', 30, [
     start(64, 224),
     door(2, 'W'),
-    rect(3, 'bedtime', 'Bed', 14 * T, 8 * T, 2 * T, 2 * T, [str('bedType', 'BedType', 'sleep'), str('requires', undefined, 'caffeine<15')]),
+    rect(3, 'bedtime', 'Bed', 14 * T, 8 * T, 2 * T, 2 * T, [str('bedType', 'BedType', 'sleep'), str('requires', undefined, 'caffeine<50')]),
     npc(4, 'brain', 'brain.rooftop.door', 320, 200),
     pickup(5, 'handbook', 'sleep_debt', 480, 160),
   ]));

@@ -5,6 +5,8 @@
   "next": "midterm",
   "intro": "brain.intro",
   "tools": [],
+  "carry": ["exam_practice", "exam_archived"],
+  "archive": { "from": "memory_files", "total": 6, "into": "exam_archived" },
   "links": [
     { "a": "brain/lobby#door-n", "b": "brain/coffee-am#door-s" },
     { "a": "brain/lobby#door-w", "b": "brain/coffee-pm#door-e" },

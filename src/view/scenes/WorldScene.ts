@@ -7,7 +7,7 @@ import { sharedKeys, type KeyboardInput } from '../../app/input.ts';
 import type { FixedStepLoop } from '../../app/loop.ts';
 import type { SaveStore } from '../../app/storage.ts';
 import {
-  listProps, selectEnemies, selectOperator, selectProjectiles, storyAtEnd, storyOf, TILE, visibleProps,
+  carriedTags, listProps, selectEnemies, selectOperator, selectProjectiles, storyAtEnd, storyOf, TILE, visibleProps,
   type ChapterContent, type ChapterState, type EnemyState, type GameEvent, type GameState, type ProgressData, type TiledMapFile,
 } from '../../core/index.ts';
 import type { CardsData } from './OpeningScene.ts';
@@ -207,12 +207,14 @@ export class WorldScene extends Phaser.Scene {
         const { run } = this.loop.state;
         // Matches the card scene, which treats a `next` that is not bundled as the end of the story.
         const chapters = this.registry.get('chapters') as ReadonlyMap<string, ChapterContent>;
-        const next = chapters.get(run.chapter)?.chapter.next;
-        saveStory(this, storyAtEnd(run, next !== undefined && chapters.has(next) ? next : undefined));
+        const ended = chapters.get(run.chapter)!;
+        const next = ended.chapter.next;
+        const carried = carriedTags(ended.chapter, run.tags, ended.dict);
+        saveStory(this, storyAtEnd(run, next !== undefined && chapters.has(next) ? next : undefined, carried));
         // The card scene decides what follows: closing cards if any, then the next chapter or the title.
         this.leave(() => {
           this.scene.stop('Hud');
-          this.scene.start('Opening', { chapter: run.chapter, mode: 'closing', tools: run.tools } satisfies CardsData);
+          this.scene.start('Opening', { chapter: run.chapter, mode: 'closing', tags: carried, tools: run.tools } satisfies CardsData);
         });
         break;
       }

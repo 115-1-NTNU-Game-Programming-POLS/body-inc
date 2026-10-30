@@ -204,7 +204,8 @@
         "meal",
         "ors",
         "file",
-        "thanks_card"
+        "thanks_card",
+        "memory"
       ],
       "valuesAsFlags": false
     },

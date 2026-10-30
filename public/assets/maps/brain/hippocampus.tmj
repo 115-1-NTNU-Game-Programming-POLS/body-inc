@@ -687,6 +687,155 @@
        "value": "checkpoint"
       }
      ]
+    },
+    {
+     "id": 8,
+     "name": "files-note",
+     "type": "Trigger",
+     "x": 64,
+     "y": 96,
+     "width": 32,
+     "height": 256,
+     "rotation": 0,
+     "visible": true,
+     "properties": [
+      {
+       "name": "event",
+       "type": "string",
+       "propertytype": "TriggerEvent",
+       "value": "dialogue"
+      },
+      {
+       "name": "eventId",
+       "type": "string",
+       "value": "brain.memory.intro"
+      },
+      {
+       "name": "once",
+       "type": "bool",
+       "value": true
+      }
+     ]
+    },
+    {
+     "id": 9,
+     "name": "",
+     "type": "Pickup",
+     "x": 208,
+     "y": 144,
+     "width": 0,
+     "height": 0,
+     "rotation": 0,
+     "visible": true,
+     "point": true,
+     "properties": [
+      {
+       "name": "itemType",
+       "type": "string",
+       "propertytype": "ItemType",
+       "value": "memory"
+      }
+     ]
+    },
+    {
+     "id": 10,
+     "name": "",
+     "type": "Pickup",
+     "x": 144,
+     "y": 304,
+     "width": 0,
+     "height": 0,
+     "rotation": 0,
+     "visible": true,
+     "point": true,
+     "properties": [
+      {
+       "name": "itemType",
+       "type": "string",
+       "propertytype": "ItemType",
+       "value": "memory"
+      }
+     ]
+    },
+    {
+     "id": 11,
+     "name": "",
+     "type": "Pickup",
+     "x": 272,
+     "y": 208,
+     "width": 0,
+     "height": 0,
+     "rotation": 0,
+     "visible": true,
+     "point": true,
+     "properties": [
+      {
+       "name": "itemType",
+       "type": "string",
+       "propertytype": "ItemType",
+       "value": "memory"
+      }
+     ]
+    },
+    {
+     "id": 12,
+     "name": "",
+     "type": "Pickup",
+     "x": 400,
+     "y": 176,
+     "width": 0,
+     "height": 0,
+     "rotation": 0,
+     "visible": true,
+     "point": true,
+     "properties": [
+      {
+       "name": "itemType",
+       "type": "string",
+       "propertytype": "ItemType",
+       "value": "memory"
+      }
+     ]
+    },
+    {
+     "id": 13,
+     "name": "",
+     "type": "Pickup",
+     "x": 432,
+     "y": 304,
+     "width": 0,
+     "height": 0,
+     "rotation": 0,
+     "visible": true,
+     "point": true,
+     "properties": [
+      {
+       "name": "itemType",
+       "type": "string",
+       "propertytype": "ItemType",
+       "value": "memory"
+      }
+     ]
+    },
+    {
+     "id": 14,
+     "name": "",
+     "type": "Pickup",
+     "x": 560,
+     "y": 112,
+     "width": 0,
+     "height": 0,
+     "rotation": 0,
+     "visible": true,
+     "point": true,
+     "properties": [
+      {
+       "name": "itemType",
+       "type": "string",
+       "propertytype": "ItemType",
+       "value": "memory"
+      }
+     ]
     }
    ]
   }

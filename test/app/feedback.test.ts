@@ -160,7 +160,7 @@ describe('feedback table', () => {
   });
 
   it('every item but a handbook page has its pickup note; a page is announced by the handbook', () => {
-    expect(FIELDS.pickedUp?.['itemType']).toEqual(['coffee', 'meal', 'ors', 'file', 'thanks_card']);
+    expect(FIELDS.pickedUp?.['itemType']).toEqual(['coffee', 'meal', 'ors', 'file', 'thanks_card', 'memory']);
     const { ['pickup.ors']: _, ...rest } = STRINGS.strings;
     expect(feedbackProblems(FEEDBACK, { ...STRINGS, strings: rest }, FIELDS)).toEqual([
       'pickedUp: note "pickup.ors" is not in content/strings',

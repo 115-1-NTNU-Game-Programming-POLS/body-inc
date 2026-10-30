@@ -408,6 +408,42 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
       "glucose": {
         "description": "Shows the blood glucose meter and runs its rules in this chapter (design doc 7.3).",
         "type": "boolean"
+      },
+      "carry": {
+        "description": "Number or boolean tags that cross the day boundary into the next chapter. Without this only the closing cards decide what the next chapter starts with, so nothing the operator did in the rooms would reach it.",
+        "type": "array",
+        "items": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "uniqueItems": true
+      },
+      "archive": {
+        "description": "Sleep files the day's memories (design doc 7.4, 7.6): a memory Pickup adds one to the tag `from`, and going to bed sets the tag `into` to the share of `total` files held, in percent, times the night crew's caffeine coefficient at that moment. Put `into` in `carry` for the next chapter to read it.",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "from",
+          "total",
+          "into"
+        ],
+        "properties": {
+          "from": {
+            "description": "Number tag counting the memory files taken.",
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "total": {
+            "description": "How many memory files the chapter's rooms hold.",
+            "type": "integer",
+            "minimum": 1
+          },
+          "into": {
+            "description": "Number tag set on going to bed, in percent.",
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$"
+          }
+        }
       }
     },
     "$defs": {
@@ -3001,6 +3037,17 @@ export interface ChapterFile {
   readonly tools?: readonly "stamp"[];
   /** Shows the blood glucose meter and runs its rules in this chapter (design doc 7.3). */
   readonly glucose?: boolean;
+  /** Number or boolean tags that cross the day boundary into the next chapter. Without this only the closing cards decide what the next chapter starts with, so nothing the operator did in the rooms would reach it. */
+  readonly carry?: readonly string[];
+  /** Sleep files the day's memories (design doc 7.4, 7.6): a memory Pickup adds one to the tag `from`, and going to bed sets the tag `into` to the share of `total` files held, in percent, times the night crew's caffeine coefficient at that moment. Put `into` in `carry` for the next chapter to read it. */
+  readonly archive?: {
+    /** Number tag counting the memory files taken. */
+    readonly from: string;
+    /** How many memory files the chapter's rooms hold. */
+    readonly total: number;
+    /** Number tag set on going to bed, in percent. */
+    readonly into: string;
+  };
 }
 
 /** Two doors that open onto each other. Each end is room#door, where door is the Door object's name in Tiled. The sockets must face each other (N with S, E with W). */

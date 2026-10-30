@@ -219,7 +219,7 @@ function drawBelt(g: Phaser.GameObjects.Graphics, o: RoomObject, running: boolea
 /**
  * An item on the floor, centred in its box: a blue booklet for a handbook page, a paper cup for
  * coffee, a folder for a file, a bento box for a meal, a bottle for oral rehydration salts, a
- * card for a thanks card.
+ * card for a thanks card, a stack of loose sheets for a memory file.
  */
 function drawItem(g: Phaser.GameObjects.Graphics, o: RoomObject, itemType: string): void {
   const b = objectBox(o);
@@ -247,6 +247,11 @@ function drawItem(g: Phaser.GameObjects.Graphics, o: RoomObject, itemType: strin
     case 'ors':
       g.fillStyle(PAPER).fillRect(cx - 4, cy - 6, 8, 14).strokeRect(cx - 4, cy - 6, 8, 14);
       g.fillStyle(BLUE).fillRect(cx - 2, cy - 9, 4, 3).fillRect(cx - 4, cy, 8, 3);
+      break;
+    case 'memory':
+      g.fillStyle(PAPER).fillRect(cx - 5, cy - 9, 14, 16).strokeRect(cx - 5, cy - 9, 14, 16);
+      g.fillRect(cx - 9, cy - 6, 14, 16).strokeRect(cx - 9, cy - 6, 14, 16);
+      g.fillStyle(BLUE).fillRect(cx - 7, cy - 3, 10, 2).fillRect(cx - 7, cy + 1, 10, 2).fillRect(cx - 7, cy + 5, 6, 2);
       break;
     default:
       g.fillStyle(PAPER).fillRect(cx - 8, cy - 6, 16, 12).strokeRect(cx - 8, cy - 6, 16, 12);

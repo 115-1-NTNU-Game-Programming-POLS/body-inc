@@ -24,7 +24,7 @@ export interface CardsData {
    * `closing`: the ended chapter's closing cards, then its `next` chapter's opening, or the title.
    */
   readonly mode?: 'opening' | 'closing';
-  /** Tags the chapter starts from: what the last chapter's closing cards left. */
+  /** Tags the cards start from: in `opening` what the last chapter's closing cards left, in `closing` what the ended chapter carries. */
   readonly tags?: TagState;
   readonly tools?: readonly Tool[];
 }
@@ -135,8 +135,8 @@ export class OpeningScene extends Phaser.Scene {
       beginRun(this, this.ctx, startChapter(this.ctx, { tags: opening.tags, clock: opening.clock, tools }));
       return;
     }
-    // A new day: only what the closing cards decide carries over, not the ended chapter's own tags.
-    const closing = playCards(this.ctx.chapter.id, this.cards, this.ctx.dict, this.picks, CHAPTER_OPENS, this.ctx.params, EMPTY_TAGS);
+    // A new day: only the tags the chapter lists in `carry` and what the closing cards decide go on, not the ended chapter's own tags.
+    const closing = playCards(this.ctx.chapter.id, this.cards, this.ctx.dict, this.picks, CHAPTER_OPENS, this.ctx.params, this.data_.tags ?? EMPTY_TAGS);
     const chapters = this.registry.get('chapters') as ReadonlyMap<string, ChapterContent>;
     const next = this.ctx.chapter.next !== undefined ? chapters.get(this.ctx.chapter.next) : undefined;
     // Deferred like beginRun: the confirming key must reach the input tracker before the next scene reads it.

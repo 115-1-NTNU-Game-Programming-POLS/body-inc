@@ -21,9 +21,11 @@ import { arrivalPoint } from '../rooms/interact.ts';
 import { openByState } from '../rooms/locks.ts';
 import type { RoomModel } from '../rooms/tiled.ts';
 import type { BoxPlace, Checkpoint, StoryData } from '../save/slots.ts';
+import { caffeineSleepCoef } from '../semester/semester.ts';
 import { spiritAtEntry, type SleepCoefficients } from '../spirit.ts';
+import { record } from '../tags/causal.ts';
 import type { TagDictionary } from '../tags/dictionary.ts';
-import { EMPTY_TAGS, holds, type TagState } from '../tags/store.ts';
+import { amount, EMPTY_TAGS, holds, setAmount, setFlag, type TagState } from '../tags/store.ts';
 import { TICK_HZ } from '../time.ts';
 import { isTool, TOOLS, type Tool } from '../tools.ts';
 import { caffeineOf, senseCap, type MetabolismParams } from '../outer/caffeine.ts';
@@ -151,6 +153,9 @@ export interface ChapterParams extends SleepCoefficients, MetabolismParams, Part
   readonly exploreSecondsPerHour: number;
   /** Caffeine residual one cup of coffee adds (design doc 7.4). */
   readonly cup: number;
+  /** The night crew's caffeine coefficient (design doc 9.1): 1 under the dead zone, then falling with the residual. */
+  readonly cafDeadZone: number;
+  readonly cafSleepK: number;
 }
 
 /** Room ticks per minute of the chapter clock. */
@@ -313,8 +318,25 @@ export const storyOf = (run: Run): StoryData => ({ checkpoint: run.checkpoint, e
  * `next` chapter with none of them answered, or nothing after the last. Written before the cards,
  * so a game closed on them never resumes the chapter just ended; the opening asks what they did not.
  */
-export const storyAtEnd = (run: Run, next: string | undefined): StoryData =>
-  ({ checkpoint: null, entry: next !== undefined ? { chapter: next, tags: EMPTY_TAGS, tools: run.tools } : null });
+export const storyAtEnd = (run: Run, next: string | undefined, carried: TagState = EMPTY_TAGS): StoryData =>
+  ({ checkpoint: null, entry: next !== undefined ? { chapter: next, tags: carried, tools: run.tools } : null });
+
+/**
+ * What a chapter's `carry` list keeps of its tags across the day boundary. The next chapter starts
+ * on a fresh log, so each kept tag is caused by one `carry` entry instead of dragging the ended
+ * chapter's cards along, which the next chapter would read as already answered.
+ */
+export function carriedTags(chapter: ChapterFile, tags: TagState, dict: TagDictionary): TagState {
+  const kept = (chapter.carry ?? []).filter((name) => tags.values[name] !== undefined);
+  if (kept.length === 0) return EMPTY_TAGS;
+  const [log, cause] = record(EMPTY_TAGS.log, { kind: 'rule', key: 'carry', at: 0 });
+  let out: TagState = { ...EMPTY_TAGS, log };
+  for (const name of kept) {
+    const v = tags.values[name]!.value;
+    out = typeof v === 'number' ? setAmount(out, dict, name, v, cause, 0) : setFlag(out, dict, name, true, cause, 0);
+  }
+  return out;
+}
 
 /** The other end of the door `door` in `room`, or undefined when the chapter file does not link it. */
 export function across(chapter: ChapterFile, room: string, door: string): { room: string; door: string } | undefined {
@@ -379,13 +401,30 @@ function onTrigger(ctx: ChapterContent, run: Run, game: GameState, e: Extract<Do
   }
 }
 
+/**
+ * Sleep is when memories are filed (design doc 7.4, 7.6): the files held, as a share of the
+ * chapter's, times what the night crew can do against the caffeine still in the body. Files taken
+ * but never slept on count for nothing, since nothing else sets the `into` tag.
+ */
+function fileMemories(ctx: ChapterContent, run: Run, game: GameState): Run {
+  const a = ctx.chapter.archive;
+  if (a === undefined) return run;
+  const share = Math.min(amount(run.tags, ctx.dict, a.from), a.total) / a.total;
+  const crew = caffeineSleepCoef(amount(run.tags, ctx.dict, 'caffeine'), ctx.params);
+  const out = applyEffects(
+    ctx.dict, run.tags, game.clock, [{ kind: 'amount', name: a.into, mode: 'set', value: Math.round(100 * share * crew) }],
+    { kind: 'rule', key: 'sleep.archive' }, ctx.params,
+  );
+  return { ...run, tags: out.tags };
+}
+
 function onBed(ctx: ChapterContent, run: Run, game: GameState, e: Extract<DomainEvent, { type: 'bedUse' }>): Applied {
   const o = game.room.objects.find((x) => x.id === e.object);
   if (!o) throw new ChapterError(`${run.roomId}: bed #${e.object} is not in the room`);
   const refused: Applied = { run, game, events: [{ type: 'bedRefused', object: o.id, bedType: e.bedType }] };
   const requires = o.conditions['requires'];
   if (requires && !holds(run.tags, ctx.dict, requires)) return refused;
-  if (e.bedType === 'sleep') return { run, game, events: [{ type: 'chapterEnded' }] };
+  if (e.bedType === 'sleep') return { run: fileMemories(ctx, run, game), game, events: [{ type: 'chapterEnded' }] };
   // The nap sofa is once per chapter (design doc 7.4); here that is once per bed object.
   const key = `${run.roomId}#${o.id}`;
   if (run.fired.includes(key)) return refused;
@@ -395,14 +434,17 @@ function onBed(ctx: ChapterContent, run: Run, game: GameState, e: Extract<Domain
 
 /**
  * What an item does once taken. Coffee is a cup of residual (design doc 7.4) and a handbook page
- * goes into the handbook; the other kinds have no rule yet and only leave the room. Like a
- * conversation's effects, each pickup is one entry in the causal log.
+ * goes into the handbook; a memory file is counted in the chapter's `archive` tag, and the other
+ * kinds have no rule yet and only leave the room. Like a conversation's effects, each pickup is
+ * one entry in the causal log.
  */
 function onPickup(ctx: ChapterContent, run: Run, game: GameState, e: Extract<DomainEvent, { type: 'pickedUp' }>): Applied {
   const spent: Run = { ...run, fired: [...run.fired, `${run.roomId}#${e.object}`] };
+  const filed = ctx.chapter.archive?.from;
   const effects: Effect[] = e.itemType === 'coffee' ? [{ kind: 'amount', name: 'caffeine', mode: 'add', value: ctx.params.cup }]
     : e.itemType === 'handbook' ? [{ kind: 'unlock', id: e.itemId }]
-      : [];
+      : e.itemType === 'memory' && filed !== undefined ? [{ kind: 'amount', name: filed, mode: 'add', value: 1 }]
+        : [];
   const out = applyEffects(ctx.dict, spent.tags, game.clock, effects, { kind: 'activity', key: `pickup.${e.itemType}` }, ctx.params);
   return { run: { ...spent, tags: out.tags }, game, events: out.events };
 }

@@ -22,18 +22,8 @@
     {
       "id": "group_chat",
       "options": [
-        { "id": "rewrite", "effect": "tag:deadline;clock:60" },
-        { "id": "office_hour", "effect": "tag:stress+10" }
-      ]
-    }
-  ],
-  "closing": [
-    {
-      "id": "study_week",
-      "options": [
-        { "id": "oj_nightly", "effect": "tag:exam_practice=95" },
-        { "id": "notes_sleep", "effect": "tag:exam_practice=50;tag:exam_archived=90" },
-        { "id": "both_late", "effect": "tag:exam_practice=80;tag:exam_archived=45" }
+        { "id": "rewrite", "effect": "tag:deadline;clock:60;tag:exam_practice=95" },
+        { "id": "office_hour", "effect": "tag:stress+10;tag:exam_practice=60" }
       ]
     }
   ]
