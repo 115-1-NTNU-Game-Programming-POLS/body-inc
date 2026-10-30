@@ -1,9 +1,9 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { BOSSES, CHAPTERS, DECKS, DIALOGUES, ENEMIES, PARAMS, RESCUES, TAGS } from '../../src/app/content.ts';
+import { BOSSES, CHAPTERS, DECKS, DIALOGUES, ENEMIES, EXAMS, PARAMS, RESCUES, TAGS } from '../../src/app/content.ts';
 import { tagsFromQuery } from '../../src/app/session.ts';
 import {
-  amount, arrivalPoint, holds, loadBossTable, parseRoom, readContent, roomsOf, selectDialogue, startChapter, stepChapter, TILE,
+  amount, arrivalPoint, carriedTags, holds, loadBossTable, parseRoom, readContent, roomsOf, selectDialogue, startChapter, stepChapter, storyAtEnd, TILE,
   type CaffeineParams, type ChapterContent, type ChapterState, type GameEvent, type TickInput, type TiledMap,
 } from '../../src/core/index.ts';
 import { OPERATOR_BODY } from '../../src/core/combat/operator.ts';
@@ -69,9 +69,9 @@ describe('the brain chapter (design doc 7.4)', () => {
     expect(CHAPTER.next).toBe('midterm');
     expect(CHAPTER.tools).toEqual([]);
     expect(DIALOGUES.has(CHAPTER.intro!)).toBe(true);
-    // The midterm reads these two readiness tags, which the closing card of this chapter sets.
-    const study = DECKS.get('brain')!.closing.find((c) => c.id === 'study_week')!;
-    expect(JSON.stringify(study.options.map((o) => o.effects))).toMatch(/exam_practice[\s\S]*exam_archived/);
+    // The midterm reads these two readiness tags; the rooms set them and the chapter carries them over, with no closing card.
+    expect(CHAPTER.carry).toEqual(['exam_practice', 'exam_archived']);
+    expect(DECKS.get('brain')!.closing).toEqual([]);
   });
 
   it('opens the morning machine from 08:00 to 10:00 and the afternoon one from 17:00 to 19:00, never both', () => {
@@ -103,13 +103,90 @@ describe('the brain chapter (design doc 7.4)', () => {
     expect(adenosine('sleep_debt:4')).toBe(4);
   });
 
-  it('ends the chapter at the sleep door only once the caffeine residue is below 15', () => {
+  it('ends the chapter at the sleep door while the caffeine residue is below 50, and not at 50', () => {
     const bed = brain.rooms.get('brain/rooftop')!.objects.find((o) => o.kind === 'Bed')!;
-    expect(bed.props['requires']).toBe('caffeine<15');
+    expect(bed.props['requires']).toBe('caffeine<50');
     const bedPlace = { x: bed.x + bed.width / 2, y: bed.y + bed.height / 2 };
     const sleep = (q: string) => go(at('brain/rooftop', q, bedPlace), { ...NONE, interactPressed: true }, 1);
     expect(sleep('caffeine:50').events.map((e) => e.type)).not.toContain('chapterEnded');
+    expect(sleep('caffeine:49').events.map((e) => e.type)).toContain('chapterEnded');
     expect(sleep('caffeine:10').events.map((e) => e.type)).toContain('chapterEnded');
+  });
+});
+
+describe('the memory files (design doc 7.4, 7.6)', () => {
+  const files = [...brain.rooms.values()].flatMap((r) => r.objects.filter((o) => o.kind === 'Pickup' && o.props['itemType'] === 'memory'));
+  const bed = brain.rooms.get('brain/rooftop')!.objects.find((o) => o.kind === 'Bed')!;
+  const bedPlace = { x: bed.x + bed.width / 2, y: bed.y + bed.height / 2 };
+  /** Goes to bed on the roof with the given tags; the chapter's state after that tick. */
+  const sleep = (q: string, content: ChapterContent = brain) => {
+    const s = at('brain/rooftop', q, bedPlace);
+    return stepChapter(content, s, { ...NONE, interactPressed: true });
+  };
+  const archived = (q: string) => amount(sleep(q).state.run.tags, TAGS, 'exam_archived');
+
+  it('the chapter lists as many files as its rooms hold, all in the hippocampus', () => {
+    expect(files).toHaveLength(CHAPTER.archive!.total);
+    expect(files).toHaveLength(6);
+    expect([...brain.rooms].filter(([, r]) => r.objects.some((o) => files.includes(o))).map(([p]) => p)).toEqual(['brain/hippocampus']);
+  });
+
+  it('taking a file counts one more in memory_files, and tells the operator what it was', () => {
+    const o = files[0]!;
+    const s = at('brain/hippocampus', '', { x: o.x, y: o.y });
+    const taken = go(s, { ...NONE, interactPressed: true }, 1);
+    expect(taken.events).toContainEqual(expect.objectContaining({ type: 'pickedUp', itemType: 'memory' }));
+    expect(amount(taken.state.run.tags, TAGS, 'memory_files')).toBe(1);
+    // Nothing files it yet: it only counts after a night's sleep.
+    expect(amount(taken.state.run.tags, TAGS, 'exam_archived')).toBe(0);
+  });
+
+  it('sleep files the share of files held, and the night crew shrinks with the caffeine still in the body', () => {
+    expect(archived('memory_files:6')).toBe(100);
+    expect(archived('memory_files:3')).toBe(50);
+    expect(archived('memory_files:0')).toBe(0);
+    // Under the dead zone the crew is whole; 33 leaves about 87% of it (design doc 7.4).
+    expect(archived('memory_files:6,caffeine:14')).toBe(100);
+    expect(archived('memory_files:6,caffeine:33')).toBe(87);
+    expect(archived('memory_files:3,caffeine:33')).toBe(43);
+    // The door will not open at 50, so nothing is filed that night.
+    const shut = sleep('memory_files:6,caffeine:50');
+    expect(shut.events.map((e) => e.type)).not.toContain('chapterEnded');
+    expect(amount(shut.state.run.tags, TAGS, 'exam_archived')).toBe(0);
+  });
+
+  it('a chapter without an archive leaves the tag alone, and a file in it is only removed', () => {
+    const { archive: _, ...rest } = CHAPTER;
+    const plain: ChapterContent = { ...brain, chapter: rest };
+    const done = sleep('memory_files:6', plain);
+    expect(done.events.map((e) => e.type)).toContain('chapterEnded');
+    expect(amount(done.state.run.tags, TAGS, 'exam_archived')).toBe(0);
+    const o = files[0]!;
+    const taken = stepChapter(plain, at('brain/hippocampus', '', { x: o.x, y: o.y }), { ...NONE, interactPressed: true });
+    expect(taken.events).toContainEqual(expect.objectContaining({ type: 'pickedUp', itemType: 'memory' }));
+    expect(amount(taken.state.run.tags, TAGS, 'memory_files')).toBe(0);
+  });
+
+  it('the day boundary keeps the two readiness tags and nothing else', () => {
+    const ended = sleep('memory_files:6,exam_practice:95,caffeine:20,sleep_debt:2,phones_off:3').state;
+    const carried = carriedTags(CHAPTER, ended.run.tags, TAGS);
+    expect(Object.keys(carried.values).sort()).toEqual(['exam_archived', 'exam_practice']);
+    expect(amount(carried, TAGS, 'exam_practice')).toBe(95);
+    expect(amount(carried, TAGS, 'exam_archived')).toBe(Math.round(100 * (1 - 0.4 * 0.2)));
+    // A fresh log with one entry, so the next chapter does not see this one's cards as answered.
+    expect(carried.log.nodes.filter((n) => n.kind !== 'tag').map((n) => n.key)).toEqual(['carry']);
+    expect(carriedTags(CHAPTER, sleep('caffeine:20').state.run.tags, TAGS).values).toEqual({});
+    expect(storyAtEnd(ended.run, 'midterm', carried).entry).toEqual({ chapter: 'midterm', tags: carried, tools: ended.run.tools });
+    expect(storyAtEnd(ended.run, 'midterm').entry?.tags.values).toEqual({});
+  });
+
+  it('the group chat sets the practice readiness, and the midterm bars read what the chapter carried', () => {
+    const chat = DECKS.get('brain')!.events.get('group_chat')!;
+    const practice = (id: string) => JSON.stringify(chat.options.find((o) => o.id === id)!.effects);
+    expect(practice('rewrite')).toMatch(/exam_practice[^}]*95/);
+    expect(practice('office_hour')).toMatch(/exam_practice[^}]*60/);
+    const exam = EXAMS.get('midterm')!;
+    expect(exam.segments.map((s) => s.readinessTag)).toEqual(CHAPTER.carry);
   });
 });
 

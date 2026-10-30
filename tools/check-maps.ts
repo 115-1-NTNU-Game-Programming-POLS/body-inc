@@ -426,6 +426,20 @@ export function checkChapters(mapsDir: string, content: MapContent = loadMapCont
     if (chapter.next !== undefined && !chapters.has(chapter.next)) out.push(`${file}：next「${chapter.next}」不是任何一章的 id（content/chapters/*.json）`);
     if (chapter.next === id) out.push(`${file}：next 不能是自己這一章`);
     if (chapter.intro !== undefined && !content.dialogueIds.has(chapter.intro)) out.push(`${file}：intro「${chapter.intro}」不存在於對話（content/dialogue/*.csv）`);
+    for (const name of chapter.carry ?? []) {
+      if (!content.dict.tags.has(name)) out.push(`${file}：carry 的「${name}」不在狀態標籤字典（content/tags.json）中`);
+    }
+    const memories = inChapter.reduce((n, r) => n + r.room.objects.filter((o) => o.variant === undefined && o.kind === 'Pickup' && o.props['itemType'] === 'memory').length, 0);
+    const archive = chapter.archive;
+    if (archive === undefined) {
+      if (memories > 0) out.push(`${file}：房間裡有 ${memories} 份記憶文件（itemType 為 memory），章節檔卻沒有 archive，撿起來不會記到任何標籤`);
+    } else {
+      for (const [field, name] of [['from', archive.from], ['into', archive.into]] as const) {
+        if (content.dict.tags.get(name)?.type !== 'number') out.push(`${file}：archive.${field}「${name}」必須是狀態標籤字典（content/tags.json）裡的數值標籤`);
+      }
+      if (archive.total !== memories) out.push(`${file}：archive.total 是 ${archive.total}，房間裡卻有 ${memories} 份記憶文件；兩者不同，歸檔率就到不了 100%，或是永遠滿的`);
+      if (!(chapter.carry ?? []).includes(archive.into)) out.push(`${file}：archive.into「${archive.into}」不在 carry 裡，歸檔的結果帶不到下一章`);
+    }
 
     const used = new Map<string, number>();
     const graph = new Map<string, Set<string>>(inChapter.map((r) => [r.path, new Set()]));

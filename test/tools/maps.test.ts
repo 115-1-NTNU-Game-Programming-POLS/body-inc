@@ -362,7 +362,9 @@ describe('chapter check (build plan P0)', () => {
   const AB = [link('lab/a#door-s', 'lab/b#door-n')];
 
   /** Writes rooms into lab/ and checks them against a chapter file; messages are returned without the path prefix. */
-  const check = (rooms: Record<string, TiledMap>, links = AB, chapter: Partial<{ id: string; start: string; next: string; intro: string }> = {}) => {
+  const check = (rooms: Record<string, TiledMap>, links = AB, chapter: Partial<{
+    id: string; start: string; next: string; intro: string; carry: string[]; archive: { from: string; total: number; into: string };
+  }> = {}) => {
     const dir = join(root, `maps${n++}`);
     mkdirSync(join(dir, 'lab'), { recursive: true });
     for (const [name, m] of Object.entries(rooms)) writeFileSync(join(dir, 'lab', `${name}.tmj`), JSON.stringify(m));
@@ -453,6 +455,21 @@ describe('chapter check (build plan P0)', () => {
     expect(check({ a: a(), b: b() }, AB, { next: 'lab' })).toEqual(['next 不能是自己這一章']);
     expect(check({ a: a(), b: b() }, AB, { intro: 'no.such.talk' })).toEqual(['intro「no.such.talk」不存在於對話（content/dialogue/*.csv）']);
     expect(check({ a: a(), b: b() }, AB, { intro: 'prologue.interview' })).toEqual([]);
+  });
+
+  it('an archive must name number tags, match the memory files in the rooms and carry its result on', () => {
+    const memory = (id: number) => ({ id, type: 'Pickup', x: 300, y: 300, properties: [prop('itemType', 'memory')] });
+    const rooms = () => ({ a: map([start, southDoor(), memory(4), memory(5)]), b: b() });
+    const archive = { from: 'memory_files', total: 2, into: 'exam_archived' };
+    const carry = ['exam_archived'];
+    expect(check(rooms(), AB, { archive, carry })).toEqual([]);
+    expect(check(rooms(), AB, { archive: { ...archive, total: 3 }, carry })).toEqual([expect.stringMatching(/archive\.total 是 3，房間裡卻有 2 份記憶文件/)]);
+    expect(check(rooms(), AB, { archive, carry: [] })).toEqual([expect.stringMatching(/archive\.into「exam_archived」不在 carry 裡/)]);
+    expect(check(rooms(), AB, { archive: { ...archive, from: 'breakfast' }, carry })).toEqual([expect.stringMatching(/archive\.from「breakfast」必須是.*數值標籤/)]);
+    expect(check(rooms(), AB, { archive: { ...archive, into: 'nowhere' }, carry: ['nowhere'] })).toEqual([
+      expect.stringMatching(/carry 的「nowhere」不在狀態標籤字典/), expect.stringMatching(/archive\.into「nowhere」必須是/),
+    ]);
+    expect(check(rooms(), AB)).toEqual([expect.stringMatching(/有 2 份記憶文件.*沒有 archive/)]);
   });
 
   it('a key lock whose key lies in its room is a way across, and then it must be linked', () => {

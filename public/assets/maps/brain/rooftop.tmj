@@ -598,7 +598,7 @@
       {
        "name": "requires",
        "type": "string",
-       "value": "caffeine<15"
+       "value": "caffeine<50"
       }
      ]
     },

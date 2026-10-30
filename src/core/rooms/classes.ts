@@ -115,7 +115,7 @@ export const OBJECT_CLASSES: Readonly<Record<string, ClassSpec>> = {
     when: { type: 'condition' },
   },
   Pickup: {
-    itemType: enumOf('ItemType', ['handbook', 'coffee', 'meal', 'ors', 'file', 'thanks_card']),
+    itemType: enumOf('ItemType', ['handbook', 'coffee', 'meal', 'ors', 'file', 'thanks_card', 'memory']),
     itemId: { type: 'string', default: '' },
     when: { type: 'condition' },
   },
