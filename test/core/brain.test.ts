@@ -384,12 +384,12 @@ describe('the phone spirits (design doc 7.4)', () => {
 });
 
 describe('the climax choice (design doc 7.4)', () => {
-  const EAST = { x: 18 * TILE + 16, y: 5 * TILE };
-  const asked = () => go(at('brain/hippocampus', '', EAST), NONE, 1);
+  const STAIRS = { x: 5 * TILE, y: 4 * TILE };
+  const asked = () => go(at('brain/hippocampus', '', STAIRS), NONE, 1);
   const choose = (pick: number) => go(go(asked().state, NONE, LOCK_TICKS).state, { ...NONE, pick }, 1);
   const cup = (s: ChapterState) => holds(s.run.tags, TAGS, compileCondition(TAGS, 'one_more_cup'));
 
-  it('is asked once, by the strip before the arena door, and nothing happens until it is answered', () => {
+  it('is asked once, by the strip before the stairs to the arena, and nothing happens until it is answered', () => {
     expect(asked().events).toContainEqual({ type: 'cardOpened', card: 'climax' });
     expect(cup(asked().state)).toBe(false);
     const done = choose(2).state;
@@ -420,19 +420,79 @@ describe('the climax choice (design doc 7.4)', () => {
   });
 });
 
+describe('the four floors (design doc 7.4)', () => {
+  const FLOORS = ['brain/tutorial', 'brain/open-office', 'brain/hippocampus', 'brain/arena', 'brain/rooftop'];
+  const bare = (room: string, q: string, place: { x: number; y: number }): ChapterState => {
+    const s = at(room, q, place);
+    return { ...s, game: { ...s.game, enemies: [] } };
+  };
+  /** Walks north until the first of `until` happens, and returns it. */
+  const climb = (s: ChapterState, until: readonly string[]) => {
+    for (let i = 0; i < 400; i++) {
+      const r = stepChapter(brain, s, { move: { x: 0, y: -1 } });
+      const hit = r.events.find((e) => until.includes(e.type));
+      if (hit) return { hit, state: r.state };
+      s = r.state;
+    }
+    throw new Error(`nothing in ${until.join()} within 400 ticks`);
+  };
+
+  it('stack through the north and south sockets, the floor above reached by the door above', () => {
+    FLOORS.slice(0, -1).forEach((floor, i) => {
+      expect(CHAPTER.links).toContainEqual({ a: `${floor}#door-n`, b: `${FLOORS[i + 1]}#door-s` });
+      expect(door(floor, 'N')).toBeDefined();
+      expect(door(FLOORS[i + 1]!, 'S')).toBeDefined();
+    });
+  });
+
+  it('are climbed from the foot of the stairs to the next floor, arriving at its south door', () => {
+    for (const [i, floor] of FLOORS.slice(0, 3).entries()) {
+      // Past the strips on the way (the group chat is below this row, the climax is spent), so only the door is checked.
+      const s = bare(floor, '', { x: 10 * TILE, y: 4 * TILE });
+      const up = climb({ ...s, run: { ...s.run, fired: ['brain/hippocampus#16'] } }, ['roomChanged']);
+      expect(up.hit).toEqual({ type: 'roomChanged', from: floor, to: FLOORS[i + 1] });
+      const arrival = arrivalPoint(door(FLOORS[i + 1]!, 'S'), OPERATOR_BODY);
+      expect(up.state.game.operator.x).toBeCloseTo(arrival.x, 0);
+      expect(up.state.game.operator.y).toBeCloseTo(arrival.y, 0);
+    }
+  });
+
+  it('puts the group chat across the office floor, so the stairs cannot be reached without it', () => {
+    for (const x of [2 * TILE, 10 * TILE, 17 * TILE]) {
+      expect(climb(bare('brain/open-office', '', { x, y: 10 * TILE }), ['cardOpened', 'roomChanged']).hit)
+        .toEqual({ type: 'cardOpened', card: 'group_chat' });
+    }
+  });
+
+  it('puts the climax across the whole hippocampus floor before the stairs, wherever they are approached from', () => {
+    for (const x of [2 * TILE, 10 * TILE, 17 * TILE]) {
+      expect(climb(bare('brain/hippocampus', '', { x, y: 6 * TILE }), ['cardOpened', 'roomChanged']).hit)
+        .toEqual({ type: 'cardOpened', card: 'climax' });
+    }
+  });
+
+  it('explains the files on arrival at the hippocampus, before the first one is in reach', () => {
+    const arrival = arrivalPoint(door('brain/hippocampus', 'S'), OPERATOR_BODY);
+    const first = climb(bare('brain/hippocampus', '', arrival), ['dialogueOpened', 'cardOpened']);
+    expect(first.hit).toEqual({ type: 'dialogueOpened', dialogueId: 'brain.memory.intro' });
+    // Within the first tile of floor, well south of every memory file.
+    expect(first.state.game.operator.y).toBeGreaterThan(9 * TILE);
+  });
+});
+
 describe('the caffeine boss closes with a negotiation (design doc 7.4)', () => {
   const ARENA = 'brain/arena';
-  const eastDoor = door(ARENA, 'E');
+  const stairs = door(ARENA, 'N');
   const closed = (s: ChapterState): ChapterState => ({
     ...s, game: { ...s.game, enemies: s.game.enemies.map((e) => (e.boss ? { ...e, hp: 0, phase: 'closed' as const } : e)) },
   });
   const settled = (s: ChapterState) => holds(s.run.tags, TAGS, compileCondition(TAGS, 'caffeine_settled'));
 
   it('keeps the way up shut until he has settled, and does not bring him back afterwards', () => {
-    expect([eastDoor.props['lock'], eastDoor.props['lockParam']]).toEqual(['resource', 'caffeine_settled']);
+    expect([stairs.props['lock'], stairs.props['lockParam']]).toEqual(['resource', 'caffeine_settled']);
     expect(at(ARENA).game.enemies.map((e) => e.type)).toEqual(['caffeine']);
     expect(at(ARENA, 'caffeine_settled').game.enemies).toEqual([]);
-    expect(go(at(ARENA), NONE, 1).state.game.unlocked).not.toContain(eastDoor.id);
+    expect(go(at(ARENA), NONE, 1).state.game.unlocked).not.toContain(stairs.id);
   });
 
   it('opens the renewal talk when his case is closed, whichever reply is stamped, and then opens the door', () => {
@@ -441,24 +501,24 @@ describe('the caffeine boss closes with a negotiation (design doc 7.4)', () => {
       expect(first.events).toContainEqual({ type: 'dialogueOpened', dialogueId: 'brain.caffeine.negotiation' });
       const done = talk(first.state, picks);
       expect(settled(done.state)).toBe(true);
-      expect(go(done.state, NONE, 1).state.game.unlocked).toContain(eastDoor.id);
+      expect(go(done.state, NONE, 1).state.game.unlocked).toContain(stairs.id);
       // Owed once: the closed boss still stands there and opens nothing more.
       expect(go(done.state, NONE, 5).state.dialogue).toBeNull();
     }
   });
 
-  it('greets the operator who walks in through the west door, from any row, before the first cup is thrown', () => {
-    const west = door(ARENA, 'W');
-    const arrival = arrivalPoint(west, OPERATOR_BODY);
-    for (const dy of [-3 * TILE, 0, 3 * TILE]) {
-      const s0 = at(ARENA, '', { x: arrival.x, y: arrival.y + dy });
+  it('greets the operator who walks in up the stairs, from any column, before the first cup is thrown', () => {
+    const south = door(ARENA, 'S');
+    const arrival = arrivalPoint(south, OPERATOR_BODY);
+    for (const dx of [-6 * TILE, 0, 6 * TILE]) {
+      const s0 = at(ARENA, '', { x: arrival.x + dx, y: arrival.y });
       let s: ChapterState = s0;
       let shots = 0;
       for (let i = 0; i < 200 && !s.dialogue; i++) {
-        s = stepChapter(brain, s, { move: { x: 1, y: 0 } }).state;
+        s = stepChapter(brain, s, { move: { x: 0, y: -1 } }).state;
         shots += s.game.shots.length;
       }
-      expect([dy, s.dialogue?.id, shots]).toEqual([dy, 'brain.caffeine.intro', 0]);
+      expect([dx, s.dialogue?.id, shots]).toEqual([dx, 'brain.caffeine.intro', 0]);
     }
   });
 

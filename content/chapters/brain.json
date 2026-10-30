@@ -15,9 +15,9 @@
     { "a": "brain/lobby#door-w", "b": "brain/coffee-pm#door-e" },
     { "a": "brain/lobby#door-e", "b": "brain/general-affairs#door-w" },
     { "a": "brain/general-affairs#door-e", "b": "brain/tutorial#door-w" },
-    { "a": "brain/tutorial#door-e", "b": "brain/open-office#door-w" },
-    { "a": "brain/open-office#door-e", "b": "brain/hippocampus#door-w" },
-    { "a": "brain/hippocampus#door-e", "b": "brain/arena#door-w" },
-    { "a": "brain/arena#door-e", "b": "brain/rooftop#door-w" }
+    { "a": "brain/tutorial#door-n", "b": "brain/open-office#door-s" },
+    { "a": "brain/open-office#door-n", "b": "brain/hippocampus#door-s" },
+    { "a": "brain/hippocampus#door-n", "b": "brain/arena#door-s" },
+    { "a": "brain/arena#door-n", "b": "brain/rooftop#door-s" }
   ]
 }
