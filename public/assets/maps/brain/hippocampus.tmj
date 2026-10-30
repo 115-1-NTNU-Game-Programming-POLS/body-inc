@@ -718,6 +718,30 @@
      ]
     },
     {
+     "id": 15,
+     "name": "desk",
+     "type": "NPC",
+     "x": 80,
+     "y": 320,
+     "width": 0,
+     "height": 0,
+     "rotation": 0,
+     "visible": true,
+     "point": true,
+     "properties": [
+      {
+       "name": "npcId",
+       "type": "string",
+       "value": "desk"
+      },
+      {
+       "name": "dialogueId",
+       "type": "string",
+       "value": "brain.desk"
+      }
+     ]
+    },
+    {
      "id": 9,
      "name": "",
      "type": "Pickup",

@@ -6,7 +6,7 @@
   "intro": "brain.intro",
   "tools": [],
   "carry": ["exam_practice", "exam_archived"],
-  "archive": { "from": "memory_files", "total": 6, "into": "exam_archived" },
+  "archive": { "held": "memory_held", "hands": 3, "desk": "memory_desk", "total": 6, "into": "exam_archived", "halvedBy": "one_more_cup" },
   "links": [
     { "a": "brain/lobby#door-n", "b": "brain/coffee-am#door-s" },
     { "a": "brain/lobby#door-w", "b": "brain/coffee-pm#door-e" },

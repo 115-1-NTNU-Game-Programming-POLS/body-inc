@@ -28,6 +28,8 @@ export interface TagDef {
   readonly duration: TagDuration;
   /** Fact-check table entries ("17", "pending:1"); reviewed by the fact-check owner, not by code. */
   readonly facts: readonly string[];
+  /** Share of a number tag lost per game hour; `passBody` applies it. */
+  readonly fadePerHour?: number;
 }
 
 export interface AliasDef {
@@ -54,6 +56,7 @@ function readTag(t: Tag, problems: string[]): TagDef | undefined {
   const before = problems.length;
   if (t.unit !== undefined && t.type !== 'number') problems.push(`${where}: unit is only for number tags`);
   if ((t.duration === 'hours') !== (t.hours !== undefined)) problems.push(`${where}: hours is required with duration "hours" and only then`);
+  if (t.fadePerHour !== undefined && t.type !== 'number') problems.push(`${where}: fadePerHour is only for number tags`);
   if (problems.length > before) return undefined;
   return {
     name: t.name,
@@ -61,6 +64,7 @@ function readTag(t: Tag, problems: string[]): TagDef | undefined {
     sources: t.sources,
     duration: t.duration === 'hours' ? { kind: 'hours', hours: t.hours! } : { kind: t.duration },
     facts: t.facts,
+    ...(t.fadePerHour !== undefined ? { fadePerHour: t.fadePerHour } : {}),
   };
 }
 

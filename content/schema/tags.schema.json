@@ -27,6 +27,7 @@
         "sources": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "enum": ["card", "event", "chapter", "rule"] } },
         "duration": { "enum": ["persistent", "hours", "untilWake", "nextDay"] },
         "hours": { "description": "Span in rule hours; required with duration \"hours\" and only then.", "type": "number", "exclusiveMinimum": 0 },
+        "fadePerHour": { "description": "Share of a number tag that is gone after each game hour, as the memory files fade on the staging desk (design doc 7.4); number tags only.", "type": "number", "minimum": 0.01, "maximum": 0.99 },
         "facts": { "type": "array", "items": { "$ref": "#/$defs/Fact" } }
       }
     },

@@ -369,7 +369,7 @@ describe('chapter check (build plan P0)', () => {
 
   /** Writes rooms into lab/ and checks them against a chapter file; messages are returned without the path prefix. */
   const check = (rooms: Record<string, TiledMap>, links = AB, chapter: Partial<{
-    id: string; start: string; next: string; intro: string; carry: string[]; archive: { from: string; total: number; into: string };
+    id: string; start: string; next: string; intro: string; carry: string[]; archive: { held: string; hands: number; desk: string; total: number; into: string; halvedBy?: string };
   }> = {}) => {
     const dir = join(root, `maps${n++}`);
     mkdirSync(join(dir, 'lab'), { recursive: true });
@@ -466,12 +466,17 @@ describe('chapter check (build plan P0)', () => {
   it('an archive must name number tags, match the memory files in the rooms and carry its result on', () => {
     const memory = (id: number) => ({ id, type: 'Pickup', x: 300, y: 300, properties: [prop('itemType', 'memory')] });
     const rooms = () => ({ a: map([start, southDoor(), memory(4), memory(5)]), b: b() });
-    const archive = { from: 'memory_files', total: 2, into: 'exam_archived' };
+    const archive = { held: 'memory_held', hands: 1, desk: 'memory_desk', total: 2, into: 'exam_archived' };
     const carry = ['exam_archived'];
     expect(check(rooms(), AB, { archive, carry })).toEqual([]);
     expect(check(rooms(), AB, { archive: { ...archive, total: 3 }, carry })).toEqual([expect.stringMatching(/archive\.total 是 3，房間裡卻有 2 份記憶文件/)]);
     expect(check(rooms(), AB, { archive, carry: [] })).toEqual([expect.stringMatching(/archive\.into「exam_archived」不在 carry 裡/)]);
-    expect(check(rooms(), AB, { archive: { ...archive, from: 'breakfast' }, carry })).toEqual([expect.stringMatching(/archive\.from「breakfast」必須是.*數值標籤/)]);
+    expect(check(rooms(), AB, { archive: { ...archive, held: 'breakfast' }, carry })).toEqual([expect.stringMatching(/archive\.held「breakfast」必須是.*數值標籤/)]);
+    // The desk must fade, the hands must be able to fill, and the halving tag must be a flag.
+    expect(check(rooms(), AB, { archive: { ...archive, desk: 'memory_held' }, carry })).toEqual([expect.stringMatching(/archive\.desk「memory_held」沒有 fadePerHour/)]);
+    expect(check(rooms(), AB, { archive: { ...archive, hands: 3 }, carry })).toEqual([expect.stringMatching(/archive\.hands 3 比 total 2 還大/)]);
+    expect(check(rooms(), AB, { archive: { ...archive, halvedBy: 'one_more_cup' }, carry })).toEqual([]);
+    expect(check(rooms(), AB, { archive: { ...archive, halvedBy: 'memory_held' }, carry })).toEqual([expect.stringMatching(/archive\.halvedBy「memory_held」必須是.*布林標籤/)]);
     expect(check(rooms(), AB, { archive: { ...archive, into: 'nowhere' }, carry: ['nowhere'] })).toEqual([
       expect.stringMatching(/carry 的「nowhere」不在狀態標籤字典/), expect.stringMatching(/archive\.into「nowhere」必須是/),
     ]);

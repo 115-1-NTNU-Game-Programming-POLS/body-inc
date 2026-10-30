@@ -3,7 +3,7 @@ import type { Effect } from '../dialogue/lines.ts';
 import { passBody, type BodyParams } from '../outer/body.ts';
 import { record, type SourceNodeKind } from '../tags/causal.ts';
 import type { TagDictionary } from '../tags/dictionary.ts';
-import { addAmount, setAmount, setFlag, type TagState } from '../tags/store.ts';
+import { addAmount, amount, setAmount, setFlag, type TagState } from '../tags/store.ts';
 import type { Tool } from '../tools.ts';
 
 /** What applying effects reports; a subset of the chapter's events. */
@@ -51,6 +51,14 @@ export function applyEffects(
           ? setAmount(tags, dict, e.name, e.value, cause, clock.minute)
           : addAmount(tags, dict, e.name, e.value, cause, clock.minute);
         break;
+      case 'move': {
+        const held = amount(tags, dict, e.from);
+        if (held > 0) {
+          tags = addAmount(tags, dict, e.to, held * e.factor, cause, clock.minute);
+          tags = setAmount(tags, dict, e.from, 0, cause, clock.minute);
+        }
+        break;
+      }
       case 'clock':
         clock = advance(clock, e.minutes);
         tags = passBody(tags, dict, e.minutes, k, clock.minute);

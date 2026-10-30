@@ -36,6 +36,7 @@
     "pickedUp": { "note": "pickup.{itemType}" },
     "bedRefused": { "note": "bed.refused.{bedType}" },
     "napped": { "note": "napped" },
+    "handsFull": { "note": "memory.hands_full" },
     "checkpointSaved": { "note": "checkpoint.saved" },
     "crateTaken": { "particles": [{ "preset": "paper", "count": 6 }], "note": "liver.crate_taken" },
     "dizzyChanged": { "note": "dizzy.{dizzy}" },

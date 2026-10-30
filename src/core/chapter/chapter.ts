@@ -25,7 +25,7 @@ import { caffeineSleepCoef } from '../semester/semester.ts';
 import { spiritAtEntry, type SleepCoefficients } from '../spirit.ts';
 import { record } from '../tags/causal.ts';
 import type { TagDictionary } from '../tags/dictionary.ts';
-import { amount, EMPTY_TAGS, holds, setAmount, setFlag, type TagState } from '../tags/store.ts';
+import { amount, EMPTY_TAGS, flag, holds, setAmount, setFlag, type TagState } from '../tags/store.ts';
 import { TICK_HZ } from '../time.ts';
 import { isTool, TOOLS, type Tool } from '../tools.ts';
 import { caffeineOf, senseCap, type MetabolismParams } from '../outer/caffeine.ts';
@@ -104,6 +104,8 @@ export type ChapterEvent =
   | { readonly type: 'handbookUnlocked'; readonly id: string }
   | { readonly type: 'bedRefused'; readonly object: number; readonly bedType: string }
   | { readonly type: 'napped'; readonly minutes: number }
+  /** A memory file was left on the floor because the hands are full (design doc 7.4). */
+  | { readonly type: 'handsFull' }
   | { readonly type: 'checkpointSaved'; readonly room: string }
   | { readonly type: 'clockAdvanced'; readonly minutes: number }
   | { readonly type: 'cardOpened'; readonly card: string }
@@ -358,7 +360,12 @@ interface Applied {
   readonly opens?: Modal;
   /** The `fired` key this trigger just used up; given back if what it opens never appears. */
   readonly spent?: string;
+  /** A pickup the chapter put back: the room's own `pickedUp` event is dropped from the tick's events. */
+  readonly refused?: true;
 }
+
+/** A memory file is 100 on the staging desk, so a desk of 100 is one file still unfaded. */
+const FILE = 100;
 
 function onTrigger(ctx: ChapterContent, run: Run, game: GameState, e: Extract<DomainEvent, { type: 'triggerEntered' }>): Applied {
   const o = game.room.objects.find((x) => x.id === e.object);
@@ -402,17 +409,19 @@ function onTrigger(ctx: ChapterContent, run: Run, game: GameState, e: Extract<Do
 }
 
 /**
- * Sleep is when memories are filed (design doc 7.4, 7.6): the files held, as a share of the
- * chapter's, times what the night crew can do against the caffeine still in the body. Files taken
- * but never slept on count for nothing, since nothing else sets the `into` tag.
+ * Sleep is when memories are filed (design doc 7.4, 7.6): what is still on the staging desk, as a
+ * share of the chapter's files, times what the night crew can do against the caffeine still in the
+ * body, and half of that when the climax's extra cup was drunk. Files in the hands or never slept
+ * on count for nothing, since nothing else sets the `into` tag.
  */
 function fileMemories(ctx: ChapterContent, run: Run, game: GameState): Run {
   const a = ctx.chapter.archive;
   if (a === undefined) return run;
-  const share = Math.min(amount(run.tags, ctx.dict, a.from), a.total) / a.total;
+  const share = Math.min(amount(run.tags, ctx.dict, a.desk), a.total * FILE) / (a.total * FILE);
   const crew = caffeineSleepCoef(amount(run.tags, ctx.dict, 'caffeine'), ctx.params);
+  const half = a.halvedBy !== undefined && flag(run.tags, ctx.dict, a.halvedBy) ? 0.5 : 1;
   const out = applyEffects(
-    ctx.dict, run.tags, game.clock, [{ kind: 'amount', name: a.into, mode: 'set', value: Math.round(100 * share * crew) }],
+    ctx.dict, run.tags, game.clock, [{ kind: 'amount', name: a.into, mode: 'set', value: Math.round(100 * share * crew * half) }],
     { kind: 'rule', key: 'sleep.archive' }, ctx.params,
   );
   return { ...run, tags: out.tags };
@@ -436,16 +445,20 @@ function onBed(ctx: ChapterContent, run: Run, game: GameState, e: Extract<Domain
 
 /**
  * What an item does once taken. Coffee is a cup of residual (design doc 7.4) and a handbook page
- * goes into the handbook; a memory file is counted in the chapter's `archive` tag, and the other
- * kinds have no rule yet and only leave the room. Like a conversation's effects, each pickup is
- * one entry in the causal log.
+ * goes into the handbook; a memory file goes into the hands counted by the chapter's `archive`
+ * tag, unless the hands are full, when it is put back where it lay; the other kinds have no rule
+ * yet and only leave the room. Like a conversation's effects, each pickup is one entry in the
+ * causal log.
  */
 function onPickup(ctx: ChapterContent, run: Run, game: GameState, e: Extract<DomainEvent, { type: 'pickedUp' }>): Applied {
+  const a = ctx.chapter.archive;
+  if (e.itemType === 'memory' && a !== undefined && amount(run.tags, ctx.dict, a.held) >= a.hands) {
+    return { run, game: { ...game, taken: game.taken.filter((id) => id !== e.object) }, events: [{ type: 'handsFull' }], refused: true };
+  }
   const spent: Run = { ...run, fired: [...run.fired, `${run.roomId}#${e.object}`] };
-  const filed = ctx.chapter.archive?.from;
   const effects: Effect[] = e.itemType === 'coffee' ? [{ kind: 'amount', name: 'caffeine', mode: 'add', value: ctx.params.cup }]
     : e.itemType === 'handbook' ? [{ kind: 'unlock', id: e.itemId }]
-      : e.itemType === 'memory' && filed !== undefined ? [{ kind: 'amount', name: filed, mode: 'add', value: 1 }]
+      : e.itemType === 'memory' && a !== undefined ? [{ kind: 'amount', name: a.held, mode: 'add', value: 1 }]
         : [];
   const out = applyEffects(ctx.dict, spent.tags, game.clock, effects, { kind: 'activity', key: `pickup.${e.itemType}` }, ctx.params);
   return { run: { ...spent, tags: out.tags }, game, events: out.events };
@@ -590,7 +603,12 @@ function stepRoom(ctx: ChapterContent, state: ChapterState, input: TickInput): C
       checkpoint: cp?.fired.includes(key) ? { ...cp, fired: cp.fired.filter((k) => k !== key) } : cp,
     };
   };
-  const done = (next: ChapterState, more: readonly ChapterEvent[]): ChapterResult => ({ state: next, events: [...r.events, ...extra, ...more] });
+  /** Pickups the chapter put back: the room announced them taken, which they were not. */
+  const putBack = new Set<number>();
+  const done = (next: ChapterState, more: readonly ChapterEvent[]): ChapterResult => ({
+    state: next,
+    events: [...r.events.filter((e) => !(e.type === 'pickedUp' && putBack.has(e.object))), ...extra, ...more],
+  });
   /**
    * A filled port's conversation is owed until it is shown, its `fired` key spent like a once
    * trigger's. Asked for when the port fills and again on any later tick in its room, so one not
@@ -709,6 +727,7 @@ function stepRoom(ctx: ChapterContent, state: ChapterState, input: TickInput): C
         const a = onPickup(ctx, run, game, e);
         ({ run, game } = a);
         extra.push(...a.events);
+        if (a.refused) putBack.add(e.object);
         break;
       }
       case 'bedUse': {

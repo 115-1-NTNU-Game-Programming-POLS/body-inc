@@ -30,6 +30,9 @@ brain.caffeine.negotiation,8,narrator,normal,修約完成：卡費因經理僅�
 brain.memory.intro,1,narrator,normal,海馬迴檔案室。今天上課的記憶文件散落一地，一共六份。,,,,
 brain.memory.intro,2,brain,normal,醒著的時候，文件只是堆在這裡。要睡了，夜班清潔隊才會把它們歸檔，沒睡的話就不算。,,,,17
 brain.memory.intro,3,brain,normal,清潔隊怕咖啡因。睡前殘留越多，來的人越少。,,,,26
+brain.desk,1,narrator,normal,暫存桌。醒著的時候，放在這裡的文件每過一小時就淡掉一點。,,,,17
+brain.desk,2,narrator,normal,手上沒有文件。散落的文件，一次最多拿三份。,memory_held<1,,,
+brain.desk,3,narrator,normal,把手上的文件放到桌上。,memory_held>=1,move:memory_held>memory_desk*100,,
 brain.rooftop.door,1,brain,normal,就寢門的規矩：咖啡因殘留低於 15，夜班清潔隊全員出動；15 到 50 之間門只開一半，來的人變少；50 以上打不開。,,,,26
 brain.rooftop.door,2,brain,sleepy,還沒退到 50 以下的話，只能在門前等。等的時候，腺苷還在累積。,caffeine>=50,,,26
 brain.rooftop.door,3,brain,normal,門只開了一半，來的清潔隊少了。想讓文件都歸檔，可以再等殘留退下去。,"caffeine>=15,caffeine<50",,,26

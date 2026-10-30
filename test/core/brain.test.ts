@@ -131,44 +131,89 @@ describe('the memory files (design doc 7.4, 7.6)', () => {
     expect([...brain.rooms].filter(([, r]) => r.objects.some((o) => files.includes(o))).map(([p]) => p)).toEqual(['brain/hippocampus']);
   });
 
-  it('taking a file counts one more in memory_files, and tells the operator what it was', () => {
-    const o = files[0]!;
-    const s = at('brain/hippocampus', '', { x: o.x, y: o.y });
-    const taken = go(s, { ...NONE, interactPressed: true }, 1);
+  const takeAt = (q: string, o: (typeof files)[number], content: ChapterContent = brain) =>
+    stepChapter(content, at('brain/hippocampus', q, { x: o.x, y: o.y }), { ...NONE, interactPressed: true });
+
+  it('taking a file puts it in the hands, tells the operator, and files nothing yet', () => {
+    const taken = takeAt('', files[0]!);
     expect(taken.events).toContainEqual(expect.objectContaining({ type: 'pickedUp', itemType: 'memory' }));
-    expect(amount(taken.state.run.tags, TAGS, 'memory_files')).toBe(1);
-    // Nothing files it yet: it only counts after a night's sleep.
+    expect(amount(taken.state.run.tags, TAGS, 'memory_held')).toBe(1);
     expect(amount(taken.state.run.tags, TAGS, 'exam_archived')).toBe(0);
   });
 
-  it('sleep files the share of files held, and the night crew shrinks with the caffeine still in the body', () => {
-    expect(archived('memory_files:6')).toBe(100);
-    expect(archived('memory_files:3')).toBe(50);
-    expect(archived('memory_files:0')).toBe(0);
+  it('puts a fourth file back on the floor: three in the hands at most', () => {
+    const o = files[3]!;
+    const full = takeAt('memory_held:3', o);
+    expect(full.events).toContainEqual({ type: 'handsFull' });
+    expect(full.events.map((e) => e.type)).not.toContain('pickedUp');
+    expect(amount(full.state.run.tags, TAGS, 'memory_held')).toBe(3);
+    // It is still there to take, and the room remembers nothing of it.
+    expect(full.state.game.taken).not.toContain(o.id);
+    expect(full.state.run.fired).not.toContain(`brain/hippocampus#${o.id}`);
+    const room = takeAt('memory_held:2', o);
+    expect(amount(room.state.run.tags, TAGS, 'memory_held')).toBe(3);
+    expect(room.state.game.taken).toContain(o.id);
+  });
+
+  it('the staging desk takes what is held, 100 a file, and a second visit with empty hands takes nothing', () => {
+    const desk = brain.rooms.get('brain/hippocampus')!.objects.find((o) => o.kind === 'NPC')!;
+    expect(desk.props['dialogueId']).toBe('brain.desk');
+    const visit = (q: string) => {
+      const opened = go(at('brain/hippocampus', q, { x: desk.x + 20, y: desk.y }), { ...NONE, interactPressed: true }, 1);
+      expect(opened.events).toContainEqual({ type: 'dialogueOpened', dialogueId: 'brain.desk' });
+      return talk(opened.state).state.run.tags;
+    };
+    const after = visit('memory_held:3,memory_desk:100');
+    expect(amount(after, TAGS, 'memory_held')).toBe(0);
+    expect(amount(after, TAGS, 'memory_desk')).toBe(400);
+    const empty = visit('memory_desk:100');
+    expect(amount(empty, TAGS, 'memory_desk')).toBe(100);
+  });
+
+  it('the desk fades 5% an hour while the operator is awake, and files in the hands do not fade', () => {
+    const later = (q: string, minutes: number) => {
+      const s = at('brain/hippocampus', q);
+      return go({ ...s, game: { ...s.game, clock: { ...s.game.clock, minute: s.game.clock.minute } } }, NONE, minutes * 55 + 1).state.run.tags;
+    };
+    const desk = amount(later('memory_desk:600,memory_held:3', 120), TAGS, 'memory_desk');
+    expect(desk).toBeCloseTo(600 * 0.95 ** 2, 0);
+    expect(amount(later('memory_desk:600,memory_held:3', 120), TAGS, 'memory_held')).toBe(3);
+  });
+
+  it('sleep files the share of files on the desk, and the night crew shrinks with the caffeine still in the body', () => {
+    expect(archived('memory_desk:600')).toBe(100);
+    expect(archived('memory_desk:300')).toBe(50);
+    expect(archived('memory_desk:0')).toBe(0);
+    // Files still in the hands are not on the desk, so they are not filed.
+    expect(archived('memory_held:3,memory_desk:300')).toBe(50);
     // Under the dead zone the crew is whole; 33 leaves about 87% of it (design doc 7.4).
-    expect(archived('memory_files:6,caffeine:14')).toBe(100);
-    expect(archived('memory_files:6,caffeine:33')).toBe(87);
-    expect(archived('memory_files:3,caffeine:33')).toBe(43);
+    expect(archived('memory_desk:600,caffeine:14')).toBe(100);
+    expect(archived('memory_desk:600,caffeine:33')).toBe(87);
+    expect(archived('memory_desk:300,caffeine:33')).toBe(43);
     // The door will not open at 50, so nothing is filed that night.
-    const shut = sleep('memory_files:6,caffeine:50');
+    const shut = sleep('memory_desk:600,caffeine:50');
     expect(shut.events.map((e) => e.type)).not.toContain('chapterEnded');
     expect(amount(shut.state.run.tags, TAGS, 'exam_archived')).toBe(0);
+  });
+
+  it('the extra cup at the climax files only half of it', () => {
+    expect(archived('memory_desk:600,one_more_cup')).toBe(50);
+    expect(archived('memory_desk:300,one_more_cup,caffeine:33')).toBe(22);
   });
 
   it('a chapter without an archive leaves the tag alone, and a file in it is only removed', () => {
     const { archive: _, ...rest } = CHAPTER;
     const plain: ChapterContent = { ...brain, chapter: rest };
-    const done = sleep('memory_files:6', plain);
+    const done = sleep('memory_desk:600', plain);
     expect(done.events.map((e) => e.type)).toContain('chapterEnded');
     expect(amount(done.state.run.tags, TAGS, 'exam_archived')).toBe(0);
-    const o = files[0]!;
-    const taken = stepChapter(plain, at('brain/hippocampus', '', { x: o.x, y: o.y }), { ...NONE, interactPressed: true });
+    const taken = takeAt('', files[0]!, plain);
     expect(taken.events).toContainEqual(expect.objectContaining({ type: 'pickedUp', itemType: 'memory' }));
-    expect(amount(taken.state.run.tags, TAGS, 'memory_files')).toBe(0);
+    expect(amount(taken.state.run.tags, TAGS, 'memory_held')).toBe(0);
   });
 
   it('the day boundary keeps the two readiness tags and nothing else', () => {
-    const ended = sleep('memory_files:6,exam_practice:95,caffeine:20,sleep_debt:2,phones_off:3').state;
+    const ended = sleep('memory_desk:600,exam_practice:95,caffeine:20,sleep_debt:2,phones_off:3').state;
     const carried = carriedTags(CHAPTER, ended.run.tags, TAGS);
     expect(Object.keys(carried.values).sort()).toEqual(['exam_archived', 'exam_practice']);
     expect(amount(carried, TAGS, 'exam_practice')).toBe(95);

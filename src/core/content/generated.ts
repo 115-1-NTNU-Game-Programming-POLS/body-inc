@@ -419,17 +419,29 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
         "uniqueItems": true
       },
       "archive": {
-        "description": "Sleep files the day's memories (design doc 7.4, 7.6): a memory Pickup adds one to the tag `from`, and going to bed sets the tag `into` to the share of `total` files held, in percent, times the night crew's caffeine coefficient at that moment. Put `into` in `carry` for the next chapter to read it.",
+        "description": "Sleep files the day's memories (design doc 7.4, 7.6). A memory Pickup adds one to the tag `held`, up to `hands` at a time; a conversation moves what is held onto the staging desk with `move:<held>><desk>*100` (a file is 100 on the desk), where the desk's own `fadePerHour` wears it away while the operator is awake. Going to bed sets `into` to the share of `total` files still on the desk, in percent, times the night crew's caffeine coefficient at that moment, and halved when `halvedBy` is on. Put `into` in `carry` for the next chapter to read it.",
         "type": "object",
         "additionalProperties": false,
         "required": [
-          "from",
+          "held",
+          "hands",
+          "desk",
           "total",
           "into"
         ],
         "properties": {
-          "from": {
-            "description": "Number tag counting the memory files taken.",
+          "held": {
+            "description": "Number tag counting the memory files in the operator's hands.",
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "hands": {
+            "description": "How many files the operator can hold at once; a pickup beyond it stays on the floor.",
+            "type": "integer",
+            "minimum": 1
+          },
+          "desk": {
+            "description": "Number tag for the staging desk, 100 for each file on it.",
             "type": "string",
             "pattern": "^[a-z][a-z0-9_]*$"
           },
@@ -440,6 +452,11 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
           },
           "into": {
             "description": "Number tag set on going to bed, in percent.",
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "halvedBy": {
+            "description": "Boolean tag that halves what is filed, as the extra cup at the climax does (design doc 7.4).",
             "type": "string",
             "pattern": "^[a-z][a-z0-9_]*$"
           }
@@ -2853,6 +2870,12 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
             "type": "number",
             "exclusiveMinimum": 0
           },
+          "fadePerHour": {
+            "description": "Share of a number tag that is gone after each game hour, as the memory files fade on the staging desk (design doc 7.4); number tags only.",
+            "type": "number",
+            "minimum": 0.01,
+            "maximum": 0.99
+          },
           "facts": {
             "type": "array",
             "items": {
@@ -3039,14 +3062,20 @@ export interface ChapterFile {
   readonly glucose?: boolean;
   /** Number or boolean tags that cross the day boundary into the next chapter. Without this only the closing cards decide what the next chapter starts with, so nothing the operator did in the rooms would reach it. */
   readonly carry?: readonly string[];
-  /** Sleep files the day's memories (design doc 7.4, 7.6): a memory Pickup adds one to the tag `from`, and going to bed sets the tag `into` to the share of `total` files held, in percent, times the night crew's caffeine coefficient at that moment. Put `into` in `carry` for the next chapter to read it. */
+  /** Sleep files the day's memories (design doc 7.4, 7.6). A memory Pickup adds one to the tag `held`, up to `hands` at a time; a conversation moves what is held onto the staging desk with `move:<held>><desk>*100` (a file is 100 on the desk), where the desk's own `fadePerHour` wears it away while the operator is awake. Going to bed sets `into` to the share of `total` files still on the desk, in percent, times the night crew's caffeine coefficient at that moment, and halved when `halvedBy` is on. Put `into` in `carry` for the next chapter to read it. */
   readonly archive?: {
-    /** Number tag counting the memory files taken. */
-    readonly from: string;
+    /** Number tag counting the memory files in the operator's hands. */
+    readonly held: string;
+    /** How many files the operator can hold at once; a pickup beyond it stays on the floor. */
+    readonly hands: number;
+    /** Number tag for the staging desk, 100 for each file on it. */
+    readonly desk: string;
     /** How many memory files the chapter's rooms hold. */
     readonly total: number;
     /** Number tag set on going to bed, in percent. */
     readonly into: string;
+    /** Boolean tag that halves what is filed, as the extra cup at the climax does (design doc 7.4). */
+    readonly halvedBy?: string;
   };
 }
 
@@ -3676,6 +3705,8 @@ export interface Tag {
   readonly duration: "persistent" | "hours" | "untilWake" | "nextDay";
   /** Span in rule hours; required with duration "hours" and only then. */
   readonly hours?: number;
+  /** Share of a number tag that is gone after each game hour, as the memory files fade on the staging desk (design doc 7.4); number tags only. */
+  readonly fadePerHour?: number;
   readonly facts: readonly Fact[];
 }
 
