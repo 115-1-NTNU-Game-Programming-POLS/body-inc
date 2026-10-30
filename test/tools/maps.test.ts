@@ -369,7 +369,8 @@ describe('chapter check (build plan P0)', () => {
 
   /** Writes rooms into lab/ and checks them against a chapter file; messages are returned without the path prefix. */
   const check = (rooms: Record<string, TiledMap>, links = AB, chapter: Partial<{
-    id: string; start: string; next: string; intro: string; carry: string[]; archive: { held: string; hands: number; desk: string; total: number; into: string; halvedBy?: string };
+    id: string; start: string; next: string; intro: string; carry: string[]; archive: { held: string; hands: number; desk: string; total: number; into: string };
+    climax: { flag: string; summonFactor?: number; archiveFactor?: number };
   }> = {}) => {
     const dir = join(root, `maps${n++}`);
     mkdirSync(join(dir, 'lab'), { recursive: true });
@@ -472,15 +473,27 @@ describe('chapter check (build plan P0)', () => {
     expect(check(rooms(), AB, { archive: { ...archive, total: 3 }, carry })).toEqual([expect.stringMatching(/archive\.total 是 3，房間裡卻有 2 份記憶文件/)]);
     expect(check(rooms(), AB, { archive, carry: [] })).toEqual([expect.stringMatching(/archive\.into「exam_archived」不在 carry 裡/)]);
     expect(check(rooms(), AB, { archive: { ...archive, held: 'breakfast' }, carry })).toEqual([expect.stringMatching(/archive\.held「breakfast」必須是.*數值標籤/)]);
-    // The desk must fade, the hands must be able to fill, and the halving tag must be a flag.
+    // The desk must fade and the hands must be able to fill.
     expect(check(rooms(), AB, { archive: { ...archive, desk: 'memory_held' }, carry })).toEqual([expect.stringMatching(/archive\.desk「memory_held」沒有 fadePerHour/)]);
     expect(check(rooms(), AB, { archive: { ...archive, hands: 3 }, carry })).toEqual([expect.stringMatching(/archive\.hands 3 比 total 2 還大/)]);
-    expect(check(rooms(), AB, { archive: { ...archive, halvedBy: 'one_more_cup' }, carry })).toEqual([]);
-    expect(check(rooms(), AB, { archive: { ...archive, halvedBy: 'memory_held' }, carry })).toEqual([expect.stringMatching(/archive\.halvedBy「memory_held」必須是.*布林標籤/)]);
     expect(check(rooms(), AB, { archive: { ...archive, into: 'nowhere' }, carry: ['nowhere'] })).toEqual([
       expect.stringMatching(/carry 的「nowhere」不在狀態標籤字典/), expect.stringMatching(/archive\.into「nowhere」必須是/),
     ]);
     expect(check(rooms(), AB)).toEqual([expect.stringMatching(/有 2 份記憶文件.*沒有 archive/)]);
+  });
+
+  it('a climax must name a flag that an event card can set, and an archive factor needs an archive', () => {
+    const memory = (id: number) => ({ id, type: 'Pickup', x: 300, y: 300, properties: [prop('itemType', 'memory')] });
+    const rooms = () => ({ a: map([start, southDoor(), memory(4)]), b: b() });
+    const archive = { held: 'memory_held', hands: 1, desk: 'memory_desk', total: 1, into: 'exam_archived' };
+    const carry = ['exam_archived'];
+    const climax = (c: { flag: string; summonFactor?: number; archiveFactor?: number }) => check(rooms(), AB, { archive, carry, climax: c });
+    expect(climax({ flag: 'one_more_cup', summonFactor: 2, archiveFactor: 0.5 })).toEqual([]);
+    expect(climax({ flag: 'memory_held' })).toEqual([expect.stringMatching(/climax\.flag「memory_held」必須是.*布林標籤/)]);
+    expect(climax({ flag: 'breakfast' })).toEqual([expect.stringMatching(/climax\.flag「breakfast」的來源要有 event/)]);
+    const bare = check({ a: a(), b: b() }, AB, { climax: { flag: 'one_more_cup', archiveFactor: 0.5 } });
+    expect(bare).toEqual([expect.stringMatching(/climax\.archiveFactor 要有 archive/)]);
+    expect(check({ a: a(), b: b() }, AB, { climax: { flag: 'one_more_cup', summonFactor: 2 } })).toEqual([]);
   });
 
   it('a key lock whose key lies in its room is a way across, and then it must be linked', () => {

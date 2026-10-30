@@ -106,6 +106,8 @@ export interface GameState {
    * sets it every tick from the caffeine tag, since the room knows no tags.
    */
   readonly senseCapPx?: number;
+  /** Multiplier on how many enemies a boss summons and keeps alive; the chapter sets it every tick from the climax choice. */
+  readonly summonScale?: number;
   /** Only in a liver factory room (core/liver/factory.ts). */
   readonly factory?: FactoryState;
   /** The exam being sat in this room, from the forecast's close on (core/exam/fight.ts). */
@@ -762,7 +764,7 @@ export function step(state: GameState, pressed: TickInput): StepResult {
         continue;
       }
       const summoned = ordered.filter((x) => x.summoner === e.id).length;
-      const r = stepCaffeine(e, { grid, def, target, rng, summoned });
+      const r = stepCaffeine(e, { grid, def, target, rng, summoned, summonScale: state.summonScale ?? 1 });
       rng = r.rng;
       enemies.set(e.id, r.enemy);
       events.push(...r.events);

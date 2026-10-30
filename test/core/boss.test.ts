@@ -230,6 +230,15 @@ describe('stages: tolerance, summons and the power cut (design doc 7.4)', () => 
     expect(summoned.every((e) => e.type === 'adenosine' && e.clings)).toBe(true);
   });
 
+  it('the climax scale doubles both what he summons at once and how many may stay', () => {
+    const s0 = withBoss(fight({ x: 600, y: 330 }), { stage: 2, burst: 0, rest: 1, residue: 200, boosted: true, summonIn: 0 });
+    const s = { ...s0, operator: { ...s0.operator, halves: 999, maxHalves: 999 } };
+    const doubled = run({ ...s, summonScale: 2 }, 120 * TICK_HZ);
+    expect(ofType(doubled, 'bossSummon')[0]).toEqual({ type: 'bossSummon', target: 1, count: DEF.summon.count * 2 });
+    expect(doubled.state.enemies.filter((e) => e.summoner === 1)).toHaveLength(DEF.summon.max * 2);
+    expect(ofType(run({ ...s, summonScale: 1 }, 120 * TICK_HZ), 'bossSummon')[0]).toEqual({ type: 'bossSummon', target: 1, count: DEF.summon.count });
+  });
+
   it('after the burst, the residue falling under 25 is the power cut: the adenosine piles on, he is stuck 8 s, nothing is removed', () => {
     // The operator stands far away, so the summoned adenosine stays at his feet.
     let s = withBoss(fight({ x: 600, y: 330 }), { stage: 2, burst: 0, rest: 999, residue: DEF.boostMin + 0.001, boosted: true, summonIn: 999 });

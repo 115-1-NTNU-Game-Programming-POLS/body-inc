@@ -408,20 +408,26 @@ function onTrigger(ctx: ChapterContent, run: Run, game: GameState, e: Extract<Do
   }
 }
 
+/** What the climax choice costs right now: the factors of the chapter's `climax` while its flag is on, otherwise 1. */
+function climax(ctx: ChapterContent, run: Run): { readonly summon: number; readonly archive: number } {
+  const c = ctx.chapter.climax;
+  if (c === undefined || !flag(run.tags, ctx.dict, c.flag)) return { summon: 1, archive: 1 };
+  return { summon: c.summonFactor ?? 1, archive: c.archiveFactor ?? 1 };
+}
+
 /**
  * Sleep is when memories are filed (design doc 7.4, 7.6): what is still on the staging desk, as a
  * share of the chapter's files, times what the night crew can do against the caffeine still in the
- * body, and half of that when the climax's extra cup was drunk. Files in the hands or never slept
- * on count for nothing, since nothing else sets the `into` tag.
+ * body, and times the climax's archive factor when its extra cup was drunk. Files in the hands or
+ * never slept on count for nothing, since nothing else sets the `into` tag.
  */
 function fileMemories(ctx: ChapterContent, run: Run, game: GameState): Run {
   const a = ctx.chapter.archive;
   if (a === undefined) return run;
   const share = Math.min(amount(run.tags, ctx.dict, a.desk), a.total * FILE) / (a.total * FILE);
   const crew = caffeineSleepCoef(amount(run.tags, ctx.dict, 'caffeine'), ctx.params);
-  const half = a.halvedBy !== undefined && flag(run.tags, ctx.dict, a.halvedBy) ? 0.5 : 1;
   const out = applyEffects(
-    ctx.dict, run.tags, game.clock, [{ kind: 'amount', name: a.into, mode: 'set', value: Math.round(100 * share * crew * half) }],
+    ctx.dict, run.tags, game.clock, [{ kind: 'amount', name: a.into, mode: 'set', value: Math.round(100 * share * crew * climax(ctx, run).archive) }],
     { kind: 'rule', key: 'sleep.archive' }, ctx.params,
   );
   return { ...run, tags: out.tags };
@@ -525,9 +531,19 @@ function openPending(ctx: ChapterContent, state: ChapterState): ChapterResult {
 function cloaked(ctx: ChapterContent, run: Run, game: GameState): GameState {
   // In the exam the residue runs on the boss clock (exam/fight.ts), not the chapter's.
   const cap = senseCap(sitting(game.exam) ? game.exam!.residue : caffeineOf(run.tags, ctx.dict));
-  if (cap !== undefined) return game.senseCapPx === cap ? game : { ...game, senseCapPx: cap };
-  if (game.senseCapPx === undefined) return game;
-  const { senseCapPx: _, ...rest } = game;
+  const scaled = summonScaled(ctx, run, game);
+  if (cap !== undefined) return scaled.senseCapPx === cap ? scaled : { ...scaled, senseCapPx: cap };
+  if (scaled.senseCapPx === undefined) return scaled;
+  const { senseCapPx: _, ...rest } = scaled;
+  return rest;
+}
+
+/** The boss's summons follow the climax choice; the room knows no tags, so the chapter sets the scale. */
+function summonScaled(ctx: ChapterContent, run: Run, game: GameState): GameState {
+  const scale = climax(ctx, run).summon;
+  if (scale === (game.summonScale ?? 1)) return game;
+  if (scale !== 1) return { ...game, summonScale: scale };
+  const { summonScale: _, ...rest } = game;
   return rest;
 }
 

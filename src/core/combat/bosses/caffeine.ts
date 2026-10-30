@@ -24,6 +24,8 @@ export interface CaffeineContext {
   readonly rng: RngStreams;
   /** Enemies this boss summoned that still exist, whatever their phase. */
   readonly summoned: number;
+  /** Scales the summon count and the number allowed alive at once. */
+  readonly summonScale: number;
 }
 
 export interface BossTick {
@@ -69,6 +71,7 @@ function throwShots(e: EnemyState, m: BossMoveDef, target: Vec): ShotSpec[] {
 
 export function stepCaffeine(e: EnemyState, ctx: CaffeineContext): BossTick {
   const { def, target } = ctx;
+  const summonMax = Math.round(def.summon.max * ctx.summonScale);
   let rng = ctx.rng;
   const shots: ShotSpec[] = [];
   const zones: ZoneSpec[] = [];
@@ -125,7 +128,7 @@ export function stepCaffeine(e: EnemyState, ctx: CaffeineContext): BossTick {
     }
     if (b.move.id === 'summon') {
       if (frame >= def.summon.ticks) {
-        const n = Math.min(def.summon.count, def.summon.max - ctx.summoned);
+        const n = Math.max(0, Math.min(Math.round(def.summon.count * ctx.summonScale), summonMax - ctx.summoned));
         for (let i = 0; i < n; i++) {
           const o = SUMMON_OFFSETS[i % SUMMON_OFFSETS.length]!;
           const at = { x: e.x + o.x, y: e.y + o.y };
@@ -159,7 +162,7 @@ export function stepCaffeine(e: EnemyState, ctx: CaffeineContext): BossTick {
   const stage1Refill = b.stage === 1 && b.residue < def.boostMin && b.lowTicks >= def.refillDelayTicks;
   if (b.burst > 0 || stage1Refill) {
     b = { ...b, move: { id: 'drink', frame: 1 } };
-  } else if (b.stage >= 2 && b.summonIn === 0 && ctx.summoned < def.summon.max) {
+  } else if (b.stage >= 2 && b.summonIn === 0 && ctx.summoned < summonMax) {
     b = { ...b, move: { id: 'summon', frame: 1 } };
   } else {
     let m: BossMoveDef;

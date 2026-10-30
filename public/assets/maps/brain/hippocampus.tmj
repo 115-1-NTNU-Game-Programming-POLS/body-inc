@@ -718,6 +718,35 @@
      ]
     },
     {
+     "id": 16,
+     "name": "climax",
+     "type": "Trigger",
+     "x": 576,
+     "y": 96,
+     "width": 32,
+     "height": 256,
+     "rotation": 0,
+     "visible": true,
+     "properties": [
+      {
+       "name": "event",
+       "type": "string",
+       "propertytype": "TriggerEvent",
+       "value": "card"
+      },
+      {
+       "name": "eventId",
+       "type": "string",
+       "value": "climax"
+      },
+      {
+       "name": "once",
+       "type": "bool",
+       "value": true
+      }
+     ]
+    },
+    {
      "id": 15,
      "name": "desk",
      "type": "NPC",

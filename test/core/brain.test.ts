@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { BOSSES, CHAPTERS, DECKS, DIALOGUES, ENEMIES, EXAMS, PARAMS, RESCUES, TAGS } from '../../src/app/content.ts';
 import { tagsFromQuery } from '../../src/app/session.ts';
 import {
-  amount, arrivalPoint, carriedTags, holds, loadBossTable, parseRoom, readContent, roomsOf, selectDialogue, startChapter, stepChapter, storyAtEnd, TILE,
+  amount, arrivalPoint, carriedTags, holds, LOCK_TICKS, loadBossTable, parseRoom, readContent, roomsOf, selectDialogue, startChapter, stepChapter, storyAtEnd, TILE,
   type CaffeineParams, type ChapterContent, type ChapterState, type GameEvent, type TickInput, type TiledMap,
 } from '../../src/core/index.ts';
 import { OPERATOR_BODY } from '../../src/core/combat/operator.ts';
@@ -280,6 +280,43 @@ describe('the phone spirits (design doc 7.4)', () => {
   it('are three once-triggers, so a spirit switched off does not come back on the way out', () => {
     const triggers = brain.rooms.get('brain/hippocampus')!.objects.filter((o) => o.kind === 'Trigger' && o.props['eventId'] === 'brain.phone');
     expect(triggers).toHaveLength(3);
+  });
+});
+
+describe('the climax choice (design doc 7.4)', () => {
+  const EAST = { x: 18 * TILE + 16, y: 5 * TILE };
+  const asked = () => go(at('brain/hippocampus', '', EAST), NONE, 1);
+  const choose = (pick: number) => go(go(asked().state, NONE, LOCK_TICKS).state, { ...NONE, pick }, 1);
+  const cup = (s: ChapterState) => holds(s.run.tags, TAGS, compileCondition(TAGS, 'one_more_cup'));
+
+  it('is asked once, by the strip before the arena door, and nothing happens until it is answered', () => {
+    expect(asked().events).toContainEqual({ type: 'cardOpened', card: 'climax' });
+    expect(cup(asked().state)).toBe(false);
+    const done = choose(2).state;
+    expect(done.card).toBeNull();
+    const back = go(go(done, { move: { x: -1, y: 0 } }, 20).state, { move: { x: 1, y: 0 } }, 40);
+    expect(back.events.map((e) => e.type)).not.toContain('cardOpened');
+  });
+
+  it('the extra cup sets one_more_cup, and sleeping first leaves it off', () => {
+    expect(cup(choose(1).state)).toBe(true);
+    expect(cup(choose(2).state)).toBe(false);
+  });
+
+  it('puts the chapter\'s summon scale on the arena room only while the cup is on', () => {
+    expect(CHAPTER.climax).toEqual({ flag: 'one_more_cup', summonFactor: 2, archiveFactor: 0.5 });
+    expect(go(at('brain/arena', 'one_more_cup'), NONE, 1).state.game.summonScale).toBe(2);
+    expect(go(at('brain/arena'), NONE, 1).state.game.summonScale).toBeUndefined();
+    const on = go(at('brain/arena', 'one_more_cup'), NONE, 1).state;
+    const off = go({ ...on, run: { ...on.run, tags: at('brain/arena').run.tags } }, NONE, 1).state;
+    expect(off.game.summonScale).toBeUndefined();
+  });
+
+  it('a chapter without a climax never scales', () => {
+    const { climax: _, ...rest } = CHAPTER;
+    const plain: ChapterContent = { ...brain, chapter: rest };
+    const s = at('brain/arena', 'one_more_cup');
+    expect(stepChapter(plain, s, NONE).state.game.summonScale).toBeUndefined();
   });
 });
 

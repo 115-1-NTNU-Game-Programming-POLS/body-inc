@@ -419,7 +419,7 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
         "uniqueItems": true
       },
       "archive": {
-        "description": "Sleep files the day's memories (design doc 7.4, 7.6). A memory Pickup adds one to the tag `held`, up to `hands` at a time; a conversation moves what is held onto the staging desk with `move:<held>><desk>*100` (a file is 100 on the desk), where the desk's own `fadePerHour` wears it away while the operator is awake. Going to bed sets `into` to the share of `total` files still on the desk, in percent, times the night crew's caffeine coefficient at that moment, and halved when `halvedBy` is on. Put `into` in `carry` for the next chapter to read it.",
+        "description": "Sleep files the day's memories (design doc 7.4, 7.6). A memory Pickup adds one to the tag `held`, up to `hands` at a time; a conversation moves what is held onto the staging desk with `move:<held>><desk>*100` (a file is 100 on the desk), where the desk's own `fadePerHour` wears it away while the operator is awake. Going to bed sets `into` to the share of `total` files still on the desk, in percent, times the night crew's caffeine coefficient at that moment and the `climax` archive factor when its flag is on. Put `into` in `carry` for the next chapter to read it.",
         "type": "object",
         "additionalProperties": false,
         "required": [
@@ -454,11 +454,33 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
             "description": "Number tag set on going to bed, in percent.",
             "type": "string",
             "pattern": "^[a-z][a-z0-9_]*$"
-          },
-          "halvedBy": {
-            "description": "Boolean tag that halves what is filed, as the extra cup at the climax does (design doc 7.4).",
+          }
+        }
+      },
+      "climax": {
+        "description": "The choice an event card offers before the boss (design doc 7.4): a boolean tag it sets, and what that costs. With the flag on, the boss summons `summonFactor` times as many enemies at once and may keep that many times as many alive, and going to bed files only `archiveFactor` of the desk.",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "flag"
+        ],
+        "properties": {
+          "flag": {
+            "description": "Boolean tag the choice sets.",
             "type": "string",
             "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "summonFactor": {
+            "description": "Multiplier on the boss's summon count and cap while the flag is on.",
+            "type": "number",
+            "minimum": 1,
+            "maximum": 4
+          },
+          "archiveFactor": {
+            "description": "Multiplier on what sleep files while the flag is on.",
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
           }
         }
       }
@@ -3062,7 +3084,7 @@ export interface ChapterFile {
   readonly glucose?: boolean;
   /** Number or boolean tags that cross the day boundary into the next chapter. Without this only the closing cards decide what the next chapter starts with, so nothing the operator did in the rooms would reach it. */
   readonly carry?: readonly string[];
-  /** Sleep files the day's memories (design doc 7.4, 7.6). A memory Pickup adds one to the tag `held`, up to `hands` at a time; a conversation moves what is held onto the staging desk with `move:<held>><desk>*100` (a file is 100 on the desk), where the desk's own `fadePerHour` wears it away while the operator is awake. Going to bed sets `into` to the share of `total` files still on the desk, in percent, times the night crew's caffeine coefficient at that moment, and halved when `halvedBy` is on. Put `into` in `carry` for the next chapter to read it. */
+  /** Sleep files the day's memories (design doc 7.4, 7.6). A memory Pickup adds one to the tag `held`, up to `hands` at a time; a conversation moves what is held onto the staging desk with `move:<held>><desk>*100` (a file is 100 on the desk), where the desk's own `fadePerHour` wears it away while the operator is awake. Going to bed sets `into` to the share of `total` files still on the desk, in percent, times the night crew's caffeine coefficient at that moment and the `climax` archive factor when its flag is on. Put `into` in `carry` for the next chapter to read it. */
   readonly archive?: {
     /** Number tag counting the memory files in the operator's hands. */
     readonly held: string;
@@ -3074,8 +3096,15 @@ export interface ChapterFile {
     readonly total: number;
     /** Number tag set on going to bed, in percent. */
     readonly into: string;
-    /** Boolean tag that halves what is filed, as the extra cup at the climax does (design doc 7.4). */
-    readonly halvedBy?: string;
+  };
+  /** The choice an event card offers before the boss (design doc 7.4): a boolean tag it sets, and what that costs. With the flag on, the boss summons `summonFactor` times as many enemies at once and may keep that many times as many alive, and going to bed files only `archiveFactor` of the desk. */
+  readonly climax?: {
+    /** Boolean tag the choice sets. */
+    readonly flag: string;
+    /** Multiplier on the boss's summon count and cap while the flag is on. */
+    readonly summonFactor?: number;
+    /** Multiplier on what sleep files while the flag is on. */
+    readonly archiveFactor?: number;
   };
 }
 

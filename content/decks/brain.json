@@ -25,6 +25,13 @@
         { "id": "rewrite", "effect": "tag:deadline;clock:60;tag:exam_practice=95" },
         { "id": "office_hour", "effect": "tag:stress+10;tag:exam_practice=60" }
       ]
+    },
+    {
+      "id": "climax",
+      "options": [
+        { "id": "one_more", "effect": "tag:one_more_cup" },
+        { "id": "sleep_first", "effect": "" }
+      ]
     }
   ]
 }

@@ -233,6 +233,8 @@ const room = (
     timeClock(7, 16, 8),
     // A strip across the floor at the west door, so the room explains its files before the first one is in reach.
     trigger(8, 'files-note', 'dialogue', 'brain.memory.intro', 2, 3, 1, 8, '', true),
+    // The choice before the boss, on the way to the arena door; once, so a forced leave does not ask again.
+    trigger(16, 'climax', 'card', 'climax', 18, 3, 1, 8, '', true),
     // The staging desk by the west wall, clear of the phone spirits and the files so its talk is not stolen.
     npc(15, 'desk', 'brain.desk', 80, 320),
     pickup(9, 'memory', '', 208, 144),
