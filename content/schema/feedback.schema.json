@@ -36,6 +36,17 @@
             "seconds": { "type": "number", "exclusiveMinimum": 0 }
           }
         },
+        "pulse": {
+          "description": "The picture swells like a heartbeat: the camera zoom rises by `amount` (a share of the zoom) and falls back, `beats` times over `seconds`. It locks no input.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["amount", "beats", "seconds"],
+          "properties": {
+            "amount": { "type": "number", "exclusiveMinimum": 0, "maximum": 0.05 },
+            "beats": { "type": "integer", "minimum": 1 },
+            "seconds": { "type": "number", "exclusiveMinimum": 0 }
+          }
+        },
         "particles": {
           "type": "array",
           "items": {

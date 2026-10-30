@@ -15,6 +15,8 @@ export interface TickInput {
   readonly stampPressed?: boolean;
   /** Swap the stapler and the folder; a press during an action waits for it to end (OperatorState.swapPending). */
   readonly swapPressed?: boolean;
+  /** The partner's skill (L); it does anything only in a chapter that has a partner with one (OperatorState is untouched). */
+  readonly partnerPressed?: boolean;
   /** Talk to an NPC or use a bed; not buffered, since it is only meaningful while standing next to one. */
   readonly interactPressed?: boolean;
   /** A fresh press of up (-1) or down (1); only a conversation's choice reads it. */

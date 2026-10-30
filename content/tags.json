@@ -37,7 +37,10 @@
     { "name": "core_dump", "type": "boolean", "sources": ["event"], "duration": "nextDay", "facts": ["17"] },
     { "name": "exam_practice", "type": "number", "unit": "percent", "sources": ["card", "event"], "duration": "persistent", "facts": ["general"] },
     { "name": "exam_archived", "type": "number", "unit": "percent", "sources": ["card", "rule"], "duration": "persistent", "facts": ["17"] },
-    { "name": "memory_files", "type": "number", "unit": "files", "sources": ["chapter"], "duration": "persistent", "facts": ["17"] },
+    { "name": "memory_held", "type": "number", "unit": "files", "sources": ["chapter"], "duration": "persistent", "facts": ["17"] },
+    { "name": "memory_desk", "type": "number", "unit": "percent", "sources": ["chapter"], "duration": "persistent", "fadePerHour": 0.05, "facts": ["17"] },
+    { "name": "one_more_cup", "type": "boolean", "sources": ["event"], "duration": "persistent", "facts": ["26"] },
+    { "name": "seller_closed", "type": "boolean", "sources": ["chapter"], "duration": "persistent", "facts": ["9"] },
     { "name": "midterm_score", "type": "number", "unit": "points", "sources": ["rule"], "duration": "persistent", "facts": ["general"] },
     { "name": "midterm_taken", "type": "boolean", "sources": ["rule"], "duration": "persistent", "facts": ["general"] }
   ],

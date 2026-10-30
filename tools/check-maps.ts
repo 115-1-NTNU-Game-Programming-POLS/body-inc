@@ -276,6 +276,10 @@ export function checkMaps(mapsDir: string, content: MapContent = loadMapContent(
       if (o.kind === 'Pickup' && o.props['itemType'] === 'handbook' && !content.handbookIds.has(id.trim())) {
         out.push(`${file} ${where(room, { object: o.id })}：itemId「${id.trim()}」不存在於手冊頁（content/handbook.json）`);
       }
+      const unlocks = String(o.props['unlocks'] ?? '').trim();
+      if (o.kind === 'Bed' && unlocks !== '' && !content.handbookIds.has(unlocks)) {
+        out.push(`${file} ${where(room, { object: o.id })}：unlocks「${unlocks}」不存在於手冊頁（content/handbook.json）`);
+      }
     }
     // The game moves a box off a body as the room starts, so a box drawn there would not be where the author put it.
     const bodies: { what: string; box: Box; from?: RoomObject }[] = [
@@ -434,11 +438,25 @@ export function checkChapters(mapsDir: string, content: MapContent = loadMapCont
     if (archive === undefined) {
       if (memories > 0) out.push(`${file}：房間裡有 ${memories} 份記憶文件（itemType 為 memory），章節檔卻沒有 archive，撿起來不會記到任何標籤`);
     } else {
-      for (const [field, name] of [['from', archive.from], ['into', archive.into]] as const) {
+      for (const [field, name] of [['held', archive.held], ['desk', archive.desk], ['into', archive.into]] as const) {
         if (content.dict.tags.get(name)?.type !== 'number') out.push(`${file}：archive.${field}「${name}」必須是狀態標籤字典（content/tags.json）裡的數值標籤`);
       }
+      if (content.dict.tags.get(archive.desk)?.fadePerHour === undefined) {
+        out.push(`${file}：archive.desk「${archive.desk}」沒有 fadePerHour；暫存桌上的文件醒著時要慢慢淡掉（設計文件 7.4）`);
+      }
+      if (archive.hands > archive.total) out.push(`${file}：archive.hands ${archive.hands} 比 total ${archive.total} 還大，手拿不滿，手上的限制就沒有作用`);
       if (archive.total !== memories) out.push(`${file}：archive.total 是 ${archive.total}，房間裡卻有 ${memories} 份記憶文件；兩者不同，歸檔率就到不了 100%，或是永遠滿的`);
       if (!(chapter.carry ?? []).includes(archive.into)) out.push(`${file}：archive.into「${archive.into}」不在 carry 裡，歸檔的結果帶不到下一章`);
+    }
+    for (const [enemy, name] of Object.entries(chapter.closedCases ?? {})) {
+      if (content.dict.tags.get(name)?.type !== 'boolean') out.push(`${file}：closedCases 的「${enemy}」要記在布林標籤上，「${name}」不是狀態標籤字典（content/tags.json）裡的布林標籤`);
+    }
+    const climax = chapter.climax;
+    if (climax !== undefined) {
+      const def = content.dict.tags.get(climax.flag);
+      if (def?.type !== 'boolean') out.push(`${file}：climax.flag「${climax.flag}」必須是狀態標籤字典（content/tags.json）裡的布林標籤`);
+      else if (!def.sources.includes('event')) out.push(`${file}：climax.flag「${climax.flag}」的來源要有 event，高潮的事件卡才設得了它`);
+      if (climax.archiveFactor !== undefined && archive === undefined) out.push(`${file}：climax.archiveFactor 要有 archive 才有東西可以打折`);
     }
 
     const used = new Map<string, number>();

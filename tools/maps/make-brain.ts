@@ -7,14 +7,17 @@
  *   coffee-am        the 08:00 machine and the 〈咖啡因〉 page behind it
  *   coffee-pm        the 17:00 machine
  *   general-affairs  the clerk hands over the folder (grant:folder)
- *   tutorial         a flyer's sheets to parry and an energy-drink salesman to close; the 〈咖啡因與能量飲料〉 page
- *   open-office      2F: clock vents with their adenosine (more at sleep_debt>=2), the nap sofa, the group-chat card
- *   hippocampus      3F: six memory files, three phone spirits that eat time until switched off; the time clock before the boss
- *   arena            4F: the caffeine boss; the east door opens once the renewal is settled
+ *   tutorial         a flyer's sheets and an energy-drink salesman's cans to parry; the 〈咖啡因與能量飲料〉 page;
+ *                    its north door is the stairs up
+ *   open-office      2F: clock vents with their adenosine (more at sleep_debt>=2), the nap sofa and its 〈短暫午睡〉 page, the group-chat card
+ *   hippocampus      3F: six memory files and the staging desk, three phone spirits that eat time until switched off;
+ *                    the time clock and the one-more-cup choice before the boss
+ *   arena            4F: the caffeine boss; the stairs up open once the renewal is settled
  *   rooftop          the sleep door (bed needing caffeine<50; the archive halves its crew as the residual rises), the 〈睡眠債〉 page, and the end of the chapter
  *
- * Real art, the staging desk and the hourly fade of design doc 7.4 come later; this places the mechanisms the
- * greybox already has, wired as an author would wire them in Tiled.
+ * The four floors stack through the north and south sockets; the lobby and the folder run through the east
+ * and west ones. Real art comes later; this places the mechanisms the greybox already has, wired as an author
+ * would wire them in Tiled.
  *
  *   node tools/maps/make-brain.ts
  */
@@ -158,17 +161,18 @@ const room = (
   ]));
 }
 
-// The folder's tutorial (design doc 7.4): a flyer throws sheets to parry, a salesman walks up to close.
+// The folder's tutorial (design doc 7.4): a flyer throws sheets and the energy-drink salesman throws cans, both to parry.
+// A salesman whose case is closed does not come back (chapter file closedCases).
 {
   const s = shell('brain', 49);
   side(s, 'W', true);
-  side(s, 'E', true);
+  north(s, true);
   writeRoom('brain/tutorial.tmj', room(s, 'brain', 'combat', 45, [
     start(64, 224),
     door(2, 'W'),
-    door(3, 'E'),
+    door(3, 'N'),
     spawn(4, 'flyer', 480, 160),
-    spawn(5, 'energy_seller', 480, 288),
+    spawn(5, 'energy_seller', 480, 288, '!seller_closed'),
     trigger(6, 'sign', 'dialogue', 'brain.tutorial.sign', 2, 3, 1, 8),
     pickup(7, 'handbook', 'energy_drinks', 576, 224),
   ]));
@@ -177,8 +181,8 @@ const room = (
 // 2F open-plan office: clock vents, their adenosine and the nap sofa. The vent props are the corridor's.
 {
   const s = shell('brain', 51);
-  side(s, 'W', true);
-  side(s, 'E', true);
+  south(s);
+  north(s, true);
   const PROPS_GID = s.tilecount + 1;
   const VENT = 64;
   const vent = (id: number, col: number) =>
@@ -187,24 +191,24 @@ const room = (
   const group = (id: number, name: string, objects: object[]) =>
     ({ id, name, type: 'objectgroup', x: 0, y: 0, opacity: 1, visible: true, draworder: 'topdown', objects });
   writeRoom('brain/open-office.tmj', room(s, 'brain', 'combat', 90, [
-    start(64, 224),
-    door(2, 'W'),
-    door(3, 'E'),
+    start(320, 320),
+    door(2, 'S'),
+    door(3, 'N'),
     adenosine(4, 4),
-    adenosine(5, 9),
-    rect(6, 'nap', 'Bed', 3 * T, 9 * T, 2 * T, T, [str('bedType', 'BedType', 'nap')]),
-    // A strip across the floor before the east door, so the group chat comes on the way to the archive.
-    trigger(7, 'group-chat', 'card', 'group_chat', 16, 3, 1, 8),
+    adenosine(5, 14),
+    rect(6, 'nap', 'Bed', 3 * T, 9 * T, 2 * T, T, [str('bedType', 'BedType', 'nap'), str('unlocks', undefined, 'short_nap')]),
+    // A strip across the floor before the stairs up, so the group chat comes on the way to the archive.
+    trigger(7, 'group-chat', 'card', 'group_chat', 1, 6, 18, 1),
   ], {
     tutorialFor: 'adenosine',
     layers: [
-      group(4, 'props', [vent(10, 4), vent(11, 9)]),
+      group(4, 'props', [vent(10, 4), vent(11, 14)]),
       {
         id: 5, name: 'variant:sleep_debt_2', type: 'group', class: 'Variant', x: 0, y: 0, opacity: 1, visible: true,
         properties: [{ name: 'when', type: 'string', value: 'sleep_debt>=2' }],
         layers: [
-          group(6, 'props', [vent(12, 13), vent(13, 15)]),
-          group(7, 'objects', [adenosine(14, 13), adenosine(15, 15)]),
+          group(6, 'props', [vent(12, 7), vent(13, 17)]),
+          group(7, 'objects', [adenosine(14, 7), adenosine(15, 17)]),
         ],
       },
     ],
@@ -216,23 +220,27 @@ const room = (
   }));
 }
 
-// 3F hippocampus: six memory files (filed only by sleep) and three phone spirits that cost half an
-// hour a time until switched off.
+// 3F hippocampus: six memory files (filed only by sleep), the staging desk that holds them, and three phone
+// spirits that cost half an hour a time until switched off.
 {
   const s = shell('brain', 53);
-  side(s, 'W', true);
-  side(s, 'E', true);
+  south(s);
+  north(s, true);
   writeRoom('brain/hippocampus.tmj', room(s, 'brain', 'puzzle', 60, [
-    start(64, 224),
-    door(2, 'W'),
-    door(3, 'E'),
+    start(320, 320),
+    door(2, 'S'),
+    door(3, 'N'),
     trigger(4, 'phone-1', 'dialogue', 'brain.phone', 3, 4, 2, 2),
-    trigger(5, 'phone-2', 'dialogue', 'brain.phone', 9, 8, 2, 2),
+    trigger(5, 'phone-2', 'dialogue', 'brain.phone', 16, 8, 2, 2),
     trigger(6, 'phone-3', 'dialogue', 'brain.phone', 14, 4, 2, 2),
-    // The last punch before the boss, so a forced leave in the arena returns here.
-    timeClock(7, 16, 8),
-    // A strip across the floor at the west door, so the room explains its files before the first one is in reach.
-    trigger(8, 'files-note', 'dialogue', 'brain.memory.intro', 2, 3, 1, 8, '', true),
+    // The last punch before the boss, beside the stairs, so a forced leave in the arena returns here.
+    timeClock(7, 7, 4),
+    // A strip across the floor at the stairs up from the office, so the room explains its files before the first one is in reach.
+    trigger(8, 'files-note', 'dialogue', 'brain.memory.intro', 1, 9, 18, 1, '', true),
+    // The choice before the boss, across the floor before the stairs to the arena; once, so a forced leave does not ask again.
+    trigger(16, 'climax', 'card', 'climax', 1, 3, 18, 1, '', true),
+    // The staging desk by the west wall, clear of the phone spirits and the files so its talk is not stolen.
+    npc(15, 'desk', 'brain.desk', 80, 320),
     pickup(9, 'memory', '', 208, 144),
     pickup(10, 'memory', '', 144, 304),
     pickup(11, 'memory', '', 272, 208),
@@ -245,24 +253,24 @@ const room = (
 // 4F conference room: the caffeine boss. His case closing opens the renewal talk, which sets caffeine_settled.
 {
   const s = shell('brain', 55);
-  side(s, 'W', true);
-  side(s, 'E', false);
+  south(s);
+  north(s, false);
   writeRoom('brain/arena.tmj', room(s, 'brain', 'core', 180, [
-    start(64, 224),
-    door(2, 'W'),
-    door(3, 'E', 'resource', 'caffeine_settled'),
+    start(320, 320),
+    door(2, 'S'),
+    door(3, 'N', 'resource', 'caffeine_settled'),
     spawn(4, 'caffeine', 320, 168, '!caffeine_settled'),
-    trigger(5, 'greeting', 'dialogue', 'brain.caffeine.intro', 2, 3, 1, 8, '!caffeine_settled'),
+    trigger(5, 'greeting', 'dialogue', 'brain.caffeine.intro', 1, 9, 18, 1, '!caffeine_settled'),
   ], { storyOnly: true }));
 }
 
 // The roof: the sleep door needs the caffeine residue below 50, and ends the chapter by filing the memory files.
 {
   const s = shell('brain-night', 57);
-  side(s, 'W', true);
+  south(s);
   writeRoom('brain/rooftop.tmj', room(s, 'brain', 'rest', 30, [
-    start(64, 224),
-    door(2, 'W'),
+    start(320, 320),
+    door(2, 'S'),
     rect(3, 'bedtime', 'Bed', 14 * T, 8 * T, 2 * T, 2 * T, [str('bedType', 'BedType', 'sleep'), str('requires', undefined, 'caffeine<50')]),
     npc(4, 'brain', 'brain.rooftop.door', 320, 200),
     pickup(5, 'handbook', 'sleep_debt', 480, 160),

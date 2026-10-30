@@ -35,6 +35,8 @@ export function missingPages(rooms: ReadonlyMap<string, RoomModel>, dialogues: D
     for (const o of room.objects) {
       const id = String(o.props['itemId']).trim();
       if (o.kind === 'Pickup' && o.props['itemType'] === 'handbook' && !pages.has(id)) out.push(`${path} #${o.id}: handbook page "${id}"`);
+      const bed = String(o.props['unlocks'] ?? '').trim();
+      if (o.kind === 'Bed' && bed !== '' && !pages.has(bed)) out.push(`${path} #${o.id}: handbook page "${bed}"`);
     }
   }
   for (const [id, d] of dialogues) {

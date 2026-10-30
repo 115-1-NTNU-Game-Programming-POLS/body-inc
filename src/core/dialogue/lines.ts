@@ -27,6 +27,8 @@ export type Effect =
   | { readonly kind: 'flag'; readonly name: string }
   /** `tag:caffeine=100` sets a number tag, `tag:sleep_debt+1` adds to it. */
   | { readonly kind: 'amount'; readonly name: string; readonly mode: 'set' | 'add'; readonly value: number }
+  /** `move:memory_held>memory_desk*100` empties the first number tag into the second, a given amount per unit. */
+  | { readonly kind: 'move'; readonly from: string; readonly to: string; readonly factor: number }
   /** `clock:10` moves the chapter clock on (design doc 7: talking takes time). */
   | { readonly kind: 'clock'; readonly minutes: number }
   /** `unlock:caffeine` opens a handbook page. */
@@ -109,6 +111,8 @@ const FACT = /^(|\d+|pending:\d+|general)$/;
 // A name may carry the `mod.` prefix of modifiers, so that setting one gets its own message.
 const FLAG_OR_AMOUNT = /^tag:((?:mod\.)?[a-z][a-z0-9_]*)(?:([=+])(\d+(?:\.\d+)?))?$/;
 const UNLOCK = /^unlock:([a-z][a-z0-9_]*)$/;
+const BODY_TAGS: readonly string[] = ['alcohol', 'caffeine', 'glucose', 'sleep_debt'];
+const MOVE = /^move:([a-z][a-z0-9_]*)>([a-z][a-z0-9_]*)\*(\d+(?:\.\d+)?)$/;
 const CLOCK = /^clock:(.*)$/;
 const GRANT = /^grant:(.*)$/;
 
@@ -136,6 +140,17 @@ export function parseEffects(text: string, dict: TagDictionary, sources: readonl
       const minutes = wholeMinutes(clock[1]!);
       if (minutes === undefined) bad('minutes');
       else effects.push({ kind: 'clock', minutes });
+      continue;
+    }
+    const move = MOVE.exec(part);
+    if (move) {
+      const [, from = '', to = '', factor = ''] = move;
+      const defs = [from, to].map((n) => dict.tags.get(n));
+      if (defs.some((d) => !d)) bad('unknown-tag');
+      else if (defs.some((d) => !d!.sources.some((s) => sources.includes(s)))) bad('tag-source');
+      // A move must not reach the tags the alcohol rule guards, which `tag:` effects already protect.
+      else if (defs.some((d) => d!.type !== 'number') || from === to || [from, to].some((n) => BODY_TAGS.includes(n))) bad('tag-form');
+      else effects.push({ kind: 'move', from, to, factor: Number(factor) });
       continue;
     }
     const unlock = UNLOCK.exec(part);

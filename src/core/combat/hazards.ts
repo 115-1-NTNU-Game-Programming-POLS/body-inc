@@ -17,6 +17,8 @@ export interface Shot {
   readonly halves: number;
   /** A toast wave (design doc 7.7): landing adds this many cups instead of costing hearts, and the guard refuses it. */
   readonly cups?: number;
+  /** An energy-drink can (design doc 7.4): landing costs no heart and is drunk instead; the guard still catches it. */
+  readonly can?: true;
   /** The shots of one ring share this, so the ring lands at most one cup or one refusal however many of it touch the operator. */
   readonly wave?: number;
   /** Half the side of the shot's box. */

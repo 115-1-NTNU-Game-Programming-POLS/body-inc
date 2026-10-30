@@ -137,6 +137,7 @@ describe('feedback table', () => {
   it('the real table names only known events, presets and strings', () => {
     expect(FIELDS.immuneBounce?.['solution']).toEqual(['answer', 'conveyor', 'guards']);
     expect(FIELDS.stampVoid?.['solution']).toEqual(['answer', 'conveyor', 'guards', 'sleep', 'territory']);
+    expect(FIELDS.pieRaised?.['sleepy']).toEqual(['true', 'false']);
     expect(feedbackProblems(FEEDBACK, STRINGS, FIELDS)).toEqual([]);
   });
 
@@ -148,6 +149,7 @@ describe('feedback table', () => {
     expect(feedbackProblems(FEEDBACK, STRINGS, {})).toEqual([
       'immuneBounce: note "solution.{solution}" uses unknown placeholder "{solution}"',
       'refusalSaid: note "refusal.line.{line}" uses unknown placeholder "{line}"',
+      'pieRaised: note "pie.raised.{sleepy}" uses unknown placeholder "{sleepy}"',
       'stampVoid: note "stamp_void.{solution}" uses unknown placeholder "{solution}"',
       'bossStage: note "boss_stage.{stage}" uses unknown placeholder "{stage}"',
       'doorLocked: note "door.locked.{lock}" uses unknown placeholder "{lock}"',

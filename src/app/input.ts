@@ -1,6 +1,6 @@
 import type { TickInput } from '../core/index.ts';
 
-export type Action = 'up' | 'down' | 'left' | 'right' | 'attack' | 'dodge' | 'stamp' | 'swap' | 'interact' | 'pick1' | 'pick2' | 'pick3' | 'pick4' | 'pick5' | 'pick6';
+export type Action = 'up' | 'down' | 'left' | 'right' | 'attack' | 'dodge' | 'stamp' | 'swap' | 'partner' | 'interact' | 'pick1' | 'pick2' | 'pick3' | 'pick4' | 'pick5' | 'pick6';
 
 /** Default bindings (design doc 5.2). Stored per player later; core only ever sees TickInput. */
 export const DEFAULT_BINDINGS: Readonly<Record<Action, readonly string[]>> = {
@@ -13,6 +13,8 @@ export const DEFAULT_BINDINGS: Readonly<Record<Action, readonly string[]>> = {
   stamp: ['KeyR', 'Mouse1'],
   // The mouse wheel of design doc 5.2 is not tracked yet.
   swap: ['KeyF'],
+  // The right mouse button of design doc 5.2 is not bound: nothing here stops the browser's context menu.
+  partner: ['KeyL'],
   interact: ['KeyE', 'Enter'],
   pick1: ['Digit1', 'Numpad1'],
   pick2: ['Digit2', 'Numpad2'],
@@ -141,6 +143,7 @@ export class KeyboardInput {
       dodgePressed: this.wasPressed('dodge'),
       stampPressed: this.wasPressed('stamp'),
       swapPressed: this.wasPressed('swap'),
+      partnerPressed: this.wasPressed('partner'),
       interactPressed: this.wasPressed('interact'),
       menuStep,
       ...(pick > 0 ? { pick } : {}),

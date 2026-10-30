@@ -18,6 +18,7 @@
       "items": { "enum": ["stamp"] },
       "uniqueItems": true
     },
+    "partner": { "description": "The partner who walks with the operator through this chapter. The chairman gives the L key his pie shield (design doc 5.1): it stops thrown shots for a few seconds, its size and duration times S, and then has to cool down. Absent: L does nothing.", "enum": ["chairman"] },
     "glucose": { "description": "Shows the blood glucose meter and runs its rules in this chapter (design doc 7.3).", "type": "boolean" },
     "carry": {
       "description": "Number or boolean tags that cross the day boundary into the next chapter. Without this only the closing cards decide what the next chapter starts with, so nothing the operator did in the rooms would reach it.",
@@ -26,14 +27,32 @@
       "uniqueItems": true
     },
     "archive": {
-      "description": "Sleep files the day's memories (design doc 7.4, 7.6): a memory Pickup adds one to the tag `from`, and going to bed sets the tag `into` to the share of `total` files held, in percent, times the night crew's caffeine coefficient at that moment. Put `into` in `carry` for the next chapter to read it.",
+      "description": "Sleep files the day's memories (design doc 7.4, 7.6). A memory Pickup adds one to the tag `held`, up to `hands` at a time; a conversation moves what is held onto the staging desk with `move:<held>><desk>*100` (a file is 100 on the desk), where the desk's own `fadePerHour` wears it away while the operator is awake. Going to bed sets `into` to the share of `total` files still on the desk, in percent, times the night crew's caffeine coefficient at that moment and the `climax` archive factor when its flag is on. Put `into` in `carry` for the next chapter to read it.",
       "type": "object",
       "additionalProperties": false,
-      "required": ["from", "total", "into"],
+      "required": ["held", "hands", "desk", "total", "into"],
       "properties": {
-        "from": { "description": "Number tag counting the memory files taken.", "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+        "held": { "description": "Number tag counting the memory files in the operator's hands.", "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+        "hands": { "description": "How many files the operator can hold at once; a pickup beyond it stays on the floor.", "type": "integer", "minimum": 1 },
+        "desk": { "description": "Number tag for the staging desk, 100 for each file on it.", "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
         "total": { "description": "How many memory files the chapter's rooms hold.", "type": "integer", "minimum": 1 },
         "into": { "description": "Number tag set on going to bed, in percent.", "type": "string", "pattern": "^[a-z][a-z0-9_]*$" }
+      }
+    },
+    "closedCases": {
+      "description": "Enemy types whose closed case the chapter remembers, as enemy id to the boolean tag it sets. A Spawn gated on `!tag` then stays empty on every later visit, so a refused salesman never comes back (design doc 7.4).",
+      "type": "object",
+      "additionalProperties": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" }
+    },
+    "climax": {
+      "description": "The choice an event card offers before the boss (design doc 7.4): a boolean tag it sets, and what that costs. With the flag on, the boss summons `summonFactor` times as many enemies at once and may keep that many times as many alive, and going to bed files only `archiveFactor` of the desk.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["flag"],
+      "properties": {
+        "flag": { "description": "Boolean tag the choice sets.", "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+        "summonFactor": { "description": "Multiplier on the boss's summon count and cap while the flag is on.", "type": "number", "minimum": 1, "maximum": 4 },
+        "archiveFactor": { "description": "Multiplier on what sleep files while the flag is on.", "type": "number", "minimum": 0, "maximum": 1 }
       }
     }
   },

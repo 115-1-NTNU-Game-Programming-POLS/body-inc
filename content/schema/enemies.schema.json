@@ -29,7 +29,8 @@
         "archetype": { "description": "One of the five shared behaviours of design doc 5.3, the cheers kid of design doc 7.7, who is closed by refusals and not by hits, or an exam test case (design doc 7.6), which drifts and is answered by one hit.", "enum": ["salesman", "flyer", "manager", "convener", "contractor", "cheers", "testcase"] },
         "performance": { "description": "Hits to close the case, or for the cheers kid the refusals; defeatable enemies only.", "type": "integer", "minimum": 1 },
         "clings": { "description": "Drifts toward the operator and clings on contact, one slow stack each (design doc 5.5); reforming enemies only.", "type": "boolean" },
-        "boss": { "description": "Id of the file in content/bosses that runs this enemy; its budget replaces performance and its moves replace an archetype.", "type": "string" }
+        "boss": { "description": "Id of the file in content/bosses that runs this enemy; its budget replaces performance and its moves replace an archetype.", "type": "string" },
+        "throws": { "description": "What a flyer throws instead of a folded sheet. A can costs no heart: landing adds caffeine to the residual and starts the palpitation (design doc 7.4), while the folder's guard still sends it back. Flyer archetype only.", "enum": ["can"] }
       }
     }
   }

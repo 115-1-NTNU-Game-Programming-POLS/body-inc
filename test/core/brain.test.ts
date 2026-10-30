@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { BOSSES, CHAPTERS, DECKS, DIALOGUES, ENEMIES, EXAMS, PARAMS, RESCUES, TAGS } from '../../src/app/content.ts';
 import { tagsFromQuery } from '../../src/app/session.ts';
 import {
-  amount, arrivalPoint, carriedTags, holds, loadBossTable, parseRoom, readContent, roomsOf, selectDialogue, startChapter, stepChapter, storyAtEnd, TILE,
+  amount, arrivalPoint, carriedTags, holds, LOCK_TICKS, loadBossTable, parseRoom, readContent, roomsOf, selectDialogue, startChapter, stepChapter, storyAtEnd, TILE,
   type CaffeineParams, type ChapterContent, type ChapterState, type GameEvent, type TickInput, type TiledMap,
 } from '../../src/core/index.ts';
 import { OPERATOR_BODY } from '../../src/core/combat/operator.ts';
@@ -131,44 +131,89 @@ describe('the memory files (design doc 7.4, 7.6)', () => {
     expect([...brain.rooms].filter(([, r]) => r.objects.some((o) => files.includes(o))).map(([p]) => p)).toEqual(['brain/hippocampus']);
   });
 
-  it('taking a file counts one more in memory_files, and tells the operator what it was', () => {
-    const o = files[0]!;
-    const s = at('brain/hippocampus', '', { x: o.x, y: o.y });
-    const taken = go(s, { ...NONE, interactPressed: true }, 1);
+  const takeAt = (q: string, o: (typeof files)[number], content: ChapterContent = brain) =>
+    stepChapter(content, at('brain/hippocampus', q, { x: o.x, y: o.y }), { ...NONE, interactPressed: true });
+
+  it('taking a file puts it in the hands, tells the operator, and files nothing yet', () => {
+    const taken = takeAt('', files[0]!);
     expect(taken.events).toContainEqual(expect.objectContaining({ type: 'pickedUp', itemType: 'memory' }));
-    expect(amount(taken.state.run.tags, TAGS, 'memory_files')).toBe(1);
-    // Nothing files it yet: it only counts after a night's sleep.
+    expect(amount(taken.state.run.tags, TAGS, 'memory_held')).toBe(1);
     expect(amount(taken.state.run.tags, TAGS, 'exam_archived')).toBe(0);
   });
 
-  it('sleep files the share of files held, and the night crew shrinks with the caffeine still in the body', () => {
-    expect(archived('memory_files:6')).toBe(100);
-    expect(archived('memory_files:3')).toBe(50);
-    expect(archived('memory_files:0')).toBe(0);
+  it('puts a fourth file back on the floor: three in the hands at most', () => {
+    const o = files[3]!;
+    const full = takeAt('memory_held:3', o);
+    expect(full.events).toContainEqual({ type: 'handsFull' });
+    expect(full.events.map((e) => e.type)).not.toContain('pickedUp');
+    expect(amount(full.state.run.tags, TAGS, 'memory_held')).toBe(3);
+    // It is still there to take, and the room remembers nothing of it.
+    expect(full.state.game.taken).not.toContain(o.id);
+    expect(full.state.run.fired).not.toContain(`brain/hippocampus#${o.id}`);
+    const room = takeAt('memory_held:2', o);
+    expect(amount(room.state.run.tags, TAGS, 'memory_held')).toBe(3);
+    expect(room.state.game.taken).toContain(o.id);
+  });
+
+  it('the staging desk takes what is held, 100 a file, and a second visit with empty hands takes nothing', () => {
+    const desk = brain.rooms.get('brain/hippocampus')!.objects.find((o) => o.kind === 'NPC')!;
+    expect(desk.props['dialogueId']).toBe('brain.desk');
+    const visit = (q: string) => {
+      const opened = go(at('brain/hippocampus', q, { x: desk.x + 20, y: desk.y }), { ...NONE, interactPressed: true }, 1);
+      expect(opened.events).toContainEqual({ type: 'dialogueOpened', dialogueId: 'brain.desk' });
+      return talk(opened.state).state.run.tags;
+    };
+    const after = visit('memory_held:3,memory_desk:100');
+    expect(amount(after, TAGS, 'memory_held')).toBe(0);
+    expect(amount(after, TAGS, 'memory_desk')).toBe(400);
+    const empty = visit('memory_desk:100');
+    expect(amount(empty, TAGS, 'memory_desk')).toBe(100);
+  });
+
+  it('the desk fades 5% an hour while the operator is awake, and files in the hands do not fade', () => {
+    const later = (q: string, minutes: number) => {
+      const s = at('brain/hippocampus', q);
+      return go({ ...s, game: { ...s.game, clock: { ...s.game.clock, minute: s.game.clock.minute } } }, NONE, minutes * 55 + 1).state.run.tags;
+    };
+    const desk = amount(later('memory_desk:600,memory_held:3', 120), TAGS, 'memory_desk');
+    expect(desk).toBeCloseTo(600 * 0.95 ** 2, 0);
+    expect(amount(later('memory_desk:600,memory_held:3', 120), TAGS, 'memory_held')).toBe(3);
+  });
+
+  it('sleep files the share of files on the desk, and the night crew shrinks with the caffeine still in the body', () => {
+    expect(archived('memory_desk:600')).toBe(100);
+    expect(archived('memory_desk:300')).toBe(50);
+    expect(archived('memory_desk:0')).toBe(0);
+    // Files still in the hands are not on the desk, so they are not filed.
+    expect(archived('memory_held:3,memory_desk:300')).toBe(50);
     // Under the dead zone the crew is whole; 33 leaves about 87% of it (design doc 7.4).
-    expect(archived('memory_files:6,caffeine:14')).toBe(100);
-    expect(archived('memory_files:6,caffeine:33')).toBe(87);
-    expect(archived('memory_files:3,caffeine:33')).toBe(43);
+    expect(archived('memory_desk:600,caffeine:14')).toBe(100);
+    expect(archived('memory_desk:600,caffeine:33')).toBe(87);
+    expect(archived('memory_desk:300,caffeine:33')).toBe(43);
     // The door will not open at 50, so nothing is filed that night.
-    const shut = sleep('memory_files:6,caffeine:50');
+    const shut = sleep('memory_desk:600,caffeine:50');
     expect(shut.events.map((e) => e.type)).not.toContain('chapterEnded');
     expect(amount(shut.state.run.tags, TAGS, 'exam_archived')).toBe(0);
+  });
+
+  it('the extra cup at the climax files only half of it', () => {
+    expect(archived('memory_desk:600,one_more_cup')).toBe(50);
+    expect(archived('memory_desk:300,one_more_cup,caffeine:33')).toBe(22);
   });
 
   it('a chapter without an archive leaves the tag alone, and a file in it is only removed', () => {
     const { archive: _, ...rest } = CHAPTER;
     const plain: ChapterContent = { ...brain, chapter: rest };
-    const done = sleep('memory_files:6', plain);
+    const done = sleep('memory_desk:600', plain);
     expect(done.events.map((e) => e.type)).toContain('chapterEnded');
     expect(amount(done.state.run.tags, TAGS, 'exam_archived')).toBe(0);
-    const o = files[0]!;
-    const taken = stepChapter(plain, at('brain/hippocampus', '', { x: o.x, y: o.y }), { ...NONE, interactPressed: true });
+    const taken = takeAt('', files[0]!, plain);
     expect(taken.events).toContainEqual(expect.objectContaining({ type: 'pickedUp', itemType: 'memory' }));
-    expect(amount(taken.state.run.tags, TAGS, 'memory_files')).toBe(0);
+    expect(amount(taken.state.run.tags, TAGS, 'memory_held')).toBe(0);
   });
 
   it('the day boundary keeps the two readiness tags and nothing else', () => {
-    const ended = sleep('memory_files:6,exam_practice:95,caffeine:20,sleep_debt:2,phones_off:3').state;
+    const ended = sleep('memory_desk:600,exam_practice:95,caffeine:20,sleep_debt:2,phones_off:3').state;
     const carried = carriedTags(CHAPTER, ended.run.tags, TAGS);
     expect(Object.keys(carried.values).sort()).toEqual(['exam_archived', 'exam_practice']);
     expect(amount(carried, TAGS, 'exam_practice')).toBe(95);
@@ -187,6 +232,124 @@ describe('the memory files (design doc 7.4, 7.6)', () => {
     expect(practice('office_hour')).toMatch(/exam_practice[^}]*60/);
     const exam = EXAMS.get('midterm')!;
     expect(exam.segments.map((s) => s.readinessTag)).toEqual(CHAPTER.carry);
+  });
+});
+
+describe('the nap sofa (design doc 7.4)', () => {
+  const sofa = brain.rooms.get('brain/open-office')!.objects.find((o) => o.kind === 'Bed')!;
+  const lie = (s: ChapterState) => go(s, { ...NONE, interactPressed: true }, 1);
+
+  it('hands over 〈短暫午睡〉 only when the sofa is used, and once', () => {
+    const s = at('brain/open-office', '', { x: sofa.x + sofa.width / 2, y: sofa.y + sofa.height / 2 });
+    expect(sofa.props['unlocks']).toBe('short_nap');
+    const first = lie(s);
+    expect(first.events).toContainEqual({ type: 'napped', minutes: 20 });
+    expect(first.events).toContainEqual({ type: 'handbookUnlocked', id: 'short_nap' });
+    // The sofa is once per chapter, so a second lie-down gives nothing.
+    const again = lie(go(first.state, NONE, 20).state);
+    expect(again.events.map((e) => e.type)).not.toContain('handbookUnlocked');
+    // Walking past it, or being refused, gives nothing either.
+    expect(go(s, NONE, 5).events.map((e) => e.type)).not.toContain('handbookUnlocked');
+  });
+});
+
+describe('the chairman\'s pie in the chapter (design doc 7.4)', () => {
+  const press = (s: ChapterState) => go(s, { ...NONE, partnerPressed: true }, 1);
+
+  it('every room of the chapter starts with it ready, and L raises it', () => {
+    expect(CHAPTER.partner).toBe('chairman');
+    for (const room of roomsOf(CHAPTER)) expect(at(room).game.pie).toEqual({ ticksLeft: 0, cooldown: 0, radiusPx: 0 });
+    const raised = press(at('brain/tutorial'));
+    expect(raised.events).toContainEqual(expect.objectContaining({ type: 'pieRaised', sleepy: false }));
+    expect(raised.state.game.pie?.ticksLeft).toBeGreaterThan(0);
+  });
+
+  it('is smaller and shorter after a short night, by the night\'s S', () => {
+    const slept = (q: string) => press(at('brain/tutorial', q)).state.game.pie!;
+    const full = slept('');
+    const tired = slept('sleep_debt:4');
+    // S = max(0.3, 1 - 0.07 x debt) = 0.72 at 4 hours.
+    expect(tired.radiusPx / full.radiusPx).toBeCloseTo(0.72, 5);
+    expect(press(at('brain/tutorial', 'sleep_debt:4')).events).toContainEqual(expect.objectContaining({ type: 'pieRaised', sleepy: true }));
+  });
+
+  it('is the chapter\'s doing: a chapter without a partner has none and L does nothing', () => {
+    const { partner: _, ...rest } = CHAPTER;
+    const plain: ChapterContent = { ...brain, chapter: rest };
+    const { pending: __, ...s } = startChapter(plain, { room: 'brain/tutorial' });
+    expect(s.game.pie).toBeUndefined();
+    expect(stepChapter(plain, s, { ...NONE, partnerPressed: true }).events.map((e) => e.type)).not.toContain('pieRaised');
+  });
+
+  it('is taught on the tutorial sign, with the key', () => {
+    const sign = DIALOGUES.get('brain.tutorial.sign')!.lines.map((l) => l.text).join('');
+    expect(sign).toContain('L');
+    expect(sign).toContain('大餅');
+  });
+});
+
+describe('the energy-drink salesman (design doc 7.4)', () => {
+  const TUTORIAL = 'brain/tutorial';
+  const seller = (s: ChapterState) => s.game.enemies.find((e) => e.type === 'energy_seller');
+  /** A can already on the operator, thrown by the salesman: it lands on the next tick. */
+  const canOn = (q: string): ChapterState => {
+    const s = at(TUTORIAL, q, { x: 200, y: 200 });
+    const can = { id: 900, owner: seller(s)!.id, kind: 'can', can: true as const, x: 200, y: 196, vx: 0, vy: 0, ticksLeft: 5, halves: 0, half: 3, spent: false };
+    return { ...s, game: { ...s.game, shots: [can] } };
+  };
+  const drink = (q: string) => go(canOn(q), NONE, 1);
+  /** The salesman one staple from closing, in front of an operator aiming at him. */
+  const nearlyClosed = (): ChapterState => {
+    const s = at(TUTORIAL, '', { x: 400, y: 288 });
+    const enemies = s.game.enemies.map((e) => (e.type === 'energy_seller' ? { ...e, x: 440, y: 288, hp: 1 } : e));
+    return { ...s, game: { ...s.game, enemies, operator: { ...s.game.operator, aim: { x: 1, y: 0 } } } };
+  };
+
+  it('a can adds 150 to the residual and starts the heartbeat, with no heart lost', () => {
+    const r = drink('');
+    expect(r.events).toContainEqual({ type: 'canTaken', source: seller(r.state)!.id });
+    expect(r.events).toContainEqual({ type: 'palpitation' });
+    expect(r.events.map((e) => e.type)).not.toContain('heartLost');
+    expect(amount(r.state.run.tags, TAGS, 'caffeine')).toBe(PARAMS.energyDrink);
+    expect(PARAMS.energyDrink).toBe(150);
+  });
+
+  it('says the Disco line only once the residual is past 300, from the salesman', () => {
+    const disco = (q: string) => drink(q).events.map((e) => e.type);
+    expect(disco('caffeine:149')).toContain('palpitation');
+    expect(disco('caffeine:149')).not.toContain('canDisco');
+    // Exactly 300 is the limit, not past it.
+    expect(disco('caffeine:150')).toContain('palpitation');
+    expect(disco('caffeine:150')).not.toContain('canDisco');
+    const over = drink('caffeine:151');
+    expect(over.events).toContainEqual({ type: 'canDisco', target: seller(over.state)!.id });
+    expect(over.events.map((e) => e.type)).not.toContain('palpitation');
+  });
+
+  it('is logged as one event the report can cite', () => {
+    const nodes = drink('').state.run.tags.log.nodes;
+    expect(nodes.some((n) => n.kind === 'event' && n.key === 'energy_can')).toBe(true);
+  });
+
+  it('once his case is closed he is not in the room on any later visit', () => {
+    expect(CHAPTER.closedCases).toEqual({ energy_seller: 'seller_closed' });
+    const weak = nearlyClosed();
+    const shot = go(weak, { ...NONE, attack: true, attackPressed: true }, 60);
+    expect(shot.events.map((e) => e.type)).toContain('caseClosed');
+    expect(holds(shot.state.run.tags, TAGS, compileCondition(TAGS, 'seller_closed'))).toBe(true);
+    // Back in the room afterwards, built from the tags he left behind.
+    expect(seller(at(TUTORIAL, 'seller_closed'))).toBeUndefined();
+    expect(seller(at(TUTORIAL))).toBeDefined();
+  });
+
+  it('a chapter that remembers no closed cases leaves the flag alone', () => {
+    const { closedCases: _, ...rest } = CHAPTER;
+    const plain: ChapterContent = { ...brain, chapter: rest };
+    const weak = nearlyClosed();
+    let s = weak;
+    for (let i = 0; i < 60; i++) s = stepChapter(plain, s, { ...NONE, attack: true, attackPressed: i === 0 }).state;
+    expect(s.game.enemies.find((e) => e.type === 'energy_seller')?.phase).toBe('closed');
+    expect(holds(s.run.tags, TAGS, compileCondition(TAGS, 'seller_closed'))).toBe(false);
   });
 });
 
@@ -220,19 +383,116 @@ describe('the phone spirits (design doc 7.4)', () => {
   });
 });
 
+describe('the climax choice (design doc 7.4)', () => {
+  const STAIRS = { x: 5 * TILE, y: 4 * TILE };
+  const asked = () => go(at('brain/hippocampus', '', STAIRS), NONE, 1);
+  const choose = (pick: number) => go(go(asked().state, NONE, LOCK_TICKS).state, { ...NONE, pick }, 1);
+  const cup = (s: ChapterState) => holds(s.run.tags, TAGS, compileCondition(TAGS, 'one_more_cup'));
+
+  it('is asked once, by the strip before the stairs to the arena, and nothing happens until it is answered', () => {
+    expect(asked().events).toContainEqual({ type: 'cardOpened', card: 'climax' });
+    expect(cup(asked().state)).toBe(false);
+    const done = choose(2).state;
+    expect(done.card).toBeNull();
+    const back = go(go(done, { move: { x: -1, y: 0 } }, 20).state, { move: { x: 1, y: 0 } }, 40);
+    expect(back.events.map((e) => e.type)).not.toContain('cardOpened');
+  });
+
+  it('the extra cup sets one_more_cup, and sleeping first leaves it off', () => {
+    expect(cup(choose(1).state)).toBe(true);
+    expect(cup(choose(2).state)).toBe(false);
+  });
+
+  it('puts the chapter\'s summon scale on the arena room only while the cup is on', () => {
+    expect(CHAPTER.climax).toEqual({ flag: 'one_more_cup', summonFactor: 2, archiveFactor: 0.5 });
+    expect(go(at('brain/arena', 'one_more_cup'), NONE, 1).state.game.summonScale).toBe(2);
+    expect(go(at('brain/arena'), NONE, 1).state.game.summonScale).toBeUndefined();
+    const on = go(at('brain/arena', 'one_more_cup'), NONE, 1).state;
+    const off = go({ ...on, run: { ...on.run, tags: at('brain/arena').run.tags } }, NONE, 1).state;
+    expect(off.game.summonScale).toBeUndefined();
+  });
+
+  it('a chapter without a climax never scales', () => {
+    const { climax: _, ...rest } = CHAPTER;
+    const plain: ChapterContent = { ...brain, chapter: rest };
+    const s = at('brain/arena', 'one_more_cup');
+    expect(stepChapter(plain, s, NONE).state.game.summonScale).toBeUndefined();
+  });
+});
+
+describe('the four floors (design doc 7.4)', () => {
+  const FLOORS = ['brain/tutorial', 'brain/open-office', 'brain/hippocampus', 'brain/arena', 'brain/rooftop'];
+  const bare = (room: string, q: string, place: { x: number; y: number }): ChapterState => {
+    const s = at(room, q, place);
+    return { ...s, game: { ...s.game, enemies: [] } };
+  };
+  /** Walks north until the first of `until` happens, and returns it. */
+  const climb = (s: ChapterState, until: readonly string[]) => {
+    for (let i = 0; i < 400; i++) {
+      const r = stepChapter(brain, s, { move: { x: 0, y: -1 } });
+      const hit = r.events.find((e) => until.includes(e.type));
+      if (hit) return { hit, state: r.state };
+      s = r.state;
+    }
+    throw new Error(`nothing in ${until.join()} within 400 ticks`);
+  };
+
+  it('stack through the north and south sockets, the floor above reached by the door above', () => {
+    FLOORS.slice(0, -1).forEach((floor, i) => {
+      expect(CHAPTER.links).toContainEqual({ a: `${floor}#door-n`, b: `${FLOORS[i + 1]}#door-s` });
+      expect(door(floor, 'N')).toBeDefined();
+      expect(door(FLOORS[i + 1]!, 'S')).toBeDefined();
+    });
+  });
+
+  it('are climbed from the foot of the stairs to the next floor, arriving at its south door', () => {
+    for (const [i, floor] of FLOORS.slice(0, 3).entries()) {
+      // Past the strips on the way (the group chat is below this row, the climax is spent), so only the door is checked.
+      const s = bare(floor, '', { x: 10 * TILE, y: 4 * TILE });
+      const up = climb({ ...s, run: { ...s.run, fired: ['brain/hippocampus#16'] } }, ['roomChanged']);
+      expect(up.hit).toEqual({ type: 'roomChanged', from: floor, to: FLOORS[i + 1] });
+      const arrival = arrivalPoint(door(FLOORS[i + 1]!, 'S'), OPERATOR_BODY);
+      expect(up.state.game.operator.x).toBeCloseTo(arrival.x, 0);
+      expect(up.state.game.operator.y).toBeCloseTo(arrival.y, 0);
+    }
+  });
+
+  it('puts the group chat across the office floor, so the stairs cannot be reached without it', () => {
+    for (const x of [2 * TILE, 10 * TILE, 17 * TILE]) {
+      expect(climb(bare('brain/open-office', '', { x, y: 10 * TILE }), ['cardOpened', 'roomChanged']).hit)
+        .toEqual({ type: 'cardOpened', card: 'group_chat' });
+    }
+  });
+
+  it('puts the climax across the whole hippocampus floor before the stairs, wherever they are approached from', () => {
+    for (const x of [2 * TILE, 10 * TILE, 17 * TILE]) {
+      expect(climb(bare('brain/hippocampus', '', { x, y: 6 * TILE }), ['cardOpened', 'roomChanged']).hit)
+        .toEqual({ type: 'cardOpened', card: 'climax' });
+    }
+  });
+
+  it('explains the files on arrival at the hippocampus, before the first one is in reach', () => {
+    const arrival = arrivalPoint(door('brain/hippocampus', 'S'), OPERATOR_BODY);
+    const first = climb(bare('brain/hippocampus', '', arrival), ['dialogueOpened', 'cardOpened']);
+    expect(first.hit).toEqual({ type: 'dialogueOpened', dialogueId: 'brain.memory.intro' });
+    // Within the first tile of floor, well south of every memory file.
+    expect(first.state.game.operator.y).toBeGreaterThan(9 * TILE);
+  });
+});
+
 describe('the caffeine boss closes with a negotiation (design doc 7.4)', () => {
   const ARENA = 'brain/arena';
-  const eastDoor = door(ARENA, 'E');
+  const stairs = door(ARENA, 'N');
   const closed = (s: ChapterState): ChapterState => ({
     ...s, game: { ...s.game, enemies: s.game.enemies.map((e) => (e.boss ? { ...e, hp: 0, phase: 'closed' as const } : e)) },
   });
   const settled = (s: ChapterState) => holds(s.run.tags, TAGS, compileCondition(TAGS, 'caffeine_settled'));
 
   it('keeps the way up shut until he has settled, and does not bring him back afterwards', () => {
-    expect([eastDoor.props['lock'], eastDoor.props['lockParam']]).toEqual(['resource', 'caffeine_settled']);
+    expect([stairs.props['lock'], stairs.props['lockParam']]).toEqual(['resource', 'caffeine_settled']);
     expect(at(ARENA).game.enemies.map((e) => e.type)).toEqual(['caffeine']);
     expect(at(ARENA, 'caffeine_settled').game.enemies).toEqual([]);
-    expect(go(at(ARENA), NONE, 1).state.game.unlocked).not.toContain(eastDoor.id);
+    expect(go(at(ARENA), NONE, 1).state.game.unlocked).not.toContain(stairs.id);
   });
 
   it('opens the renewal talk when his case is closed, whichever reply is stamped, and then opens the door', () => {
@@ -241,24 +501,24 @@ describe('the caffeine boss closes with a negotiation (design doc 7.4)', () => {
       expect(first.events).toContainEqual({ type: 'dialogueOpened', dialogueId: 'brain.caffeine.negotiation' });
       const done = talk(first.state, picks);
       expect(settled(done.state)).toBe(true);
-      expect(go(done.state, NONE, 1).state.game.unlocked).toContain(eastDoor.id);
+      expect(go(done.state, NONE, 1).state.game.unlocked).toContain(stairs.id);
       // Owed once: the closed boss still stands there and opens nothing more.
       expect(go(done.state, NONE, 5).state.dialogue).toBeNull();
     }
   });
 
-  it('greets the operator who walks in through the west door, from any row, before the first cup is thrown', () => {
-    const west = door(ARENA, 'W');
-    const arrival = arrivalPoint(west, OPERATOR_BODY);
-    for (const dy of [-3 * TILE, 0, 3 * TILE]) {
-      const s0 = at(ARENA, '', { x: arrival.x, y: arrival.y + dy });
+  it('greets the operator who walks in up the stairs, from any column, before the first cup is thrown', () => {
+    const south = door(ARENA, 'S');
+    const arrival = arrivalPoint(south, OPERATOR_BODY);
+    for (const dx of [-6 * TILE, 0, 6 * TILE]) {
+      const s0 = at(ARENA, '', { x: arrival.x + dx, y: arrival.y });
       let s: ChapterState = s0;
       let shots = 0;
       for (let i = 0; i < 200 && !s.dialogue; i++) {
-        s = stepChapter(brain, s, { move: { x: 1, y: 0 } }).state;
+        s = stepChapter(brain, s, { move: { x: 0, y: -1 } }).state;
         shots += s.game.shots.length;
       }
-      expect([dy, s.dialogue?.id, shots]).toEqual([dy, 'brain.caffeine.intro', 0]);
+      expect([dx, s.dialogue?.id, shots]).toEqual([dx, 'brain.caffeine.intro', 0]);
     }
   });
 

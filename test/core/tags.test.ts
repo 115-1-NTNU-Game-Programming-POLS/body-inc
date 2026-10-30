@@ -42,6 +42,12 @@ describe('tag dictionary', () => {
     expect(broken((r) => r.modifiers.push({ name: 'mod.x', when: 'mod.caffeine_cloak', facts: [] }))[0]).toContain('unknown-tag');
   });
 
+  it('reads a fade per hour for number tags and refuses it on a boolean tag', () => {
+    expect(dict.tags.get('memory_desk')?.fadePerHour).toBe(0.05);
+    expect(dict.tags.get('caffeine')?.fadePerHour).toBeUndefined();
+    expect(broken((r) => (r.tags.find((t: { name: string }) => t.name === 'deadline').fadePerHour = 0.1))[0]).toContain('fadePerHour is only for number tags');
+  });
+
   it('rejects unknown fields, duplicates, bad types and a missing hours span', () => {
     expect(broken((r) => (r.tags[0].colour = 'red'))).toEqual(['tags[0].colour: unknown field "colour"']);
     expect(broken((r) => r.tags.push({ ...r.tags[0] }))).toEqual(['tag "sleep_debt": defined twice']);

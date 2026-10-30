@@ -56,6 +56,7 @@ export function loadEnemyTable(raw: unknown): EnemyTable {
     }
     if (e.performance !== undefined && e.category !== 'defeatable') problems.push(`${where}: only defeatable enemies have a performance`);
     if (e.clings === true && e.category !== 'reforming') problems.push(`${where}: only reforming enemies cling`);
+    if (e.throws !== undefined && e.archetype !== 'flyer') problems.push(`${where}: only a flyer throws, so throws "${e.throws}" needs the flyer archetype`);
     if (e.boss !== undefined && (e.category !== 'defeatable' || e.performance !== undefined || e.archetype !== undefined)) {
       problems.push(`${where}: a boss is defeatable and takes its budget and moves from content/bosses, not performance or an archetype`);
     }

@@ -25,7 +25,7 @@ import { caffeineSleepCoef } from '../semester/semester.ts';
 import { spiritAtEntry, type SleepCoefficients } from '../spirit.ts';
 import { record } from '../tags/causal.ts';
 import type { TagDictionary } from '../tags/dictionary.ts';
-import { amount, EMPTY_TAGS, holds, setAmount, setFlag, type TagState } from '../tags/store.ts';
+import { amount, EMPTY_TAGS, flag, holds, setAmount, setFlag, type TagState } from '../tags/store.ts';
 import { TICK_HZ } from '../time.ts';
 import { isTool, TOOLS, type Tool } from '../tools.ts';
 import { caffeineOf, senseCap, type MetabolismParams } from '../outer/caffeine.ts';
@@ -33,6 +33,7 @@ import type { Deck } from '../outer/deck.ts';
 import { openCard, stepCard, type CardState } from './cards.ts';
 import { applyEffects } from './effects.ts';
 import { GLUCOSE, isDizzy, openGlucose, stepGlucose, type GlucoseEvent } from './glucose.ts';
+import { onCan, type CanEvent } from './can.ts';
 import { onRefusal, onToast, type RefusalEvent } from './refusal.ts';
 import { openTalk, stepTalk } from './talk.ts';
 
@@ -104,6 +105,8 @@ export type ChapterEvent =
   | { readonly type: 'handbookUnlocked'; readonly id: string }
   | { readonly type: 'bedRefused'; readonly object: number; readonly bedType: string }
   | { readonly type: 'napped'; readonly minutes: number }
+  /** A memory file was left on the floor because the hands are full (design doc 7.4). */
+  | { readonly type: 'handsFull' }
   | { readonly type: 'checkpointSaved'; readonly room: string }
   | { readonly type: 'clockAdvanced'; readonly minutes: number }
   | { readonly type: 'cardOpened'; readonly card: string }
@@ -125,6 +128,8 @@ export type ChapterEvent =
   | { readonly type: 'examClosed'; readonly exam: string }
   /** The operator refused a toast wave and says line `line` of the refusing-drinks handbook page. */
   | RefusalEvent
+  /** A can of the energy-drink salesman was drunk: the heartbeat show, or the Disco line past the daily limit. */
+  | CanEvent
   | { readonly type: 'chapterEnded' };
 
 export type GameEvent = DomainEvent | ChapterEvent;
@@ -153,6 +158,8 @@ export interface ChapterParams extends SleepCoefficients, MetabolismParams, Part
   readonly exploreSecondsPerHour: number;
   /** Caffeine residual one cup of coffee adds (design doc 7.4). */
   readonly cup: number;
+  /** Caffeine residual one energy-drink can adds (design doc 7.4). */
+  readonly energyDrink: number;
   /** The night crew's caffeine coefficient (design doc 9.1): 1 under the dead zone, then falling with the residual. */
   readonly cafDeadZone: number;
   readonly cafSleepK: number;
@@ -208,6 +215,7 @@ function build(ctx: ChapterContent, run: Run, place: Place, carry: Carry): GameS
     boxes: boxesHere(run),
     stampLocked: !run.tools.includes('stamp'),
     folderLocked: !run.tools.includes('folder'),
+    pie: ctx.chapter.partner === 'chairman',
     ...(carry.tool ? { tool: carry.tool } : {}),
     waiting: waitingCrates(run.tags, ctx.dict),
     acetaldehyde: acetaldehydeCrates(run.tags, ctx.dict),
@@ -358,7 +366,12 @@ interface Applied {
   readonly opens?: Modal;
   /** The `fired` key this trigger just used up; given back if what it opens never appears. */
   readonly spent?: string;
+  /** A pickup the chapter put back: the room's own `pickedUp` event is dropped from the tick's events. */
+  readonly refused?: true;
 }
+
+/** A memory file is 100 on the staging desk, so a desk of 100 is one file still unfaded. */
+const FILE = 100;
 
 function onTrigger(ctx: ChapterContent, run: Run, game: GameState, e: Extract<DomainEvent, { type: 'triggerEntered' }>): Applied {
   const o = game.room.objects.find((x) => x.id === e.object);
@@ -401,18 +414,26 @@ function onTrigger(ctx: ChapterContent, run: Run, game: GameState, e: Extract<Do
   }
 }
 
+/** What the climax choice costs right now: the factors of the chapter's `climax` while its flag is on, otherwise 1. */
+function climax(ctx: ChapterContent, run: Run): { readonly summon: number; readonly archive: number } {
+  const c = ctx.chapter.climax;
+  if (c === undefined || !flag(run.tags, ctx.dict, c.flag)) return { summon: 1, archive: 1 };
+  return { summon: c.summonFactor ?? 1, archive: c.archiveFactor ?? 1 };
+}
+
 /**
- * Sleep is when memories are filed (design doc 7.4, 7.6): the files held, as a share of the
- * chapter's, times what the night crew can do against the caffeine still in the body. Files taken
- * but never slept on count for nothing, since nothing else sets the `into` tag.
+ * Sleep is when memories are filed (design doc 7.4, 7.6): what is still on the staging desk, as a
+ * share of the chapter's files, times what the night crew can do against the caffeine still in the
+ * body, and times the climax's archive factor when its extra cup was drunk. Files in the hands or
+ * never slept on count for nothing, since nothing else sets the `into` tag.
  */
 function fileMemories(ctx: ChapterContent, run: Run, game: GameState): Run {
   const a = ctx.chapter.archive;
   if (a === undefined) return run;
-  const share = Math.min(amount(run.tags, ctx.dict, a.from), a.total) / a.total;
+  const share = Math.min(amount(run.tags, ctx.dict, a.desk), a.total * FILE) / (a.total * FILE);
   const crew = caffeineSleepCoef(amount(run.tags, ctx.dict, 'caffeine'), ctx.params);
   const out = applyEffects(
-    ctx.dict, run.tags, game.clock, [{ kind: 'amount', name: a.into, mode: 'set', value: Math.round(100 * share * crew) }],
+    ctx.dict, run.tags, game.clock, [{ kind: 'amount', name: a.into, mode: 'set', value: Math.round(100 * share * crew * climax(ctx, run).archive) }],
     { kind: 'rule', key: 'sleep.archive' }, ctx.params,
   );
   return { ...run, tags: out.tags };
@@ -429,21 +450,27 @@ function onBed(ctx: ChapterContent, run: Run, game: GameState, e: Extract<Domain
   const key = `${run.roomId}#${o.id}`;
   if (run.fired.includes(key)) return refused;
   const slept = passTime(ctx, { ...run, fired: [...run.fired, key] }, game, NAP.minutes);
-  return { run: slept.run, game: sendStacksHome(slept.game), events: [{ type: 'napped', minutes: NAP.minutes }] };
+  const page = String(o.props['unlocks'] ?? '').trim();
+  const woke = page === '' ? { tags: slept.run.tags, events: [] } : applyEffects(ctx.dict, slept.run.tags, slept.game.clock, [{ kind: 'unlock', id: page }], { kind: 'activity', key: 'nap' }, ctx.params);
+  return { run: { ...slept.run, tags: woke.tags }, game: sendStacksHome(slept.game), events: [{ type: 'napped', minutes: NAP.minutes }, ...woke.events] };
 }
 
 /**
  * What an item does once taken. Coffee is a cup of residual (design doc 7.4) and a handbook page
- * goes into the handbook; a memory file is counted in the chapter's `archive` tag, and the other
- * kinds have no rule yet and only leave the room. Like a conversation's effects, each pickup is
- * one entry in the causal log.
+ * goes into the handbook; a memory file goes into the hands counted by the chapter's `archive`
+ * tag, unless the hands are full, when it is put back where it lay; the other kinds have no rule
+ * yet and only leave the room. Like a conversation's effects, each pickup is one entry in the
+ * causal log.
  */
 function onPickup(ctx: ChapterContent, run: Run, game: GameState, e: Extract<DomainEvent, { type: 'pickedUp' }>): Applied {
+  const a = ctx.chapter.archive;
+  if (e.itemType === 'memory' && a !== undefined && amount(run.tags, ctx.dict, a.held) >= a.hands) {
+    return { run, game: { ...game, taken: game.taken.filter((id) => id !== e.object) }, events: [{ type: 'handsFull' }], refused: true };
+  }
   const spent: Run = { ...run, fired: [...run.fired, `${run.roomId}#${e.object}`] };
-  const filed = ctx.chapter.archive?.from;
   const effects: Effect[] = e.itemType === 'coffee' ? [{ kind: 'amount', name: 'caffeine', mode: 'add', value: ctx.params.cup }]
     : e.itemType === 'handbook' ? [{ kind: 'unlock', id: e.itemId }]
-      : e.itemType === 'memory' && filed !== undefined ? [{ kind: 'amount', name: filed, mode: 'add', value: 1 }]
+      : e.itemType === 'memory' && a !== undefined ? [{ kind: 'amount', name: a.held, mode: 'add', value: 1 }]
         : [];
   const out = applyEffects(ctx.dict, spent.tags, game.clock, effects, { kind: 'activity', key: `pickup.${e.itemType}` }, ctx.params);
   return { run: { ...spent, tags: out.tags }, game, events: out.events };
@@ -510,9 +537,19 @@ function openPending(ctx: ChapterContent, state: ChapterState): ChapterResult {
 function cloaked(ctx: ChapterContent, run: Run, game: GameState): GameState {
   // In the exam the residue runs on the boss clock (exam/fight.ts), not the chapter's.
   const cap = senseCap(sitting(game.exam) ? game.exam!.residue : caffeineOf(run.tags, ctx.dict));
-  if (cap !== undefined) return game.senseCapPx === cap ? game : { ...game, senseCapPx: cap };
-  if (game.senseCapPx === undefined) return game;
-  const { senseCapPx: _, ...rest } = game;
+  const scaled = summonScaled(ctx, run, game);
+  if (cap !== undefined) return scaled.senseCapPx === cap ? scaled : { ...scaled, senseCapPx: cap };
+  if (scaled.senseCapPx === undefined) return scaled;
+  const { senseCapPx: _, ...rest } = scaled;
+  return rest;
+}
+
+/** The boss's summons follow the climax choice; the room knows no tags, so the chapter sets the scale. */
+function summonScaled(ctx: ChapterContent, run: Run, game: GameState): GameState {
+  const scale = climax(ctx, run).summon;
+  if (scale === (game.summonScale ?? 1)) return game;
+  if (scale !== 1) return { ...game, summonScale: scale };
+  const { summonScale: _, ...rest } = game;
   return rest;
 }
 
@@ -588,7 +625,12 @@ function stepRoom(ctx: ChapterContent, state: ChapterState, input: TickInput): C
       checkpoint: cp?.fired.includes(key) ? { ...cp, fired: cp.fired.filter((k) => k !== key) } : cp,
     };
   };
-  const done = (next: ChapterState, more: readonly ChapterEvent[]): ChapterResult => ({ state: next, events: [...r.events, ...extra, ...more] });
+  /** Pickups the chapter put back: the room announced them taken, which they were not. */
+  const putBack = new Set<number>();
+  const done = (next: ChapterState, more: readonly ChapterEvent[]): ChapterResult => ({
+    state: next,
+    events: [...r.events.filter((e) => !(e.type === 'pickedUp' && putBack.has(e.object))), ...extra, ...more],
+  });
   /**
    * A filled port's conversation is owed until it is shown, its `fired` key spent like a once
    * trigger's. Asked for when the port fills and again on any later tick in its room, so one not
@@ -640,6 +682,21 @@ function stepRoom(ctx: ChapterContent, state: ChapterState, input: TickInput): C
         const out = e.type === 'toasted'
           ? onToast(ctx.dict, run.tags, game.clock, e, from, ctx.params)
           : onRefusal(ctx.dict, run.tags, game.clock, from, ctx.params);
+        run = { ...run, tags: out.tags };
+        extra.push(...out.events);
+        break;
+      }
+      case 'canTaken': {
+        const out = onCan(ctx.dict, run.tags, game.clock, e, ctx.params);
+        run = { ...run, tags: out.tags };
+        extra.push(...out.events);
+        break;
+      }
+      case 'caseClosed': {
+        // A closed case that the chapter remembers is settled for good: Spawns gated on the flag stay empty on later visits.
+        const flagName = ctx.chapter.closedCases?.[e.enemy];
+        if (flagName === undefined) break;
+        const out = applyEffects(ctx.dict, run.tags, game.clock, [{ kind: 'flag', name: flagName }], { kind: 'event', key: `case.${e.enemy}` }, ctx.params);
         run = { ...run, tags: out.tags };
         extra.push(...out.events);
         break;
@@ -707,6 +764,7 @@ function stepRoom(ctx: ChapterContent, state: ChapterState, input: TickInput): C
         const a = onPickup(ctx, run, game, e);
         ({ run, game } = a);
         extra.push(...a.events);
+        if (a.refused) putBack.add(e.object);
         break;
       }
       case 'bedUse': {

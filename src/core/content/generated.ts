@@ -405,6 +405,12 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
         },
         "uniqueItems": true
       },
+      "partner": {
+        "description": "The partner who walks with the operator through this chapter. The chairman gives the L key his pie shield (design doc 5.1): it stops thrown shots for a few seconds, its size and duration times S, and then has to cool down. Absent: L does nothing.",
+        "enum": [
+          "chairman"
+        ]
+      },
       "glucose": {
         "description": "Shows the blood glucose meter and runs its rules in this chapter (design doc 7.3).",
         "type": "boolean"
@@ -419,17 +425,29 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
         "uniqueItems": true
       },
       "archive": {
-        "description": "Sleep files the day's memories (design doc 7.4, 7.6): a memory Pickup adds one to the tag `from`, and going to bed sets the tag `into` to the share of `total` files held, in percent, times the night crew's caffeine coefficient at that moment. Put `into` in `carry` for the next chapter to read it.",
+        "description": "Sleep files the day's memories (design doc 7.4, 7.6). A memory Pickup adds one to the tag `held`, up to `hands` at a time; a conversation moves what is held onto the staging desk with `move:<held>><desk>*100` (a file is 100 on the desk), where the desk's own `fadePerHour` wears it away while the operator is awake. Going to bed sets `into` to the share of `total` files still on the desk, in percent, times the night crew's caffeine coefficient at that moment and the `climax` archive factor when its flag is on. Put `into` in `carry` for the next chapter to read it.",
         "type": "object",
         "additionalProperties": false,
         "required": [
-          "from",
+          "held",
+          "hands",
+          "desk",
           "total",
           "into"
         ],
         "properties": {
-          "from": {
-            "description": "Number tag counting the memory files taken.",
+          "held": {
+            "description": "Number tag counting the memory files in the operator's hands.",
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "hands": {
+            "description": "How many files the operator can hold at once; a pickup beyond it stays on the floor.",
+            "type": "integer",
+            "minimum": 1
+          },
+          "desk": {
+            "description": "Number tag for the staging desk, 100 for each file on it.",
             "type": "string",
             "pattern": "^[a-z][a-z0-9_]*$"
           },
@@ -442,6 +460,41 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
             "description": "Number tag set on going to bed, in percent.",
             "type": "string",
             "pattern": "^[a-z][a-z0-9_]*$"
+          }
+        }
+      },
+      "closedCases": {
+        "description": "Enemy types whose closed case the chapter remembers, as enemy id to the boolean tag it sets. A Spawn gated on `!tag` then stays empty on every later visit, so a refused salesman never comes back (design doc 7.4).",
+        "type": "object",
+        "additionalProperties": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        }
+      },
+      "climax": {
+        "description": "The choice an event card offers before the boss (design doc 7.4): a boolean tag it sets, and what that costs. With the flag on, the boss summons `summonFactor` times as many enemies at once and may keep that many times as many alive, and going to bed files only `archiveFactor` of the desk.",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "flag"
+        ],
+        "properties": {
+          "flag": {
+            "description": "Boolean tag the choice sets.",
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "summonFactor": {
+            "description": "Multiplier on the boss's summon count and cap while the flag is on.",
+            "type": "number",
+            "minimum": 1,
+            "maximum": 4
+          },
+          "archiveFactor": {
+            "description": "Multiplier on what sleep files while the flag is on.",
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
           }
         }
       }
@@ -642,6 +695,12 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
           "boss": {
             "description": "Id of the file in content/bosses that runs this enemy; its budget replaces performance and its moves replace an archetype.",
             "type": "string"
+          },
+          "throws": {
+            "description": "What a flyer throws instead of a folded sheet. A can costs no heart: landing adds caffeine to the residual and starts the palpitation (design doc 7.4), while the folder's guard still sends it back. Flyer archetype only.",
+            "enum": [
+              "can"
+            ]
           }
         }
       }
@@ -1015,6 +1074,31 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
               "px": {
                 "type": "number",
                 "exclusiveMinimum": 0
+              },
+              "seconds": {
+                "type": "number",
+                "exclusiveMinimum": 0
+              }
+            }
+          },
+          "pulse": {
+            "description": "The picture swells like a heartbeat: the camera zoom rises by `amount` (a share of the zoom) and falls back, `beats` times over `seconds`. It locks no input.",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "amount",
+              "beats",
+              "seconds"
+            ],
+            "properties": {
+              "amount": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "maximum": 0.05
+              },
+              "beats": {
+                "type": "integer",
+                "minimum": 1
               },
               "seconds": {
                 "type": "number",
@@ -2853,6 +2937,12 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
             "type": "number",
             "exclusiveMinimum": 0
           },
+          "fadePerHour": {
+            "description": "Share of a number tag that is gone after each game hour, as the memory files fade on the staging desk (design doc 7.4); number tags only.",
+            "type": "number",
+            "minimum": 0.01,
+            "maximum": 0.99
+          },
           "facts": {
             "type": "array",
             "items": {
@@ -3035,18 +3125,35 @@ export interface ChapterFile {
   readonly intro?: string;
   /** Tools the operator has from the start of this chapter. Absent means every tool; the prologue lists none, since the chairman hands over the stamp at its end (design doc 5.4). Tools granted earlier in the run are kept. */
   readonly tools?: readonly "stamp"[];
+  /** The partner who walks with the operator through this chapter. The chairman gives the L key his pie shield (design doc 5.1): it stops thrown shots for a few seconds, its size and duration times S, and then has to cool down. Absent: L does nothing. */
+  readonly partner?: "chairman";
   /** Shows the blood glucose meter and runs its rules in this chapter (design doc 7.3). */
   readonly glucose?: boolean;
   /** Number or boolean tags that cross the day boundary into the next chapter. Without this only the closing cards decide what the next chapter starts with, so nothing the operator did in the rooms would reach it. */
   readonly carry?: readonly string[];
-  /** Sleep files the day's memories (design doc 7.4, 7.6): a memory Pickup adds one to the tag `from`, and going to bed sets the tag `into` to the share of `total` files held, in percent, times the night crew's caffeine coefficient at that moment. Put `into` in `carry` for the next chapter to read it. */
+  /** Sleep files the day's memories (design doc 7.4, 7.6). A memory Pickup adds one to the tag `held`, up to `hands` at a time; a conversation moves what is held onto the staging desk with `move:<held>><desk>*100` (a file is 100 on the desk), where the desk's own `fadePerHour` wears it away while the operator is awake. Going to bed sets `into` to the share of `total` files still on the desk, in percent, times the night crew's caffeine coefficient at that moment and the `climax` archive factor when its flag is on. Put `into` in `carry` for the next chapter to read it. */
   readonly archive?: {
-    /** Number tag counting the memory files taken. */
-    readonly from: string;
+    /** Number tag counting the memory files in the operator's hands. */
+    readonly held: string;
+    /** How many files the operator can hold at once; a pickup beyond it stays on the floor. */
+    readonly hands: number;
+    /** Number tag for the staging desk, 100 for each file on it. */
+    readonly desk: string;
     /** How many memory files the chapter's rooms hold. */
     readonly total: number;
     /** Number tag set on going to bed, in percent. */
     readonly into: string;
+  };
+  /** Enemy types whose closed case the chapter remembers, as enemy id to the boolean tag it sets. A Spawn gated on `!tag` then stays empty on every later visit, so a refused salesman never comes back (design doc 7.4). */
+  readonly closedCases?: Readonly<Record<string, string>>;
+  /** The choice an event card offers before the boss (design doc 7.4): a boolean tag it sets, and what that costs. With the flag on, the boss summons `summonFactor` times as many enemies at once and may keep that many times as many alive, and going to bed files only `archiveFactor` of the desk. */
+  readonly climax?: {
+    /** Boolean tag the choice sets. */
+    readonly flag: string;
+    /** Multiplier on the boss's summon count and cap while the flag is on. */
+    readonly summonFactor?: number;
+    /** Multiplier on what sleep files while the flag is on. */
+    readonly archiveFactor?: number;
   };
 }
 
@@ -3105,6 +3212,8 @@ export interface Enemy {
   readonly clings?: boolean;
   /** Id of the file in content/bosses that runs this enemy; its budget replaces performance and its moves replace an archetype. */
   readonly boss?: string;
+  /** What a flyer throws instead of a folded sheet. A can costs no heart: landing adds caffeine to the residual and starts the palpitation (design doc 7.4), while the folder's guard still sends it back. Flyer archetype only. */
+  readonly throws?: "can";
 }
 
 /** One exam fight of the story (design doc 7.6, 8.9): segments of questions the operator answers while the paper throws a barrage. A Trigger with event exam and this id opens the forecast; the fight then runs in the room and the score goes through core/exam/scoring.ts. Rules the schema cannot state (enemy categories, telegraph lengths, the gap between waves) are checked in core/exam/fight.ts. Text lives in content/strings under exam.<id>.*. */
@@ -3213,6 +3322,12 @@ export interface Feedback {
   readonly flashOperator?: number;
   readonly shake?: {
     readonly px: number;
+    readonly seconds: number;
+  };
+  /** The picture swells like a heartbeat: the camera zoom rises by `amount` (a share of the zoom) and falls back, `beats` times over `seconds`. It locks no input. */
+  readonly pulse?: {
+    readonly amount: number;
+    readonly beats: number;
     readonly seconds: number;
   };
   readonly particles?: readonly {
@@ -3676,6 +3791,8 @@ export interface Tag {
   readonly duration: "persistent" | "hours" | "untilWake" | "nextDay";
   /** Span in rule hours; required with duration "hours" and only then. */
   readonly hours?: number;
+  /** Share of a number tag that is gone after each game hour, as the memory files fade on the staging desk (design doc 7.4); number tags only. */
+  readonly fadePerHour?: number;
   readonly facts: readonly Fact[];
 }
 

@@ -155,8 +155,20 @@ describe('effects of a line', () => {
     expect(parse('').effects).toEqual([]);
   });
 
+  it('reads a move of one number tag into another, with a factor', () => {
+    expect(parse('move:memory_held>memory_desk*100').effects).toEqual([{ kind: 'move', from: 'memory_held', to: 'memory_desk', factor: 100 }]);
+    expect(parse('move:memory_held>memory_desk*0.5').effects).toEqual([{ kind: 'move', from: 'memory_held', to: 'memory_desk', factor: 0.5 }]);
+  });
+
   it.each([
     ['an unknown effect', 'give:coffee', 'syntax'],
+    ['a move from a tag that is not in the dictionary', 'move:no_such_tag>memory_desk*1', 'unknown-tag'],
+    ['a move into a tag only rules may set', 'move:memory_held>exam_archived*1', 'tag-source'],
+    ['a move of a boolean tag', 'move:memory_held>deadline*1', 'tag-form'],
+    ['a move into itself', 'move:memory_held>memory_held*1', 'tag-form'],
+    ['a move that reaches the alcohol rule', 'move:memory_held>alcohol*1', 'tag-form'],
+    ['a move out of the caffeine residual', 'move:caffeine>memory_desk*1', 'tag-form'],
+    ['a move with no factor', 'move:memory_held>memory_desk', 'syntax'],
     ['an empty part', 'clock:5;', 'syntax'],
     ['a modifier, which is a condition and not a tag', 'tag:mod.caffeine_cloak', 'alias'],
     ['a modifier name that is not in the dictionary', 'tag:mod.no_such_modifier', 'unknown-tag'],
