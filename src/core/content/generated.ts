@@ -457,6 +457,14 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
           }
         }
       },
+      "closedCases": {
+        "description": "Enemy types whose closed case the chapter remembers, as enemy id to the boolean tag it sets. A Spawn gated on `!tag` then stays empty on every later visit, so a refused salesman never comes back (design doc 7.4).",
+        "type": "object",
+        "additionalProperties": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        }
+      },
       "climax": {
         "description": "The choice an event card offers before the boss (design doc 7.4): a boolean tag it sets, and what that costs. With the flag on, the boss summons `summonFactor` times as many enemies at once and may keep that many times as many alive, and going to bed files only `archiveFactor` of the desk.",
         "type": "object",
@@ -681,6 +689,12 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
           "boss": {
             "description": "Id of the file in content/bosses that runs this enemy; its budget replaces performance and its moves replace an archetype.",
             "type": "string"
+          },
+          "throws": {
+            "description": "What a flyer throws instead of a folded sheet. A can costs no heart: landing adds caffeine to the residual and starts the palpitation (design doc 7.4), while the folder's guard still sends it back. Flyer archetype only.",
+            "enum": [
+              "can"
+            ]
           }
         }
       }
@@ -1054,6 +1068,31 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
               "px": {
                 "type": "number",
                 "exclusiveMinimum": 0
+              },
+              "seconds": {
+                "type": "number",
+                "exclusiveMinimum": 0
+              }
+            }
+          },
+          "pulse": {
+            "description": "The picture swells like a heartbeat: the camera zoom rises by `amount` (a share of the zoom) and falls back, `beats` times over `seconds`. It locks no input.",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "amount",
+              "beats",
+              "seconds"
+            ],
+            "properties": {
+              "amount": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "maximum": 0.05
+              },
+              "beats": {
+                "type": "integer",
+                "minimum": 1
               },
               "seconds": {
                 "type": "number",
@@ -3097,6 +3136,8 @@ export interface ChapterFile {
     /** Number tag set on going to bed, in percent. */
     readonly into: string;
   };
+  /** Enemy types whose closed case the chapter remembers, as enemy id to the boolean tag it sets. A Spawn gated on `!tag` then stays empty on every later visit, so a refused salesman never comes back (design doc 7.4). */
+  readonly closedCases?: Readonly<Record<string, string>>;
   /** The choice an event card offers before the boss (design doc 7.4): a boolean tag it sets, and what that costs. With the flag on, the boss summons `summonFactor` times as many enemies at once and may keep that many times as many alive, and going to bed files only `archiveFactor` of the desk. */
   readonly climax?: {
     /** Boolean tag the choice sets. */
@@ -3163,6 +3204,8 @@ export interface Enemy {
   readonly clings?: boolean;
   /** Id of the file in content/bosses that runs this enemy; its budget replaces performance and its moves replace an archetype. */
   readonly boss?: string;
+  /** What a flyer throws instead of a folded sheet. A can costs no heart: landing adds caffeine to the residual and starts the palpitation (design doc 7.4), while the folder's guard still sends it back. Flyer archetype only. */
+  readonly throws?: "can";
 }
 
 /** One exam fight of the story (design doc 7.6, 8.9): segments of questions the operator answers while the paper throws a barrage. A Trigger with event exam and this id opens the forecast; the fight then runs in the room and the score goes through core/exam/scoring.ts. Rules the schema cannot state (enemy categories, telegraph lengths, the gap between waves) are checked in core/exam/fight.ts. Text lives in content/strings under exam.<id>.*. */
@@ -3271,6 +3314,12 @@ export interface Feedback {
   readonly flashOperator?: number;
   readonly shake?: {
     readonly px: number;
+    readonly seconds: number;
+  };
+  /** The picture swells like a heartbeat: the camera zoom rises by `amount` (a share of the zoom) and falls back, `beats` times over `seconds`. It locks no input. */
+  readonly pulse?: {
+    readonly amount: number;
+    readonly beats: number;
     readonly seconds: number;
   };
   readonly particles?: readonly {

@@ -8,6 +8,7 @@
   "carry": ["exam_practice", "exam_archived"],
   "archive": { "held": "memory_held", "hands": 3, "desk": "memory_desk", "total": 6, "into": "exam_archived" },
   "climax": { "flag": "one_more_cup", "summonFactor": 2, "archiveFactor": 0.5 },
+  "closedCases": { "energy_seller": "seller_closed" },
   "links": [
     { "a": "brain/lobby#door-n", "b": "brain/coffee-am#door-s" },
     { "a": "brain/lobby#door-w", "b": "brain/coffee-pm#door-e" },

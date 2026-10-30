@@ -105,6 +105,8 @@
     "pickup.thanks_card": { "text": "收到一張員工感謝卡", "fact": "" },
     "pickup.memory": { "text": "收起一份記憶文件", "fact": "" },
     "memory.hands_full": { "text": "手拿不下了，先到暫存桌放下", "fact": "" },
+    "can.palpitation": { "text": "心跳好大聲，誰又灌了能量飲料？", "fact": "9" },
+    "can.disco": { "text": "董事長，我在跳 Disco", "fact": "9" },
     "deck.opening": { "text": "上班之前", "fact": "" },
     "deck.closing": { "text": "下班之後", "fact": "" },
     "deck.progress": { "text": "第 {n} 張，共 {total} 張", "fact": "" },

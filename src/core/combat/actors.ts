@@ -47,6 +47,8 @@ export interface EnemyState {
   readonly boss?: BossState;
   /** Id of the boss that summoned this enemy; summoned enemies leave on a forced leave. */
   readonly summoner?: number;
+  /** A flyer that throws cans instead of sheets (content/enemies.json `throws`). */
+  readonly throws?: 'can';
   /** Cheers kid: a weapon has made him back off since his last toast, so the next one cannot. */
   readonly shooed?: true;
   /** Exam test case: its drift in pixels per tick, turned back by walls (core/exam/fight.ts). */
@@ -59,6 +61,7 @@ export function enemyFrom(def: Enemy, id: number, x: number, y: number, respawnT
     id, type: def.id, category: def.category,
     ...(def.archetype ? { archetype: def.archetype } : {}),
     ...(def.solution ? { solution: def.solution } : {}),
+    ...(def.throws ? { throws: def.throws } : {}),
     x, y, homeX: x, homeY: y, hp, maxHp: hp, phase: 'idle', phaseTicks: 0, frozen: 0,
     strikeDir: { x: 0, y: 1 }, strikeSpent: false, respawnTicks, clings: def.clings === true,
     ...extra,
@@ -264,10 +267,12 @@ function stepFlyer(grid: SolidGrid, e: EnemyState, target: Vec, out: Out): Enemy
       const ax = target.x - ox;
       const ay = target.y - 4 - oy;
       const len = Math.hypot(ax, ay) || 1;
+      const can = e.throws === 'can';
       return out(to(e, 'strike'), {
         shots: [{
-          owner: e.id, kind: 'sheet', x: ox, y: oy, vx: (ax / len) * FLYER.shotSpeed, vy: (ay / len) * FLYER.shotSpeed,
-          ticksLeft: Math.ceil(FLYER.shotRangePx / FLYER.shotSpeed), halves: FLYER.damageHalves, half: FLYER.shotHalf,
+          owner: e.id, kind: can ? 'can' : 'sheet', x: ox, y: oy, vx: (ax / len) * FLYER.shotSpeed, vy: (ay / len) * FLYER.shotSpeed,
+          ticksLeft: Math.ceil(FLYER.shotRangePx / FLYER.shotSpeed), halves: can ? 0 : FLYER.damageHalves, half: FLYER.shotHalf,
+          ...(can ? { can: true as const } : {}),
         }],
       });
     }

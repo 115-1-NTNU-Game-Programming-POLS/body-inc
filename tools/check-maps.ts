@@ -448,6 +448,9 @@ export function checkChapters(mapsDir: string, content: MapContent = loadMapCont
       if (archive.total !== memories) out.push(`${file}：archive.total 是 ${archive.total}，房間裡卻有 ${memories} 份記憶文件；兩者不同，歸檔率就到不了 100%，或是永遠滿的`);
       if (!(chapter.carry ?? []).includes(archive.into)) out.push(`${file}：archive.into「${archive.into}」不在 carry 裡，歸檔的結果帶不到下一章`);
     }
+    for (const [enemy, name] of Object.entries(chapter.closedCases ?? {})) {
+      if (content.dict.tags.get(name)?.type !== 'boolean') out.push(`${file}：closedCases 的「${enemy}」要記在布林標籤上，「${name}」不是狀態標籤字典（content/tags.json）裡的布林標籤`);
+    }
     const climax = chapter.climax;
     if (climax !== undefined) {
       const def = content.dict.tags.get(climax.flag);

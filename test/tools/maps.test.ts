@@ -371,6 +371,7 @@ describe('chapter check (build plan P0)', () => {
   const check = (rooms: Record<string, TiledMap>, links = AB, chapter: Partial<{
     id: string; start: string; next: string; intro: string; carry: string[]; archive: { held: string; hands: number; desk: string; total: number; into: string };
     climax: { flag: string; summonFactor?: number; archiveFactor?: number };
+    closedCases: Record<string, string>;
   }> = {}) => {
     const dir = join(root, `maps${n++}`);
     mkdirSync(join(dir, 'lab'), { recursive: true });
@@ -480,6 +481,13 @@ describe('chapter check (build plan P0)', () => {
       expect.stringMatching(/carry 的「nowhere」不在狀態標籤字典/), expect.stringMatching(/archive\.into「nowhere」必須是/),
     ]);
     expect(check(rooms(), AB)).toEqual([expect.stringMatching(/有 2 份記憶文件.*沒有 archive/)]);
+  });
+
+  it('a remembered closed case must be kept on a boolean tag', () => {
+    const closed = (closedCases: Record<string, string>) => check({ a: a(), b: b() }, AB, { closedCases });
+    expect(closed({ energy_seller: 'seller_closed' })).toEqual([]);
+    expect(closed({ energy_seller: 'memory_held' })).toEqual([expect.stringMatching(/closedCases 的「energy_seller」要記在布林標籤上，「memory_held」/)]);
+    expect(closed({ energy_seller: 'no_such_tag' })).toEqual([expect.stringMatching(/「no_such_tag」不是狀態標籤字典/)]);
   });
 
   it('a climax must name a flag that an event card can set, and an archive factor needs an archive', () => {

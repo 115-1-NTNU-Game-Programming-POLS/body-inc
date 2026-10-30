@@ -144,6 +144,8 @@ export type DomainEvent =
   | { readonly type: 'parry'; readonly source: number; readonly kind: 'shot' | 'strike' }
   /** A toast wave landed (design doc 7.7): no heart is lost, and the chapter adds the cups to receiving. */
   | { readonly type: 'toasted'; readonly source: number; readonly cups: number }
+  /** An energy-drink can landed (design doc 7.4): no heart is lost, and the chapter adds the caffeine. */
+  | { readonly type: 'canTaken'; readonly source: number }
   /** 婉拒: the guard met a toast wave, on any of its frames; `parry` when it was inside the parry window. */
   | { readonly type: 'refused'; readonly source: number; readonly parry: boolean }
   /** A weapon landed on a cheers kid, who only backs off (design doc 7.7). */
@@ -1042,6 +1044,13 @@ export function step(state: GameState, pressed: TickInput): StepResult {
             damage: FOLDER.reflectDamage, reflected: true,
           });
         }
+        continue;
+      }
+      if (sh.can) {
+        // A can is drunk, not taken as a hit: no knockback, no freeze, no heart.
+        const r = evade(sh.owner);
+        if (r === undefined) events.push({ type: 'canTaken', source: sh.owner });
+        else movedShots.push(r === 'dodged' ? { ...sh, spent: true } : sh);
         continue;
       }
       const r = absorb(sh.owner, sh.halves, { x: sh.x - sh.vx, y: sh.y - sh.vy }, typeOf(sh.owner));

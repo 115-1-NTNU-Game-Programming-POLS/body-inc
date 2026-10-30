@@ -33,6 +33,7 @@ import type { Deck } from '../outer/deck.ts';
 import { openCard, stepCard, type CardState } from './cards.ts';
 import { applyEffects } from './effects.ts';
 import { GLUCOSE, isDizzy, openGlucose, stepGlucose, type GlucoseEvent } from './glucose.ts';
+import { onCan, type CanEvent } from './can.ts';
 import { onRefusal, onToast, type RefusalEvent } from './refusal.ts';
 import { openTalk, stepTalk } from './talk.ts';
 
@@ -127,6 +128,8 @@ export type ChapterEvent =
   | { readonly type: 'examClosed'; readonly exam: string }
   /** The operator refused a toast wave and says line `line` of the refusing-drinks handbook page. */
   | RefusalEvent
+  /** A can of the energy-drink salesman was drunk: the heartbeat show, or the Disco line past the daily limit. */
+  | CanEvent
   | { readonly type: 'chapterEnded' };
 
 export type GameEvent = DomainEvent | ChapterEvent;
@@ -155,6 +158,8 @@ export interface ChapterParams extends SleepCoefficients, MetabolismParams, Part
   readonly exploreSecondsPerHour: number;
   /** Caffeine residual one cup of coffee adds (design doc 7.4). */
   readonly cup: number;
+  /** Caffeine residual one energy-drink can adds (design doc 7.4). */
+  readonly energyDrink: number;
   /** The night crew's caffeine coefficient (design doc 9.1): 1 under the dead zone, then falling with the residual. */
   readonly cafDeadZone: number;
   readonly cafSleepK: number;
@@ -676,6 +681,21 @@ function stepRoom(ctx: ChapterContent, state: ChapterState, input: TickInput): C
         const out = e.type === 'toasted'
           ? onToast(ctx.dict, run.tags, game.clock, e, from, ctx.params)
           : onRefusal(ctx.dict, run.tags, game.clock, from, ctx.params);
+        run = { ...run, tags: out.tags };
+        extra.push(...out.events);
+        break;
+      }
+      case 'canTaken': {
+        const out = onCan(ctx.dict, run.tags, game.clock, e, ctx.params);
+        run = { ...run, tags: out.tags };
+        extra.push(...out.events);
+        break;
+      }
+      case 'caseClosed': {
+        // A closed case that the chapter remembers is settled for good: Spawns gated on the flag stay empty on later visits.
+        const flagName = ctx.chapter.closedCases?.[e.enemy];
+        if (flagName === undefined) break;
+        const out = applyEffects(ctx.dict, run.tags, game.clock, [{ kind: 'flag', name: flagName }], { kind: 'event', key: `case.${e.enemy}` }, ctx.params);
         run = { ...run, tags: out.tags };
         extra.push(...out.events);
         break;

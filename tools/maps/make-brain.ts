@@ -7,7 +7,7 @@
  *   coffee-am        the 08:00 machine and the 〈咖啡因〉 page behind it
  *   coffee-pm        the 17:00 machine
  *   general-affairs  the clerk hands over the folder (grant:folder)
- *   tutorial         a flyer's sheets to parry and an energy-drink salesman to close; the 〈咖啡因與能量飲料〉 page
+ *   tutorial         a flyer's sheets and an energy-drink salesman's cans to parry; the 〈咖啡因與能量飲料〉 page
  *   open-office      2F: clock vents with their adenosine (more at sleep_debt>=2), the nap sofa, the group-chat card
  *   hippocampus      3F: six memory files, three phone spirits that eat time until switched off; the time clock before the boss
  *   arena            4F: the caffeine boss; the east door opens once the renewal is settled
@@ -158,7 +158,8 @@ const room = (
   ]));
 }
 
-// The folder's tutorial (design doc 7.4): a flyer throws sheets to parry, a salesman walks up to close.
+// The folder's tutorial (design doc 7.4): a flyer throws sheets and the energy-drink salesman throws cans, both to parry.
+// A salesman whose case is closed does not come back (chapter file closedCases).
 {
   const s = shell('brain', 49);
   side(s, 'W', true);
@@ -168,7 +169,7 @@ const room = (
     door(2, 'W'),
     door(3, 'E'),
     spawn(4, 'flyer', 480, 160),
-    spawn(5, 'energy_seller', 480, 288),
+    spawn(5, 'energy_seller', 480, 288, '!seller_closed'),
     trigger(6, 'sign', 'dialogue', 'brain.tutorial.sign', 2, 3, 1, 8),
     pickup(7, 'handbook', 'energy_drinks', 576, 224),
   ]));

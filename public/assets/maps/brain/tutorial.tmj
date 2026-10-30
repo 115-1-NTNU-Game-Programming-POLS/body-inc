@@ -634,6 +634,11 @@
        "type": "string",
        "propertytype": "EnemyType",
        "value": "energy_seller"
+      },
+      {
+       "name": "when",
+       "type": "string",
+       "value": "!seller_closed"
       }
      ]
     },

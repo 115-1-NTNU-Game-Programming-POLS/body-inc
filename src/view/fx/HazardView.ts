@@ -6,7 +6,7 @@ const RED = 0xc8372d;
 /** Hatch period of fx-hatch-tile (art direction 9.2): 45-degree lines every 8 world px. */
 const HATCH_PERIOD = 8;
 // The toast wave borrows the cup until it has art of its own.
-const SHOT_TEXTURES: Readonly<Record<string, string>> = { cup: 'fx-shot-cup', sheet: 'fx-shot-sheet', toast: 'fx-shot-cup' };
+const SHOT_TEXTURES: Readonly<Record<string, string>> = { cup: 'fx-shot-cup', sheet: 'fx-shot-sheet', toast: 'fx-shot-cup', can: 'fx-shot-cup' };
 
 /**
  * Tier-2 areas and thrown shots, drawn from core state each frame. A tier-2 area is the

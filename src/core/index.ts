@@ -21,6 +21,7 @@ export * from './liver/line.ts';
 export * from './liver/factory.ts';
 export * from './chapter/rescue.ts';
 export * from './chapter/refusal.ts';
+export * from './chapter/can.ts';
 export * from './dialogue/lines.ts';
 export * from './dialogue/runner.ts';
 export { parseCsv } from './dialogue/csv.ts';

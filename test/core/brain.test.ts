@@ -253,6 +253,71 @@ describe('the nap sofa (design doc 7.4)', () => {
   });
 });
 
+describe('the energy-drink salesman (design doc 7.4)', () => {
+  const TUTORIAL = 'brain/tutorial';
+  const seller = (s: ChapterState) => s.game.enemies.find((e) => e.type === 'energy_seller');
+  /** A can already on the operator, thrown by the salesman: it lands on the next tick. */
+  const canOn = (q: string): ChapterState => {
+    const s = at(TUTORIAL, q, { x: 200, y: 200 });
+    const can = { id: 900, owner: seller(s)!.id, kind: 'can', can: true as const, x: 200, y: 196, vx: 0, vy: 0, ticksLeft: 5, halves: 0, half: 3, spent: false };
+    return { ...s, game: { ...s.game, shots: [can] } };
+  };
+  const drink = (q: string) => go(canOn(q), NONE, 1);
+  /** The salesman one staple from closing, in front of an operator aiming at him. */
+  const nearlyClosed = (): ChapterState => {
+    const s = at(TUTORIAL, '', { x: 400, y: 288 });
+    const enemies = s.game.enemies.map((e) => (e.type === 'energy_seller' ? { ...e, x: 440, y: 288, hp: 1 } : e));
+    return { ...s, game: { ...s.game, enemies, operator: { ...s.game.operator, aim: { x: 1, y: 0 } } } };
+  };
+
+  it('a can adds 150 to the residual and starts the heartbeat, with no heart lost', () => {
+    const r = drink('');
+    expect(r.events).toContainEqual({ type: 'canTaken', source: seller(r.state)!.id });
+    expect(r.events).toContainEqual({ type: 'palpitation' });
+    expect(r.events.map((e) => e.type)).not.toContain('heartLost');
+    expect(amount(r.state.run.tags, TAGS, 'caffeine')).toBe(PARAMS.energyDrink);
+    expect(PARAMS.energyDrink).toBe(150);
+  });
+
+  it('says the Disco line only once the residual is past 300, from the salesman', () => {
+    const disco = (q: string) => drink(q).events.map((e) => e.type);
+    expect(disco('caffeine:149')).toContain('palpitation');
+    expect(disco('caffeine:149')).not.toContain('canDisco');
+    // Exactly 300 is the limit, not past it.
+    expect(disco('caffeine:150')).toContain('palpitation');
+    expect(disco('caffeine:150')).not.toContain('canDisco');
+    const over = drink('caffeine:151');
+    expect(over.events).toContainEqual({ type: 'canDisco', target: seller(over.state)!.id });
+    expect(over.events.map((e) => e.type)).not.toContain('palpitation');
+  });
+
+  it('is logged as one event the report can cite', () => {
+    const nodes = drink('').state.run.tags.log.nodes;
+    expect(nodes.some((n) => n.kind === 'event' && n.key === 'energy_can')).toBe(true);
+  });
+
+  it('once his case is closed he is not in the room on any later visit', () => {
+    expect(CHAPTER.closedCases).toEqual({ energy_seller: 'seller_closed' });
+    const weak = nearlyClosed();
+    const shot = go(weak, { ...NONE, attack: true, attackPressed: true }, 60);
+    expect(shot.events.map((e) => e.type)).toContain('caseClosed');
+    expect(holds(shot.state.run.tags, TAGS, compileCondition(TAGS, 'seller_closed'))).toBe(true);
+    // Back in the room afterwards, built from the tags he left behind.
+    expect(seller(at(TUTORIAL, 'seller_closed'))).toBeUndefined();
+    expect(seller(at(TUTORIAL))).toBeDefined();
+  });
+
+  it('a chapter that remembers no closed cases leaves the flag alone', () => {
+    const { closedCases: _, ...rest } = CHAPTER;
+    const plain: ChapterContent = { ...brain, chapter: rest };
+    const weak = nearlyClosed();
+    let s = weak;
+    for (let i = 0; i < 60; i++) s = stepChapter(plain, s, { ...NONE, attack: true, attackPressed: i === 0 }).state;
+    expect(s.game.enemies.find((e) => e.type === 'energy_seller')?.phase).toBe('closed');
+    expect(holds(s.run.tags, TAGS, compileCondition(TAGS, 'seller_closed'))).toBe(false);
+  });
+});
+
 describe('the phone spirits (design doc 7.4)', () => {
   /** The third spirit's trigger, with `others` of the other two already switched off. */
   const third = (others: number) => at('brain/hippocampus', `phones_off:${others}`, { x: 15 * TILE, y: 5 * TILE });

@@ -547,3 +547,49 @@ describe('what the folder shares with the stapler', () => {
   });
 
 });
+
+describe('the energy-drink can (design doc 7.4)', () => {
+  const seller = () => folderGame([{ type: 'energy_seller', x: START.x + 4 * TILE, y: START.y }]);
+  const guardFrom = (raisedAt: number) => held(raisedAt - (FOLDER.holdTicks - 1));
+  const landed = (g: GameState) => firstTick(run(g, 200), 'canTaken');
+
+  it('is thrown like a sheet but costs no heart, no knockback and no freeze when it lands', () => {
+    const r = run(seller(), 200);
+    expect(landed(seller())).toBeGreaterThan(20);
+    // He throws again after the 1 s recovery, so a long wait drinks more than one.
+    expect(ofType(r, 'canTaken')[0]).toEqual({ type: 'canTaken', source: 1 });
+    expect(ofType(r, 'heartLost')).toEqual([]);
+    expect(ofType(r, 'freeze')).toEqual([]);
+    expect(r.state.operator.halves).toBe(r.state.operator.maxHalves);
+    expect(r.state.operator.x).toBe(START.x);
+  });
+
+  it('lands once and is gone, and one that was dodged through is spent', () => {
+    const h = landed(seller());
+    const gone = run(seller(), h + 40);
+    expect(gone.state.shots).toEqual([]);
+    const flying = run(seller(), h - 4).state;
+    const can = flying.shots.find((s) => s.can);
+    expect(can).toMatchObject({ kind: 'can', halves: 0 });
+    const spent = { ...flying, shots: flying.shots.map((s) => ({ ...s, spent: true })) };
+    expect(ofType(run(spent, 60), 'canTaken')).toEqual([]);
+  });
+
+  it('is sent back by a parry, for twice a staple and with no caffeine, and a block only stops it', () => {
+    const h = landed(seller());
+    const parried = run(seller(), h + 90, guardFrom(h - 4));
+    expect(ofType(parried, 'canTaken')).toEqual([]);
+    expect(ofType(parried, 'parry')).toEqual([{ type: 'parry', source: 1, kind: 'shot' }]);
+    expect(ofType(parried, 'hit')).toEqual([{ type: 'hit', target: 1, enemy: 'energy_seller', hpLeft: 4 - FOLDER.reflectDamage }]);
+    const blocked = run(seller(), h + 1, guardFrom(h - FOLDER.parryFrames));
+    expect(ofType(blocked, 'blocked')).toEqual([{ type: 'blocked', source: 1, kind: 'shot' }]);
+    expect(ofType(blocked, 'canTaken')).toEqual([]);
+  });
+
+  it('only a flyer may throw it', () => {
+    const raw = JSON.parse(readFileSync('content/enemies.json', 'utf8'));
+    raw.enemies.find((e: { id: string }) => e.id === 'salesman').throws = 'can';
+    expect(() => loadEnemyTable(raw)).toThrow(/only a flyer throws/);
+    expect(TABLE.enemies.get('energy_seller')).toMatchObject({ archetype: 'flyer', throws: 'can' });
+  });
+});

@@ -38,6 +38,11 @@
         "into": { "description": "Number tag set on going to bed, in percent.", "type": "string", "pattern": "^[a-z][a-z0-9_]*$" }
       }
     },
+    "closedCases": {
+      "description": "Enemy types whose closed case the chapter remembers, as enemy id to the boolean tag it sets. A Spawn gated on `!tag` then stays empty on every later visit, so a refused salesman never comes back (design doc 7.4).",
+      "type": "object",
+      "additionalProperties": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" }
+    },
     "climax": {
       "description": "The choice an event card offers before the boss (design doc 7.4): a boolean tag it sets, and what that costs. With the flag on, the boss summons `summonFactor` times as many enemies at once and may keep that many times as many alive, and going to bed files only `archiveFactor` of the desk.",
       "type": "object",

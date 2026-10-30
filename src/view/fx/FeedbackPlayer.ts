@@ -30,6 +30,8 @@ export class FeedbackPlayer {
   private readonly strings: StringTable;
   private readonly targets: FeedbackTargets;
   private readonly emitters = new Map<string, Phaser.GameObjects.Particles.ParticleEmitter>();
+  private beating?: Phaser.Tweens.Tween;
+  private zoom0?: number;
 
   constructor(scene: Phaser.Scene, table: FeedbackTable, strings: StringTable, targets: FeedbackTargets) {
     this.scene = scene;
@@ -52,6 +54,18 @@ export class FeedbackPlayer {
     return e;
   }
 
+  /** A heartbeat on the camera. A second can before the first has settled restarts from the zoom the scene had. */
+  private pulse(p: { readonly amount: number; readonly beats: number; readonly seconds: number }): void {
+    const cam = this.scene.cameras.main;
+    this.beating?.stop();
+    cam.setZoom(this.zoom0 ??= cam.zoom);
+    const base = this.zoom0;
+    this.beating = this.scene.tweens.add({
+      targets: cam, zoom: base * (1 + p.amount), duration: (p.seconds * 1000) / p.beats / 2, yoyo: true, repeat: p.beats - 1,
+      onComplete: () => cam.setZoom(base),
+    });
+  }
+
   play(event: GameEvent, tick: number): void {
     const fb = this.table.events[event.type];
     if (!fb) return;
@@ -68,6 +82,7 @@ export class FeedbackPlayer {
       const cam = this.scene.cameras.main;
       cam.shake(fb.shake.seconds * 1000, fb.shake.px / cam.width);
     }
+    if (fb.pulse) this.pulse(fb.pulse);
     for (const p of fb.particles ?? []) this.emitter(p.preset)?.explode(p.count, at.x, at.y);
     if (fb.note) {
       const text = noteText(fb.note, event, this.strings);
