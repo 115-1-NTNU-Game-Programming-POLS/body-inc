@@ -195,7 +195,7 @@ public/assets/maps/brain/coffee-room.tmj 物件 #4（Door）：門「door-e」�
 
 合併到 `main` 之前，GitHub 上的檢查會跑同一套規則，沒通過不能合併。
 
-遊戲的字型只收錄內容用得到的字，所以字串或對話用了一個新字時，`npm run check` 會回報「字型子集缺少內容用到的字」。這時執行 `python tools/fonts/build_fonts.py`（需要 Python 3.12 與 `pip install fonttools brotli`，第一次會下載原始字型，約需兩三分鐘），把 `public/assets/fonts/` 裡變動的檔案一起提交即可。重新產生後還是缺的字，代表字型本身沒有這個字，請改用別的字。
+遊戲的字型只收錄內容用得到的字，所以字串或對話用了一個新字時，`npm run check` 會回報「字型子集缺少內容用到的字」。這時執行 `python tools/fonts/build_fonts.py`（需要 Python 3.12 與 `pip install fonttools brotli`，第一次會下載原始字型，約需兩三分鐘），把 `public/assets/fonts/` 裡變動的檔案一起提交即可：基本字型與 `extra/` 切片是一起產生的，只提交其中一部分、或把切片還原成舊版（即使看起來只差時間戳記），會讓同一個字被兩邊重複宣告，`npm run check:art`（`verify` 已包含）的字型檢查會失敗。建置要跑到結束，不要用管線截斷輸出。重新產生後還是缺的字，代表字型本身沒有這個字，請改用別的字。
 
 ## 對話
 

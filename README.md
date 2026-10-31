@@ -25,12 +25,13 @@
 
 ## 遊戲程式
 
-需要 Node.js 22.18 以上（直接執行 `.ts` 工具腳本）。在專案根目錄執行：
+需要 Node.js 22.18 以上（直接執行 `.ts` 工具腳本）。`npm run verify` 另外需要 Python 3.12 與 `pip install pillow numpy scipy fonttools brotli`，因為它會跑 CI 的 `art-checks` 工作裡的同一批 Python 腳本（`check:art`，`test/ci-checks.test.ts` 保證兩邊清單一致）。在專案根目錄執行：
 
 ```
 npm install
 npm run dev          # 開發伺服器，標題畫面選新遊戲或繼續；WASD 移動、J 或左鍵釘書機（按住連射）、空白或 K 閃身、R 或中鍵駁回印章、F 換文具（拿公文夾時按住攻擊鍵格擋）、E 或 Enter 互動、F1 顯示碰撞框
-npm run verify       # 型別檢查、測試、邊界與地圖檢查、建置，提交前必跑
+npm run verify       # 型別檢查、測試、邊界與地圖檢查、素材與字型的 Python 檢查、建置，提交前必跑
+npm run check:art    # 只跑 CI 的 Python 檢查（素材授權、色盤、圖塊、manifest 標籤、字型）
 node tools/maps/make-greybox.ts         # 重新產生灰盒測試房間
 node tools/maps/make-brain-corridor.ts  # 重新產生灰盒大腦走廊（狀態變體範例）
 node tools/maps/make-caffeine-arena.ts  # 重新產生咖啡因 Boss 灰盒場地

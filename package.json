@@ -12,8 +12,9 @@
     "typecheck": "tsc -p tsconfig.core.json && tsc -p tsconfig.json",
     "test": "vitest run",
     "check": "node tools/check-boundaries.ts && node tools/check-content.ts && node tools/content/make-content-types.ts --check && node tools/check-dialogue.ts && node tools/check-fonts.ts &&node tools/check-decks.ts && node tools/check-reports.ts && node tools/check-maps.ts && node tools/maps/make-tiled-project.ts --check && node tools/maps/make-room-template.ts --check",
+    "check:art": "python tools/art/check_assets.py && python tools/fonts/check_fonts.py && python tools/fonts/check_fonts.py --expect-missing tools/fonts/fixtures/rare-glyph.css && python tools/art/check_palette.py && python tools/art/build_tilesets.py --check && python tools/art/make_placeholders.py --check",
     "check:release": "node tools/check-dialogue.ts --release",
-    "verify": "npm run typecheck && npm run test && npm run check && npm run build"
+    "verify": "npm run typecheck && npm run test && npm run check && npm run check:art && npm run build"
   },
   "dependencies": {
     "phaser": "3.90.0"
