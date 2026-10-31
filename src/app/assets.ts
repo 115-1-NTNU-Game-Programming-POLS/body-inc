@@ -8,7 +8,15 @@ export interface ManifestEntry {
   readonly frame: readonly [number, number];
   readonly anchor: readonly [number, number];
   readonly tags: readonly { readonly name: string; readonly frames: number }[];
+  /** `puppet`: one drawn walk frame per direction, swayed in code (art direction 5.4, branch B of 15.3). */
+  readonly motion?: string;
 }
+
+export const MOTIONS = ['puppet'] as const;
+export type Motion = (typeof MOTIONS)[number];
+
+/** The entry's motion once the manifest has passed tlasProblems; anything else reads as no motion. */
+export const motionOf = (entry: ManifestEntry): Motion | undefined => MOTIONS.find((m) => m === entry.motion);
 
 export interface Manifest {
   readonly version: number;
@@ -35,10 +43,17 @@ export function atlasUrls(index: AtlasIndex, key: string): { png: string; json: 
 /**
  * Problems that would otherwise surface as a silent missing animation mid-game: a manifest tag
  * absent from the atlas, a wrong frame count, or frame names Phaser's createFromAseprite cannot
- * look up (it reads frames by index string, art direction 13.4).
+ * look up (it reads frames by index string, art direction 13.4). A misspelt motion or a puppet
+ * entry with a multi-frame walk is a broken contract too, and would otherwise only look wrong.
  */
 export function atlasProblems(entry: ManifestEntry, atlas: AsepriteJson): string[] {
   const problems: string[] = [];
+  if (entry.motion !== undefined && motionOf(entry) === undefined) problems.push(`${entry.key}: unknown motion "${entry.motion}"`);
+  if (entry.motion === 'puppet') {
+    for (const t of entry.tags) {
+      if (t.name.startsWith('walk_') && t.frames !== 1) problems.push(`${entry.key}: a puppet walks on one drawn frame, but ${t.name} has ${t.frames}`);
+    }
+  }
   const tags = new Map(atlas.meta.frameTags.map((t) => [t.name, t]));
   for (const t of entry.tags) {
     const found = tags.get(tagKey(entry.key, t.name));

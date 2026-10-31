@@ -2,7 +2,7 @@ import { chapterContent, chapterLoop, tryResume } from '../../src/app/chapters.t
 import { CHAPTERS, ENEMIES, TAGS } from '../../src/app/content.ts';
 import { readdirSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { atlasProblems, atlasUrls, type AsepriteJson, type Manifest } from '../../src/app/assets.ts';
+import { atlasProblems, atlasUrls, motionOf, type AsepriteJson, type Manifest } from '../../src/app/assets.ts';
 import { FixedStepLoop } from '../../src/app/loop.ts';
 import {
   createGame, EMPTY_TAGS, enterRoom, parseRoom, roomsOf, startChapter, startClock, step, TICK_MS, type TiledMap,
@@ -26,6 +26,22 @@ describe('asset contract', () => {
     const problems = atlasProblems(op, { ...atlas, meta: { frameTags: tags } });
     expect(problems.some((p) => p.includes('missing tag operator.walk_up'))).toBe(true);
     expect(problems.some((p) => p.includes('walk_down has 3 frames'))).toBe(true);
+  });
+
+  it('makes the regular enemies paper puppets and leaves the operator and bosses animated', () => {
+    const puppets = manifest.entries.filter((e) => e.motion === 'puppet').map((e) => e.key);
+    expect(puppets.sort()).toEqual(['cheers', 'consultant', 'energy-seller', 'flyer', 'suit-base']);
+  });
+
+  it('reports a puppet with a multi-frame walk and an unknown motion', () => {
+    const suit = manifest.entries.find((e) => e.key === 'suit-base')!;
+    const atlas = load('suit-base');
+    const longWalk = { ...suit, tags: suit.tags.map((t) => (t.name === 'walk_side' ? { ...t, frames: 3 } : t)) };
+    expect(atlasProblems(longWalk, atlas).some((p) => p.includes('walk_side has 3'))).toBe(true);
+    expect(atlasProblems({ ...suit, motion: 'pupet' }, atlas)).toContain('suit-base: unknown motion "pupet"');
+    expect([motionOf(suit), motionOf({ ...suit, motion: 'pupet' }), motionOf((({ motion: _m, ...rest }) => rest)(suit))]).toEqual(['puppet', undefined, undefined]);
+    const op = manifest.entries.find((e) => e.key === 'operator')!;
+    expect(atlasProblems(op, load('operator'))).toEqual([]);
   });
 
   it('reports frames that createFromAseprite cannot find by index', () => {

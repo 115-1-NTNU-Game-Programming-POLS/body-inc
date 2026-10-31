@@ -62,27 +62,6 @@
     "h": 32
    },
    "duration": 100
-  },
-  "3": {
-   "frame": {
-    "x": 102,
-    "y": 0,
-    "w": 32,
-    "h": 32
-   },
-   "rotated": false,
-   "trimmed": false,
-   "spriteSourceSize": {
-    "x": 0,
-    "y": 0,
-    "w": 32,
-    "h": 32
-   },
-   "sourceSize": {
-    "w": 32,
-    "h": 32
-   },
-   "duration": 100
   }
  },
  "meta": {
@@ -91,7 +70,7 @@
   "image": "flyer.png",
   "format": "RGBA8888",
   "size": {
-   "w": 136,
+   "w": 102,
    "h": 34
   },
   "scale": "1",
@@ -99,21 +78,21 @@
    {
     "name": "flyer.walk_down",
     "from": 0,
-    "to": 1,
+    "to": 0,
     "direction": "forward",
     "color": "#000000ff"
    },
    {
     "name": "flyer.attack_down",
-    "from": 2,
-    "to": 2,
+    "from": 1,
+    "to": 1,
     "direction": "forward",
     "color": "#000000ff"
    },
    {
     "name": "flyer.hurt_down",
-    "from": 3,
-    "to": 3,
+    "from": 2,
+    "to": 2,
     "direction": "forward",
     "color": "#000000ff"
    }

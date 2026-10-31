@@ -1,8 +1,9 @@
 import Phaser from 'phaser';
-import { tagKey, type ManifestEntry } from '../../app/assets.ts';
+import { motionOf, tagKey, type ManifestEntry } from '../../app/assets.ts';
 import { REFORM_TICKS, TICK_HZ, type EnemyState } from '../../core/index.ts';
 import { tier1Flash } from '../fx/telegraph.ts';
 import { REFORM_STAGES } from '../fx/textures.ts';
+import { puppetSway } from './puppet.ts';
 
 /** Logical enemy id to manifest key; the view owns this, core only knows `salesman`. */
 export const SKINS: Readonly<Record<string, string>> = {
@@ -29,6 +30,7 @@ export class EnemyView {
   private readonly entry: ManifestEntry;
   private readonly tags: ReadonlySet<string>;
   private flashUntil = 0;
+  private walkSince: number | undefined;
 
   constructor(scene: Phaser.Scene, entry: ManifestEntry) {
     this.entry = entry;
@@ -67,9 +69,12 @@ export class EnemyView {
     const dir = windup || cur.phase === 'strike' ? cur.strikeDir : { x: cur.x - p.x, y: cur.y - p.y };
     const side = Math.abs(dir.x) > Math.abs(dir.y);
     const d = side ? 'side' : dir.y < 0 ? 'up' : 'down';
+    const moving = cur.x !== p.x || cur.y !== p.y;
+    const sway = puppetSway(this.walkSince, ms, motionOf(this.entry), moving, cur);
+    this.walkSince = sway.since;
     // Reforming enemies bob 2 px on a 1.6 s sine (art direction 5.6).
     const bob = cur.category === 'reforming' ? Math.round(Math.sin((ms / 1600) * Math.PI * 2) * 2) : 0;
-    this.sprite.setPosition(Math.round(x), Math.round(y) + bob).setDepth(y).setFlipX(side && dir.x < 0);
+    this.sprite.setPosition(Math.round(x), Math.round(y) + bob + sway.dy).setAngle(sway.angle).setDepth(y).setFlipX(side && dir.x < 0);
 
     const inFlash = windup && tier1Flash(cur.phaseTicks);
     if (tick < this.flashUntil || inFlash) this.sprite.setTintFill(0xffffff);
@@ -79,7 +84,6 @@ export class EnemyView {
     if (cur.frozen > 0) anim = this.pick(`hurt_${d}`, 'hurt_side', 'hurt_down');
     else if (windup) anim = this.pick(`windup_${d}`, 'windup_side', 'windup_down');
     else if (cur.phase === 'strike') anim = this.pick(`attack_${d}`, 'attack_side', 'attack_down');
-    const moving = cur.x !== p.x || cur.y !== p.y;
     if (!anim) anim = this.pick(`walk_${d}`, 'walk_side', 'walk_down', 'float_down', 'idle_down');
     if (!anim) return;
     if (moving || cur.category === 'reforming') this.sprite.play(anim, true);
@@ -103,7 +107,7 @@ export class EnemyView {
   /** Case closed: a 0.4 s spin and shrink on a copy, so the rule state can drop the enemy at once. */
   closeOut(): void {
     const ghost = this.sprite.scene.add.sprite(this.sprite.x, this.sprite.y, this.sprite.texture.key, this.sprite.frame.name)
-      .setOrigin(this.sprite.originX, this.sprite.originY).setDepth(this.sprite.depth);
+      .setOrigin(this.sprite.originX, this.sprite.originY).setAngle(this.sprite.angle).setDepth(this.sprite.depth);
     this.sprite.scene.tweens.add({
       targets: ghost, scaleX: { from: 1, to: -1 }, duration: 0.2 * 1000, yoyo: true,
       onComplete: () => this.sprite.scene.tweens.add({ targets: ghost, scale: 0, duration: (8 / TICK_HZ) * 1000, onComplete: () => ghost.destroy() }),

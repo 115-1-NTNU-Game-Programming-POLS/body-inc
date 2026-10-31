@@ -62,90 +62,6 @@
     "h": 48
    },
    "duration": 100
-  },
-  "3": {
-   "frame": {
-    "x": 102,
-    "y": 0,
-    "w": 32,
-    "h": 48
-   },
-   "rotated": false,
-   "trimmed": false,
-   "spriteSourceSize": {
-    "x": 0,
-    "y": 0,
-    "w": 32,
-    "h": 48
-   },
-   "sourceSize": {
-    "w": 32,
-    "h": 48
-   },
-   "duration": 100
-  },
-  "4": {
-   "frame": {
-    "x": 136,
-    "y": 0,
-    "w": 32,
-    "h": 48
-   },
-   "rotated": false,
-   "trimmed": false,
-   "spriteSourceSize": {
-    "x": 0,
-    "y": 0,
-    "w": 32,
-    "h": 48
-   },
-   "sourceSize": {
-    "w": 32,
-    "h": 48
-   },
-   "duration": 100
-  },
-  "5": {
-   "frame": {
-    "x": 170,
-    "y": 0,
-    "w": 32,
-    "h": 48
-   },
-   "rotated": false,
-   "trimmed": false,
-   "spriteSourceSize": {
-    "x": 0,
-    "y": 0,
-    "w": 32,
-    "h": 48
-   },
-   "sourceSize": {
-    "w": 32,
-    "h": 48
-   },
-   "duration": 100
-  },
-  "6": {
-   "frame": {
-    "x": 204,
-    "y": 0,
-    "w": 32,
-    "h": 48
-   },
-   "rotated": false,
-   "trimmed": false,
-   "spriteSourceSize": {
-    "x": 0,
-    "y": 0,
-    "w": 32,
-    "h": 48
-   },
-   "sourceSize": {
-    "w": 32,
-    "h": 48
-   },
-   "duration": 100
   }
  },
  "meta": {
@@ -154,7 +70,7 @@
   "image": "consultant.png",
   "format": "RGBA8888",
   "size": {
-   "w": 238,
+   "w": 102,
    "h": 50
   },
   "scale": "1",
@@ -162,21 +78,21 @@
    {
     "name": "consultant.walk_down",
     "from": 0,
-    "to": 2,
+    "to": 0,
     "direction": "forward",
     "color": "#000000ff"
    },
    {
     "name": "consultant.walk_side",
-    "from": 3,
-    "to": 5,
+    "from": 1,
+    "to": 1,
     "direction": "forward",
     "color": "#000000ff"
    },
    {
     "name": "consultant.walk_up",
-    "from": 6,
-    "to": 6,
+    "from": 2,
+    "to": 2,
     "direction": "forward",
     "color": "#000000ff"
    }
