@@ -28,6 +28,21 @@ describe('asset contract', () => {
     expect(problems.some((p) => p.includes('walk_down has 3 frames'))).toBe(true);
   });
 
+  it('makes the regular enemies paper puppets and leaves the operator and bosses animated', () => {
+    const puppets = manifest.entries.filter((e) => e.motion === 'puppet').map((e) => e.key);
+    expect(puppets.sort()).toEqual(['cheers', 'consultant', 'energy-seller', 'flyer', 'suit-base']);
+  });
+
+  it('reports a puppet with a multi-frame walk and an unknown motion', () => {
+    const suit = manifest.entries.find((e) => e.key === 'suit-base')!;
+    const atlas = load('suit-base');
+    const longWalk = { ...suit, tags: suit.tags.map((t) => (t.name === 'walk_side' ? { ...t, frames: 3 } : t)) };
+    expect(atlasProblems(longWalk, atlas).some((p) => p.includes('walk_side has 3'))).toBe(true);
+    expect(atlasProblems({ ...suit, motion: 'pupet' }, atlas)).toContain('suit-base: unknown motion "pupet"');
+    const op = manifest.entries.find((e) => e.key === 'operator')!;
+    expect(atlasProblems(op, load('operator'))).toEqual([]);
+  });
+
   it('reports frames that createFromAseprite cannot find by index', () => {
     const op = manifest.entries.find((e) => e.key === 'operator')!;
     const atlas = load('operator');

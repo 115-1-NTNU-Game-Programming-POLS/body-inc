@@ -188,90 +188,6 @@
     "h": 48
    },
    "duration": 100
-  },
-  "9": {
-   "frame": {
-    "x": 34,
-    "y": 50,
-    "w": 32,
-    "h": 48
-   },
-   "rotated": false,
-   "trimmed": false,
-   "spriteSourceSize": {
-    "x": 0,
-    "y": 0,
-    "w": 32,
-    "h": 48
-   },
-   "sourceSize": {
-    "w": 32,
-    "h": 48
-   },
-   "duration": 100
-  },
-  "10": {
-   "frame": {
-    "x": 68,
-    "y": 50,
-    "w": 32,
-    "h": 48
-   },
-   "rotated": false,
-   "trimmed": false,
-   "spriteSourceSize": {
-    "x": 0,
-    "y": 0,
-    "w": 32,
-    "h": 48
-   },
-   "sourceSize": {
-    "w": 32,
-    "h": 48
-   },
-   "duration": 100
-  },
-  "11": {
-   "frame": {
-    "x": 102,
-    "y": 50,
-    "w": 32,
-    "h": 48
-   },
-   "rotated": false,
-   "trimmed": false,
-   "spriteSourceSize": {
-    "x": 0,
-    "y": 0,
-    "w": 32,
-    "h": 48
-   },
-   "sourceSize": {
-    "w": 32,
-    "h": 48
-   },
-   "duration": 100
-  },
-  "12": {
-   "frame": {
-    "x": 136,
-    "y": 50,
-    "w": 32,
-    "h": 48
-   },
-   "rotated": false,
-   "trimmed": false,
-   "spriteSourceSize": {
-    "x": 0,
-    "y": 0,
-    "w": 32,
-    "h": 48
-   },
-   "sourceSize": {
-    "w": 32,
-    "h": 48
-   },
-   "duration": 100
   }
  },
  "meta": {
@@ -288,63 +204,63 @@
    {
     "name": "suit-base.walk_down",
     "from": 0,
-    "to": 2,
+    "to": 0,
     "direction": "forward",
     "color": "#000000ff"
    },
    {
     "name": "suit-base.walk_side",
-    "from": 3,
-    "to": 5,
+    "from": 1,
+    "to": 1,
     "direction": "forward",
     "color": "#000000ff"
    },
    {
     "name": "suit-base.walk_up",
+    "from": 2,
+    "to": 2,
+    "direction": "forward",
+    "color": "#000000ff"
+   },
+   {
+    "name": "suit-base.windup_down",
+    "from": 3,
+    "to": 3,
+    "direction": "forward",
+    "color": "#000000ff"
+   },
+   {
+    "name": "suit-base.windup_side",
+    "from": 4,
+    "to": 4,
+    "direction": "forward",
+    "color": "#000000ff"
+   },
+   {
+    "name": "suit-base.attack_down",
+    "from": 5,
+    "to": 5,
+    "direction": "forward",
+    "color": "#000000ff"
+   },
+   {
+    "name": "suit-base.attack_side",
     "from": 6,
     "to": 6,
     "direction": "forward",
     "color": "#000000ff"
    },
    {
-    "name": "suit-base.windup_down",
+    "name": "suit-base.hurt_down",
     "from": 7,
     "to": 7,
     "direction": "forward",
     "color": "#000000ff"
    },
    {
-    "name": "suit-base.windup_side",
+    "name": "suit-base.hurt_side",
     "from": 8,
     "to": 8,
-    "direction": "forward",
-    "color": "#000000ff"
-   },
-   {
-    "name": "suit-base.attack_down",
-    "from": 9,
-    "to": 9,
-    "direction": "forward",
-    "color": "#000000ff"
-   },
-   {
-    "name": "suit-base.attack_side",
-    "from": 10,
-    "to": 10,
-    "direction": "forward",
-    "color": "#000000ff"
-   },
-   {
-    "name": "suit-base.hurt_down",
-    "from": 11,
-    "to": 11,
-    "direction": "forward",
-    "color": "#000000ff"
-   },
-   {
-    "name": "suit-base.hurt_side",
-    "from": 12,
-    "to": 12,
     "direction": "forward",
     "color": "#000000ff"
    }
