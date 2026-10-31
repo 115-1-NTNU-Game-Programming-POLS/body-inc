@@ -1,4 +1,5 @@
 export * from './check.ts';
+export * from './courses.ts';
 export * from './floors.ts';
 export * from './interactive.ts';
 export * from './liver.ts';

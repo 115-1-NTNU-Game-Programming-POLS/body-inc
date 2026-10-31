@@ -5,7 +5,7 @@ import { sharedKeys } from '../../app/input.ts';
 import { DEMO_RUN } from '../../app/demo.ts';
 import { PRESENTER_KEY, presenterSettings, type Presenter } from '../../app/presenter.ts';
 import { resumeSemester } from '../../app/semester.ts';
-import type { ChapterContent, ChapterEntry, ChapterState, RunData, SemesterRun, Settings, StoryData } from '../../core/index.ts';
+import type { ChapterContent, ChapterEntry, ChapterState, ProgressData, RunData, SemesterRun, Settings, StoryData } from '../../core/index.ts';
 import { addText } from '../text/fonts.ts';
 import type { NameData } from './NameScene.ts';
 import type { CardsData } from './OpeningScene.ts';
@@ -142,7 +142,10 @@ export class TitleScene extends Phaser.Scene {
     // Boot parses the dev URL (production leaves this unset), so a bad parameter stops there with a message.
     const dev = (this.registry.get('dev-semester') as SemesterData | undefined) ?? {};
     const data: SemesterData = resume === undefined ? dev : { resume, ...(demo ? { demo } : {}) };
-    window.setTimeout(() => this.scene.start('Semester', data), 0);
+    // The first semester is the scripted week with its own courses; after it the player picks (design doc 8.3). A dev semester picks nothing.
+    const done = (this.registry.get('progress') as ProgressData | undefined)?.semestersDone ?? 0;
+    const picks = resume === undefined && dev.seed === undefined && dev.bbqDays === undefined && done > 0;
+    window.setTimeout(() => this.scene.start(picks ? 'Courses' : 'Semester', data), 0);
   }
 
   /** The demo save in presentation mode (larger text, lettered options), which the title gives back when it is shown again. */

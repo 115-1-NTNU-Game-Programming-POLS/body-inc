@@ -1,5 +1,5 @@
 import type { Answer, SemesterRun } from '../core/index.ts';
-import { floorChoice, morningPlan, nightPlan, TUTORIAL_SEED } from './semester.ts';
+import { floorChoice, morningPlan, nightPlan, TUTORIAL_COURSES, TUTORIAL_SEED } from './semester.ts';
 
 const day = (...event: Answer[]): Answer[] => [
   { kind: 'plan', plan: morningPlan('morning', 'balanced') },
@@ -17,5 +17,6 @@ const day = (...event: Answer[]): Answer[] => [
  */
 export const DEMO_RUN: SemesterRun = {
   seed: TUTORIAL_SEED,
+  courses: [...TUTORIAL_COURSES],
   days: [day(), day({ kind: 'event', option: 'binge' }), day()],
 };

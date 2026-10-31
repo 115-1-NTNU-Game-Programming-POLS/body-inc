@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import {
   COFFEE_PLANS, daySummary, endSummary, finishSemester, floorChoice, freshSeed, morningPlan, newSemester, NIGHT_PLANS, nightPlan, REST_PLANS, resumeSemester, servesAlcohol,
-  tutorLine, visitReport, weekdayOf,
+  TUTORIAL_COURSES, TUTORIAL_SEED, tutorLine, visitReport, weekdayOf,
   type CoffeePlanId, type NightPlanId, type RestPlanId,
 } from '../../app/semester.ts';
 import { fillStr, REPORT, str } from '../../app/content.ts';
@@ -38,6 +38,8 @@ export interface SemesterData {
   readonly bbqDays?: readonly number[];
   /** A saved run to go on with, already checked by `resumeSemester`; it replaces `seed`. */
   readonly resume?: SemesterRun;
+  /** The cards picked on the course scene, for a new semester; the scripted first week takes its own list. */
+  readonly courses?: readonly string[];
   /** The presentation's demo save: played from the run given in `resume`, but never written to the run slot or counted. */
   readonly demo?: boolean;
 }
@@ -86,7 +88,9 @@ export class SemesterScene extends Phaser.Scene {
     if (data.resume !== undefined && back === undefined) throw new Error('the title offered a semester save that no longer replays');
     const done = (this.registry.get('progress') as ProgressData | undefined)?.semestersDone ?? 1;
     const seed = data.resume?.seed ?? data.seed ?? freshSeed(done, Date.now());
-    const fresh = back ?? newSemester(seed, data.bbqDays);
+    // The scripted first week has its course list; any other new semester has the picks of the course scene, and a dev one none.
+    const courses = data.courses ?? (seed === TUTORIAL_SEED ? [...TUTORIAL_COURSES] : undefined);
+    const fresh = back ?? newSemester(seed, data.bbqDays, courses);
     this.seed = seed;
     this.ctx = fresh.ctx;
     this.state = fresh.state;
@@ -458,7 +462,7 @@ export class SemesterScene extends Phaser.Scene {
         this.state = after;
         this.finished.push(this.answers);
         this.answers = [];
-        this.persist({ seed: this.seed, days: this.finished });
+        this.persist({ seed: this.seed, ...(this.ctx.courses ? { courses: [...this.ctx.courses] } : {}), days: this.finished });
         this.ask();
         return;
       }

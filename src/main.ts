@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { BootScene } from './view/scenes/BootScene.ts';
 import { CardScene } from './view/scenes/CardScene.ts';
 import { RescueScene } from './view/scenes/RescueScene.ts';
+import { CourseScene } from './view/scenes/CourseScene.ts';
 import { SemesterScene } from './view/scenes/SemesterScene.ts';
 import { ExamScene } from './view/scenes/ExamScene.ts';
 import { DialogueScene } from './view/scenes/DialogueScene.ts';
@@ -25,7 +26,7 @@ const game = new Phaser.Game({
   // The host's name box is a DOM <input> (NameScene), the only way to type through the system IME.
   dom: { createContainer: true },
   // Draw order: later scenes are on top, so conversations and event cards cover the HUD.
-  scene: [BootScene, TitleScene, NameScene, OpeningScene, WorldScene, HudScene, DialogueScene, CardScene, RescueScene, ExamScene, HandbookScene, SemesterScene],
+  scene: [BootScene, TitleScene, NameScene, OpeningScene, WorldScene, HudScene, DialogueScene, CardScene, RescueScene, ExamScene, HandbookScene, SemesterScene, CourseScene],
 });
 
 // Dev builds only: lets the browser console and automated checks inspect scenes and frame rate.

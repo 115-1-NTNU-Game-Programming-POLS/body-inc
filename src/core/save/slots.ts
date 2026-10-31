@@ -238,6 +238,8 @@ export function withPage(progress: ProgressData, id: string): ProgressData | und
  */
 export interface SemesterRun {
   readonly seed: number;
+  /** The course cards taken (design doc 8.3); absent in a run saved before there was a selection, which replays without them. */
+  readonly courses?: readonly string[];
   /** The answers of each finished day, in the order the day asked its questions. */
   readonly days: readonly (readonly Answer[])[];
 }
@@ -293,7 +295,7 @@ const ANSWER: Schema = {
 
 export const RUN: SlotDef<RunData> = {
   name: 'run',
-  version: 1,
+  version: 2,
   schema: {
     type: 'object',
     additionalProperties: false,
@@ -306,14 +308,19 @@ export const RUN: SlotDef<RunData> = {
             type: 'object',
             additionalProperties: false,
             required: ['seed', 'days'],
-            properties: { seed: INT, days: { type: 'array', items: { type: 'array', items: ANSWER } } },
+            properties: {
+              seed: INT,
+              courses: { type: 'array', items: { type: 'string', minLength: 1 } },
+              days: { type: 'array', items: { type: 'array', items: ANSWER } },
+            },
           },
         ],
       },
     },
   },
   defaults: () => ({ semester: null }),
-  migrations: {},
+  // Version 2 adds the optional course list; a version-1 run is already valid without it.
+  migrations: { 1: (data) => data },
 };
 
 export const SLOTS = [SETTINGS, STORY, PROGRESS, RUN] as const;

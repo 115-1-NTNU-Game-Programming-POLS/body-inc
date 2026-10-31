@@ -51,6 +51,11 @@ export interface SemesterContext {
   readonly finMult?: number;
   /** Sleep debt at the start of the semester; 0 at level 0. */
   readonly startDebt?: number;
+  /**
+   * The course cards the player took (design doc 8.3). Their credits move the exam thresholds and
+   * some take fixed hours. Absent, the semester is the 12-credit one the thresholds are tuned for.
+   */
+  readonly courses?: readonly string[];
 }
 
 export interface PatrolRecord {

@@ -54,9 +54,13 @@ describe('the demo save (design doc 14.1)', () => {
   });
 
   it('leads to the midterm on day 5 with the result it had when the demo was written', () => {
+    // The 9 credits of the tutorial lower the thresholds so far that the midterm is full marks; the progress it is sat on still moves with the rules.
+    const morning5 = playOn('liver', 4);
+    expect(morning5.day).toBe(5);
+    expect(Math.round(morning5.progress * 10) / 10).toBe(23.9);
     const { mid } = playOn('liver', 6);
-    expect(Math.round(mid ?? NaN)).toBe(86);
-    expect(Math.round(playOn('brain', 6).mid ?? NaN)).toBe(86);
+    expect(Math.round(mid ?? NaN)).toBe(100);
+    expect(Math.round(playOn('brain', 6).mid ?? NaN)).toBe(100);
   });
 
   it('lets the liver be patrolled on day 4 and clears the jam', () => {

@@ -1,5 +1,5 @@
 import {
-  advanceDay, amount, composeReport, EVENTS, PROGRESS, prototypeContext, semesterInputs, startSemester, summarize, withBarbecueOn,
+  advanceDay, amount, BURDEN_REWARD, burdenOf, composeReport, creditsOf, EVENTS, reviewPoints, PROGRESS, prototypeContext, semesterInputs, startSemester, summarize, withBarbecueOn,
   type FloorChoice, type FloorId, type MorningPlan, type NightPlan, type ProgressData, type ReportDocument, type Scenario, type SemesterContext, type SemesterRun, type SemesterState,
 } from '../core/index.ts';
 import { fillStr as fill, PARAMS, REPORT, str, STRINGS, TAGS } from './content.ts';
@@ -39,15 +39,19 @@ export function finishSemester(saves: SaveStore, progress: ProgressData): { prog
 export const tutorLine = (seed: number, day: number): string | undefined =>
   seed === TUTORIAL_SEED && (TUTOR_DAYS as readonly number[]).includes(day) ? str(`semester.tutor.${day}`) : undefined;
 
-/** A new semester's rules and its events, which the seed alone fixes. */
-export function semesterContext(seed: number): SemesterContext {
+/** The courses of the scripted first week (design doc 8.13): the algorithms, the operating systems, the database and the TA line, 9 credits. */
+export const TUTORIAL_COURSES = ['algorithms', 'os', 'database', 'ta'] as const;
+
+/** A new semester's rules and its events, which the seed alone fixes; `courses` are what the player took, absent for the dev semesters. */
+export function semesterContext(seed: number, courses?: readonly string[]): SemesterContext {
   const dealt = prototypeContext(TAGS, PARAMS, PATROL_SKILL, seed);
-  return seed === TUTORIAL_SEED ? { ...dealt, scenario: tutorialScenario(dealt.scenario) } : dealt;
+  const base = seed === TUTORIAL_SEED ? { ...dealt, scenario: tutorialScenario(dealt.scenario) } : dealt;
+  return courses === undefined ? base : { ...base, courses };
 }
 
 /** `bbqDays` is a dev override (app/session.ts semesterFromQuery); a normal game takes the events its seed deals. */
-export const newSemester = (seed: number, bbqDays?: readonly number[]): { ctx: SemesterContext; state: SemesterState } => {
-  const dealt = semesterContext(seed);
+export const newSemester = (seed: number, bbqDays?: readonly number[], courses?: readonly string[]): { ctx: SemesterContext; state: SemesterState } => {
+  const dealt = semesterContext(seed, courses);
   const ctx = bbqDays === undefined ? dealt : { ...dealt, scenario: withBarbecueOn(dealt.scenario, bbqDays) };
   return { ctx, state: startSemester(ctx, seed) };
 };
@@ -60,7 +64,7 @@ export const newSemester = (seed: number, bbqDays?: readonly number[]): { ctx: S
  */
 export function resumeSemester(run: SemesterRun): { ctx: SemesterContext; state: SemesterState } | undefined {
   try {
-    const { ctx, state: start } = newSemester(run.seed);
+    const { ctx, state: start } = newSemester(run.seed, undefined, run.courses);
     let state = start;
     for (const answers of run.days) {
       const step = advanceDay(state, ctx, answers);
@@ -170,5 +174,10 @@ export function endSummary(state: SemesterState, ctx: SemesterContext): string[]
   if (sum.bankrupt) lines.push(str('semester.end.bankrupt'));
   else if (sum.hospitalized) lines.push(str('semester.end.hospital'));
   lines.push(fill('semester.end.debt', { debt: oneDecimal(sum.finalDebt) }));
+  if (ctx.courses !== undefined && sum.passMid && sum.passFin) {
+    const credits = creditsOf(ctx.courses);
+    const burden = burdenOf(credits);
+    lines.push(fill('semester.end.review', { points: percent(reviewPoints(sum.grade, credits)), burden: str(`semester.burden.${burden}`), mult: BURDEN_REWARD[burden].toFixed(2) }));
+  }
   return lines;
 }
