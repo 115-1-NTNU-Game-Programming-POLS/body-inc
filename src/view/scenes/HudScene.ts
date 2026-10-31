@@ -224,7 +224,7 @@ export class HudScene extends Phaser.Scene {
     this.wallNote?.destroy();
     this.wallNote = undefined;
     if (text === undefined) return;
-    this.wallNote = addText(this, this.scale.width / 2, this.scale.height - 56, text, {
+    this.wallNote = addText(this, this.scale.width / 2, this.scale.height - 100, text, {
       role: 'hand', weight: 400, size: 22, color: '#2b2b2b', backgroundColor: '#d9d6cf', padding: { x: 12, y: 8 }, maxWidth: 940, lineHeight: 1.4,
     }).setOrigin(0.5, 1);
   }

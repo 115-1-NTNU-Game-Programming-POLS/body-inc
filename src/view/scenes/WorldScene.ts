@@ -273,7 +273,8 @@ export class WorldScene extends Phaser.Scene {
   private leave(then: () => void): void {
     if (this.leaving) return;
     this.leaving = true;
-    this.cameras.main.fadeOut(FADE_MS);
+    // Forced: Esc can arrive while the 160 ms fade-in runs, and a fade that is refused never completes.
+    this.cameras.main.fade(FADE_MS, 0, 0, 0, true);
     this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, then);
   }
 

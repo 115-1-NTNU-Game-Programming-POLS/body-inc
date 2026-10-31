@@ -7,7 +7,7 @@ import { fillStr, REPORT, str } from '../../app/content.ts';
 import { keepPage } from '../../app/handbook.ts';
 import type { SaveStore } from '../../app/storage.ts';
 import {
-  advanceDay, buildWall, type Answer, type Ask, type ChapterContent, type DayView, type FloorId, type ProgressData, type ReportDocument, type SemesterContext,
+  advanceDay, buildWall, pinWall, type Answer, type Ask, type ChapterContent, type DayView, type FloorId, type ProgressData, type ReportDocument, type SemesterContext,
   type SemesterState, type Settings, type Wall,
 } from '../../core/index.ts';
 import { WALL_CHAPTER, wallLoop, type WallSession } from '../../app/wall.ts';
@@ -90,7 +90,7 @@ export class SemesterScene extends Phaser.Scene {
 
     const onKey = (e: KeyboardEvent) => {
       // The semester is not saved, so leaving drops it; the hint line says so.
-      if (e.code === 'Escape') return this.time.now < this.escGuardUntil ? undefined : this.leave();
+      if (e.code === 'Escape') return performance.now() < this.escGuardUntil ? undefined : this.leave();
       if (e.repeat || this.busy) return;
       if (this.menu === undefined) {
         if (CONFIRM.includes(e.code)) this.proceed();
@@ -129,7 +129,10 @@ export class SemesterScene extends Phaser.Scene {
     try {
       if (!base) throw new Error(`the ${WALL_CHAPTER} chapter is not loaded`);
       const wall = buildWall(doc, REPORT, str, liverOrders);
-      session = { wall, loop: wallLoop(base, wall.unlock).loop };
+      const { ctx, loop } = wallLoop(base, wall.unlock);
+      // The board throws on a node with no slot; find that here, while the report can still be shown without the wall.
+      pinWall(wall, ctx.rooms.get(ctx.chapter.start)!.objects);
+      session = { wall, loop };
     } catch (err) {
       // Like the report itself, the wall is an addition: if it cannot be built the report is still shown.
       console.error('evidence wall skipped:', err);
@@ -143,7 +146,8 @@ export class SemesterScene extends Phaser.Scene {
         this.events.once(Phaser.Scenes.Events.WAKE, () => {
           // Held input: the key that closed the wall must not also turn the first page of the report or leave the semester.
           this.busy = true;
-          this.escGuardUntil = this.time.now + ESC_GUARD_MS;
+          // Wall-clock time: a sleeping scene's clock stands still, so 	his.time.now would be stale right after the wake.
+          this.escGuardUntil = performance.now() + ESC_GUARD_MS;
           this.time.delayedCall(CHOSEN_MS, () => {
             this.busy = false;
           });
@@ -435,7 +439,7 @@ export class SemesterScene extends Phaser.Scene {
       title, lines, str('semester.sum.next'),
       doc === undefined || progress === undefined || saves === undefined
         ? next
-        : () => this.showWall(doc, after.liverOrders, () => this.report(doc, progress, saves, next)),
+        : () => this.showWall(doc, after.liverOrders, () => this.report(doc, (this.registry.get('progress') as ProgressData | undefined) ?? progress, saves, next)),
     );
   }
 }

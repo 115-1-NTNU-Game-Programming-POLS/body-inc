@@ -3,10 +3,10 @@ import { describe, expect, it } from 'vitest';
 import { CHAPTERS, DIALOGUES, ENEMIES, BOSSES, PARAMS, TAGS } from '../../src/app/content.ts';
 import { wallContent } from '../../src/app/wall.ts';
 import {
-  buildWall, DAY_SLOTS, LIVER_SLOTS, parseRoom, pinWall, readContent, roomsOf, runSemester, selectOperator, semesterReports, startChapter, stepChapter, WALL_DAYS,
+  buildWall, DAY_SLOTS, LIVER_SLOTS, parseRoom, pinWall, readContent, roomsOf, runSemester, selectOperator, semesterReports, slotProblems, startChapter, stepChapter, WALL_DAYS, WALL_LAYOUT,
   type ChapterContent, type ChapterState, type GameEvent, type ReportDocument, type ReportFile, type StringsFile, type TickInput, type TiledMap,
 } from '../../src/core/index.ts';
-import { readRoom } from '../../src/core/rooms/tiled.ts';
+import { readRoom, type RoomObject } from '../../src/core/rooms/tiled.ts';
 import { ARCHETYPES } from '../../sim/semester/archetypes.ts';
 import { bingeTwice, bingeWeek, contextFor, crunchWeek } from '../../sim/semester/scenario.ts';
 
@@ -75,6 +75,34 @@ describe('the wall room (art direction 7.6)', () => {
     expect(copy('slot-lower-5-1', () => undefined).sort()).toEqual(['slot-count:lower/5', 'slot-duplicate:lower/5']);
     // A fourth slot, numbered 4: no clash, but the day holds three.
     expect(copy('slot-upper-2-1', (o) => { o.properties.find((p) => p.name === 'order')!.value = 4; })).toEqual(['slot-count:upper/2']);
+  });
+
+  it('leaves slots of a variant layer out, as the pinning does', () => {
+    const slots = room.objects.filter((o) => o.kind === 'EvidenceSlot');
+    const asVariant = (o: RoomObject): RoomObject => ({ ...o, variant: 'night' }) as RoomObject;
+    expect(slotProblems([...room.objects, ...slots.map(asVariant)])).toEqual([]);
+    const target = slots.find((o) => o.props['lane'] === 'upper' && o.props['day'] === 3 && o.props['order'] === 2)!;
+    const swapped = room.objects.map((o) => (o === target ? asVariant(o) : o));
+    expect(slotProblems(swapped).map((p) => p.code)).toEqual(['slot-count']);
+  });
+
+  it('makes solid what the view draws from WALL_LAYOUT: the board, the desk and the cabinet, and nothing else on the floor', () => {
+    const walls = MAP.layers.find((l) => l.name === 'walls') as unknown as { data: number[] };
+    const solid = (c: number, r: number) => walls.data[r * 40 + c] !== 0;
+    const { board, desk, cabinet } = WALL_LAYOUT;
+    let boxes = 0;
+    for (const b of [board, desk, cabinet]) {
+      for (let c = b.col; c < b.col + b.cols; c++) for (let r = b.row; r < b.row + b.rows; r++) { expect(solid(c, r), `${c},${r}`).toBe(true); boxes++; }
+    }
+    let seen = 0;
+    for (let c = 4; c < 39; c++) for (let r = 4; r < 8; r++) if (solid(c, r)) seen++;
+    expect(seen).toBe(boxes);
+    for (const o of room.objects.filter((x) => x.props['lane'] === 'liver')) {
+      expect(o.x / 32).toBeGreaterThanOrEqual(board.col);
+      expect(o.x / 32).toBeLessThan(board.col + board.cols);
+      expect(o.y / 32).toBeGreaterThanOrEqual(board.row);
+      expect(o.y / 32).toBeLessThan(board.row + board.rows);
+    }
   });
 
   it('refuses a slot with no track', () => {

@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { fillStr, str } from '../../app/content.ts';
-import { pinWall, TILE, WALL_DAYS, type EnteredRoom, type Pinned, type Wall, type WallKind } from '../../core/index.ts';
+import { pinWall, TILE, WALL_DAYS, WALL_LAYOUT, type EnteredRoom, type Pinned, type Wall, type WallKind } from '../../core/index.ts';
 import { addText } from '../text/fonts.ts';
 
 const INK = 0x0c2d5e;
@@ -17,11 +17,7 @@ const SAG = 4;
 /** A node counts as stopped on when the operator's feet are no more than this far below its column's lowest slot. */
 const REACH = 44;
 
-/** Columns of the cork and the objects that stand on the floor, from tools/maps/make-wall.ts. */
-const CORK_COLS = { from: 3, to: 34 };
-const BOARD = { col: 30, row: 4, cols: 4, rows: 2 };
-const DESK_BOX = { col: 35, row: 5, cols: 3, rows: 2 };
-const CABINET = { col: 38, row: 4, cols: 1, rows: 2 };
+const { cork: CORK_COLS, board: BOARD, desk: DESK_BOX, cabinet: CABINET, firstDayCol } = WALL_LAYOUT;
 
 export interface WallNoteMessage {
   /** Lines of the note, or none when the operator is not under a node. */
@@ -68,10 +64,14 @@ export class EvidenceBoard {
   /** Lights the nodes of the column the operator stands under and returns what the HUD's note should say. */
   update(x: number, y: number): WallNoteMessage {
     const col = Math.floor(x / TILE);
-    const reach = this.pinned.filter((p) => Math.floor(p.slot.x / TILE) === col);
-    // The column's lowest slot sets the reach, so the nodes above it are reached from the same spot.
-    const lowest = reach.length === 0 ? 0 : Math.max(...reach.map((p) => p.slot.y + p.slot.height));
-    const lit = reach.length > 0 && y > lowest && y - lowest <= REACH ? reach : [];
+    // The tracks and the liver board share some columns but not the floor they are read from, so each is its own group.
+    const here = this.pinned.filter((p) => Math.floor(p.slot.x / TILE) === col);
+    const groups = [here.filter((p) => p.node.lane !== 'liver'), here.filter((p) => p.node.lane === 'liver')];
+    // A group's lowest slot sets the reach, so the nodes above it are reached from the same spot.
+    const lit = groups.find((g) => {
+      const lowest = Math.max(...g.map((p) => p.slot.y + p.slot.height));
+      return g.length > 0 && y > lowest && y - lowest <= REACH;
+    }) ?? [];
     const ids = new Set(lit.map((p) => p.node.id));
     for (const [id, o] of this.outlines) o.setVisible(ids.has(id));
     const text = lit.length === 0 ? undefined : lit.sort((a, b) => a.slot.y - b.slot.y).map((p) => noteOf(p)).join('\n');
@@ -92,7 +92,6 @@ export class EvidenceBoard {
     const left = CORK_COLS.from * TILE;
     const width = (CORK_COLS.to - CORK_COLS.from) * TILE;
     s.add.rectangle(left, 0, width, 3 * TILE, CORK).setOrigin(0, 0).setStrokeStyle(2, CORK_EDGE).setDepth(1);
-    const firstDayCol = 4;
     for (let d = 1; d <= WALL_DAYS; d++) {
       const x = (firstDayCol + (d - 1) * 3) * TILE;
       if (d > 1) s.add.rectangle(x, 4, 1, 3 * TILE - 12, CORK_EDGE, 0.4).setOrigin(0, 0).setDepth(1.5);

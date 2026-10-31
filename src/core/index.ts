@@ -2,7 +2,7 @@ export * from './game.ts';
 export { stateHash } from './hash.ts';
 export { CELL_COLS, parseRoom, RoomFormatError, type RoomModel, type RoomObject, type TiledMap } from './rooms/tiled.ts';
 export { enterRoom, type EnteredRoom } from './rooms/entry.ts';
-export { DAY_SLOTS, LIVER_SLOTS, slotProblems, WALL_DAYS, type SlotLane, type SlotProblem } from './rooms/slots.ts';
+export { DAY_SLOTS, WALL_LAYOUT, LIVER_SLOTS, slotProblems, WALL_DAYS, type SlotLane, type SlotProblem } from './rooms/slots.ts';
 export * from './rooms/props.ts';
 export { arrivalPoint, INTERACT_REACH, objectBox, reachableObject, touchedObjects } from './rooms/interact.ts';
 export {

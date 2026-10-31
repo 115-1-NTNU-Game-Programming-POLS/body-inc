@@ -9,6 +9,19 @@ export const LIVER_SLOTS = 8;
 
 export type SlotLane = 'upper' | 'lower' | 'liver';
 
+/**
+ * Where the wall room (tools/maps/make-wall.ts) puts what is not an EvidenceSlot, in tiles. The view
+ * draws the cork, the liver board, the desk and the cabinet from the same numbers the generator
+ * makes solid, so moving one here moves both.
+ */
+export const WALL_LAYOUT = {
+  firstDayCol: 4,
+  cork: { from: 3, to: 34 },
+  board: { col: 30, row: 4, cols: 4, rows: 2 },
+  desk: { col: 35, row: 5, cols: 3, rows: 2 },
+  cabinet: { col: 38, row: 4, cols: 1, rows: 2 },
+} as const;
+
 export interface SlotProblem {
   readonly object?: number;
   readonly code: 'slot-count' | 'slot-duplicate';
@@ -21,7 +34,8 @@ export interface SlotProblem {
  * The liver board has no days, so its slots' `day` is not read.
  */
 export function slotProblems(objects: readonly RoomObject[]): SlotProblem[] {
-  const slots = objects.filter((o) => o.kind === 'EvidenceSlot');
+  // A variant layer is not part of the room until it is switched on, and pinWall leaves those slots out too.
+  const slots = objects.filter((o) => o.kind === 'EvidenceSlot' && o.variant === undefined);
   if (slots.length === 0) return [];
   const out: SlotProblem[] = [];
   const key = (o: RoomObject): string => (o.props['lane'] === 'liver' ? 'liver' : `${o.props['lane']}/${o.props['day']}`);

@@ -13,13 +13,15 @@
  *
  *   node tools/maps/make-wall.ts
  */
-import { DAY_SLOTS, LIVER_SLOTS, WALL_DAYS } from '../../src/core/rooms/slots.ts';
+import { DAY_SLOTS, LIVER_SLOTS, WALL_DAYS, WALL_LAYOUT } from '../../src/core/rooms/slots.ts';
 import { shell, tileLayer, writeRoom } from './room-kit.ts';
 
 const T = 32;
 const COLS = 40;
-const FIRST_DAY_COL = 4;
-const BOARD = { col: 30, row: 4, cols: 4, rows: 2 };
+const FIRST_DAY_COL = WALL_LAYOUT.firstDayCol;
+const BOARD = WALL_LAYOUT.board;
+const DESK = WALL_LAYOUT.desk;
+const CABINET = WALL_LAYOUT.cabinet;
 
 const str = (name: string, propertytype: string | undefined, value: string) =>
   ({ name, type: 'string', ...(propertytype ? { propertytype } : {}), value });
@@ -36,9 +38,8 @@ for (let c = 0; c < BOARD.cols; c++) {
   solid(BOARD.col + c, BOARD.row, 'face-upper-m');
   solid(BOARD.col + c, BOARD.row + 1, 'face-lower-m');
 }
-for (const c of [35, 36, 37]) { solid(c, 5, 'face-upper-m'); solid(c, 6, 'face-lower-m'); }
-solid(38, 4, 'face-upper-m');
-solid(38, 5, 'face-lower-m');
+for (let c = 0; c < DESK.cols; c++) { solid(DESK.col + c, DESK.row, 'face-upper-m'); solid(DESK.col + c, DESK.row + 1, 'face-lower-m'); }
+for (let c = 0; c < CABINET.cols; c++) { solid(CABINET.col + c, CABINET.row, 'face-upper-m'); solid(CABINET.col + c, CABINET.row + 1, 'face-lower-m'); }
 
 const objects: object[] = [point(1, 'start', 'PlayerStart', 2 * T + 16, 8 * T)];
 let id = 2;
