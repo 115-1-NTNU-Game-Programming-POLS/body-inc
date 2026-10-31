@@ -7,7 +7,7 @@ import { fillStr, REPORT, str } from '../../app/content.ts';
 import { keepPage } from '../../app/handbook.ts';
 import type { SaveStore } from '../../app/storage.ts';
 import {
-  advanceDay, buildWall, pinWall, type Answer, type Ask, type ChapterContent, type DayView, type FloorId, type ProgressData, type ReportDocument, type SemesterContext,
+  advanceDay, buildWall, pinWall, reviewWall, type Answer, type Ask, type ChapterContent, type DayView, type FloorId, type ProgressData, type ReportDocument, type SemesterContext,
   type SemesterState, type Settings, type Wall,
 } from '../../core/index.ts';
 import { WALL_CHAPTER, wallLoop, type WallSession } from '../../app/wall.ts';
@@ -119,16 +119,16 @@ export class SemesterScene extends Phaser.Scene {
   }
 
   /**
-   * The investigation wall of design doc 8.11, a room the player walks through before the report
-   * (build plan: evidence wall). The semester sleeps while the World and the HUD run the wall
+   * The investigation wall of design doc 8.11, a room the player walks through before the report, or
+   * the year-end review of a passed semester before the end page (build plan: evidence wall). The semester sleeps while the World and the HUD run the wall
    * chapter; taking the page from the report desk, or Esc, wakes it and goes on with `go`.
    */
-  private showWall(doc: ReportDocument, liverOrders: readonly number[], go: () => void): void {
+  private showWall(make: () => Wall, go: () => void): void {
     const base = (this.registry.get('chapters') as ReadonlyMap<string, ChapterContent> | undefined)?.get(WALL_CHAPTER);
     let session: { wall: Wall; loop: ReturnType<typeof wallLoop>['loop'] };
     try {
       if (!base) throw new Error(`the ${WALL_CHAPTER} chapter is not loaded`);
-      const wall = buildWall(doc, REPORT, str, liverOrders);
+      const wall = make();
       const { ctx, loop } = wallLoop(base, wall.unlock);
       // The board throws on a node with no slot; find that here, while the report can still be shown without the wall.
       pinWall(wall, ctx.rooms.get(ctx.chapter.start)!.objects);
@@ -421,7 +421,16 @@ export class SemesterScene extends Phaser.Scene {
         this.ask();
         return;
       }
-      this.page(str('semester.end.title'), endSummary(after, this.ctx), str('semester.end.back'), () => this.leave());
+      const toEnd = (): void => this.page(str('semester.end.title'), endSummary(after, this.ctx), str('semester.end.back'), () => this.leave());
+      let review: Wall | undefined;
+      try {
+        review = reviewWall(after, this.ctx, REPORT, str);
+      } catch (err) {
+        console.error('year-end review skipped:', err);
+      }
+      if (review === undefined) return toEnd();
+      const wall = review;
+      this.showWall(() => wall, toEnd);
     };
     // The report is an addition to the day summary: if it cannot be written, or there is nowhere to keep the page it
     // unlocks (Boot always sets both), the day goes on without it instead of leaving the screen half cleared.
@@ -439,7 +448,7 @@ export class SemesterScene extends Phaser.Scene {
       title, lines, str('semester.sum.next'),
       doc === undefined || progress === undefined || saves === undefined
         ? next
-        : () => this.showWall(doc, after.liverOrders, () => this.report(doc, (this.registry.get('progress') as ProgressData | undefined) ?? progress, saves, next)),
+        : () => this.showWall(() => buildWall(doc, REPORT, str, after.liverOrders), () => this.report(doc, (this.registry.get('progress') as ProgressData | undefined) ?? progress, saves, next)),
     );
   }
 }

@@ -312,6 +312,13 @@
     "report.doc.wall_struck": { "text": "{dept}罷工，營運長送急診", "fact": "" },
     "report.doc.wall_more": { "text": "另有 {n} 件", "fact": "" },
     "report.doc.wall_order": { "text": "第 {day} 天，一張工單送進肝臟部門", "fact": "" },
+    "report.doc.review_liver_check": { "text": "第 {day} 天，肝臟部門沒有亮燈，營運長還是主動去巡視了肝臟", "fact": "" },
+    "report.doc.review_declined": { "text": "第 {day} 天，系烤聚餐上，營運長沒有喝酒", "fact": "" },
+    "report.doc.review_bed": { "text": "第 {from} 至 {to} 天，營運長連續 {n} 晚在午夜前就寢", "fact": "" },
+    "report.doc.review_patrol": { "text": "第 {day} 天，營運長巡視亮燈的{dept}，巡視評等 {grade}", "fact": "" },
+    "report.doc.review_hospital": { "text": "整個學期，營運長一次急診也沒有去", "fact": "" },
+    "report.doc.review_fin": { "text": "期末考及格", "fact": "" },
+    "report.doc.review_mid": { "text": "期中考及格", "fact": "" },
     "report.doc.wall_smile": { "text": "肝臟部門貼出的便條：笑臉。工單一直有收到，便條上的笑臉一直沒變", "fact": "" },
 
 
@@ -325,6 +332,7 @@
     "semester.wall.kind.ops": { "text": "營運紀錄", "fact": "" },
     "semester.wall.kind.floor": { "text": "樓層", "fact": "" },
     "semester.wall.kind.order": { "text": "工單", "fact": "" },
+    "semester.wall.kind.merit": { "text": "做對的事", "fact": "" },
     "semester.wall.kind.smile": { "text": "笑臉便條", "fact": "" },
     "deck.liver.dinner.title": { "text": "系烤前要不要先吃晚餐？", "fact": "" },
     "deck.liver.dinner.eat": { "text": "先吃一碗麵再去", "fact": "" },

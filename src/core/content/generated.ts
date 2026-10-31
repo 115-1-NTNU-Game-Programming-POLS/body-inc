@@ -2082,7 +2082,8 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
       "ignore",
       "keys",
       "opinions",
-      "doc"
+      "doc",
+      "reviewPages"
     ],
     "properties": {
       "version": {
@@ -2154,6 +2155,14 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
       },
       "doc": {
         "$ref": "#/$defs/ReportDoc"
+      },
+      "reviewPages": {
+        "description": "Handbook page the year-end review hands over when its first merit is the key, by merit id (src/core/report/review.ts). A review whose first merit has no page gives the default family's page.",
+        "type": "object",
+        "additionalProperties": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        }
       }
     },
     "$defs": {
@@ -2392,7 +2401,14 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
           "wallStruck",
           "wallMore",
           "wallOrder",
-          "wallSmile"
+          "wallSmile",
+          "reviewLiverCheck",
+          "reviewDeclined",
+          "reviewBed",
+          "reviewPatrol",
+          "reviewHospital",
+          "reviewFin",
+          "reviewMid"
         ],
         "properties": {
           "letterhead": {
@@ -2536,6 +2552,34 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
             "minLength": 1
           },
           "wallSmile": {
+            "type": "string",
+            "minLength": 1
+          },
+          "reviewLiverCheck": {
+            "type": "string",
+            "minLength": 1
+          },
+          "reviewDeclined": {
+            "type": "string",
+            "minLength": 1
+          },
+          "reviewBed": {
+            "type": "string",
+            "minLength": 1
+          },
+          "reviewPatrol": {
+            "type": "string",
+            "minLength": 1
+          },
+          "reviewHospital": {
+            "type": "string",
+            "minLength": 1
+          },
+          "reviewFin": {
+            "type": "string",
+            "minLength": 1
+          },
+          "reviewMid": {
             "type": "string",
             "minLength": 1
           }
@@ -3610,6 +3654,8 @@ export interface ReportFile {
   readonly keys: Readonly<Record<string, ReportKey>>;
   readonly opinions: ReportOpinions;
   readonly doc: ReportDoc;
+  /** Handbook page the year-end review hands over when its first merit is the key, by merit id (src/core/report/review.ts). A review whose first merit has no page gives the default family's page. */
+  readonly reviewPages: Readonly<Record<string, string>>;
 }
 
 export interface ReportScope {
@@ -3705,6 +3751,13 @@ export interface ReportDoc {
   readonly wallMore: string;
   readonly wallOrder: string;
   readonly wallSmile: string;
+  readonly reviewLiverCheck: string;
+  readonly reviewDeclined: string;
+  readonly reviewBed: string;
+  readonly reviewPatrol: string;
+  readonly reviewHospital: string;
+  readonly reviewFin: string;
+  readonly reviewMid: string;
 }
 
 /** Rescue sequences that cannot fail (design doc 7.7: the classmate who will not wake up). A Trigger with event rescue and this id opens an action panel; the correct steps must be done in order, a myth is answered by a friend and the panel stays open, so the only way out is through the steps. Text lives in content/strings under rescue.<id>.*; how to write one is in docs/authoring/rooms-and-dialogue.md. */

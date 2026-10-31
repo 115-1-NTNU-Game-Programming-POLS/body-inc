@@ -4,7 +4,7 @@
   "description": "The close-out report system (docs/specs/ux-spec.md section 4): which sentence belongs to which causal-log entry, how the departments are named, what each cause family recommends and the frame of the two documents. Every text is a string key into content/strings, so each sentence carries its own fact entry.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["version", "cupGrams", "fallback", "scopes", "themes", "themeOrder", "defaultTheme", "nodes", "ignore", "keys", "opinions", "doc"],
+  "required": ["version", "cupGrams", "fallback", "scopes", "themes", "themeOrder", "defaultTheme", "nodes", "ignore", "keys", "opinions", "doc", "reviewPages"],
   "properties": {
     "version": { "const": 1 },
     "cupGrams": { "description": "Grams of alcohol in one standard cup (fact-check 29); a drink is worded in cups and in grams.", "type": "number", "exclusiveMinimum": 0 },
@@ -17,7 +17,8 @@
     "ignore": { "description": "Causal-log entries that need no sentence of their own, as \"<kind>:<key>\"; a trailing * matches a prefix. Anything neither listed nor in the bank is worded by the fallback and counted.", "type": "array", "items": { "type": "string", "minLength": 1 } },
     "keys": { "description": "The sentence bank by key.", "type": "object", "additionalProperties": { "$ref": "#/$defs/ReportKey" } },
     "opinions": { "$ref": "#/$defs/ReportOpinions" },
-    "doc": { "$ref": "#/$defs/ReportDoc" }
+    "doc": { "$ref": "#/$defs/ReportDoc" },
+    "reviewPages": { "description": "Handbook page the year-end review hands over when its first merit is the key, by merit id (src/core/report/review.ts). A review whose first merit has no page gives the default family's page.", "type": "object", "additionalProperties": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" } }
   },
   "$defs": {
     "ReportScope": {
@@ -84,7 +85,8 @@
         "causeSingle", "causeMulti", "causeLiverFasting", "unlockNew", "unlockKnown", "examMid", "examFin",
         "noticeDate", "noticeNumber", "noticeSubject", "noticePenalty", "noticeMissed", "noticeAdvice", "noticeWarning",
         "bankruptDate", "bankruptNumber", "bankruptPrevious", "bankruptSubject", "bankruptResult",
-        "bankruptAdviceHead", "bankruptAdvice1", "bankruptAdvice2", "bankruptAdvice3", "wallStruck", "wallMore", "wallOrder", "wallSmile"
+        "bankruptAdviceHead", "bankruptAdvice1", "bankruptAdvice2", "bankruptAdvice3", "wallStruck", "wallMore", "wallOrder", "wallSmile",
+        "reviewLiverCheck", "reviewDeclined", "reviewBed", "reviewPatrol", "reviewHospital", "reviewFin", "reviewMid"
       ],
       "properties": {
         "letterhead": { "type": "string", "minLength": 1 },
@@ -122,7 +124,14 @@
         "wallStruck": { "type": "string", "minLength": 1 },
         "wallMore": { "type": "string", "minLength": 1 },
         "wallOrder": { "type": "string", "minLength": 1 },
-        "wallSmile": { "type": "string", "minLength": 1 }
+        "wallSmile": { "type": "string", "minLength": 1 },
+        "reviewLiverCheck": { "type": "string", "minLength": 1 },
+        "reviewDeclined": { "type": "string", "minLength": 1 },
+        "reviewBed": { "type": "string", "minLength": 1 },
+        "reviewPatrol": { "type": "string", "minLength": 1 },
+        "reviewHospital": { "type": "string", "minLength": 1 },
+        "reviewFin": { "type": "string", "minLength": 1 },
+        "reviewMid": { "type": "string", "minLength": 1 }
       }
     }
   }

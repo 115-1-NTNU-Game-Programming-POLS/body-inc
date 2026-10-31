@@ -12,6 +12,7 @@ const NOTE_BLUE = 0x3a5a9a;
 const DESK = 0x7a5430;
 /** The red pen of the report (art direction 7.6); on this wall it only draws lines, never a hazard. */
 const RED_PEN = 0xc8372d;
+const BLUE_PEN = 0x2f6fd0;
 const HIGHLIGHT = 0xfff23d;
 const SAG = 4;
 /** A node counts as stopped on when the operator's feet are no more than this far below its column's lowest slot. */
@@ -39,11 +40,12 @@ export class EvidenceBoard {
     this.scene = scene;
     this.pinned = pinWall(wall, room.objects);
     this.drawCork();
-    this.drawFloorThings();
+    this.drawFloorThings(wall.nodes.some((n) => n.lane === 'liver'));
     const centre = new Map(this.pinned.map((p) => [p.node.id, { x: p.slot.x + p.slot.width / 2, y: p.slot.y + p.slot.height / 2 }]));
 
     const pen = scene.add.graphics().setDepth(2);
-    pen.lineStyle(1, RED_PEN, 1);
+    // The year-end review of a passed semester is written in blue (art direction 7.6).
+    pen.lineStyle(1, wall.kind === 'review' ? BLUE_PEN : RED_PEN, 1);
     for (const [from, to] of wall.links) {
       const a = centre.get(from)!;
       const b = centre.get(to)!;
@@ -103,13 +105,16 @@ export class EvidenceBoard {
   }
 
   /** The liver's board, the report desk and the cabinet: solid in the room, drawn to match. */
-  private drawFloorThings(): void {
+  private drawFloorThings(liverBoard: boolean): void {
     const s = this.scene;
     const boxOf = (b: { col: number; row: number; cols: number; rows: number }) => ({ x: b.col * TILE, y: b.row * TILE, w: b.cols * TILE, h: b.rows * TILE });
     const board = boxOf(BOARD);
     s.add.rectangle(board.x, board.y, board.w, board.h, CORK).setOrigin(0, 0).setStrokeStyle(2, CORK_EDGE).setDepth(board.y + board.h);
-    addText(s, board.x + board.w / 2, board.y - 1, str('semester.wall.liver_board'), { role: 'print', weight: 700, size: 9, color: '#2b1c0c' })
-      .setOrigin(0.5, 1).setDepth(board.y + board.h);
+    // Without work orders the board is only a blank one: solid in the room, with nothing to name.
+    if (liverBoard) {
+      addText(s, board.x + board.w / 2, board.y - 1, str('semester.wall.liver_board'), { role: 'print', weight: 700, size: 9, color: '#2b1c0c' })
+        .setOrigin(0.5, 1).setDepth(board.y + board.h);
+    }
     const desk = boxOf(DESK_BOX);
     s.add.rectangle(desk.x, desk.y, desk.w, desk.h, DESK).setOrigin(0, 0).setStrokeStyle(2, INK).setDepth(desk.y + desk.h);
     s.add.rectangle(desk.x + 12, desk.y + 10, desk.w - 24, desk.h - 26, PAPER).setOrigin(0, 0).setDepth(desk.y + desk.h + 0.1);
@@ -147,6 +152,10 @@ function drawNode(scene: Phaser.Scene, kind: WallKind, x: number, y: number): Ph
       break;
     case 'order':
       c.add([shadow(14, 26), s.add.rectangle(0, 0, 14, 26, 0xefe6cf).setStrokeStyle(1, INK), s.add.rectangle(0, -9, 14, 3, RED_PEN), s.add.rectangle(0, 2, 8, 1, INK), s.add.rectangle(0, 6, 8, 1, INK)]);
+      break;
+    case 'merit':
+      c.add([shadow(24, 26), s.add.rectangle(0, 0, 24, 26, PAPER).setStrokeStyle(1, INK), s.add.rectangle(0, -half + 6, 20, 4, BLUE_PEN), s.add.circle(0, 4, 6, BLUE_PEN)]);
+      c.add(s.add.graphics().lineStyle(2, PAPER, 1).beginPath().moveTo(-3, 4).lineTo(-1, 6).lineTo(3, 1).strokePath());
       break;
     case 'smile':
       c.add([shadow(26, 26), s.add.rectangle(0, 0, 26, 26, TAG_YELLOW).setStrokeStyle(1, INK), s.add.circle(-5, -3, 1.5, INK), s.add.circle(5, -3, 1.5, INK)]);

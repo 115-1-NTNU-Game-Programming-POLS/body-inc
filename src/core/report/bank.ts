@@ -1,4 +1,5 @@
 import type { ReportFile } from '../content/generated.ts';
+import { MERITS } from './review.ts';
 import { COMPANY } from './types.ts';
 
 type Doc = ReportFile['doc'];
@@ -32,6 +33,8 @@ export const DOC_PLACEHOLDERS: Readonly<Record<keyof Doc, readonly string[]>> = 
   wallMore: ['n'],
   wallOrder: ['day'],
   wallSmile: [],
+  reviewLiverCheck: ['day'], reviewDeclined: ['day'], reviewBed: ['from', 'to', 'n'], reviewPatrol: ['day', 'dept', 'grade'],
+  reviewHospital: [], reviewFin: [], reviewMid: [],
 };
 
 const PLACEHOLDER = /\{([^{}]*)\}/g;
@@ -98,5 +101,9 @@ export function reportProblems(cfg: ReportFile, text: (key: string) => string | 
 
   for (const [group, keys] of Object.entries(cfg.opinions)) for (const k of keys) need(`opinions.${group} `, k);
   for (const [name, key] of Object.entries(cfg.doc) as [keyof Doc, string][]) checkText(`doc.${name} `, key, DOC_PLACEHOLDERS[name]);
+  for (const [merit, page] of Object.entries(cfg.reviewPages)) {
+    if (!(MERITS as readonly string[]).includes(merit)) out.push(`reviewPages 的「${merit}」不是年終評鑑的項目（可用：${MERITS.join('、')}）`);
+    if (!pages.has(page)) out.push(`reviewPages.${merit} 的手冊頁「${page}」不在 handbook.json`);
+  }
   return out;
 }

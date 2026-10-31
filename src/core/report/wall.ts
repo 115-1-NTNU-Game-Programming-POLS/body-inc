@@ -7,7 +7,7 @@ import type { ReportDocument, StringLookup } from './types.ts';
 /** Event cards and operation notes hang on the upper track, tags and floors on the lower one, work orders on the liver board (art direction 7.6). */
 export type WallLane = SlotLane;
 
-export type WallKind = 'event' | 'tag' | 'floor' | 'ops' | 'order' | 'smile';
+export type WallKind = 'event' | 'tag' | 'floor' | 'ops' | 'order' | 'smile' | 'merit';
 
 /** A day of the wall holds this many nodes per track; more are folded into one "N more" note. */
 export const SLOTS_PER_LANE = DAY_SLOTS;
@@ -27,7 +27,8 @@ export interface WallNode {
 }
 
 export interface Wall {
-  readonly kind: ReportDocument['kind'];
+  /** A report's wall draws red lines; the year-end review of a passed semester draws blue ones. */
+  readonly kind: ReportDocument['kind'] | 'review';
   readonly nodes: readonly WallNode[];
   /** Red lines, as [from, to] node ids. They run in time order, ending at the floors that struck. */
   readonly links: readonly (readonly [number, number])[];

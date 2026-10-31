@@ -201,6 +201,18 @@
     "wallStruck": "report.doc.wall_struck",
     "wallMore": "report.doc.wall_more",
     "wallOrder": "report.doc.wall_order",
-    "wallSmile": "report.doc.wall_smile"
+    "wallSmile": "report.doc.wall_smile",
+    "reviewLiverCheck": "report.doc.review_liver_check",
+    "reviewDeclined": "report.doc.review_declined",
+    "reviewBed": "report.doc.review_bed",
+    "reviewPatrol": "report.doc.review_patrol",
+    "reviewHospital": "report.doc.review_hospital",
+    "reviewFin": "report.doc.review_fin",
+    "reviewMid": "report.doc.review_mid"
+  },
+  "reviewPages": {
+    "liver_check": "alcohol_metabolism",
+    "declined": "refusing_drinks",
+    "early_bed": "sleep_debt"
   }
 }
