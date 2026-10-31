@@ -38,6 +38,8 @@ export interface SemesterData {
   readonly bbqDays?: readonly number[];
   /** A saved run to go on with, already checked by `resumeSemester`; it replaces `seed`. */
   readonly resume?: SemesterRun;
+  /** The presentation's demo save: played from the run given in `resume`, but never written to the run slot or counted. */
+  readonly demo?: boolean;
 }
 
 /** Whatever is on screen that a choice is made from: a row of cards or the elevator panel. */
@@ -88,8 +90,8 @@ export class SemesterScene extends Phaser.Scene {
     this.seed = seed;
     this.ctx = fresh.ctx;
     this.state = fresh.state;
-    // A run fixed from the URL is for looking at the rules and must not replace the player's save.
-    this.keep = data.seed === undefined && data.bbqDays === undefined;
+    // A run fixed from the URL is for looking at the rules and must not replace the player's save; nor may the demo.
+    this.keep = data.seed === undefined && data.bbqDays === undefined && data.demo !== true;
     this.finished = data.resume === undefined ? [] : [...data.resume.days];
     this.answers = [];
     this.menu = undefined;
@@ -99,7 +101,7 @@ export class SemesterScene extends Phaser.Scene {
     this.lines = [];
     this.head = undefined;
     this.escGuardUntil = 0;
-    addText(this, this.scale.width / 2, this.scale.height - 40, str('semester.hint'), { role: 'print', weight: 400, size: 18, color: DIM }).setOrigin(0.5, 1);
+    addText(this, this.scale.width / 2, this.scale.height - 40, str(data.demo === true ? 'semester.hint.demo' : 'semester.hint'), { role: 'print', weight: 400, size: 18, color: DIM }).setOrigin(0.5, 1);
 
     const onKey = (e: KeyboardEvent) => {
       // Leaving keeps the save of the last finished day; the hint line says so.

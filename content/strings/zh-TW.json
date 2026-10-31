@@ -468,6 +468,7 @@
     "title.semester.continue": { "text": "繼續學期", "fact": "" },
     "semester.tutor.1": { "text": "董事長：一天只能進一層樓，沒去的樓層會繼續惡化。", "fact": "" },
     "semester.tutor.3": { "text": "董事長：肝那邊好像很久沒回信了。", "fact": "" },
+    "semester.hint.demo": { "text": "← → 或 W A S D 選擇，Enter 確認，也可以直接點選，Esc 離開（示範不存檔）", "fact": "" },
     "semester.hint": { "text": "← → 或 W A S D 選擇，Enter 或 1 到 5 確認，也可以直接點選，Esc 離開（存檔記在每天早上）", "fact": "" },
     "semester.day": { "text": "第 {n} 天　{weekday}", "fact": "" },
     "semester.weekday.0": { "text": "星期一", "fact": "" },

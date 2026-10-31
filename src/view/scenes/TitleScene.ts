@@ -101,7 +101,7 @@ export class TitleScene extends Phaser.Scene {
       if (e.code === 'KeyW' || e.code === 'ArrowUp') this.move(-1);
       else if (e.code === 'KeyS' || e.code === 'ArrowDown') this.move(1);
       else if (['Enter', 'NumpadEnter', 'KeyJ', 'Space'].includes(e.code) && !e.repeat) this.items[this.index]?.run();
-      // The presenter's way in; it is not listed, and like a new semester it replaces a saved one at the end of the day.
+      // The presenter's way in; it is not listed. The demo is never saved, so it leaves the player's own semester alone.
       else if (e.code === 'F9' && !e.repeat) this.present();
     };
     this.input.keyboard?.on('keydown', onKey);
@@ -136,12 +136,12 @@ export class TitleScene extends Phaser.Scene {
   }
 
   /** Semester mode has its own slot (the run slot) and never touches the story slot. */
-  private semester(resume?: SemesterRun): void {
+  private semester(resume?: SemesterRun, demo = false): void {
     if (this.starting) return;
     this.starting = true;
     // Boot parses the dev URL (production leaves this unset), so a bad parameter stops there with a message.
     const dev = (this.registry.get('dev-semester') as SemesterData | undefined) ?? {};
-    const data: SemesterData = resume === undefined ? dev : { resume };
+    const data: SemesterData = resume === undefined ? dev : { resume, ...(demo ? { demo } : {}) };
     window.setTimeout(() => this.scene.start('Semester', data), 0);
   }
 
@@ -151,7 +151,7 @@ export class TitleScene extends Phaser.Scene {
     const before = this.registry.get('settings') as Settings;
     this.registry.set(PRESENTER_KEY, { before } satisfies Presenter);
     this.registry.set('settings', presenterSettings(before));
-    this.semester(DEMO_RUN);
+    this.semester(DEMO_RUN, true);
   }
 
   private name(data: NameData): void {

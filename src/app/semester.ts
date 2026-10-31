@@ -54,24 +54,24 @@ export const newSemester = (seed: number, bbqDays?: readonly number[]): { ctx: S
 
 /**
  * The semester a saved run was in, at the morning after its last finished day, or undefined when
- * the answers no longer fit the rules (an event or option renamed since): the title then offers
+ * the answers or the seed's events no longer fit the rules (an event or option renamed since): the title then offers
  * only a new semester. A run that had already ended is never saved, so one that replays to its end
  * is stale too.
  */
 export function resumeSemester(run: SemesterRun): { ctx: SemesterContext; state: SemesterState } | undefined {
-  const { ctx, state: start } = newSemester(run.seed);
-  let state = start;
   try {
+    const { ctx, state: start } = newSemester(run.seed);
+    let state = start;
     for (const answers of run.days) {
       const step = advanceDay(state, ctx, answers);
       if (!step.done || step.state.ended) return undefined;
       state = step.state;
     }
+    return { ctx, state };
   } catch (e) {
     if (e instanceof RangeError) return undefined;
     throw e;
   }
-  return { ctx, state };
 }
 
 /** The cups of coffee a morning offers, by hour of the day; the strings are `semester.coffee.<id>`. */
