@@ -3,12 +3,13 @@ import { DEFAULT_HOST, readHostName } from '../host/name.ts';
 import type { TagState } from '../tags/store.ts';
 import { isRecord, type Schema } from '../content/schema.ts';
 import type { SlotDef } from './save.ts';
+import type { Answer } from '../semester/interactive.ts';
+import { FLOORS } from '../semester/floors.ts';
 import { TOOLS, type Tool } from '../tools.ts';
 
 /**
  * Player settings. Text scale is the 100% / 125% choice of art direction 8.2; game speed 0.8
- * is the "flexible hours" assist of the design doc. Cross-run progress and the semester run
- * (design doc 13.5) get their own slots when those systems exist.
+ * is the "flexible hours" assist of the design doc.
  */
 export interface Settings {
   readonly textScale: 1 | 1.25;
@@ -225,4 +226,89 @@ export function withPage(progress: ProgressData, id: string): ProgressData | und
   return progress.handbook.includes(id) ? undefined : { ...progress, handbook: [...progress.handbook, id] };
 }
 
-export const SLOTS = [SETTINGS, STORY, PROGRESS] as const;
+/**
+ * A semester in progress (design doc 13.5, ux-spec section 8). The rules are a pure function of the
+ * seed and the answers (core/semester/interactive.ts), so those alone are kept: replaying them
+ * gives back the state at the morning after the last finished day.
+ */
+export interface SemesterRun {
+  readonly seed: number;
+  /** The answers of each finished day, in the order the day asked its questions. */
+  readonly days: readonly (readonly Answer[])[];
+}
+
+export interface RunData {
+  readonly semester: SemesterRun | null;
+}
+
+const FLOOR: Schema = { enum: [...FLOORS] };
+
+const ANSWER: Schema = {
+  anyOf: [
+    {
+      type: 'object',
+      additionalProperties: false,
+      required: ['kind', 'plan'],
+      properties: {
+        kind: { const: 'plan' },
+        plan: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['coffee', 'rest'],
+          properties: { coffee: { type: 'array', items: INT }, rest: { type: 'array', items: INT } },
+        },
+      },
+    },
+    { type: 'object', additionalProperties: false, required: ['kind', 'option'], properties: { kind: { const: 'event' }, option: { type: 'string', minLength: 1 } } },
+    {
+      type: 'object',
+      additionalProperties: false,
+      required: ['kind', 'choice'],
+      properties: {
+        kind: { const: 'floor' },
+        choice: { type: 'object', additionalProperties: false, required: ['patrol'], properties: { patrol: FLOOR, overtime: FLOOR } },
+      },
+    },
+    {
+      type: 'object',
+      additionalProperties: false,
+      required: ['kind', 'plan'],
+      properties: {
+        kind: { const: 'night' },
+        plan: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['bed', 'nextWake', 'lateNight'],
+          properties: { bed: { type: 'number' }, nextWake: INT, lateNight: { enum: ['study', 'rest'] } },
+        },
+      },
+    },
+  ],
+};
+
+export const RUN: SlotDef<RunData> = {
+  name: 'run',
+  version: 1,
+  schema: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['semester'],
+    properties: {
+      semester: {
+        anyOf: [
+          { type: 'null' },
+          {
+            type: 'object',
+            additionalProperties: false,
+            required: ['seed', 'days'],
+            properties: { seed: INT, days: { type: 'array', items: { type: 'array', items: ANSWER } } },
+          },
+        ],
+      },
+    },
+  },
+  defaults: () => ({ semester: null }),
+  migrations: {},
+};
+
+export const SLOTS = [SETTINGS, STORY, PROGRESS, RUN] as const;

@@ -1,14 +1,14 @@
 import Phaser from 'phaser';
 import {
-  COFFEE_PLANS, daySummary, endSummary, floorChoice, morningPlan, newSemester, NIGHT_PLANS, nightPlan, REST_PLANS, servesAlcohol, visitReport, weekdayOf,
+  COFFEE_PLANS, daySummary, endSummary, floorChoice, morningPlan, newSemester, NIGHT_PLANS, nightPlan, REST_PLANS, resumeSemester, servesAlcohol, visitReport, weekdayOf,
   type CoffeePlanId, type NightPlanId, type RestPlanId,
 } from '../../app/semester.ts';
 import { fillStr, REPORT, str } from '../../app/content.ts';
 import { keepPage } from '../../app/handbook.ts';
 import type { SaveStore } from '../../app/storage.ts';
 import {
-  advanceDay, buildWall, pinWall, reviewWall, type Answer, type Ask, type ChapterContent, type DayView, type FloorId, type ProgressData, type ReportDocument, type SemesterContext,
-  type SemesterState, type Settings, type Wall,
+  advanceDay, buildWall, pinWall, reviewWall, RUN, type Answer, type Ask, type ChapterContent, type DayView, type FloorId, type ProgressData, type ReportDocument, type RunData,
+  type SemesterContext, type SemesterRun, type SemesterState, type Settings, type Wall,
 } from '../../core/index.ts';
 import { WALL_CHAPTER, wallLoop, type WallSession } from '../../app/wall.ts';
 import { addText, updateText } from '../text/fonts.ts';
@@ -35,6 +35,8 @@ export interface SemesterData {
   readonly seed?: number;
   /** Dev builds only: the days the barbecue falls on, in place of the ones the seed deals. */
   readonly bbqDays?: readonly number[];
+  /** A saved run to go on with, already checked by `resumeSemester`; it replaces `seed`. */
+  readonly resume?: SemesterRun;
 }
 
 /** Whatever is on screen that a choice is made from: a row of cards or the elevator panel. */
@@ -58,6 +60,10 @@ export class SemesterScene extends Phaser.Scene {
   private seed = 0;
   private state!: SemesterState;
   private answers: Answer[] = [];
+  /** The answers of the days already finished, which is what the save holds. */
+  private finished: (readonly Answer[])[] = [];
+  /** Whether the run is written to the run slot; see `create`. */
+  private keep = true;
   private menu: Menu | undefined;
   private cursor = 0;
   private busy = false;
@@ -73,11 +79,16 @@ export class SemesterScene extends Phaser.Scene {
   }
 
   create(data: SemesterData): void {
-    const seed = data.seed ?? (Date.now() % 2_147_483_647);
-    const fresh = newSemester(seed, data.bbqDays);
+    const back = data.resume === undefined ? undefined : resumeSemester(data.resume);
+    if (data.resume !== undefined && back === undefined) throw new Error('the title offered a semester save that no longer replays');
+    const seed = data.resume?.seed ?? data.seed ?? (Date.now() % 2_147_483_647);
+    const fresh = back ?? newSemester(seed, data.bbqDays);
     this.seed = seed;
     this.ctx = fresh.ctx;
     this.state = fresh.state;
+    // A run fixed from the URL is for looking at the rules and must not replace the player's save.
+    this.keep = data.seed === undefined && data.bbqDays === undefined;
+    this.finished = data.resume === undefined ? [] : [...data.resume.days];
     this.answers = [];
     this.menu = undefined;
     this.cursor = 0;
@@ -89,7 +100,7 @@ export class SemesterScene extends Phaser.Scene {
     addText(this, this.scale.width / 2, this.scale.height - 40, str('semester.hint'), { role: 'print', weight: 400, size: 18, color: DIM }).setOrigin(0.5, 1);
 
     const onKey = (e: KeyboardEvent) => {
-      // The semester is not saved, so leaving drops it; the hint line says so.
+      // Leaving keeps the save of the last finished day; the hint line says so.
       if (e.code === 'Escape') return performance.now() < this.escGuardUntil ? undefined : this.leave();
       if (e.repeat || this.busy) return;
       if (this.menu === undefined) {
@@ -408,6 +419,20 @@ export class SemesterScene extends Phaser.Scene {
     this.registry.set('progress', kept.progress);
   }
 
+  /**
+   * Written when the player goes on from a day's pages, not when the day is played: the close-out
+   * report and the page it unlocks come before it, so a reload during them replays the day instead
+   * of skipping them.
+   */
+  private persist(semester: SemesterRun | null): void {
+    const saves = this.registry.get('saves') as SaveStore | undefined;
+    if (!this.keep || saves === undefined) return;
+    const run: RunData = { semester };
+    const issues = saves.save(RUN, run);
+    if (issues.length > 0) this.game.events.emit('save-issues', issues);
+    this.registry.set('run', run);
+  }
+
   private endOfDay(after: SemesterState): void {
     const before = this.state;
     const lines = daySummary(before, after, this.ctx);
@@ -417,10 +442,13 @@ export class SemesterScene extends Phaser.Scene {
     const next = (): void => {
       if (!after.ended) {
         this.state = after;
+        this.finished.push(this.answers);
         this.answers = [];
+        this.persist({ seed: this.seed, days: this.finished });
         this.ask();
         return;
       }
+      this.persist(null);
       const toEnd = (): void => this.page(str('semester.end.title'), endSummary(after, this.ctx), str('semester.end.back'), () => this.leave());
       let review: Wall | undefined;
       try {

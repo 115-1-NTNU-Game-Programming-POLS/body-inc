@@ -2,7 +2,8 @@ import Phaser from 'phaser';
 import { tryResume } from '../../app/chapters.ts';
 import { str } from '../../app/content.ts';
 import { sharedKeys } from '../../app/input.ts';
-import type { ChapterContent, ChapterEntry, ChapterState, StoryData } from '../../core/index.ts';
+import { resumeSemester } from '../../app/semester.ts';
+import type { ChapterContent, ChapterEntry, ChapterState, RunData, SemesterRun, StoryData } from '../../core/index.ts';
 import { addText } from '../text/fonts.ts';
 import type { NameData } from './NameScene.ts';
 import type { CardsData } from './OpeningScene.ts';
@@ -50,6 +51,8 @@ export class TitleScene extends Phaser.Scene {
     // Between chapters there is no punch yet, only where the next chapter starts.
     const entry = checkpoint ? null : story.entry;
     const entered = entry && chapters.has(entry.chapter) ? entry : undefined;
+    const run = (this.registry.get('run') as RunData | undefined)?.semester ?? undefined;
+    const back = run === undefined ? undefined : resumeSemester(run);
     // From here on the tracker sees every key, so `play` knows which ones are still down.
     sharedKeys(this.registry, window);
 
@@ -66,13 +69,15 @@ export class TitleScene extends Phaser.Scene {
       run,
     });
     this.items = [
-      make(420, 'title.new', true, () => this.newGame(first)),
-      make(485, 'title.continue', resumed !== undefined || entered !== undefined, () => (resumed ? this.play(saved!, resumed) : this.enter(entered!))),
-      make(550, 'title.semester', true, () => this.semester()),
+      make(400, 'title.new', true, () => this.newGame(first)),
+      make(455, 'title.continue', resumed !== undefined || entered !== undefined, () => (resumed ? this.play(saved!, resumed) : this.enter(entered!))),
+      // A new semester replaces a saved one at the end of its first day, so the label says so.
+      make(510, back === undefined ? 'title.semester' : 'title.semester.replace', true, () => this.semester()),
+      make(565, 'title.semester.continue', back !== undefined, () => this.semester(run)),
       // Only here, never during a chapter (issue #8).
-      make(615, 'title.host', true, () => this.name({ mode: 'rename' })),
+      make(620, 'title.host', true, () => this.name({ mode: 'rename' })),
     ];
-    if ((checkpoint && resumed === undefined) || (entry && entered === undefined)) {
+    if ((checkpoint && resumed === undefined) || (entry && entered === undefined) || (run !== undefined && back === undefined)) {
       addText(this, w / 2, 676, str('title.stale'), { role: 'print', weight: 400, size: 20, color: DIM }).setOrigin(0.5);
     }
     this.index = 0;
@@ -121,13 +126,14 @@ export class TitleScene extends Phaser.Scene {
     this.name({ mode: 'new', chapter: ctx.chapter.id });
   }
 
-  /** Semester mode keeps no save yet, so it never touches the story slot. */
-  private semester(): void {
+  /** Semester mode has its own slot (the run slot) and never touches the story slot. */
+  private semester(resume?: SemesterRun): void {
     if (this.starting) return;
     this.starting = true;
     // Boot parses the dev URL (production leaves this unset), so a bad parameter stops there with a message.
     const dev = (this.registry.get('dev-semester') as SemesterData | undefined) ?? {};
-    window.setTimeout(() => this.scene.start('Semester', dev), 0);
+    const data: SemesterData = resume === undefined ? dev : { resume };
+    window.setTimeout(() => this.scene.start('Semester', data), 0);
   }
 
   private name(data: NameData): void {
