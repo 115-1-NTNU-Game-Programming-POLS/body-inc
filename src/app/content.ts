@@ -9,12 +9,13 @@ import enemiesJson from '../../content/enemies.json';
 import feedbackJson from '../../content/feedback.json';
 import handbookJson from '../../content/handbook.json';
 import paramsJson from '../../content/params.json';
+import reportJson from '../../content/report.json';
 import rescueJson from '../../content/rescue.json';
 import speakersJson from '../../content/speakers.json';
 import stringsJson from '../../content/strings/zh-TW.json';
 import tagsJson from '../../content/tags.json';
 import {
-  loadBossTable, loadDeck, loadDictionary, loadDialogueTable, loadEnemyTable, loadExamTable, loadRescues, readContent,
+  loadBossTable, loadDeck, loadDictionary, loadDialogueTable, loadEnemyTable, loadExamTable, loadRescues, readContent, reportProblems,
   type BossTable, type ChapterFile, type Deck, type DialogueFile, type DialogueTable, type EnemyTable, type ExamTable, type RescueTable, type TagDictionary,
 } from '../core/index.ts';
 import { speakerProblems, type Speakers } from './dialogue.ts';
@@ -32,6 +33,9 @@ export const str = (key: string): string => {
   if (!s) throw new Error(`content/strings has no "${key}"`);
   return s.text;
 };
+/** A screen string with each `{name}` placeholder replaced by its value; a placeholder with no value is left as written. */
+export const fillStr = (key: string, values: Readonly<Record<string, string | number>>): string =>
+  Object.entries(values).reduce((s, [k, v]) => s.replaceAll(`{${k}}`, String(v)), str(key));
 export const PARAMS = readContent('params', paramsJson).defaults;
 /** Every file in content/bosses. One left out stops startup: its enemy then names a boss with no file. */
 export const BOSS_FILES: readonly unknown[] = [caffeineJson, toastJson];
@@ -87,3 +91,8 @@ if (problems.length > 0) throw new Error(`content/feedback.json:\n  ${problems.j
 export const HANDBOOK = readContent('handbook', handbookJson);
 const pageProblems = handbookProblems(HANDBOOK, [{ file: 'content/strings/zh-TW.json', value: STRINGS }]);
 if (pageProblems.length > 0) throw new Error(`content/handbook.json:\n  ${pageProblems.join('\n  ')}`);
+
+/** The sentence bank of the close-out reports; tools/check-reports.ts plays the batch, this load stops startup on a broken bank. */
+export const REPORT = readContent('report', reportJson);
+const reportIssues = reportProblems(REPORT, (k) => STRINGS.strings[k]?.text, new Set(HANDBOOK.pages.map((p) => p.id)));
+if (reportIssues.length > 0) throw new Error(`content/report.json:\n  ${reportIssues.join('\n  ')}`);

@@ -6,6 +6,7 @@ import type { ChapterContent, ChapterEntry, ChapterState, StoryData } from '../.
 import { addText } from '../text/fonts.ts';
 import type { NameData } from './NameScene.ts';
 import type { CardsData } from './OpeningScene.ts';
+import type { SemesterData } from './SemesterScene.ts';
 import { beginRun } from './run.ts';
 
 const PAPER = '#f4efe4';
@@ -66,12 +67,13 @@ export class TitleScene extends Phaser.Scene {
     });
     this.items = [
       make(420, 'title.new', true, () => this.newGame(first)),
-      make(490, 'title.continue', resumed !== undefined || entered !== undefined, () => (resumed ? this.play(saved!, resumed) : this.enter(entered!))),
+      make(485, 'title.continue', resumed !== undefined || entered !== undefined, () => (resumed ? this.play(saved!, resumed) : this.enter(entered!))),
+      make(550, 'title.semester', true, () => this.semester()),
       // Only here, never during a chapter (issue #8).
-      make(560, 'title.host', true, () => this.name({ mode: 'rename' })),
+      make(615, 'title.host', true, () => this.name({ mode: 'rename' })),
     ];
     if ((checkpoint && resumed === undefined) || (entry && entered === undefined)) {
-      addText(this, w / 2, 626, str('title.stale'), { role: 'print', weight: 400, size: 20, color: DIM }).setOrigin(0.5);
+      addText(this, w / 2, 676, str('title.stale'), { role: 'print', weight: 400, size: 20, color: DIM }).setOrigin(0.5);
     }
     this.index = 0;
     this.items.forEach((item, i) => {
@@ -117,6 +119,15 @@ export class TitleScene extends Phaser.Scene {
   /** A new game asks for the host's name first; the name scene then starts it (run.ts startNewGame). */
   private newGame(ctx: ChapterContent): void {
     this.name({ mode: 'new', chapter: ctx.chapter.id });
+  }
+
+  /** Semester mode keeps no save yet, so it never touches the story slot. */
+  private semester(): void {
+    if (this.starting) return;
+    this.starting = true;
+    // Boot parses the dev URL (production leaves this unset), so a bad parameter stops there with a message.
+    const dev = (this.registry.get('dev-semester') as SemesterData | undefined) ?? {};
+    window.setTimeout(() => this.scene.start('Semester', dev), 0);
   }
 
   private name(data: NameData): void {

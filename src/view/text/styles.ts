@@ -117,3 +117,10 @@ export const CARD = {
   /** What the option does, under its name: interface text, 20 px. */
   note: { role: 'print' as FontRole, weight: 400, fontSize: 20, lineHeight: 1.5, maxLines: 4, maxWidth: (_scale: number) => 320 - 2 * 20 },
 };
+
+/** The screen margin a row of more than three cards keeps, so five cards narrow instead of running off. */
+export const CARD_ROW_MARGIN = 48;
+
+/** Width of one card in a row of `n` on a screen `screenWidth` wide: the reviewed width up to three cards, narrower for more. */
+export const cardWidth = (n: number, screenWidth: number): number =>
+  Math.min(CARD.width, Math.floor((screenWidth - 2 * CARD_ROW_MARGIN - (n - 1) * CARD.gap) / n));

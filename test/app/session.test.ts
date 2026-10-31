@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { TAGS } from '../../src/app/content.ts';
-import { chapterOfRoom, gaugeFromQuery, halvesFromQuery, QueryError, roomFromQuery, tagsFromQuery } from '../../src/app/session.ts';
+import { chapterOfRoom, gaugeFromQuery, halvesFromQuery, QueryError, roomFromQuery, semesterFromQuery, tagsFromQuery } from '../../src/app/session.ts';
 import { amount, flag, parseCondition, holds } from '../../src/core/index.ts';
 
 describe('room from the URL', () => {
@@ -51,5 +51,16 @@ describe('tags from the URL', () => {
 
   it.each(['sleepy:2', 'sleep_debt', 'sleep_debt:abc', 'sleep_debt:', 'breakfast:1', 'sleep_debt:2:3'])('rejects %s', (q) => {
     expect(() => tagsFromQuery(`?tags=${q}`, TAGS)).toThrow(QueryError);
+  });
+});
+
+describe('semester from the URL', () => {
+  it('is empty by default, takes a seed and barbecue days, and rejects anything else', () => {
+    expect(semesterFromQuery('', 10)).toEqual({});
+    expect(semesterFromQuery('?seed=7&bbq=2,3,4', 10)).toEqual({ seed: 7, bbqDays: [2, 3, 4] });
+    expect(semesterFromQuery('?bbq=3,3', 10)).toEqual({ bbqDays: [3] });
+    expect(semesterFromQuery('?bbq=', 10)).toEqual({ bbqDays: [] });
+    for (const bad of ['0', '11', '2,x', '2,,3', '1.5', '0x3', '2e0', ' 2']) expect(() => semesterFromQuery(`?bbq=${bad}`, 10), bad).toThrow(QueryError);
+    for (const bad of ['', '-1', '1.5', 'x', '0x10', '1e3', '9007199254740993']) expect(() => semesterFromQuery(`?seed=${bad}`, 10), bad).toThrow(QueryError);
   });
 });

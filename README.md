@@ -44,6 +44,8 @@ node tools/maps/make-room-template.ts   # 重新產生給內容組複製的房�
 
 程式分成規則層 `src/core/`（純 TypeScript，可在 Node 執行，不得引用 Phaser 或瀏覽器）、轉接層 `src/app/` 與畫面層 `src/view/`，規則見 `docs/architecture.md`。違反分層的程式碼會讓 `npm run typecheck` 或 `npm run check` 失敗。合併到 `main` 時，GitHub Actions 會跑同一套檢查與美術檢查，通過後部署到 GitHub Pages。
 
+標題畫面的「學期模式（原型）」可以直接玩十天的學期：早晨規劃、事件、電梯選層、夜間結算，到期中與期末考結果為止。選層後的巡視還沒做成房間，評等由抽象的技術值抽出，也還沒有存檔。夜裡被送急診時，日結算後會接著顯示停業整頓通知或倒閉調查報告（公文版面，可翻頁，並解鎖對應的手冊頁）。開發版可用 `?seed=1&bbq=2,3,4` 指定種子與聚餐日，不必碰運氣就能玩到急診。規則層的入口是 `src/core/semester/interactive.ts` 的 `advanceDay`，它與 `sim/semester.ts` 的模擬走同一套 `playDay`。
+
 畫面上的文字一律用 `src/view/text/fonts.ts` 的 `addText` 建立，中文字串放在 `content/strings/zh-TW.json`。Boot 會等字型載入完遊戲可能用到的每個字才開始；開發版遇到字表外的字或字型還沒載完就建立文字，會直接報錯。要模擬網路慢的冷啟動，在網址加上 `?fontDelay=4000`。字型是自架的子集（`public/assets/fonts/`，由 `python tools/fonts/build_fonts.py` 產生，需要 `pip install fonttools brotli`），只收錄這些字；內容用了子集裡沒有的字時，`npm run check` 會報錯，重新產生字型即可。玩家取的宿主名字若有字表外的常用字，遊戲會在當下載入對應的小切片。冷啟動的量測方法與結果見 `docs/perf/cold-start.md`。
 
 存檔透過 `src/app/storage.ts` 讀寫 `localStorage`（鍵名 `hbc.v1.*`），任何失敗都只在畫面左下角顯示提示，不會讓遊戲停下。存檔格式改版時，要在 `src/core/save/slots.ts` 調高版本並補上遷移函式，否則測試會失敗。開發版可在網址加上 `?storage=blocked` 或 `?storage=full` 模擬寫入失敗。

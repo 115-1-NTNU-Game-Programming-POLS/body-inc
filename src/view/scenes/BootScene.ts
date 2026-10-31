@@ -1,9 +1,9 @@
 import Phaser from 'phaser';
 import { atlasProblems, atlasUrls, type AsepriteJson, type AtlasIndex, type Manifest } from '../../app/assets.ts';
 import { chapterContent, chapterLoop } from '../../app/chapters.ts';
-import { CHAPTERS, DIALOGUES, DIALOGUE_TEXT, SPEAKERS, STRINGS, TAGS } from '../../app/content.ts';
+import { CHAPTERS, DIALOGUES, DIALOGUE_TEXT, PARAMS, SPEAKERS, STRINGS, TAGS } from '../../app/content.ts';
 import { portraitsUsed } from '../../app/dialogue.ts';
-import { chapterOfRoom, gaugeFromQuery, halvesFromQuery, roomFromQuery, tagsFromQuery } from '../../app/session.ts';
+import { chapterOfRoom, gaugeFromQuery, halvesFromQuery, roomFromQuery, semesterFromQuery, tagsFromQuery } from '../../app/session.ts';
 import { browserStore, SaveStore, type SaveIssue } from '../../app/storage.ts';
 import {
   DEFAULT_HOST, EMPTY_TAGS, listProps, PROGRESS, roomsOf, savedHost, SETTINGS, startChapter, STORY, type ChapterContent, type ProgressData, type TagState,
@@ -55,6 +55,7 @@ export class BootScene extends Phaser.Scene {
       this.tags = tagsFromQuery(query, TAGS);
       this.gauge = gaugeFromQuery(query);
       this.halves = halvesFromQuery(query);
+      this.registry.set('dev-semester', semesterFromQuery(query, PARAMS.days));
       if (this.devRoom !== undefined) {
         const chapter = CHAPTERS.get(chapterOfRoom(this.devRoom));
         if (!chapter || !roomsOf(chapter).includes(this.devRoom)) this.failed.push(`?room=${this.devRoom}: no bundled chapter lists this room`);

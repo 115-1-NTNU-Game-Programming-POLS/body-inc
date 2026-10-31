@@ -45,6 +45,35 @@ export function gaugeFromQuery(search: string): number | undefined {
   return n;
 }
 
+export interface SemesterQuery {
+  readonly seed?: number;
+  readonly bbqDays?: readonly number[];
+}
+
+/**
+ * `?seed=7&bbq=2,3,4` fixes the semester's seed and puts the barbecue on exactly those days, so a
+ * binge week and the emergency room after it can be played by hand instead of waiting for a seed
+ * that deals one. Both are optional; `days` is the semester's length.
+ */
+export function semesterFromQuery(search: string, days: number): SemesterQuery {
+  const q = new URLSearchParams(search);
+  const out: { seed?: number; bbqDays?: readonly number[] } = {};
+  const seed = q.get('seed');
+  // Plain digits only: Number() would also take 0x10 and 1e3, and the URL would stop saying what ran.
+  if (seed !== null) {
+    if (!/^\d+$/.test(seed) || !Number.isSafeInteger(Number(seed))) throw new QueryError(`?seed=${seed}: expected a whole number, 0 or more`);
+    out.seed = Number(seed);
+  }
+  const bbq = q.get('bbq');
+  if (bbq !== null) {
+    const parts = bbq.trim() === '' ? [] : bbq.split(',');
+    const list = parts.map((s) => (/^\d+$/.test(s) ? Number(s) : NaN));
+    if (list.some((d) => !(d >= 1 && d <= days))) throw new QueryError(`?bbq=${bbq}: expected days from 1 to ${days}, like 2,3,4`);
+    out.bbqDays = [...new Set(list)];
+  }
+  return out;
+}
+
 /** `name:value` sets a number tag, a bare `name` turns a boolean tag on; all share one dev source. */
 export function tagsFromQuery(search: string, dict: TagDictionary): TagState {
   const v = new URLSearchParams(search).get('tags');
