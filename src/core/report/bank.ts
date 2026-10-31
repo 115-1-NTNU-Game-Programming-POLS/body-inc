@@ -1,5 +1,5 @@
 import type { ReportFile } from '../content/generated.ts';
-import { MERITS } from './review.ts';
+import { MERITS } from './merits.ts';
 import { COMPANY } from './types.ts';
 
 type Doc = ReportFile['doc'];

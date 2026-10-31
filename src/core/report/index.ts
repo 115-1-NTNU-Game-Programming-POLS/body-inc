@@ -1,6 +1,7 @@
 export * from './bank.ts';
 export * from './document.ts';
 export * from './merge.ts';
+export * from './merits.ts';
 export * from './render.ts';
 export * from './review.ts';
 export * from './semester.ts';

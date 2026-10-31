@@ -1,24 +1,15 @@
 import type { ReportFile } from '../content/generated.ts';
-import { summarize, type DayRecord, type SemesterContext, type SemesterState } from '../semester/index.ts';
+import { summarize, type DayRecord, type SemesterContext, type SemesterState, type SemesterSummary } from '../semester/index.ts';
 import { fillTemplate } from './bank.ts';
+import { MERIT_TEXT, MERITS, type MeritId } from './merits.ts';
 import type { Wall, WallNode } from './wall.ts';
 import type { StringLookup } from './types.ts';
-
-/** What a passed semester can be praised for, best teaching point first (design doc 8.11: "three things done right"). */
-export const MERITS = ['liver_check', 'declined', 'early_bed', 'patrol', 'no_hospital', 'passed_fin', 'passed_mid'] as const;
-export type MeritId = (typeof MERITS)[number];
 
 export interface Merit {
   readonly id: MeritId;
   readonly day: number;
   readonly vars: Readonly<Record<string, string>>;
 }
-
-/** The review's words by merit, as keys of the report bank's `doc`. */
-export const MERIT_TEXT: Readonly<Record<MeritId, keyof ReportFile['doc']>> = {
-  liver_check: 'reviewLiverCheck', declined: 'reviewDeclined', early_bed: 'reviewBed', patrol: 'reviewPatrol',
-  no_hospital: 'reviewHospital', passed_fin: 'reviewFin', passed_mid: 'reviewMid',
-};
 
 /** Latest bedtime of a night that counts as early, on the extended clock where 24 is midnight. */
 const EARLY_BED = 24;
@@ -29,8 +20,9 @@ function earlyRun(history: readonly DayRecord[]): { from: number; to: number } |
   let best: { from: number; to: number } | undefined;
   let from = 0;
   for (const r of history) {
-    // The history has every day in order, so a late night (or the final exam day, which has none) ends a run.
-    if (r.bedEnd === undefined || r.bedEnd > EARLY_BED) { from = 0; continue; }
+    // The history has every day in order, so a late night ends a run, and so does the final exam day (no night) and
+    // a hospital day, whose bedtime the rules set and the player did not choose.
+    if (r.kind === 'hospital' || r.bedEnd === undefined || r.bedEnd > EARLY_BED) { from = 0; continue; }
     if (from === 0) from = r.day;
     if (r.day - from + 1 >= EARLY_RUN && (best === undefined || r.day - from > best.to - best.from)) best = { from, to: r.day };
   }
@@ -38,13 +30,14 @@ function earlyRun(history: readonly DayRecord[]): { from: number; to: number } |
 }
 
 /** Every merit the semester earned, in the order of MERITS. */
-export function meritsOf(state: SemesterState, ctx: SemesterContext, cfg: ReportFile, text: StringLookup): Merit[] {
-  const sum = summarize(state, ctx);
+export function meritsOf(
+  state: SemesterState, ctx: SemesterContext, cfg: ReportFile, text: StringLookup, sum: SemesterSummary = summarize(state, ctx),
+): Merit[] {
   const out: Merit[] = [];
   const add = (id: MeritId, day: number, vars: Record<string, string> = {}) => out.push({ id, day, vars: { day: String(day), ...vars } });
 
-  // The liver gives no warning light, so a visit to it while it is dark and orders are waiting is the lesson of design doc 8.6.
-  const check = state.history.find((r) => r.lights.liver === 'off' && r.patrols.some((p) => p.floor === 'liver') && state.liverOrders.some((d) => d < r.day));
+  // The liver never shows a light (semesterProblems keeps it off), so a visit to it once an order has come in is the lesson of design doc 8.6.
+  const check = state.history.find((r) => r.patrols.some((p) => p.floor === 'liver') && state.liverOrders.some((d) => d < r.day));
   if (check) add('liver_check', check.day);
   const declined = state.history.find((r) => r.events.some((e) => e.id === 'bbq' && (e.option === 'decline' || e.option === 'sober')));
   if (declined) add('declined', declined.day);
@@ -54,7 +47,8 @@ export function meritsOf(state: SemesterState, ctx: SemesterContext, cfg: Report
     const p = r.patrols.find((x) => !x.overtime && r.lit.includes(x.floor) && GOOD_GRADES.includes(x.grade));
     if (!p) continue;
     const dept = cfg.scopes[p.floor]?.dept;
-    add('patrol', r.day, { dept: dept === undefined ? p.floor : text(dept), grade: p.grade });
+    if (dept === undefined) throw new RangeError(`"${p.floor}" is not a scope of the report bank`);
+    add('patrol', r.day, { dept: text(dept), grade: p.grade });
     break;
   }
   if (!sum.hospitalized) add('no_hospital', ctx.params.days);
@@ -73,7 +67,7 @@ export function reviewWall(state: SemesterState, ctx: SemesterContext, cfg: Repo
   if (!state.ended) return undefined;
   const sum = summarize(state, ctx);
   if (!sum.passMid || !sum.passFin) return undefined;
-  const merits = meritsOf(state, ctx, cfg, text).slice(0, 3);
+  const merits = meritsOf(state, ctx, cfg, text, sum).slice(0, 3);
   const ordered = [...merits].sort((a, b) => a.day - b.day || MERITS.indexOf(a.id) - MERITS.indexOf(b.id));
   const taken = new Map<number, number>();
   const nodes: WallNode[] = ordered.map((m, id) => {

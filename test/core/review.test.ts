@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { CHAPTERS, TAGS } from '../../src/app/content.ts';
 import {
-  MERITS, meritsOf, parseRoom, pinWall, readContent, reviewWall, roomsOf, runSemester, summarize, WALL_DAYS,
+  MERIT_TEXT, MERITS, meritsOf, parseRoom, pinWall, readContent, reviewWall, roomsOf, runSemester, summarize, WALL_DAYS,
   type DayRecord, type ReportFile, type SemesterContext, type SemesterState, type StringsFile, type TiledMap,
 } from '../../src/core/index.ts';
 import { ARCHETYPES } from '../../sim/semester/archetypes.ts';
@@ -89,15 +89,35 @@ describe('the year-end review of a passed semester (design doc 8.11)', () => {
     expect(meritsOf(withHistory(() => ({ ...QUIET, bedEnd: 24.5 }), { hospitals: 1, liverOrders: [] }), base.ctx, CFG, text).some((m) => m.id === 'early_bed')).toBe(false);
   });
 
-  it('praises looking at a dark liver while work orders are waiting, and not before the first one', () => {
-    const visit = (day: number, light: 'off' | 'yellow') => withHistory(
-      (r) => (r.day === day ? { ...QUIET, lights: { ...r.lights, liver: light }, patrols: [{ floor: 'liver', grade: 'B', overtime: false }] } : QUIET),
+  it('praises a visit to the liver once a work order has come in, and not before the first one or to another floor', () => {
+    const visit = (day: number, floor: 'liver' | 'brain') => withHistory(
+      (r) => (r.day === day ? { ...QUIET, patrols: [{ floor, grade: 'B', overtime: false }] } : QUIET),
       { hospitals: 1, liverOrders: [2] },
     );
-    expect(meritsOf(visit(5, 'off'), base.ctx, CFG, text).find((m) => m.id === 'liver_check')?.day).toBe(5);
-    expect(idsOf(visit(5, 'yellow'))).not.toContain('liver_check');
-    expect(idsOf(visit(2, 'off'))).not.toContain('liver_check');
-    expect(idsOf({ ...visit(5, 'off'), liverOrders: [] })).not.toContain('liver_check');
+    expect(meritsOf(visit(5, 'liver'), base.ctx, CFG, text).find((m) => m.id === 'liver_check')?.day).toBe(5);
+    expect(idsOf(visit(3, 'liver'))).toContain('liver_check');
+    expect(idsOf(visit(2, 'liver'))).not.toContain('liver_check');
+    expect(idsOf(visit(5, 'brain'))).not.toContain('liver_check');
+    expect(idsOf({ ...visit(5, 'liver'), liverOrders: [] })).not.toContain('liver_check');
+  });
+
+  it('does not count the nights of a hospital stay, whose bedtime the rules set, as early nights', () => {
+    const stay = (kinds: Record<number, 'hospital' | 'normal'>) => withHistory((r) => ({ ...QUIET, bedEnd: 23, kind: kinds[r.day] ?? 'normal' }), { hospitals: 1, liverOrders: [] });
+    expect(meritsOf(stay({}), base.ctx, CFG, text).find((m) => m.id === 'early_bed')?.vars).toMatchObject({ from: '1', n: '10' });
+    // Days 4 and 5 in hospital: two nights on each side of them are not a run, and neither are the hospital nights.
+    expect(meritsOf(stay({ 3: 'hospital', 4: 'hospital', 6: 'hospital' }), base.ctx, CFG, text).find((m) => m.id === 'early_bed')?.vars).toMatchObject({ from: '7', n: '4' });
+    expect(idsOf(withHistory((r) => ({ ...QUIET, bedEnd: 23, kind: r.day % 2 === 0 ? 'hospital' : 'normal' }), { hospitals: 1, liverOrders: [] }))).not.toContain('early_bed');
+  });
+
+  it('stops on a patrol of a floor the bank does not name, instead of showing its id', () => {
+    const odd = withHistory((r) => (r.day === 4 ? { ...QUIET, lit: ['brain'], patrols: [{ floor: 'brain', grade: 'A', overtime: false }] } : QUIET), { hospitals: 1, liverOrders: [] });
+    const { brain: _gone, ...scopes } = CFG.scopes;
+    expect(() => meritsOf(odd, base.ctx, { ...CFG, scopes } as ReportFile, text)).toThrow(/brain/);
+  });
+
+  it('has a sentence for every merit and no review sentence that no merit uses', () => {
+    expect(Object.keys(MERIT_TEXT).sort()).toEqual([...MERITS].sort());
+    expect(Object.keys(CFG.doc).filter((k) => k.startsWith('review')).sort()).toEqual(Object.values(MERIT_TEXT).sort());
   });
 
   it('praises a barbecue without drinks, but not one with', () => {
