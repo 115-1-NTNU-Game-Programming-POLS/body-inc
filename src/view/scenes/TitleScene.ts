@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { tryResume } from '../../app/chapters.ts';
 import { str } from '../../app/content.ts';
 import { sharedKeys } from '../../app/input.ts';
+import { DEMO_RUN } from '../../app/demo.ts';
 import { resumeSemester } from '../../app/semester.ts';
 import type { ChapterContent, ChapterEntry, ChapterState, RunData, SemesterRun, StoryData } from '../../core/index.ts';
 import { addText } from '../text/fonts.ts';
@@ -94,6 +95,8 @@ export class TitleScene extends Phaser.Scene {
       if (e.code === 'KeyW' || e.code === 'ArrowUp') this.move(-1);
       else if (e.code === 'KeyS' || e.code === 'ArrowDown') this.move(1);
       else if (['Enter', 'NumpadEnter', 'KeyJ', 'Space'].includes(e.code) && !e.repeat) this.items[this.index]?.run();
+      // The presenter's way in; it is not listed, and like a new semester it replaces a saved one at the end of the day.
+      else if (e.code === 'F9' && !e.repeat) this.semester(DEMO_RUN);
     };
     this.input.keyboard?.on('keydown', onKey);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.input.keyboard?.off('keydown', onKey));
