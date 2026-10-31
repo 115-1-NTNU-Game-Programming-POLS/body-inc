@@ -1,10 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { STRINGS } from '../../src/app/content.ts';
+import { HANDBOOK, STRINGS } from '../../src/app/content.ts';
 import {
-  COFFEE_PLANS, daySummary, endSummary, morningPlan, newSemester, NIGHT_PLANS, nightPlan, REST_PLANS, servesAlcohol, weekdayOf,
+  COFFEE_PLANS, daySummary, endSummary, morningPlan, newSemester, NIGHT_PLANS, nightPlan, REST_PLANS, servesAlcohol, visitReport, weekdayOf,
   type CoffeePlanId, type NightPlanId, type RestPlanId,
 } from '../../src/app/semester.ts';
-import { advanceDay, EVENTS, FLOORS, type Answer, type Ask, type SemesterContext, type SemesterState } from '../../src/core/index.ts';
+import {
+  advanceDay, EVENTS, FLOORS, MAX_INCIDENT, startSemester, withBarbecueOn, type Answer, type Ask, type ReportDocument, type SemesterContext, type SemesterState, type Strategy,
+} from '../../src/core/index.ts';
+import { ARCHETYPES, type ArchetypeName } from '../../sim/semester/archetypes.ts';
+import { bingeTwice, bingeWeek, contextFor, drinkWeek } from '../../sim/semester/scenario.ts';
 import { modelMeasure } from '../../src/view/text/measure.ts';
 import { CARD, cardWidth, TEXT_SCALES } from '../../src/view/text/styles.ts';
 import { wrapCJK } from '../../src/view/text/wrap.ts';
@@ -173,5 +177,124 @@ describe('semester presets and summaries', () => {
     const { ctx, state } = newSemester(1);
     expect(() => daySummary(state, state, ctx)).toThrow(/exactly one day/);
     expect(() => endSummary(state, ctx)).toThrow(/has not ended/);
+  });
+});
+
+const strategyAnswer = (strategy: Strategy, ask: Ask): Answer => {
+  switch (ask.kind) {
+    case 'plan': return { kind: 'plan', plan: strategy.plan(ask.view) };
+    case 'event': return { kind: 'event', option: strategy.choose(ask.id, ask.options, ask.view) };
+    case 'floor': return { kind: 'floor', choice: strategy.floor(ask.view) };
+    case 'night': return { kind: 'night', plan: strategy.night(ask.view) };
+  }
+};
+
+/** The days of one semester on which the scene would show a report, with the state it would build it from. */
+function reportDays(ctx: SemesterContext, strategy: Strategy, seed: number, known: ReadonlySet<string>): { state: SemesterState; doc: ReportDocument | undefined }[] {
+  const out: { state: SemesterState; doc: ReportDocument | undefined }[] = [];
+  let s = startSemester(ctx, seed);
+  for (let guard = 0; !s.ended; guard++) {
+    if (guard > ctx.params.days) throw new Error('the semester never ended');
+    const answers: Answer[] = [];
+    for (;;) {
+      const step = advanceDay(s, ctx, answers);
+      if (step.done) {
+        s = step.state;
+        out.push({ state: s, doc: visitReport(s, ctx, seed, known) });
+        break;
+      }
+      answers.push(strategyAnswer(strategy, step.ask));
+    }
+  }
+  return out;
+}
+
+describe('the report after a visit to the emergency room', () => {
+  const names = Object.keys(ARCHETYPES) as ArchetypeName[];
+  // Played on first use, inside a test, so that filtering the file or a throw here fails a test and not the collection.
+  let played: { name: ArchetypeName; seed: number; days: ReturnType<typeof reportDays> }[] | undefined;
+  const semesters = () => (played ??= names.flatMap((name) => [1, 2, 3, 4].map((seed) => ({ name, seed, days: reportDays(contextFor(0.5, seed, { scenario: bingeTwice(seed) }), ARCHETYPES[name], seed, new Set()) }))));
+
+  it('is written on exactly the days that sent the operator there: a notice first, a bankruptcy report second', () => {
+    let notices = 0;
+    let bankruptcies = 0;
+    for (const { name, seed, days } of semesters()) {
+      const docs = days.filter((d) => d.doc !== undefined).map((d) => d.doc!);
+      const visits = days.filter((d) => d.state.history[d.state.history.length - 1]!.crisis !== undefined);
+      expect(docs.length, `${name}, seed ${seed}`).toBe(visits.length);
+      expect(docs.map((d) => d.kind), `${name}, seed ${seed}`).toEqual(visits.map((_, i) => (i === 0 ? 'notice' : 'bankruptcy')));
+      notices += docs.filter((d) => d.kind === 'notice').length;
+      bankruptcies += docs.filter((d) => d.kind === 'bankruptcy').length;
+    }
+    // The test means something only if both documents were written somewhere.
+    expect(notices).toBeGreaterThan(0);
+    expect(bankruptcies).toBeGreaterThan(0);
+  });
+
+  it('is a finished document: at most five sentences, no unfilled placeholder, and a page that exists', () => {
+    const pages = new Set(HANDBOOK.pages.map((p) => p.id));
+    for (const { days } of semesters()) {
+      for (const { doc } of days) {
+        if (doc === undefined) continue;
+        expect(doc.incident.length).toBeGreaterThan(0);
+        expect(doc.incident.length).toBeLessThanOrEqual(MAX_INCIDENT);
+        expect(doc.lines.join('\n')).not.toMatch(/[{}]/);
+        expect(pages.has(doc.unlock), doc.unlock).toBe(true);
+      }
+    }
+  });
+
+  it('says the page is only referred to when the player already holds it', () => {
+    const { ctx, state, seed } = (() => {
+      const hit = semesters().find((s) => s.days.some((d) => d.doc !== undefined))!;
+      return { ctx: contextFor(0.5, hit.seed, { scenario: bingeTwice(hit.seed) }), state: hit.days.find((d) => d.doc !== undefined)!.state, seed: hit.seed };
+    })();
+    const fresh = visitReport(state, ctx, seed, new Set())!;
+    const known = visitReport(state, ctx, seed, new Set([fresh.unlock]))!;
+    expect(known.lines).not.toEqual(fresh.lines);
+    expect(known.incident).toEqual(fresh.incident);
+    expect(known.unlock).toBe(fresh.unlock);
+  });
+
+  it('is the same document every time it is written from the same semester', () => {
+    const hit = semesters().find((s) => s.days.some((d) => d.doc !== undefined))!;
+    const ctx = contextFor(0.5, hit.seed, { scenario: bingeTwice(hit.seed) });
+    const { state, doc } = hit.days.find((d) => d.doc !== undefined)!;
+    expect(visitReport(state, ctx, hit.seed, new Set())).toEqual(doc);
+  });
+});
+
+describe('barbecue days for a dev run', () => {
+  it('moves the barbecue to exactly the named days and leaves every other event where it was', () => {
+    const base = { 1: ['deadline'], 3: ['bbq', 'late_snack'], 6: ['bbq'] };
+    expect(withBarbecueOn(base, [2, 3])).toEqual({ 1: ['deadline'], 2: ['bbq'], 3: ['late_snack', 'bbq'], 6: [] });
+  });
+
+  it('plays the semester a seed deals when no days are named, and the named days when they are', () => {
+    const dealt = newSemester(5).ctx.scenario;
+    const days = (s: Record<number, readonly string[]>) => Object.entries(s).filter(([, ids]) => ids.includes('bbq')).map(([d]) => Number(d));
+    expect(days(newSemester(5, [2, 3, 4]).ctx.scenario)).toEqual([2, 3, 4]);
+    expect(days(newSemester(5).ctx.scenario)).toEqual(days(dealt));
+  });
+});
+
+describe('the sim scenarios built on withBarbecueOn', () => {
+  /** The definitions the sim had before the helper moved into core, written out day by day. */
+  const strip = (seed: number): Record<number, string[]> => {
+    const days: Record<number, string[]> = {};
+    for (const [day, ids] of Object.entries(contextFor(0.5, seed).scenario)) days[Number(day)] = ids.filter((id) => id !== 'bbq');
+    return days;
+  };
+  it('give the same days as the hand-written versions', () => {
+    for (const seed of [1, 2, 3, 4, 5]) {
+      const week = strip(seed);
+      for (const d of [2, 3, 4]) (week[d] ??= []).push('bbq');
+      expect(bingeWeek(seed)).toEqual(week);
+      for (const d of [6, 7]) (week[d] ??= []).push('bbq');
+      expect(bingeTwice(seed)).toEqual(week);
+      const drink = strip(seed);
+      for (let d = 2; d <= 9; d++) (drink[d] ??= []).push('bbq');
+      expect(drinkWeek(seed)).toEqual(drink);
+    }
   });
 });

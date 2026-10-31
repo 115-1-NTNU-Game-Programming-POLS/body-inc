@@ -530,6 +530,7 @@
     "semester.sum.bankrupt": { "text": "第二次進急診，公司停業清算。", "fact": "" },
     "semester.sum.hospital_day": { "text": "住院休養一天。", "fact": "" },
     "semester.sum.next": { "text": "按 Enter 繼續", "fact": "" },
+    "semester.report.more": { "text": "第 {n}／{total} 頁　按 Enter 翻頁", "fact": "" },
     "semester.end.title": { "text": "學期結束", "fact": "" },
     "semester.end.exams": { "text": "期中考 {mid}%　期末考 {fin}%", "fact": "" },
     "semester.end.grade": { "text": "學期成績：{grade}", "fact": "" },

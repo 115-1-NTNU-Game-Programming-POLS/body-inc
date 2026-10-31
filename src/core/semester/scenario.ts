@@ -55,6 +55,14 @@ export function scenarioFor(seed: number): Scenario {
   return days;
 }
 
+/** The scenario with the barbecue taken off every day and put on exactly `days`; every other event stays where it was. */
+export function withBarbecueOn(scenario: Scenario, days: readonly number[]): Scenario {
+  const out: Record<number, readonly string[]> = {};
+  for (const [day, ids] of Object.entries(scenario)) out[Number(day)] = ids.filter((id) => id !== 'bbq');
+  for (const day of days) out[day] = [...(out[day] ?? []), 'bbq'];
+  return out;
+}
+
 /**
  * The prototype's context for a seed: its three events and the schedule that seed draws. The game
  * and `sim/` both build theirs here, so a field added to SemesterContext has one place to be set.

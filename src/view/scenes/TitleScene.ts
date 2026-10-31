@@ -6,6 +6,7 @@ import type { ChapterContent, ChapterEntry, ChapterState, StoryData } from '../.
 import { addText } from '../text/fonts.ts';
 import type { NameData } from './NameScene.ts';
 import type { CardsData } from './OpeningScene.ts';
+import type { SemesterData } from './SemesterScene.ts';
 import { beginRun } from './run.ts';
 
 const PAPER = '#f4efe4';
@@ -124,7 +125,9 @@ export class TitleScene extends Phaser.Scene {
   private semester(): void {
     if (this.starting) return;
     this.starting = true;
-    window.setTimeout(() => this.scene.start('Semester', {}), 0);
+    // Boot parses the dev URL (production leaves this unset), so a bad parameter stops there with a message.
+    const dev = (this.registry.get('dev-semester') as SemesterData | undefined) ?? {};
+    window.setTimeout(() => this.scene.start('Semester', dev), 0);
   }
 
   private name(data: NameData): void {
