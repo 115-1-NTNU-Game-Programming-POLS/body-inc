@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import {
-  COFFEE_PLANS, daySummary, endSummary, floorChoice, morningPlan, newSemester, NIGHT_PLANS, nightPlan, REST_PLANS, resumeSemester, servesAlcohol, visitReport, weekdayOf,
+  COFFEE_PLANS, daySummary, endSummary, finishSemester, floorChoice, freshSeed, morningPlan, newSemester, NIGHT_PLANS, nightPlan, REST_PLANS, resumeSemester, servesAlcohol,
+  tutorLine, visitReport, weekdayOf,
   type CoffeePlanId, type NightPlanId, type RestPlanId,
 } from '../../app/semester.ts';
 import { fillStr, REPORT, str } from '../../app/content.ts';
@@ -81,7 +82,8 @@ export class SemesterScene extends Phaser.Scene {
   create(data: SemesterData): void {
     const back = data.resume === undefined ? undefined : resumeSemester(data.resume);
     if (data.resume !== undefined && back === undefined) throw new Error('the title offered a semester save that no longer replays');
-    const seed = data.resume?.seed ?? data.seed ?? (Date.now() % 2_147_483_647);
+    const done = (this.registry.get('progress') as ProgressData | undefined)?.semestersDone ?? 1;
+    const seed = data.resume?.seed ?? data.seed ?? freshSeed(done, Date.now());
     const fresh = back ?? newSemester(seed, data.bbqDays);
     this.seed = seed;
     this.ctx = fresh.ctx;
@@ -236,7 +238,7 @@ export class SemesterScene extends Phaser.Scene {
   private askCoffee(view: DayView): void {
     this.banner(view, 'plan');
     const ids = Object.keys(COFFEE_PLANS) as CoffeePlanId[];
-    this.cards(ids.map((id) => ({ label: str(`semester.coffee.${id}`), note: str(`semester.coffee.${id}.note`) })), str('semester.coffee.title'), undefined, (i) => {
+    this.cards(ids.map((id) => ({ label: str(`semester.coffee.${id}`), note: str(`semester.coffee.${id}.note`) })), str('semester.coffee.title'), tutorLine(this.seed, view.day), (i) => {
       this.askRest(ids[i]!);
     });
   }
@@ -433,6 +435,16 @@ export class SemesterScene extends Phaser.Scene {
     this.registry.set('run', run);
   }
 
+  /** A semester fixed from the URL does not count, so looking at the rules never ends the scripted first week. */
+  private countSemester(): void {
+    const progress = this.registry.get('progress') as ProgressData | undefined;
+    const saves = this.registry.get('saves') as SaveStore | undefined;
+    if (!this.keep || progress === undefined || saves === undefined) return;
+    const done = finishSemester(saves, progress);
+    if (done.issues.length > 0) this.game.events.emit('save-issues', done.issues);
+    this.registry.set('progress', done.progress);
+  }
+
   private endOfDay(after: SemesterState): void {
     const before = this.state;
     const lines = daySummary(before, after, this.ctx);
@@ -449,6 +461,7 @@ export class SemesterScene extends Phaser.Scene {
         return;
       }
       this.persist(null);
+      this.countSemester();
       const toEnd = (): void => this.page(str('semester.end.title'), endSummary(after, this.ctx), str('semester.end.back'), () => this.leave());
       let review: Wall | undefined;
       try {

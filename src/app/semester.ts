@@ -1,8 +1,9 @@
 import {
-  advanceDay, amount, composeReport, EVENTS, prototypeContext, semesterInputs, startSemester, summarize, withBarbecueOn,
-  type FloorChoice, type FloorId, type MorningPlan, type NightPlan, type ReportDocument, type SemesterContext, type SemesterRun, type SemesterState,
+  advanceDay, amount, composeReport, EVENTS, PROGRESS, prototypeContext, semesterInputs, startSemester, summarize, withBarbecueOn,
+  type FloorChoice, type FloorId, type MorningPlan, type NightPlan, type ProgressData, type ReportDocument, type Scenario, type SemesterContext, type SemesterRun, type SemesterState,
 } from '../core/index.ts';
 import { fillStr as fill, PARAMS, REPORT, str, STRINGS, TAGS } from './content.ts';
+import type { SaveIssue, SaveStore } from './storage.ts';
 
 /**
  * The patrol is not played yet (design doc 8.5 wants four rooms per patrol): its grade is drawn from
@@ -10,9 +11,38 @@ import { fillStr as fill, PARAMS, REPORT, str, STRINGS, TAGS } from './content.t
  */
 export const PATROL_SKILL = 0.5;
 
+/**
+ * The seed of the scripted first week (design doc 8.13, PM decision S3). The script is keyed on the
+ * seed so a saved run replays it with no extra field; a clock seed hits it once in 2^31 starts.
+ */
+export const TUTORIAL_SEED = 20_261_207;
+
+/** The days of the tutorial script whose first screen carries a line from the chairman; the strings are `semester.tutor.<day>`. */
+export const TUTOR_DAYS = [1, 3] as const;
+
+/**
+ * The first three days are fixed: nothing on day 1 and day 3, the barbecue on the evening of day 2
+ * (design doc 8.13). From day 4 the seed deals as usual.
+ */
+export const tutorialScenario = (dealt: Scenario): Scenario => ({ ...dealt, 1: [], 2: ['bbq'], 3: [] });
+
+/** The seed of a new semester: the scripted first week until one has been played to its end, then the clock. */
+export const freshSeed = (semestersDone: number, now: number): number => (semestersDone === 0 ? TUTORIAL_SEED : now % 2_147_483_647);
+
+/** The progress after a semester ran to its end, and issues from writing it; the registry copy follows even when the write failed. */
+export function finishSemester(saves: SaveStore, progress: ProgressData): { progress: ProgressData; issues: SaveIssue[] } {
+  const next = { ...progress, semestersDone: progress.semestersDone + 1 };
+  return { progress: next, issues: saves.save(PROGRESS, next) };
+}
+
+/** The chairman's line for the morning of `day`, or undefined when the semester is not the tutorial or the day has none. */
+export const tutorLine = (seed: number, day: number): string | undefined =>
+  seed === TUTORIAL_SEED && (TUTOR_DAYS as readonly number[]).includes(day) ? str(`semester.tutor.${day}`) : undefined;
+
 /** A new semester's rules and its events, which the seed alone fixes. */
 export function semesterContext(seed: number): SemesterContext {
-  return prototypeContext(TAGS, PARAMS, PATROL_SKILL, seed);
+  const dealt = prototypeContext(TAGS, PARAMS, PATROL_SKILL, seed);
+  return seed === TUTORIAL_SEED ? { ...dealt, scenario: tutorialScenario(dealt.scenario) } : dealt;
 }
 
 /** `bbqDays` is a dev override (app/session.ts semesterFromQuery); a normal game takes the events its seed deals. */

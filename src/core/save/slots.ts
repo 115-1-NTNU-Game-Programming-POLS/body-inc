@@ -190,25 +190,30 @@ export interface ProgressData {
   readonly handbook: readonly string[];
   /** What `{host}` reads as. A new game or a checkpoint never resets it; see `savedHost`. */
   readonly hostName: string;
+  /** Semesters played to their end; 0 makes the next one the scripted first week (design doc 8.13). */
+  readonly semestersDone: number;
 }
 
 export const PROGRESS: SlotDef<ProgressData> = {
   name: 'progress',
-  version: 2,
+  version: 3,
   schema: {
     type: 'object',
     additionalProperties: false,
-    required: ['handbook', 'hostName'],
+    required: ['handbook', 'hostName', 'semestersDone'],
     properties: {
       handbook: { type: 'array', uniqueItems: true, items: { type: 'string', minLength: 1 } },
       // The schema cannot count characters; savedHost applies the full rules after loading.
       hostName: { type: 'string', minLength: 1 },
+      semestersDone: INT,
     },
   },
-  defaults: () => ({ handbook: [], hostName: DEFAULT_HOST }),
+  defaults: () => ({ handbook: [], hostName: DEFAULT_HOST, semestersDone: 0 }),
   migrations: {
     // Version 2 keeps the host's name; before it the host was always 小晨.
     1: (data) => (isRecord(data) ? { ...data, hostName: DEFAULT_HOST } : data),
+    // Version 3 counts finished semesters; a save from before it has none on record.
+    2: (data) => (isRecord(data) ? { ...data, semestersDone: 0 } : data),
   },
 };
 

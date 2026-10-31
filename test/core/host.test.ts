@@ -57,28 +57,28 @@ describe('the host name in the progress slot', () => {
 
   it('a version-1 save from before the name existed loads with 小晨 and its pages', () => {
     const v1 = JSON.stringify({ schema: 1, data: { handbook: ['caffeine'] } });
-    expect(decode(PROGRESS, v1)).toEqual({ kind: 'migrated', from: 1, data: { handbook: ['caffeine'], hostName: DEFAULT_HOST } });
+    expect(decode(PROGRESS, v1)).toEqual({ kind: 'migrated', from: 1, data: { handbook: ['caffeine'], hostName: DEFAULT_HOST, semestersDone: 0 } });
   });
 
   it('round-trips a chosen name; a fresh save starts as 小晨', () => {
-    expect(decode(PROGRESS, encode(PROGRESS, { handbook: [], hostName: '阿明' }))).toEqual({ kind: 'ok', data: { handbook: [], hostName: '阿明' } });
+    expect(decode(PROGRESS, encode(PROGRESS, { handbook: [], hostName: '阿明', semestersDone: 0 }))).toEqual({ kind: 'ok', data: { handbook: [], hostName: '阿明', semestersDone: 0 } });
     expect(decode(PROGRESS, null).data.hostName).toBe(DEFAULT_HOST);
   });
 
   it('a saved name the rules refuse falls back to the default', () => {
-    expect(savedHost({ handbook: [], hostName: '阿明' })).toBe('阿明');
-    expect(savedHost({ handbook: [], hostName: '七個全形寬的字' })).toBe(DEFAULT_HOST);
-    expect(savedHost({ handbook: [], hostName: '{host}' })).toBe(DEFAULT_HOST);
+    expect(savedHost({ handbook: [], hostName: '阿明', semestersDone: 0 })).toBe('阿明');
+    expect(savedHost({ handbook: [], hostName: '七個全形寬的字', semestersDone: 0 })).toBe(DEFAULT_HOST);
+    expect(savedHost({ handbook: [], hostName: '{host}', semestersDone: 0 })).toBe(DEFAULT_HOST);
     // Untrimmed text was never written by the game, so it is not trusted either.
-    expect(savedHost({ handbook: [], hostName: ' 阿明' })).toBe(DEFAULT_HOST);
+    expect(savedHost({ handbook: [], hostName: ' 阿明', semestersDone: 0 })).toBe(DEFAULT_HOST);
   });
 
   it('keepHost writes at once and keeps the handbook pages', () => {
     const data = new Map<string, string>();
     const store: KeyValueStore = { getItem: (k) => data.get(k) ?? null, setItem: (k, v) => { data.set(k, v); }, removeItem: (k) => { data.delete(k); } };
-    const kept = keepHost(new SaveStore(store), { handbook: ['caffeine'], hostName: DEFAULT_HOST }, '阿明');
-    expect(kept).toEqual({ progress: { handbook: ['caffeine'], hostName: '阿明' }, issues: [] });
-    expect(decode(PROGRESS, data.get('hbc.v1.progress') ?? null)).toEqual({ kind: 'ok', data: { handbook: ['caffeine'], hostName: '阿明' } });
+    const kept = keepHost(new SaveStore(store), { handbook: ['caffeine'], hostName: DEFAULT_HOST, semestersDone: 0 }, '阿明');
+    expect(kept).toEqual({ progress: { handbook: ['caffeine'], hostName: '阿明', semestersDone: 0 }, issues: [] });
+    expect(decode(PROGRESS, data.get('hbc.v1.progress') ?? null)).toEqual({ kind: 'ok', data: { handbook: ['caffeine'], hostName: '阿明', semestersDone: 0 } });
     data.clear();
     expect(keepHost(new SaveStore(store), kept.progress, '阿明').progress).toBe(kept.progress);
     expect(data.size).toBe(0);
