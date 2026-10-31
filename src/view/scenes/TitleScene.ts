@@ -3,8 +3,9 @@ import { tryResume } from '../../app/chapters.ts';
 import { str } from '../../app/content.ts';
 import { sharedKeys } from '../../app/input.ts';
 import { DEMO_RUN } from '../../app/demo.ts';
+import { PRESENTER_KEY, presenterSettings, type Presenter } from '../../app/presenter.ts';
 import { resumeSemester } from '../../app/semester.ts';
-import type { ChapterContent, ChapterEntry, ChapterState, RunData, SemesterRun, StoryData } from '../../core/index.ts';
+import type { ChapterContent, ChapterEntry, ChapterState, RunData, SemesterRun, Settings, StoryData } from '../../core/index.ts';
 import { addText } from '../text/fonts.ts';
 import type { NameData } from './NameScene.ts';
 import type { CardsData } from './OpeningScene.ts';
@@ -37,6 +38,11 @@ export class TitleScene extends Phaser.Scene {
 
   create(): void {
     this.starting = false;
+    const presenter = this.registry.get(PRESENTER_KEY) as Presenter | undefined;
+    if (presenter) {
+      this.registry.set('settings', presenter.before);
+      this.registry.remove(PRESENTER_KEY);
+    }
     // The cold start measurement (docs/perf/cold-start.md) ends at the first frame drawn with the title.
     if (performance.getEntriesByName('title-ready').length === 0) {
       this.game.events.once(Phaser.Core.Events.POST_RENDER, () => performance.mark('title-ready'));
@@ -96,7 +102,7 @@ export class TitleScene extends Phaser.Scene {
       else if (e.code === 'KeyS' || e.code === 'ArrowDown') this.move(1);
       else if (['Enter', 'NumpadEnter', 'KeyJ', 'Space'].includes(e.code) && !e.repeat) this.items[this.index]?.run();
       // The presenter's way in; it is not listed, and like a new semester it replaces a saved one at the end of the day.
-      else if (e.code === 'F9' && !e.repeat) this.semester(DEMO_RUN);
+      else if (e.code === 'F9' && !e.repeat) this.present();
     };
     this.input.keyboard?.on('keydown', onKey);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.input.keyboard?.off('keydown', onKey));
@@ -137,6 +143,15 @@ export class TitleScene extends Phaser.Scene {
     const dev = (this.registry.get('dev-semester') as SemesterData | undefined) ?? {};
     const data: SemesterData = resume === undefined ? dev : { resume };
     window.setTimeout(() => this.scene.start('Semester', data), 0);
+  }
+
+  /** The demo save in presentation mode (larger text, lettered options), which the title gives back when it is shown again. */
+  private present(): void {
+    if (this.starting) return;
+    const before = this.registry.get('settings') as Settings;
+    this.registry.set(PRESENTER_KEY, { before } satisfies Presenter);
+    this.registry.set('settings', presenterSettings(before));
+    this.semester(DEMO_RUN);
   }
 
   private name(data: NameData): void {

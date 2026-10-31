@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { optionMark, PRESENTER_KEY } from '../../app/presenter.ts';
 import { addText } from '../text/fonts.ts';
 import { CARD, cardWidth } from '../text/styles.ts';
 
@@ -50,6 +51,7 @@ export class CardTable {
     this.layer.add(title);
     const top = y + title.displayHeight + 40;
 
+    const presenting = scene.registry.get(PRESENTER_KEY) !== undefined;
     const n = texts.options.length;
     const w = cardWidth(n, scene.scale.width);
     const inner = w - 2 * CARD.padding;
@@ -61,7 +63,7 @@ export class CardTable {
       const note = addText(scene, CARD.padding, label.y + label.displayHeight + 14, o.note, {
         role: CARD.note.role, weight: 400, size: CARD.note.fontSize * scale, color: '#2b3448', maxWidth: inner, lineHeight: CARD.note.lineHeight,
       });
-      const number = addText(scene, CARD.padding + BADGE_R, STRIP_H + 22, String(i + 1), { role: 'print', weight: 700, size: 16, color: '#fbfaf6' }).setOrigin(0.5);
+      const number = addText(scene, CARD.padding + BADGE_R, STRIP_H + 22, optionMark(i, presenting), { role: 'print', weight: 700, size: presenting ? 20 : 16, color: '#fbfaf6' }).setOrigin(0.5);
       return { label, note, number, bottom: note.y + note.displayHeight + CARD.padding };
     });
     // Every card as tall as the tallest, so the row reads as one hand of cards.
