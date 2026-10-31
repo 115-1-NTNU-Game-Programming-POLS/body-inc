@@ -199,6 +199,8 @@
     "bankruptAdvice2": "report.doc.bankrupt_advice_2",
     "bankruptAdvice3": "report.doc.bankrupt_advice_3",
     "wallStruck": "report.doc.wall_struck",
-    "wallMore": "report.doc.wall_more"
+    "wallMore": "report.doc.wall_more",
+    "wallOrder": "report.doc.wall_order",
+    "wallSmile": "report.doc.wall_smile"
   }
 }

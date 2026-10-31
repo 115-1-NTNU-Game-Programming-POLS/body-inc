@@ -7,12 +7,12 @@ import { fillStr, REPORT, str } from '../../app/content.ts';
 import { keepPage } from '../../app/handbook.ts';
 import type { SaveStore } from '../../app/storage.ts';
 import {
-  advanceDay, buildWall, type Answer, type Ask, type DayView, type FloorId, type ProgressData, type ReportDocument, type SemesterContext, type SemesterState,
-  type Settings, type Wall,
+  advanceDay, buildWall, type Answer, type Ask, type ChapterContent, type DayView, type FloorId, type ProgressData, type ReportDocument, type SemesterContext,
+  type SemesterState, type Settings, type Wall,
 } from '../../core/index.ts';
+import { WALL_CHAPTER, wallLoop, type WallSession } from '../../app/wall.ts';
 import { addText, updateText } from '../text/fonts.ts';
 import { CardTable } from '../ui/cardTable.ts';
-import { EvidenceWallView } from '../ui/evidenceWall.ts';
 import { ElevatorPanelView } from '../ui/elevatorPanel.ts';
 
 const DIM = '#c9d3e3';
@@ -22,6 +22,8 @@ const INK = '#0c2d5e';
 const SHEET = { y: 24, w: 720, h: 624, binding: 64, pad: 24, top: 28, footer: 40, shadow: 8 };
 /** How long a chosen card stays highlighted before the next question, so the choice is seen. */
 const CHOSEN_MS = 220;
+/** After the wall closes, Esc is ignored this long so a double press does not also leave the semester. */
+const ESC_GUARD_MS = 600;
 const CONFIRM = ['Enter', 'NumpadEnter', 'KeyJ', 'KeyE', 'Space'];
 const PREV = ['KeyW', 'KeyA', 'ArrowUp', 'ArrowLeft'];
 const NEXT = ['KeyS', 'KeyD', 'ArrowDown', 'ArrowRight'];
@@ -62,10 +64,9 @@ export class SemesterScene extends Phaser.Scene {
   /** What Enter does when no menu is up: go on from the day or the semester summary. */
   private onContinue: (() => void) | undefined;
   private head: Phaser.GameObjects.Text | undefined;
-  private hint!: Phaser.GameObjects.Text;
   private lines: Phaser.GameObjects.GameObject[] = [];
-  /** The evidence wall while it is up, and where Enter at the report desk goes on to. */
-  private wall: { view: EvidenceWallView; go: () => void } | undefined;
+  /** Until this time (scene clock) Esc does not leave the semester: the Esc that closed the wall must not also close this. */
+  private escGuardUntil = 0;
 
   constructor() {
     super('Semester');
@@ -84,13 +85,12 @@ export class SemesterScene extends Phaser.Scene {
     this.onContinue = undefined;
     this.lines = [];
     this.head = undefined;
-    this.wall = undefined;
-    this.hint = addText(this, this.scale.width / 2, this.scale.height - 40, str('semester.hint'), { role: 'print', weight: 400, size: 18, color: DIM }).setOrigin(0.5, 1);
+    this.escGuardUntil = 0;
+    addText(this, this.scale.width / 2, this.scale.height - 40, str('semester.hint'), { role: 'print', weight: 400, size: 18, color: DIM }).setOrigin(0.5, 1);
 
     const onKey = (e: KeyboardEvent) => {
-      // On the wall Esc skips to the report; elsewhere the semester is not saved, so leaving drops it, as the hint line says.
-      if (this.wall !== undefined) return this.onWallKey(e);
-      if (e.code === 'Escape') return this.leave();
+      // The semester is not saved, so leaving drops it; the hint line says so.
+      if (e.code === 'Escape') return this.time.now < this.escGuardUntil ? undefined : this.leave();
       if (e.repeat || this.busy) return;
       if (this.menu === undefined) {
         if (CONFIRM.includes(e.code)) this.proceed();
@@ -106,13 +106,11 @@ export class SemesterScene extends Phaser.Scene {
     };
     // A click goes on from a text page; on a menu the cards and plates take it.
     const onClick = () => {
-      if (this.menu === undefined && !this.busy && this.wall === undefined) this.proceed();
+      if (this.menu === undefined && !this.busy) this.proceed();
     };
     this.input.keyboard?.on('keydown', onKey);
     this.input.on('pointerdown', onClick);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
-      this.wall?.view.destroy();
-      this.wall = undefined;
       this.input.keyboard?.off('keydown', onKey);
       this.input.off('pointerdown', onClick);
       this.clear();
@@ -120,47 +118,43 @@ export class SemesterScene extends Phaser.Scene {
     this.ask();
   }
 
-  private onWallKey(e: KeyboardEvent): void {
-    const wall = this.wall;
-    if (wall === undefined) return;
-    if (e.code === 'Escape') return this.leaveWall();
-    if (e.repeat) return;
-    if (PREV.includes(e.code)) wall.view.move(-1);
-    else if (NEXT.includes(e.code)) wall.view.move(1);
-    else if (CONFIRM.includes(e.code)) {
-      if (wall.view.onDesk) this.leaveWall();
-      else wall.view.move(1);
-    }
-  }
-
-  /** The wall of design doc 8.11, walked before the report; Esc skips it at any node. */
-  private showWall(doc: ReportDocument, go: () => void): void {
-    this.clear();
-    let wall: Wall;
+  /**
+   * The investigation wall of design doc 8.11, a room the player walks through before the report
+   * (build plan: evidence wall). The semester sleeps while the World and the HUD run the wall
+   * chapter; taking the page from the report desk, or Esc, wakes it and goes on with `go`.
+   */
+  private showWall(doc: ReportDocument, liverOrders: readonly number[], go: () => void): void {
+    const base = (this.registry.get('chapters') as ReadonlyMap<string, ChapterContent> | undefined)?.get(WALL_CHAPTER);
+    let session: { wall: Wall; loop: ReturnType<typeof wallLoop>['loop'] };
     try {
-      wall = buildWall(doc, REPORT, str);
+      if (!base) throw new Error(`the ${WALL_CHAPTER} chapter is not loaded`);
+      const wall = buildWall(doc, REPORT, str, liverOrders);
+      session = { wall, loop: wallLoop(base, wall.unlock).loop };
     } catch (err) {
       // Like the report itself, the wall is an addition: if it cannot be built the report is still shown.
       console.error('evidence wall skipped:', err);
       return go();
     }
-    const view = new EvidenceWallView(this, wall, this.textScale, (i) => this.wall?.view.select(i));
-    this.wall = { view, go };
-    updateText(this.hint, str('semester.wall.hint'));
-  }
-
-  private leaveWall(): void {
-    const wall = this.wall;
-    if (wall === undefined) return;
-    this.wall = undefined;
-    wall.view.destroy();
-    updateText(this.hint, str('semester.hint'));
-    // Hold input for a moment, as after any page, so the key that left the wall does not turn the first report page.
-    this.busy = true;
-    this.time.delayedCall(CHOSEN_MS, () => {
-      this.busy = false;
-    });
-    wall.go();
+    this.registry.set('loop', session.loop);
+    this.registry.set('wall', {
+      wall: session.wall,
+      done: () => {
+        this.registry.set('loop', undefined);
+        this.events.once(Phaser.Scenes.Events.WAKE, () => {
+          // Held input: the key that closed the wall must not also turn the first page of the report or leave the semester.
+          this.busy = true;
+          this.escGuardUntil = this.time.now + ESC_GUARD_MS;
+          this.time.delayedCall(CHOSEN_MS, () => {
+            this.busy = false;
+          });
+          go();
+        });
+        this.scene.wake();
+      },
+    } satisfies WallSession);
+    this.scene.sleep();
+    this.scene.launch('World');
+    this.scene.launch('Hud');
   }
 
   private leave(): void {
@@ -439,7 +433,9 @@ export class SemesterScene extends Phaser.Scene {
     }
     this.page(
       title, lines, str('semester.sum.next'),
-      doc === undefined || progress === undefined || saves === undefined ? next : () => this.showWall(doc, () => this.report(doc, progress, saves, next)),
+      doc === undefined || progress === undefined || saves === undefined
+        ? next
+        : () => this.showWall(doc, after.liverOrders, () => this.report(doc, progress, saves, next)),
     );
   }
 }

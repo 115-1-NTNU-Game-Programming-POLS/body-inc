@@ -4,15 +4,17 @@ import { FEEDBACK, str, STRINGS } from '../../app/content.ts';
 import { releaseKeysOnClose } from '../../app/dialogue.ts';
 import { keepPage, titleKey } from '../../app/handbook.ts';
 import { sharedKeys, type KeyboardInput } from '../../app/input.ts';
+import type { WallSession } from '../../app/wall.ts';
 import type { FixedStepLoop } from '../../app/loop.ts';
 import type { SaveStore } from '../../app/storage.ts';
 import {
-  carriedTags, listProps, selectEnemies, selectOperator, selectProjectiles, storyAtEnd, storyOf, TILE, visibleProps,
+  carriedTags, CELL_COLS, listProps, selectEnemies, selectOperator, selectProjectiles, storyAtEnd, storyOf, TILE, visibleProps,
   type ChapterContent, type ChapterState, type EnemyState, type GameEvent, type GameState, type ProgressData, type TiledMapFile,
 } from '../../core/index.ts';
 import type { CardsData } from './OpeningScene.ts';
 import { saveStory } from './run.ts';
 import { BossView } from '../actors/BossView.ts';
+import { EvidenceBoard } from '../actors/EvidenceBoard.ts';
 import { EnemyView, SKINS } from '../actors/EnemyView.ts';
 import { DRAWN_TYPES, ExamLayer, type DrawnView } from '../actors/ExamView.ts';
 import { OperatorView } from '../actors/OperatorView.ts';
@@ -31,6 +33,8 @@ export interface WorldNote {
 }
 
 const FADE_MS = 160;
+/** How long the unlocked-page note stays up before the wall closes. */
+const WALL_END_MS = 1100;
 
 /** Renders a room and its actors from core snapshots; it never decides an outcome. */
 export class WorldScene extends Phaser.Scene {
@@ -49,6 +53,10 @@ export class WorldScene extends Phaser.Scene {
   private readonly pending: GameEvent[] = [];
   /** True from the moment a room change is seen until the scene restarts; the rules stop meanwhile. */
   private leaving = false;
+  /** Set while the investigation wall is the room: a report's wall, its drawing, and the way back to the semester. */
+  private wallSession: WallSession | undefined;
+  private board: EvidenceBoard | undefined;
+  private wide = false;
 
   constructor() {
     super('World');
@@ -108,6 +116,12 @@ export class WorldScene extends Phaser.Scene {
     cam.setZoom(2);
     cam.centerOn((room.grid.cols * TILE) / 2, (room.grid.rows * TILE) / 2);
     cam.fadeIn(FADE_MS);
+    // A room wider than the screen scrolls sideways with the operator (the evidence wall is 40 columns).
+    this.wide = room.grid.cols > CELL_COLS;
+    if (this.wide) cam.setBounds(0, 0, room.grid.cols * TILE, room.grid.rows * TILE);
+    this.wallSession = this.registry.get('wall') as WallSession | undefined;
+    this.board = this.wallSession ? new EvidenceBoard(this, room, this.wallSession.wall) : undefined;
+    if (this.wallSession) this.input.keyboard?.on('keydown-ESC', () => this.finishWall());
 
     // One keyboard tracker for the whole run: a new one per room would not know which keys are
     // already down when the operator walks through a door, and would ignore them until the
@@ -160,6 +174,8 @@ export class WorldScene extends Phaser.Scene {
     for (const e of this.pending) if (e.type === 'fire') this.operator.fired(tick);
     this.operator.render(cur, x, y, tick);
     this.operator.renderStacks(cur.stacks);
+    if (this.wide) this.cameras.main.centerOn(x, (state.room.grid.rows * TILE) / 2);
+    this.board?.update(x, y);
 
     this.syncViews(state);
     this.exam.update(state, time);
@@ -194,6 +210,8 @@ export class WorldScene extends Phaser.Scene {
         if (kept.issues.length > 0) this.game.events.emit('save-issues', kept.issues);
         this.registry.set('progress', kept.progress);
         this.note(str(kept.isNew ? 'handbook.unlocked' : 'handbook.known').replace('{title}', str(titleKey(e.id))));
+        // Taking the page from the report desk is the end of the wall; the note gets a moment on screen first.
+        if (this.wallSession && !this.leaving) this.time.delayedCall(WALL_END_MS, () => this.finishWall());
         break;
       }
       case 'roomChanged':
@@ -232,6 +250,23 @@ export class WorldScene extends Phaser.Scene {
     if (e.repeat || this.leaving || s.dialogue || s.card || s.rescue || s.exam || this.scene.isActive('Handbook')) return;
     this.scene.pause();
     this.scene.launch('Handbook');
+  }
+
+  /**
+   * Leaves the evidence wall, by taking the page, by Esc, or both in quick succession: the report
+   * comes next, and the semester scene that was put to sleep when the wall opened wakes up.
+   */
+  private finishWall(): void {
+    const session = this.wallSession;
+    if (!session || this.leaving) return;
+    this.wallSession = undefined;
+    this.registry.set('wall', undefined);
+    this.board?.destroy();
+    this.leave(() => {
+      this.scene.stop('Hud');
+      session.done();
+      this.scene.stop();
+    });
   }
 
   /** Fades out with the rules stopped, then runs `then`; the next room starts from the loop's state. */

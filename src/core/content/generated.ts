@@ -2390,7 +2390,9 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
           "bankruptAdvice2",
           "bankruptAdvice3",
           "wallStruck",
-          "wallMore"
+          "wallMore",
+          "wallOrder",
+          "wallSmile"
         ],
         "properties": {
           "letterhead": {
@@ -2526,6 +2528,14 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
             "minLength": 1
           },
           "wallMore": {
+            "type": "string",
+            "minLength": 1
+          },
+          "wallOrder": {
+            "type": "string",
+            "minLength": 1
+          },
+          "wallSmile": {
             "type": "string",
             "minLength": 1
           }
@@ -3693,6 +3703,8 @@ export interface ReportDoc {
   readonly bankruptAdvice3: string;
   readonly wallStruck: string;
   readonly wallMore: string;
+  readonly wallOrder: string;
+  readonly wallSmile: string;
 }
 
 /** Rescue sequences that cannot fail (design doc 7.7: the classmate who will not wake up). A Trigger with event rescue and this id opens an action panel; the correct steps must be done in order, a myth is answered by a friend and the panel stays open, so the only way out is through the steps. Text lives in content/strings under rescue.<id>.*; how to write one is in docs/authoring/rooms-and-dialogue.md. */

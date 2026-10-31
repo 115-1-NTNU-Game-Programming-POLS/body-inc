@@ -8,6 +8,7 @@ import {
 import { str, TAGS } from '../../app/content.ts';
 import { issueMessage, type SaveIssue } from '../../app/storage.ts';
 import { addText, updateText } from '../text/fonts.ts';
+import type { WallNoteMessage } from '../actors/EvidenceBoard.ts';
 import type { WorldNote } from './WorldScene.ts';
 
 /** 7 x 6 heart, drawn at 4 px per cell; '#' is filled. */
@@ -81,6 +82,8 @@ export class HudScene extends Phaser.Scene {
   private glucoseLabel!: Phaser.GameObjects.Text;
   private shownGlucose = '';
   private plate: Plate | undefined;
+  private wallMode = false;
+  private wallNote: Phaser.GameObjects.Text | undefined;
   private shownHalves = -1;
   private shownGauge = '';
   private shownTime = '';
@@ -133,6 +136,17 @@ export class HudScene extends Phaser.Scene {
     const onIssues = (issues: readonly SaveIssue[]) => this.saveNotices(issues);
     this.game.events.on('world-note', onNote);
     this.game.events.on('save-issues', onIssues);
+    // The evidence wall has no hearts, stamp pad or rule clock to show; it has its own controls and a note under the lit nodes.
+    this.wallMode = this.registry.get('wall') !== undefined;
+    this.wallNote = undefined;
+    const onWallNote = (m: WallNoteMessage) => this.showWallNote(m.text);
+    if (this.wallMode) {
+      this.clock.setVisible(false);
+      updateText(this.controls, str('semester.wall.controls'));
+      // The board fills the top of the screen, so the controls go below the room instead of over the nodes.
+      this.controls.setY(this.scale.height - this.controls.displayHeight - 12);
+      this.game.events.on('wall-note', onWallNote);
+    }
     // Conversations and event cards draw over the HUD and live exactly as long as it does: one run, from title to title.
     if (!this.scene.isActive('Dialogue')) this.scene.launch('Dialogue');
     if (!this.scene.isActive('Card')) this.scene.launch('Card');
@@ -141,6 +155,7 @@ export class HudScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.game.events.off('world-note', onNote);
       this.game.events.off('save-issues', onIssues);
+      this.game.events.off('wall-note', onWallNote);
       this.scene.stop('Dialogue');
       this.scene.stop('Card');
       this.scene.stop('Rescue');
@@ -202,6 +217,16 @@ export class HudScene extends Phaser.Scene {
         text.destroy();
       },
     });
+  }
+
+  /** The note under the lit nodes of the evidence wall: a sticky note at the bottom of the screen, gone when no node is lit. */
+  private showWallNote(text: string | undefined): void {
+    this.wallNote?.destroy();
+    this.wallNote = undefined;
+    if (text === undefined) return;
+    this.wallNote = addText(this, this.scale.width / 2, this.scale.height - 56, text, {
+      role: 'hand', weight: 400, size: 22, color: '#2b2b2b', backgroundColor: '#d9d6cf', padding: { x: 12, y: 8 }, maxWidth: 940, lineHeight: 1.4,
+    }).setOrigin(0.5, 1);
   }
 
   /** Lowest edge of what the HUD draws along the top of the screen. */
@@ -345,6 +370,10 @@ export class HudScene extends Phaser.Scene {
     const loop = this.registry.get('loop') as FixedStepLoop<ChapterState, GameEvent> | undefined;
     if (!loop) return;
     const game = loop.state.game;
+    if (this.wallMode) {
+      this.prompt.setVisible(loop.state.dialogue === null && selectInteractable(game) !== undefined);
+      return;
+    }
     const { halves, maxHalves } = selectHearts(game);
     if (halves !== this.shownHalves) {
       this.shownHalves = halves;

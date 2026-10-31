@@ -110,6 +110,16 @@ export const OBJECT_CLASSES: Readonly<Record<string, ClassSpec>> = {
   Line: {
     stage: { type: 'enum', enum: 'LineStage', values: ['receiving', 'outlet', 'intake'], default: '', required: true },
   },
+  /**
+   * A place on the investigation wall where the game pins one node of a report (art direction
+   * 7.6). A wall room needs three per day on each of the `upper` and `lower` tracks and eight on
+   * the `liver` board; `day` is not read for the liver board. Not in design doc 13.3's table.
+   */
+  EvidenceSlot: {
+    day: { type: 'int', default: 1, min: 1, max: 10 },
+    lane: { type: 'enum', enum: 'SlotLane', values: ['upper', 'lower', 'liver'], default: '', required: true },
+    order: { type: 'int', default: 1, min: 1, max: 8 },
+  },
   Hazard: {
     hazardType: enumOf('HazardType', ['red_fog', 'water', 'syrup']),
     when: { type: 'condition' },

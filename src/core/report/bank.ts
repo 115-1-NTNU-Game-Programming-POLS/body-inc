@@ -30,6 +30,8 @@ export const DOC_PLACEHOLDERS: Readonly<Record<keyof Doc, readonly string[]>> = 
   bankruptAdvice3: ['sign'],
   wallStruck: ['dept'],
   wallMore: ['n'],
+  wallOrder: ['day'],
+  wallSmile: [],
 };
 
 const PLACEHOLDER = /\{([^{}]*)\}/g;

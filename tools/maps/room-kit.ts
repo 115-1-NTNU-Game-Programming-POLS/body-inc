@@ -27,7 +27,7 @@ export interface Shell {
 }
 
 /** Floor with seeded wear, the north-wall shadow, and the closed outer walls. */
-export function shell(world: string, seed = 7): Shell {
+export function shell(world: string, seed = 7, cols = W): Shell {
   const sheet = `tiles-${world}-struct`;
   const slots: Record<string, number> = JSON.parse(readFileSync(join(TS_DIR, 'struct-slots.json'), 'utf8'));
   const tsj = JSON.parse(readFileSync(join(TS_DIR, `${sheet}.tsj`), 'utf8'));
@@ -36,23 +36,23 @@ export function shell(world: string, seed = 7): Shell {
     if (i === undefined) throw new Error(`unknown struct slot ${name}`);
     return i + 1;
   };
-  const floor: number[] = new Array(W * H).fill(gid('floor-0'));
-  const walls: number[] = new Array(W * H).fill(0);
-  const set = (layer: number[], x: number, y: number, name: string) => { layer[y * W + x] = gid(name); };
+  const floor: number[] = new Array(cols * H).fill(gid('floor-0'));
+  const walls: number[] = new Array(cols * H).fill(0);
+  const set = (layer: number[], x: number, y: number, name: string) => { layer[y * cols + x] = gid(name); };
 
   let rng = seedRng(seed);
   for (let y = 4; y < 11; y++) {
-    for (let x = 1; x < W - 1; x++) {
+    for (let x = 1; x < cols - 1; x++) {
       let r: number;
       [r, rng] = nextFloat(rng);
       if (r < 0.15) set(floor, x, y, 'floor-1');
       else if (r < 0.22) set(floor, x, y, 'floor-2');
     }
   }
-  for (let x = 1; x < W - 1; x++) set(floor, x, 3, 'floor-shadow-n');
+  for (let x = 1; x < cols - 1; x++) set(floor, x, 3, 'floor-shadow-n');
   set(floor, 1, 3, 'floor-shadow-nw');
 
-  for (let x = 0; x < W; x++) {
+  for (let x = 0; x < cols; x++) {
     set(walls, x, 0, 'walltop-edge-s');
     set(walls, x, 1, 'face-upper-m');
     set(walls, x, 2, 'face-lower-m');
@@ -60,16 +60,16 @@ export function shell(world: string, seed = 7): Shell {
   }
   for (let y = 1; y < 11; y++) {
     set(walls, 0, y, 'walltop-edge-e');
-    set(walls, W - 1, y, 'walltop-edge-w');
+    set(walls, cols - 1, y, 'walltop-edge-w');
   }
   set(walls, 0, 0, 'walltop-inner-se');
-  set(walls, W - 1, 0, 'walltop-inner-sw');
+  set(walls, cols - 1, 0, 'walltop-inner-sw');
   set(walls, 0, 11, 'walltop-inner-ne');
-  set(walls, W - 1, 11, 'walltop-inner-nw');
+  set(walls, cols - 1, 11, 'walltop-inner-nw');
   set(walls, 1, 1, 'face-upper-l');
   set(walls, 1, 2, 'face-lower-l');
-  set(walls, W - 2, 1, 'face-upper-r');
-  set(walls, W - 2, 2, 'face-lower-r');
+  set(walls, cols - 2, 1, 'face-upper-r');
+  set(walls, cols - 2, 2, 'face-lower-r');
 
   const tileset = {
     firstgid: 1, name: sheet, image: `../../tilesets/${sheet}-ex.png`,
@@ -79,8 +79,8 @@ export function shell(world: string, seed = 7): Shell {
   return { sheet, floor, walls, gid, set, tileset, tilecount: tsj.tilecount };
 }
 
-export const tileLayer = (id: number, name: string, data: number[]) => ({
-  id, name, type: 'tilelayer', x: 0, y: 0, width: W, height: H, opacity: 1, visible: true, data,
+export const tileLayer = (id: number, name: string, data: number[], cols = W) => ({
+  id, name, type: 'tilelayer', x: 0, y: 0, width: cols, height: H, opacity: 1, visible: true, data,
 });
 
 /** Parses the map with the game's own parser before writing, so a broken room is never written. */

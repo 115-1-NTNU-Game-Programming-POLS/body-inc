@@ -29,6 +29,7 @@
 | Port | 調度口，收下送進來的箱子，收滿就打開一扇門，見下方「調度口」 | `need` 要收幾個箱子；`target` 選收滿時要開的門；`dialogueId` 收滿時開啟的對話，可留空；**必須畫成矩形**，每間房最多一個 |
 | Bed | 床 | `bedType` 是 `nap` 或 `sleep`；`requires` 條件式，成立才能用；`unlocks` 是午睡沙發第一次用時順便解鎖的手冊頁代號，可留空 |
 | Pickup | 撿得起來的道具，走近按 E 或 Enter | `itemType` 道具種類；`itemId` 見下方「道具與員工手冊」；`when` 條件式 |
+| EvidenceSlot | 證據牆上掛節點的位置，只用在 `tools/maps/make-wall.ts` 產生的證據牆房間 | `day` 第幾天（1 到 10）；`lane` 是 `upper`、`lower` 或工單板的 `liver`；`order` 同一格裡的第幾個。每天每條軌道要有 3 個、工單板要有 8 個，地圖檢查會數；沒有任何 EvidenceSlot 的房間不受影響 |
 
 Trigger 的 `event` 有七種。`checkpoint` 是打卡機：營運長踩上去時存檔、補滿心，之後強制下班會回到這裡，每次踩上去都算，不受 `once` 影響。`clock_advance` 讓章內時鐘前進，`eventId` 填分鐘數，必須是 1 到 4 位數的整數，例如 `20`；留空、寫小數、`1e1` 或文字都會被地圖檢查擋下。`dialogue` 開啟對話，`eventId` 填對話 id。`card` 翻開一張事件卡，`eventId` 填這一章卡組裡事件卡的 id，寫法見下方「卡片」一節。`rescue` 開啟一段急救，`eventId` 填 `content/rescue.json` 裡的 id，見「肝臟工廠與急救」一節。`cutscene` 會通知外層的過場，那個功能完成前沒有反應。`end` 結束這一章，`eventId` 留空，效果與 `sleep` 床相同，用在不以睡覺收尾的章節，例如序章下班打卡；它的 `when` 會被完成檢查當成「床的條件」來看，所以章節裡至少要有一張 `sleep` 床或一個 `end` 觸發點。
 

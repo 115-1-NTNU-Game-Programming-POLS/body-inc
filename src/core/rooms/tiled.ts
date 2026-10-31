@@ -8,6 +8,7 @@ import { conveyorTiles, KEEP_CLEAR, tileBox, tileOf } from './boxes.ts';
 import { canMeet } from './entry.ts';
 import { objectBox } from './interact.ts';
 import { keyOf, keysFor, parseClockWindow, SWITCH_KINDS, switchesFor } from './locks.ts';
+import { slotProblems } from './slots.ts';
 import { dockTiles, solidDock } from '../liver/factory.ts';
 
 /**
@@ -141,7 +142,11 @@ export type RoomProblemCode =
    */
   | 'dock-blocked'
   /** A Box drawn with boxType acetaldehyde: those crates come only out of the first line. */
-  | 'box-acetaldehyde';
+  | 'box-acetaldehyde'
+  /** A wall room whose track or board has not exactly the slots the game fills (see core/rooms/slots.ts). */
+  | 'slot-count'
+  /** Two EvidenceSlots with the same track, day and order. */
+  | 'slot-duplicate';
 
 export interface RoomProblem {
   readonly code: RoomProblemCode;
@@ -368,6 +373,7 @@ export function readRoom(id: string, map: TiledMap, dict: TagDictionary): ReadRe
   }
 
   if (objects.filter((o) => o.kind === 'PlayerStart').length > 1) problems.push({ code: 'multiple-start' });
+  problems.push(...slotProblems(objects));
   const byId = new Map(objects.map((o) => [o.id, o]));
   const locked = objects.map((o) => (o.kind === 'Door' ? lockedDoor(o, dict, problems) : o));
   // First, so the dock is solid for every check below, as it will be in the game.

@@ -146,6 +146,13 @@ export function conditionMessage(p: ConditionProblem): string {
   }
 }
 
+/** "upper/3" is the upper track of day 3; "liver" is the board for the liver's work orders. */
+function slotCell(cell: string): string {
+  if (cell === 'liver') return '肝臟工單展板';
+  const [lane, day] = cell.split('/');
+  return `第 ${day} 天${lane === 'upper' ? '上軌' : '下軌'}`;
+}
+
 function problemMessage(p: RoomProblem): string {
   const a = p.args ?? {};
   switch (p.code) {
@@ -195,6 +202,8 @@ function problemMessage(p: RoomProblem): string {
     case 'line-missing': return `房間有產線（Line），但缺少 stage 為 ${a['stage']} 的那一個；工廠房間要有收貨區（receiving）、出貨口（outlet）與第二產線（intake）各一`;
     case 'dock-blocked': return `${a['kind']} 壓在收貨區上；收貨區的格子在遊戲中永遠是實心的，第二產線與調度口收不到箱子，其他物件會卡在櫃檯裡，請移到收貨區外`;
     case 'box-acetaldehyde': return '乙醛箱只由第一產線產生，不能直接放在地圖上；boxType 請改用其他種類';
+    case 'slot-count': return `證據牆的${slotCell(String(a['cell']))}要剛好 ${a['want']} 個槽（EvidenceSlot），order 從 1 排到 ${a['want']}，目前有 ${a['have']} 個`;
+    case 'slot-duplicate': return `證據牆的${slotCell(String(a['cell']))}已經有 order ${a['order']} 的槽 #${a['other']}；同一格內每個 order 只能用一次`;
   }
 }
 
