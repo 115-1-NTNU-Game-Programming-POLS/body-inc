@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { PUPPET_HOP_PX, PUPPET_PERIOD_MS, PUPPET_SWAY_DEG, puppetPose } from '../../src/view/actors/puppet.ts';
+import { PUPPET_HOP_PX, PUPPET_PERIOD_MS, PUPPET_SWAY_DEG, puppetPose, puppetSway } from '../../src/view/actors/puppet.ts';
 
 const samples = Array.from({ length: 4001 }, (_, i) => puppetPose(i * 0.5));
 
@@ -29,5 +29,40 @@ describe('paper-puppet pose', () => {
     const period = samples.filter((_, i) => i * 0.5 < 400);
     const rises = period.filter((p, i) => i > 0 && p.hop === PUPPET_HOP_PX && period[i - 1]!.hop < PUPPET_HOP_PX);
     expect(rises).toHaveLength(2);
+  });
+});
+
+describe('when a puppet sways', () => {
+  const walking = { phase: 'idle', frozen: 0 } as const;
+  // 100 ms into a walk is the far end of the sway: 4 degrees and the full hop.
+  const at100 = (enemy: { phase: 'idle' | 'windup' | 'strike' | 'recover'; frozen: number }, moving = true, motion: string | undefined = 'puppet') =>
+    puppetSway(1000, 1100, motion, moving, enemy);
+
+  it('sways and lifts a walking puppet', () => {
+    const s = at100(walking);
+    expect(s.angle).toBeCloseTo(4);
+    expect(s.dy).toBe(-PUPPET_HOP_PX);
+    expect(s.since).toBe(1000);
+    expect(at100({ phase: 'recover', frozen: 0 }).angle).toBeCloseTo(4);
+  });
+
+  it('keeps windup, strike and hurt upright, even while moving', () => {
+    for (const enemy of [{ phase: 'windup', frozen: 0 }, { phase: 'strike', frozen: 0 }, { phase: 'idle', frozen: 3 }] as const) {
+      expect(at100(enemy)).toEqual({ since: undefined, angle: 0, dy: 0 });
+    }
+  });
+
+  it('keeps a standing puppet and every non-puppet upright', () => {
+    expect(at100(walking, false)).toEqual({ since: undefined, angle: 0, dy: 0 });
+    expect(puppetSway(1000, 1100, undefined, true, walking)).toEqual({ since: undefined, angle: 0, dy: 0 });
+  });
+
+  it('starts each walk upright, timed from its own first frame', () => {
+    const first = puppetSway(undefined, 5000, 'puppet', true, walking);
+    expect(first.since).toBe(5000);
+    expect(first.angle).toBeCloseTo(0);
+    expect(puppetSway(first.since, 5100, 'puppet', true, walking).angle).toBeCloseTo(4);
+    const stopped = puppetSway(5000, 5150, 'puppet', false, walking);
+    expect(puppetSway(stopped.since, 5175, 'puppet', true, walking)).toMatchObject({ since: 5175, dy: 0 });
   });
 });
