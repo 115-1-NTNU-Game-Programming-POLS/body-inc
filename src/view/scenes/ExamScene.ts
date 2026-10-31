@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { str } from '../../app/content.ts';
+import { fillStr as fill, str } from '../../app/content.ts';
 import { sharedKeys, type KeyboardInput } from '../../app/input.ts';
 import type { FixedStepLoop } from '../../app/loop.ts';
 import type { ChapterState, ExamForecast, ExamPanel, ExamResult, GameEvent, Settings } from '../../core/index.ts';
@@ -10,8 +10,6 @@ const PAPER = 0xfbfaf6;
 const PANEL = { w: 680, padding: 28 } as const;
 
 const pct = (x: number) => String(Math.round(x * 100));
-const fill = (key: string, values: Readonly<Record<string, string | number>>) =>
-  Object.entries(values).reduce((s, [k, v]) => s.replaceAll(`{${k}}`, String(v)), str(key));
 
 /**
  * The exam's forecast before the fight and its result after (design doc 7.6), over the frozen

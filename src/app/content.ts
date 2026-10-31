@@ -32,6 +32,9 @@ export const str = (key: string): string => {
   if (!s) throw new Error(`content/strings has no "${key}"`);
   return s.text;
 };
+/** A screen string with each `{name}` placeholder replaced by its value; a placeholder with no value is left as written. */
+export const fillStr = (key: string, values: Readonly<Record<string, string | number>>): string =>
+  Object.entries(values).reduce((s, [k, v]) => s.replaceAll(`{${k}}`, String(v)), str(key));
 export const PARAMS = readContent('params', paramsJson).defaults;
 /** Every file in content/bosses. One left out stops startup: its enemy then names a boss with no file. */
 export const BOSS_FILES: readonly unknown[] = [caffeineJson, toastJson];

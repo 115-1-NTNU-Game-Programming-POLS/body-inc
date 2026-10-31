@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { addText } from '../text/fonts.ts';
-import { CARD } from '../text/styles.ts';
+import { CARD, cardWidth } from '../text/styles.ts';
 
 const INK = 0x0c2d5e;
 const STAMP_RED = 0xc8372d;
@@ -24,6 +24,7 @@ export interface CardTexts {
 interface Face {
   readonly frame: Phaser.GameObjects.Graphics;
   readonly badge: Phaser.GameObjects.Graphics;
+  readonly w: number;
   readonly h: number;
 }
 
@@ -50,13 +51,15 @@ export class CardTable {
     const top = y + title.displayHeight + 40;
 
     const n = texts.options.length;
-    const left = cx - (n * CARD.width + (n - 1) * CARD.gap) / 2;
+    const w = cardWidth(n, scene.scale.width);
+    const inner = w - 2 * CARD.padding;
+    const left = cx - (n * w + (n - 1) * CARD.gap) / 2;
     const bodies = texts.options.map((o, i) => {
       const label = addText(scene, CARD.padding, STRIP_H + 44, o.label, {
-        role: CARD.label.role, weight: 700, size: CARD.label.fontSize * scale, color: '#0c2d5e', maxWidth: CARD.innerWidth, lineHeight: CARD.label.lineHeight,
+        role: CARD.label.role, weight: 700, size: CARD.label.fontSize * scale, color: '#0c2d5e', maxWidth: inner, lineHeight: CARD.label.lineHeight,
       });
       const note = addText(scene, CARD.padding, label.y + label.displayHeight + 14, o.note, {
-        role: CARD.note.role, weight: 400, size: CARD.note.fontSize * scale, color: '#2b3448', maxWidth: CARD.innerWidth, lineHeight: CARD.note.lineHeight,
+        role: CARD.note.role, weight: 400, size: CARD.note.fontSize * scale, color: '#2b3448', maxWidth: inner, lineHeight: CARD.note.lineHeight,
       });
       const number = addText(scene, CARD.padding + BADGE_R, STRIP_H + 22, String(i + 1), { role: 'print', weight: 700, size: 16, color: '#fbfaf6' }).setOrigin(0.5);
       return { label, note, number, bottom: note.y + note.displayHeight + CARD.padding };
@@ -66,11 +69,11 @@ export class CardTable {
     bodies.forEach((b, i) => {
       const frame = scene.add.graphics();
       const badge = scene.add.graphics();
-      const zone = scene.add.zone(0, 0, CARD.width, h).setOrigin(0, 0).setInteractive({ useHandCursor: true });
+      const zone = scene.add.zone(0, 0, w, h).setOrigin(0, 0).setInteractive({ useHandCursor: true });
       zone.on('pointerdown', () => onPick(i));
       if (onHover) zone.on('pointerover', () => onHover(i));
-      this.layer.add(scene.add.container(left + i * (CARD.width + CARD.gap), top, [frame, badge, b.label, b.note, b.number, zone]));
-      this.faces.push({ frame, badge, h });
+      this.layer.add(scene.add.container(left + i * (w + CARD.gap), top, [frame, badge, b.label, b.note, b.number, zone]));
+      this.faces.push({ frame, badge, w, h });
     });
   }
 
@@ -79,10 +82,10 @@ export class CardTable {
     this.faces.forEach((f, i) => {
       const on = i === cursor;
       const g = f.frame.clear();
-      g.fillStyle(INK, 0.2).fillRoundedRect(SHADOW, SHADOW, CARD.width, f.h, CORNERS);
-      g.fillStyle(PAPER).fillRoundedRect(0, 0, CARD.width, f.h, CORNERS);
-      g.fillStyle(LIFE_STRIP).fillRect(CORNERS.tl, 0, CARD.width - CORNERS.tl - CORNERS.tr, STRIP_H);
-      g.lineStyle(on ? 3 : 1, INK, on ? 1 : 0.5).strokeRoundedRect(on ? 1.5 : 0.5, on ? 1.5 : 0.5, CARD.width - (on ? 3 : 1), f.h - (on ? 3 : 1), CORNERS);
+      g.fillStyle(INK, 0.2).fillRoundedRect(SHADOW, SHADOW, f.w, f.h, CORNERS);
+      g.fillStyle(PAPER).fillRoundedRect(0, 0, f.w, f.h, CORNERS);
+      g.fillStyle(LIFE_STRIP).fillRect(CORNERS.tl, 0, f.w - CORNERS.tl - CORNERS.tr, STRIP_H);
+      g.lineStyle(on ? 3 : 1, INK, on ? 1 : 0.5).strokeRoundedRect(on ? 1.5 : 0.5, on ? 1.5 : 0.5, f.w - (on ? 3 : 1), f.h - (on ? 3 : 1), CORNERS);
       f.badge.clear().fillStyle(on ? STAMP_RED : INK).fillCircle(CARD.padding + BADGE_R, STRIP_H + 22, BADGE_R);
     });
   }
