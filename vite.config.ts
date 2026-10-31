@@ -11,5 +11,7 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: ['test/**/*.test.ts'],
+    // Tests that spawn a check script or replay a whole exam run past 5 s when all workers share the machine.
+    testTimeout: 30_000,
   },
 });
