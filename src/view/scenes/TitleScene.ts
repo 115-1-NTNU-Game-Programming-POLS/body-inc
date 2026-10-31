@@ -143,7 +143,7 @@ export class TitleScene extends Phaser.Scene {
     const dev = (this.registry.get('dev-semester') as SemesterData | undefined) ?? {};
     const data: SemesterData = resume === undefined ? dev : { resume, ...(demo ? { demo } : {}) };
     // The first semester is the scripted week with its own courses; after it the player picks (design doc 8.3). A dev semester picks nothing.
-    const done = (this.registry.get('progress') as ProgressData | undefined)?.semestersDone ?? 0;
+    const done = (this.registry.get('progress') as ProgressData | undefined)?.semestersDone ?? 1;
     const picks = resume === undefined && dev.seed === undefined && dev.bbqDays === undefined && done > 0;
     window.setTimeout(() => this.scene.start(picks ? 'Courses' : 'Semester', data), 0);
   }

@@ -34,7 +34,7 @@ export const MAX_CREDITS = 22;
 export const BASE_CREDITS = 12;
 const THRESHOLD_PER_CREDIT = 0.08;
 
-export type SelectionProblem = 'unknown' | 'closed' | 'duplicate' | 'few' | 'many' | 'low_credits' | 'high_credits';
+export type SelectionProblem = 'unknown' | 'duplicate' | 'few' | 'many' | 'low_credits' | 'high_credits';
 
 const creditsIn = (table: readonly Course[], ids: readonly string[]): number =>
   ids.reduce((sum, id) => sum + (table.find((c) => c.id === id)?.credits ?? 0), 0);
@@ -43,13 +43,12 @@ export const creditsOf = (ids: readonly string[]): number => creditsIn(COURSES, 
 
 /**
  * The first rule of design doc 8.3 the selection breaks, or undefined when it can start a semester.
- * `table` is the card table; the open pool is too small to reach the credit limits, so a test
- * passes a table with every card open.
+ * Which cards are offered (`open`) is the picker's business, not a rule: a saved run must keep
+ * replaying when a card is closed again. `table` is the card table; the nine cards cannot reach
+ * the top credit limit, so a test passes a heavier one.
  */
 export function selectionProblem(ids: readonly string[], table: readonly Course[] = COURSES): SelectionProblem | undefined {
-  const card = (id: string): Course | undefined => table.find((c) => c.id === id);
-  if (ids.some((id) => card(id) === undefined)) return 'unknown';
-  if (ids.some((id) => !card(id)!.open)) return 'closed';
+  if (ids.some((id) => !table.some((c) => c.id === id))) return 'unknown';
   if (new Set(ids).size !== ids.length) return 'duplicate';
   if (ids.length < MIN_COURSES) return 'few';
   if (ids.length > MAX_COURSES) return 'many';
@@ -88,6 +87,10 @@ export function committedHours(courses: readonly string[], day: number): Readonl
   for (const id of courses) for (const c of COMMITMENTS[id] ?? []) if (c.day === day) c.hours.forEach((h) => hours.add(h));
   return hours;
 }
+
+/** Whether a course takes hour `h` of `day`; the day's loop asks every hour, so this allocates nothing. */
+export const isCommitted = (courses: readonly string[], day: number, h: number): boolean =>
+  courses.some((id) => (COMMITMENTS[id] ?? []).some((c) => c.day === day && c.hours.includes(h)));
 
 /** A passed semester's review: the grade times the reward of its burden. */
 export const reviewPoints = (grade: number, credits: number): number => grade * BURDEN_REWARD[burdenOf(credits)];

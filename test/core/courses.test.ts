@@ -1,12 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
-  BURDEN_REWARD, burdenOf, committedHours, COURSES, creditsOf, OPEN_COURSES, playDay, reviewPoints, selectionProblem, startSemester, thresholdMult,
+  BURDEN_REWARD, burdenOf, committedHours, COURSES, creditsOf, isCommitted, OPEN_COURSES, playDay, reviewPoints, selectionProblem, startSemester, thresholdMult,
   type Course, type SemesterContext, type SemesterState, type Strategy,
 } from '../../src/core/index.ts';
 import { contextFor } from '../../sim/semester/scenario.ts';
 
 const OPEN = ['algorithms', 'os', 'database', 'compiler', 'ta'];
-const allOpen: readonly Course[] = COURSES.map((c) => ({ ...c, open: true }));
 
 describe('the course selection (design doc 8.3)', () => {
   it('opens the five cards of the presentation and lists all nine', () => {
@@ -21,15 +20,16 @@ describe('the course selection (design doc 8.3)', () => {
     expect(selectionProblem(['algorithms', 'os', 'database'])).toBe('few');
     expect(selectionProblem(['algorithms', 'os', 'database', 'ta', 'ta'])).toBe('duplicate');
     expect(selectionProblem(['algorithms', 'os', 'database', 'nope'])).toBe('unknown');
-    expect(selectionProblem(['algorithms', 'os', 'database', 'networks'])).toBe('closed');
-    expect(selectionProblem([...OPEN, 'internship'], allOpen)).toBeUndefined();
-    expect(selectionProblem([...OPEN, 'internship', 'networks'], allOpen)).toBe('many');
+    expect(selectionProblem([...OPEN, 'internship'])).toBeUndefined();
+    expect(selectionProblem([...OPEN, 'internship', 'networks'])).toBe('many');
+    // Which cards are offered is the picker's business: a card the presentation does not open still passes the rules.
+    expect(selectionProblem(['algorithms', 'os', 'database', 'networks'])).toBeUndefined();
   });
 
-  it('keeps the credits between 9 and 22 (checked on a table with every card open)', () => {
-    expect(selectionProblem(['ta', 'internship', 'algorithms', 'os'], allOpen)).toBe('low_credits');
-    expect(selectionProblem(['algorithms', 'os', 'database', 'ta'], allOpen)).toBeUndefined();
-    const heavy: readonly Course[] = allOpen.map((c) => ({ ...c, credits: 4 }));
+  it('keeps the credits between 9 and 22 (the top limit is checked on a heavier table)', () => {
+    expect(selectionProblem(['ta', 'internship', 'algorithms', 'os'])).toBe('low_credits');
+    expect(selectionProblem(['algorithms', 'os', 'database', 'ta'])).toBeUndefined();
+    const heavy: readonly Course[] = COURSES.map((c) => ({ ...c, credits: 4 }));
     expect(selectionProblem(['algorithms', 'os', 'software', 'networks', 'database', 'compiler'], heavy)).toBe('high_credits');
   });
 
@@ -52,6 +52,7 @@ describe('the course selection (design doc 8.3)', () => {
     expect([...committedHours(['ta'], 8)]).toEqual([16, 17]);
     for (const day of [1, 3, 4, 5, 6, 7, 9, 10]) expect(committedHours(['ta'], day).size, `day ${day}`).toBe(0);
     expect(committedHours(['algorithms', 'os'], 2).size).toBe(0);
+    for (let day = 1; day <= 10; day++) for (let h = 0; h < 28; h++) expect(isCommitted(['ta'], day, h), `day ${day} hour ${h}`).toBe(committedHours(['ta'], day).has(h));
   });
 });
 
@@ -67,7 +68,7 @@ describe('the courses in the semester rules', () => {
 
   it('refuses to start a semester on a selection that breaks a rule', () => {
     expect(() => startSemester(withCourses(['algorithms']), 1)).toThrow(/few/);
-    expect(() => startSemester(withCourses(['algorithms', 'os', 'database', 'networks']), 1)).toThrow(/closed/);
+    expect(() => startSemester(withCourses(['algorithms', 'os', 'database', 'ta', 'ta']), 1)).toThrow(/duplicate/);
   });
 
   it('scales both exam thresholds with the credits and leaves a semester without courses as it was', () => {

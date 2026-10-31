@@ -7,7 +7,7 @@ import { addCauses, record, type NodeData, type SourceNodeKind } from '../tags/c
 import type { TagDictionary } from '../tags/dictionary.ts';
 import { addAmount, amount, EMPTY_TAGS, flag, holds, lowerAmount, onWake, setAmount, setFlag, type TagState } from '../tags/store.ts';
 import { EMPTY_LOADS, elevatorPanel, FLOORS, lightOf, litFloors, mapFloors, type FloorId } from './floors.ts';
-import { committedHours, creditsOf, selectionProblem, thresholdMult } from './courses.ts';
+import { creditsOf, isCommitted, selectionProblem, thresholdMult } from './courses.ts';
 import { liverClues, liverStrikes } from './liver.ts';
 import { contributions, nextLoad, strikes, type DayFacts } from './load.ts';
 import { examPerformance, gradeFor } from './rating.ts';
@@ -181,7 +181,7 @@ function activityAt(d: DayRun, h: number, rest: ReadonlySet<number>): Activity {
   if (d.exam !== null && k.examHours.includes(h)) return 'exam';
   if (!k.weekend.includes(d.s.day) && k.classes.includes(h)) return 'class';
   if (h === d.s.wake || k.meals.slice(1).includes(h)) return 'meal';
-  if (d.ctx.courses !== undefined && committedHours(d.ctx.courses, d.s.day).has(h)) return 'work';
+  if (d.ctx.courses !== undefined && isCommitted(d.ctx.courses, d.s.day, h)) return 'work';
   if (d.workLeft > 0) {
     d.workLeft -= 1;
     return 'work';

@@ -177,7 +177,7 @@ export function endSummary(state: SemesterState, ctx: SemesterContext): string[]
   if (ctx.courses !== undefined && sum.passMid && sum.passFin) {
     const credits = creditsOf(ctx.courses);
     const burden = burdenOf(credits);
-    lines.push(fill('semester.end.review', { points: percent(reviewPoints(sum.grade, credits)), burden: str(`semester.burden.${burden}`), mult: BURDEN_REWARD[burden].toFixed(2) }));
+    lines.push(fill('semester.end.review', { points: percent(reviewPoints(sum.grade, credits)), burden: str(`semester.burden.${burden}`), reward: BURDEN_REWARD[burden].toFixed(2) }));
   }
   return lines;
 }

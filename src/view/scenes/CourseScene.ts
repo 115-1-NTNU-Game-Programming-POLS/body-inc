@@ -90,7 +90,8 @@ export class CourseScene extends Phaser.Scene {
       const mark = course === undefined ? '' : this.picked.has(course.id) ? '[x] ' : '[ ] ';
       const label = course === undefined ? str('course.pick.start') : `${mark}${str(`course.name.${course.id}`)}　${fillStr('course.pick.credits', { n: course.credits })}`;
       updateText(row.name, label);
-      row.name.setColor(on ? INK : course === undefined && problem !== undefined ? DIM : PAPER).setBackgroundColor(on ? PAPER : 'rgba(0, 0, 0, 0)');
+      // The start row stays grey while the picks break a rule, even under the cursor, so Enter on it visibly cannot work.
+      row.name.setColor(course === undefined && problem !== undefined ? DIM : on ? INK : PAPER).setBackgroundColor(on ? PAPER : 'rgba(0, 0, 0, 0)');
     });
     const credits = creditsOf(picks);
     const head = fillStr('course.pick.summary', { n: picks.length, credits, burden: str(`semester.burden.${burdenOf(credits)}`), mult: thresholdMult(credits).toFixed(2) });
