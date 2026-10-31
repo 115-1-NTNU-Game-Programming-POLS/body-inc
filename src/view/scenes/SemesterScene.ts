@@ -1,16 +1,23 @@
 import Phaser from 'phaser';
 import {
-  COFFEE_PLANS, daySummary, endSummary, floorChoice, morningPlan, newSemester, NIGHT_PLANS, nightPlan, REST_PLANS, servesAlcohol, weekdayOf,
+  COFFEE_PLANS, daySummary, endSummary, floorChoice, morningPlan, newSemester, NIGHT_PLANS, nightPlan, REST_PLANS, servesAlcohol, visitReport, weekdayOf,
   type CoffeePlanId, type NightPlanId, type RestPlanId,
 } from '../../app/semester.ts';
 import { fillStr, str } from '../../app/content.ts';
-import { advanceDay, type Answer, type Ask, type DayView, type FloorId, type SemesterContext, type SemesterState, type Settings } from '../../core/index.ts';
-import { addText } from '../text/fonts.ts';
+import { keepPage } from '../../app/handbook.ts';
+import type { SaveStore } from '../../app/storage.ts';
+import {
+  advanceDay, type Answer, type Ask, type DayView, type FloorId, type ProgressData, type ReportDocument, type SemesterContext, type SemesterState, type Settings,
+} from '../../core/index.ts';
+import { addText, updateText } from '../text/fonts.ts';
 import { CardTable } from '../ui/cardTable.ts';
 import { ElevatorPanelView } from '../ui/elevatorPanel.ts';
 
 const DIM = '#c9d3e3';
 const PAPER = '#fbfaf6';
+const INK = '#0c2d5e';
+/** The report sheet of art direction 8.5: 720 wide, a 64 px binding margin on the left, 8 px hard shadow; at most 640 tall. */
+const SHEET = { y: 24, w: 720, h: 624, binding: 64, pad: 24, top: 28, footer: 40, shadow: 8 };
 /** How long a chosen card stays highlighted before the next question, so the choice is seen. */
 const CHOSEN_MS = 220;
 const CONFIRM = ['Enter', 'NumpadEnter', 'KeyJ', 'KeyE', 'Space'];
@@ -22,6 +29,8 @@ const PICK_PAD = ['Numpad1', 'Numpad2', 'Numpad3', 'Numpad4', 'Numpad5'];
 export interface SemesterData {
   /** Fixes the semester's events; a new game takes it from the clock. */
   readonly seed?: number;
+  /** Dev builds only: the days the barbecue falls on, in place of the ones the seed deals. */
+  readonly bbqDays?: readonly number[];
 }
 
 /** Whatever is on screen that a choice is made from: a row of cards or the elevator panel. */
@@ -42,6 +51,7 @@ interface Menu {
  */
 export class SemesterScene extends Phaser.Scene {
   private ctx!: SemesterContext;
+  private seed = 0;
   private state!: SemesterState;
   private answers: Answer[] = [];
   private menu: Menu | undefined;
@@ -58,7 +68,8 @@ export class SemesterScene extends Phaser.Scene {
 
   create(data: SemesterData): void {
     const seed = data.seed ?? (Date.now() % 2_147_483_647);
-    const fresh = newSemester(seed);
+    const fresh = newSemester(seed, data.bbqDays);
+    this.seed = seed;
     this.ctx = fresh.ctx;
     this.state = fresh.state;
     this.answers = [];
@@ -263,21 +274,117 @@ export class SemesterScene extends Phaser.Scene {
     this.onContinue = go;
   }
 
+  /**
+   * A report of the emergency room as a paper sheet, over as many pages as the text needs at the
+   * current text size. The handbook page it unlocks is kept when the sheet is first shown.
+   */
+  private report(doc: ReportDocument, progress: ProgressData, saves: SaveStore, go: () => void): void {
+    this.clear();
+    const scale = this.textScale;
+    const size = 18 * scale;
+    const sheetX = (this.scale.width - SHEET.w) / 2;
+    const textX = sheetX + SHEET.binding + SHEET.pad;
+    const width = SHEET.w - SHEET.binding - 2 * SHEET.pad;
+    const limit = SHEET.y + SHEET.h - SHEET.footer * scale;
+    const own = (o: Phaser.GameObjects.GameObject) => {
+      this.lines.push(o);
+      return o;
+    };
+    own(this.add.rectangle(sheetX + SHEET.shadow, SHEET.y + SHEET.shadow, SHEET.w, SHEET.h, 0x000000, 0.45).setOrigin(0, 0));
+    own(this.add.rectangle(sheetX, SHEET.y, SHEET.w, SHEET.h, 0xf4efe4).setOrigin(0, 0).setStrokeStyle(2, 0x0c2d5e));
+    own(this.add.rectangle(sheetX + SHEET.binding, SHEET.y + 12, 2, SHEET.h - 24, 0x0c2d5e, 0.35).setOrigin(0, 0));
+    for (const hy of [SHEET.y + SHEET.h * 0.25, SHEET.y + SHEET.h * 0.75]) own(this.add.circle(sheetX + SHEET.binding / 2, hy, 9, 0x2a3a52));
+
+    // Every paragraph is made first and measured, then dealt onto pages, so a page break never cuts a paragraph
+    // unless one alone is taller than a page; that one is cut between its own lines.
+    const pages: Phaser.GameObjects.Text[][] = [[]];
+    const top = SHEET.y + SHEET.top;
+    const capacity = limit - top;
+    let y = top;
+    const make = (line: string, i: number): Phaser.GameObjects.Text => {
+      const t = own(addText(this, textX, 0, line, {
+        role: i === 0 ? 'hand' : 'print', weight: i === 0 ? 700 : 400, size: i === 0 ? size * 1.2 : size, color: INK, maxWidth: width, lineHeight: 1.45,
+      })) as Phaser.GameObjects.Text;
+      return t.setVisible(false);
+    };
+    const place = (t: Phaser.GameObjects.Text): void => {
+      if (y + t.height > limit && pages[pages.length - 1]!.length > 0) {
+        pages.push([]);
+        y = top;
+      }
+      t.setY(y);
+      y += t.height + 6 * scale;
+      pages[pages.length - 1]!.push(t);
+    };
+    doc.lines.forEach((line, i) => {
+      if (line === '') {
+        y += size * 0.7;
+        return;
+      }
+      const t = make(line, i);
+      if (t.height <= capacity) return place(t);
+      // Fill what is left of this page first, then whole pages; the rows are already wrapped, so wrapping again keeps them as they are.
+      const rows = t.text.split('\n');
+      const rowHeight = t.height / rows.length;
+      for (let from = 0; from < rows.length;) {
+        let room = Math.floor((limit - y) / rowHeight);
+        if (room < 1) {
+          pages.push([]);
+          y = top;
+          room = Math.floor(capacity / rowHeight);
+        }
+        const part = from === 0 ? t : make('　', i);
+        updateText(part, rows.slice(from, from + room).join('\n'));
+        place(part);
+        from += room;
+      }
+    });
+    const foot = own(addText(this, sheetX + SHEET.w - SHEET.pad, SHEET.y + SHEET.h - 14, str('semester.sum.next'), {
+      role: 'print', weight: 700, size: 18 * scale, color: INK,
+    }).setOrigin(1, 1)) as Phaser.GameObjects.Text;
+    const showPage = (n: number): void => {
+      pages.forEach((p, i) => p.forEach((t) => t.setVisible(i === n)));
+      const last = n === pages.length - 1;
+      updateText(foot, last ? str('semester.sum.next') : fillStr('semester.report.more', { n: n + 1, total: pages.length }));
+      this.onContinue = last ? go : () => showPage(n + 1);
+    };
+    showPage(0);
+    this.keepReportPage(doc.unlock, progress, saves);
+  }
+
+  private keepReportPage(id: string, progress: ProgressData, saves: SaveStore): void {
+    const kept = keepPage(saves, progress, id);
+    if (kept.issues.length > 0) this.game.events.emit('save-issues', kept.issues);
+    this.registry.set('progress', kept.progress);
+  }
+
   private endOfDay(after: SemesterState): void {
     const before = this.state;
     const lines = daySummary(before, after, this.ctx);
     const title = fillStr('semester.sum.title', { n: before.day });
     this.head?.destroy();
     this.head = undefined;
-    if (!after.ended) {
-      return this.page(title, lines, str('semester.sum.next'), () => {
+    const next = (): void => {
+      if (!after.ended) {
         this.state = after;
         this.answers = [];
         this.ask();
-      });
-    }
-    this.page(title, lines, str('semester.sum.next'), () => {
+        return;
+      }
       this.page(str('semester.end.title'), endSummary(after, this.ctx), str('semester.end.back'), () => this.leave());
-    });
+    };
+    // The report is an addition to the day summary: if it cannot be written, or there is nowhere to keep the page it
+    // unlocks (Boot always sets both), the day goes on without it instead of leaving the screen half cleared.
+    const progress = this.registry.get('progress') as ProgressData | undefined;
+    const saves = this.registry.get('saves') as SaveStore | undefined;
+    let doc: ReportDocument | undefined;
+    if (progress !== undefined && saves !== undefined) {
+      try {
+        doc = visitReport(after, this.ctx, this.seed, new Set(progress.handbook));
+      } catch (err) {
+        console.error('close-out report skipped:', err);
+      }
+    }
+    this.page(title, lines, str('semester.sum.next'), doc === undefined || progress === undefined || saves === undefined ? next : () => this.report(doc, progress, saves, next));
   }
 }

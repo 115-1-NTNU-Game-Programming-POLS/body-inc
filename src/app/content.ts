@@ -9,12 +9,13 @@ import enemiesJson from '../../content/enemies.json';
 import feedbackJson from '../../content/feedback.json';
 import handbookJson from '../../content/handbook.json';
 import paramsJson from '../../content/params.json';
+import reportJson from '../../content/report.json';
 import rescueJson from '../../content/rescue.json';
 import speakersJson from '../../content/speakers.json';
 import stringsJson from '../../content/strings/zh-TW.json';
 import tagsJson from '../../content/tags.json';
 import {
-  loadBossTable, loadDeck, loadDictionary, loadDialogueTable, loadEnemyTable, loadExamTable, loadRescues, readContent,
+  loadBossTable, loadDeck, loadDictionary, loadDialogueTable, loadEnemyTable, loadExamTable, loadRescues, readContent, reportProblems,
   type BossTable, type ChapterFile, type Deck, type DialogueFile, type DialogueTable, type EnemyTable, type ExamTable, type RescueTable, type TagDictionary,
 } from '../core/index.ts';
 import { speakerProblems, type Speakers } from './dialogue.ts';
@@ -90,3 +91,8 @@ if (problems.length > 0) throw new Error(`content/feedback.json:\n  ${problems.j
 export const HANDBOOK = readContent('handbook', handbookJson);
 const pageProblems = handbookProblems(HANDBOOK, [{ file: 'content/strings/zh-TW.json', value: STRINGS }]);
 if (pageProblems.length > 0) throw new Error(`content/handbook.json:\n  ${pageProblems.join('\n  ')}`);
+
+/** The sentence bank of the close-out reports; tools/check-reports.ts plays the batch, this load stops startup on a broken bank. */
+export const REPORT = readContent('report', reportJson);
+const reportIssues = reportProblems(REPORT, (k) => STRINGS.strings[k]?.text, new Set(HANDBOOK.pages.map((p) => p.id)));
+if (reportIssues.length > 0) throw new Error(`content/report.json:\n  ${reportIssues.join('\n  ')}`);

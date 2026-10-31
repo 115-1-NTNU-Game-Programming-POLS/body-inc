@@ -1,8 +1,8 @@
 import {
-  amount, EVENTS, prototypeContext, startSemester, summarize,
-  type FloorChoice, type FloorId, type MorningPlan, type NightPlan, type SemesterContext, type SemesterState,
+  amount, composeReport, EVENTS, prototypeContext, semesterInputs, startSemester, summarize, withBarbecueOn,
+  type FloorChoice, type FloorId, type MorningPlan, type NightPlan, type ReportDocument, type SemesterContext, type SemesterState,
 } from '../core/index.ts';
-import { fillStr as fill, PARAMS, str, TAGS } from './content.ts';
+import { fillStr as fill, PARAMS, REPORT, str, STRINGS, TAGS } from './content.ts';
 
 /**
  * The patrol is not played yet (design doc 8.5 wants four rooms per patrol): its grade is drawn from
@@ -15,8 +15,10 @@ export function semesterContext(seed: number): SemesterContext {
   return prototypeContext(TAGS, PARAMS, PATROL_SKILL, seed);
 }
 
-export const newSemester = (seed: number): { ctx: SemesterContext; state: SemesterState } => {
-  const ctx = semesterContext(seed);
+/** `bbqDays` is a dev override (app/session.ts semesterFromQuery); a normal game takes the events its seed deals. */
+export const newSemester = (seed: number, bbqDays?: readonly number[]): { ctx: SemesterContext; state: SemesterState } => {
+  const dealt = semesterContext(seed);
+  const ctx = bbqDays === undefined ? dealt : { ...dealt, scenario: withBarbecueOn(dealt.scenario, bbqDays) };
   return { ctx, state: startSemester(ctx, seed) };
 };
 
@@ -83,6 +85,25 @@ export function daySummary(before: SemesterState, after: SemesterState, ctx: Sem
   if (rec.kind === 'hospital') lines.push(str('semester.sum.hospital_day'));
   if (rec.hospitalized) lines.push(str(after.bankrupt ? 'semester.sum.bankrupt' : 'semester.sum.hospital'));
   return lines;
+}
+
+/**
+ * The document the emergency room of the day just finished produced (a closure notice for the
+ * first visit, a bankruptcy report for the second), or nothing when the day sent no one there.
+ * `known` is the handbook pages the player holds before reading it, which decides whether the
+ * report says a page is unlocked or only referred to.
+ */
+export function visitReport(state: SemesterState, ctx: SemesterContext, seed: number, known: ReadonlySet<string>): ReportDocument | undefined {
+  const last = state.history[state.history.length - 1];
+  if (last?.crisis === undefined) return undefined;
+  const text = (k: string): string => {
+    const s = STRINGS.strings[k];
+    if (!s) throw new RangeError(`content/strings has no "${k}"`);
+    return s.text;
+  };
+  // Only the visit this day ended is written; the earlier ones were shown on their own days.
+  const input = semesterInputs(state, ctx, { cfg: REPORT, text, seed, known }).at(-1);
+  return input === undefined ? undefined : composeReport(input, { cfg: REPORT, text, seed });
 }
 
 /** The semester's result once it has ended: the two exams, the grade, and how the semester went. */

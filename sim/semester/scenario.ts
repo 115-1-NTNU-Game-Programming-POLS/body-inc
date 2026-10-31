@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { EVENTS, loadDictionary, prototypeContext, readContent, scenarioFor, type Scenario, type SemesterContext } from '../../src/core/index.ts';
+import { EVENTS, loadDictionary, prototypeContext, readContent, scenarioFor, withBarbecueOn, type Scenario, type SemesterContext } from '../../src/core/index.ts';
 
 export { EVENTS, scenarioFor };
 
@@ -10,28 +10,13 @@ const read = (file: string): unknown => JSON.parse(readFileSync(new URL(`../../c
  * omen guarantee and the daily sleep repair leave no shorter way (design doc 8.6 keeps a couple of
  * drinking nights from breaking the liver). Late snacks and deadlines are as in `scenarioFor`.
  */
-export function bingeWeek(seed: number): Scenario {
-  const days: Record<number, string[]> = {};
-  for (const [day, ids] of Object.entries(scenarioFor(seed))) days[Number(day)] = ids.filter((id) => id !== 'bbq');
-  for (const day of [2, 3, 4]) (days[day] ??= []).push('bbq');
-  return days;
-}
+export const bingeWeek = (seed: number): Scenario => withBarbecueOn(scenarioFor(seed), [2, 3, 4]);
 
 /** Barbecues on days 2 to 4 and again on 6 and 7: enough for a second trip to the emergency room. */
-export function bingeTwice(seed: number): Scenario {
-  const days: Record<number, string[]> = {};
-  for (const [day, ids] of Object.entries(bingeWeek(seed))) days[Number(day)] = [...ids];
-  for (const day of [6, 7]) (days[day] ??= []).push('bbq');
-  return days;
-}
+export const bingeTwice = (seed: number): Scenario => withBarbecueOn(scenarioFor(seed), [2, 3, 4, 6, 7]);
 
 /** A barbecue on every evening of days 2 to 9, for a player who drinks but eats first. */
-export function drinkWeek(seed: number): Scenario {
-  const days: Record<number, string[]> = {};
-  for (const [day, ids] of Object.entries(scenarioFor(seed))) days[Number(day)] = ids.filter((id) => id !== 'bbq');
-  for (let day = 2; day <= 9; day++) (days[day] ??= []).push('bbq');
-  return days;
-}
+export const drinkWeek = (seed: number): Scenario => withBarbecueOn(scenarioFor(seed), [2, 3, 4, 5, 6, 7, 8, 9]);
 
 /** A late snack on every evening of days 2 to 9 and a deadline on four of them, with no barbecue. */
 export function crunchWeek(_seed: number): Scenario {
