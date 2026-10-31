@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { tagKey, type ManifestEntry } from '../../app/assets.ts';
+import { motionOf, tagKey, type ManifestEntry } from '../../app/assets.ts';
 import { REFORM_TICKS, TICK_HZ, type EnemyState } from '../../core/index.ts';
 import { tier1Flash } from '../fx/telegraph.ts';
 import { REFORM_STAGES } from '../fx/textures.ts';
@@ -70,7 +70,7 @@ export class EnemyView {
     const side = Math.abs(dir.x) > Math.abs(dir.y);
     const d = side ? 'side' : dir.y < 0 ? 'up' : 'down';
     const moving = cur.x !== p.x || cur.y !== p.y;
-    const sway = puppetSway(this.walkSince, ms, this.entry.motion, moving, cur);
+    const sway = puppetSway(this.walkSince, ms, motionOf(this.entry), moving, cur);
     this.walkSince = sway.since;
     // Reforming enemies bob 2 px on a 1.6 s sine (art direction 5.6).
     const bob = cur.category === 'reforming' ? Math.round(Math.sin((ms / 1600) * Math.PI * 2) * 2) : 0;

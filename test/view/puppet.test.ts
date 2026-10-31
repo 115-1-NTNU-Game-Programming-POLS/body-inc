@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { Motion } from '../../src/app/assets.ts';
 import { PUPPET_HOP_PX, PUPPET_PERIOD_MS, PUPPET_SWAY_DEG, puppetPose, puppetSway } from '../../src/view/actors/puppet.ts';
 
 const samples = Array.from({ length: 4001 }, (_, i) => puppetPose(i * 0.5));
@@ -35,7 +36,7 @@ describe('paper-puppet pose', () => {
 describe('when a puppet sways', () => {
   const walking = { phase: 'idle', frozen: 0 } as const;
   // 100 ms into a walk is the far end of the sway: 4 degrees and the full hop.
-  const at100 = (enemy: { phase: 'idle' | 'windup' | 'strike' | 'recover'; frozen: number }, moving = true, motion: string | undefined = 'puppet') =>
+  const at100 = (enemy: { phase: 'idle' | 'windup' | 'strike' | 'recover'; frozen: number }, moving = true, motion: Motion | undefined = 'puppet') =>
     puppetSway(1000, 1100, motion, moving, enemy);
 
   it('sways and lifts a walking puppet', () => {

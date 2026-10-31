@@ -12,7 +12,11 @@ export interface ManifestEntry {
   readonly motion?: string;
 }
 
-export const MOTIONS: readonly string[] = ['puppet'];
+export const MOTIONS = ['puppet'] as const;
+export type Motion = (typeof MOTIONS)[number];
+
+/** The entry's motion once the manifest has passed tlasProblems; anything else reads as no motion. */
+export const motionOf = (entry: ManifestEntry): Motion | undefined => MOTIONS.find((m) => m === entry.motion);
 
 export interface Manifest {
   readonly version: number;
@@ -44,7 +48,7 @@ export function atlasUrls(index: AtlasIndex, key: string): { png: string; json: 
  */
 export function atlasProblems(entry: ManifestEntry, atlas: AsepriteJson): string[] {
   const problems: string[] = [];
-  if (entry.motion !== undefined && !MOTIONS.includes(entry.motion)) problems.push(`${entry.key}: unknown motion "${entry.motion}"`);
+  if (entry.motion !== undefined && motionOf(entry) === undefined) problems.push(`${entry.key}: unknown motion "${entry.motion}"`);
   if (entry.motion === 'puppet') {
     for (const t of entry.tags) {
       if (t.name.startsWith('walk_') && t.frames !== 1) problems.push(`${entry.key}: a puppet walks on one drawn frame, but ${t.name} has ${t.frames}`);

@@ -2,7 +2,7 @@ import { chapterContent, chapterLoop, tryResume } from '../../src/app/chapters.t
 import { CHAPTERS, ENEMIES, TAGS } from '../../src/app/content.ts';
 import { readdirSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { atlasProblems, atlasUrls, type AsepriteJson, type Manifest } from '../../src/app/assets.ts';
+import { atlasProblems, atlasUrls, motionOf, type AsepriteJson, type Manifest } from '../../src/app/assets.ts';
 import { FixedStepLoop } from '../../src/app/loop.ts';
 import {
   createGame, EMPTY_TAGS, enterRoom, parseRoom, roomsOf, startChapter, startClock, step, TICK_MS, type TiledMap,
@@ -39,6 +39,7 @@ describe('asset contract', () => {
     const longWalk = { ...suit, tags: suit.tags.map((t) => (t.name === 'walk_side' ? { ...t, frames: 3 } : t)) };
     expect(atlasProblems(longWalk, atlas).some((p) => p.includes('walk_side has 3'))).toBe(true);
     expect(atlasProblems({ ...suit, motion: 'pupet' }, atlas)).toContain('suit-base: unknown motion "pupet"');
+    expect([motionOf(suit), motionOf({ ...suit, motion: 'pupet' }), motionOf((({ motion: _m, ...rest }) => rest)(suit))]).toEqual(['puppet', undefined, undefined]);
     const op = manifest.entries.find((e) => e.key === 'operator')!;
     expect(atlasProblems(op, load('operator'))).toEqual([]);
   });
