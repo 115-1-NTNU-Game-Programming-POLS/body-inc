@@ -197,6 +197,8 @@
     "bankruptAdviceHead": "report.doc.bankrupt_advice_head",
     "bankruptAdvice1": "report.doc.bankrupt_advice_1",
     "bankruptAdvice2": "report.doc.bankrupt_advice_2",
-    "bankruptAdvice3": "report.doc.bankrupt_advice_3"
+    "bankruptAdvice3": "report.doc.bankrupt_advice_3",
+    "wallStruck": "report.doc.wall_struck",
+    "wallMore": "report.doc.wall_more"
   }
 }
