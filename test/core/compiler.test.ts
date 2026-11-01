@@ -71,11 +71,11 @@ describe('the stuck point of sitting at the desk (design doc 8.3)', () => {
   });
 
   it('reaches the late-night study, where a planned walk costs a quarter of an hour as it does by day (issue 50)', () => {
-    // Day 3 sits at the desk through the evening, so the late hours begin at the stuck point.
-    const lateGain = (courses: readonly string[], walk: boolean, bed = 25): number => {
+    // Day 3 sits at the desk through the evening, so the late hours of a player who does not walk begin at the stuck point.
+    const lateGain = (courses: readonly string[], walk: boolean, bed = 25, rest: readonly number[] = []): number => {
       const ctx = ctxFor(courses);
       const play = (late: boolean): number =>
-        studied(playDay({ ...startSemester(ctx, 1), day: 3 }, ctx, { ...player({ walk }), night: () => ({ bed, nextWake: 7, lateNight: late ? 'study' : 'rest' }) }));
+        studied(playDay({ ...startSemester(ctx, 1), day: 3 }, ctx, { ...player({ walk, rest }), night: () => ({ bed, nextWake: 7, lateNight: late ? 'study' : 'rest' }) }));
       return play(true) - play(false);
     };
     const plain = lateGain(WITHOUT, false);
@@ -84,8 +84,12 @@ describe('the stuck point of sitting at the desk (design doc 8.3)', () => {
     expect(stuck).toBeLessThan(plain * 0.5);
     expect(walked).toBeGreaterThan(plain * 0.9);
     expect(walked).toBeLessThan(plain);
-    // One late hour is two half-hour steps: the walk in the first costs a quarter of the hour, not an eighth.
-    expect(lateGain(WITH, true, 23)).toBeCloseTo(lateGain(WITHOUT, false, 23) * WALK_EFFORT, 9);
+    // A rest hour before the evening leaves SIT_LIMIT - 1 hours at the desk, so the third half-hour step is the one that
+    // reaches the limit. The first two steps are at full efficiency, which makes the third exact: the walk takes a quarter of
+    // an hour out of its half hour, not an eighth.
+    const rest = [22 - SIT_LIMIT];
+    expect(lateGain(WITH, false, 23.5, rest)).toBeCloseTo(1 + 0.5 * STUCK_MULT, 9);
+    expect(lateGain(WITH, true, 23.5, rest)).toBeCloseTo(1.5 - (1 - WALK_EFFORT), 9);
   });
 
   it('refuses a walk without the card, which has no stuck point', () => {
