@@ -8,7 +8,7 @@ import { fillStr, REPORT, str } from '../../app/content.ts';
 import { keepPage } from '../../app/handbook.ts';
 import type { SaveStore } from '../../app/storage.ts';
 import {
-  advanceDay, buildWall, MAX_DEBUG_PER_NIGHT, MAX_RANK_HOURS, nightRoom, pinWall, projectRoom, rankGain, RANK_FULL, RANK_SHARE, reviewWall, RUN, WRITE_HOURS, type Answer, type Ask, type ChapterContent, type DayView, type FloorId, type HomeworkView, type ProgressData, type ReportDocument, type RunData,
+  advanceDay, buildWall, MAX_DEBUG_PER_NIGHT, MAX_RANK_HOURS, nightRoom, pinWall, projectDue, projectRoom, rankGain, RANK_FULL, RANK_SHARE, reviewWall, RUN, SIT_LIMIT, WRITE_HOURS, type Answer, type Ask, type ChapterContent, type DayView, type FloorId, type HomeworkView, type ProgressData, type ReportDocument, type RunData,
   type SemesterContext, type SemesterRun, type SemesterState, type Settings, type Wall,
 } from '../../core/index.ts';
 import { WALL_CHAPTER, wallLoop, type WallSession } from '../../app/wall.ts';
@@ -273,16 +273,18 @@ export class SemesterScene extends Phaser.Scene {
     const labels = hours.map((n) => (n === 0
       ? { label: str('semester.project.none'), note: str('semester.project.none.note') }
       : { label: fillStr('semester.project.hours', { hours: n }), note: fillStr('semester.project.hours.note', { hours: n }) }));
-    this.cards(labels, str('semester.project.title'), fillStr('semester.project.caption', { done: project.done.toFixed(1), need: project.need, room }), (i) => done(hours[i]!));
+    const caption = fillStr('semester.project.caption', { done: project.done.toFixed(1), need: project.need, room, limit: SIT_LIMIT });
+    this.cards(labels, fillStr('semester.project.title', { due: projectDue(this.ctx.params) }), caption, (i) => done(hours[i]!));
   }
 
   private askWalk(done: (walk: boolean) => void): void {
+    const limit = { limit: SIT_LIMIT };
     this.cards(
       [
-        { label: str('semester.walk.none'), note: str('semester.walk.none.note') },
-        { label: str('semester.walk.take'), note: str('semester.walk.take.note') },
+        { label: str('semester.walk.none'), note: fillStr('semester.walk.none.note', limit) },
+        { label: fillStr('semester.walk.take', limit), note: str('semester.walk.take.note') },
       ],
-      str('semester.walk.title'), str('semester.walk.caption'), (i) => done(i === 1),
+      str('semester.walk.title'), fillStr('semester.walk.caption', limit), (i) => done(i === 1),
     );
   }
 

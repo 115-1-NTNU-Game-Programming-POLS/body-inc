@@ -75,7 +75,7 @@ export const BURDEN_REWARD: Readonly<Record<Burden, number>> = { light: 1, stand
 export const thresholdMult = (credits: number): number =>
   1 + (credits > BASE_CREDITS ? THRESHOLD_PER_CREDIT_HEAVY : THRESHOLD_PER_CREDIT) * (credits - BASE_CREDITS);
 
-interface Commitment {
+export interface Commitment {
   readonly day: number;
   readonly hours: readonly number[];
 }
@@ -88,6 +88,9 @@ interface Commitment {
 const COMMITMENTS: Readonly<Record<string, readonly Commitment[]>> = {
   ta: [{ day: 2, hours: [16, 17] }, { day: 8, hours: [16, 17] }],
 };
+
+/** The fixed days of card `id`, for the text that tells the player when they fall. */
+export const commitmentsOf = (id: string): readonly Commitment[] => COMMITMENTS[id] ?? [];
 
 /** Whether the semester took the card `id`; a context without a course list (the old sims) takes none. */
 export const takes = (courses: readonly string[] | undefined, id: string): boolean => courses?.includes(id) === true;
@@ -183,6 +186,8 @@ export const nightRoom = (k: { readonly bedMax: number; readonly bedOverrun: num
  * it opens on day 3, needs 10 units of study-efficiency hours, and a day can give it 4 hours.
  */
 export const PROJECT_FROM_DAY = 3;
+/** The last day the project can be worked on: the day before the final. */
+export const projectDue = (k: { readonly finDay: number }): number => k.finDay - 1;
 export const PROJECT_NEED = 10;
 export const PROJECT_DAY_MAX = 4;
 export const PROJECT_REVIEW = 10;
@@ -216,6 +221,9 @@ export function projectRoom(
 export const SIT_LIMIT = 3;
 export const STUCK_MULT = 0.3;
 export const WALK_EFFORT = 0.75;
+
+/** The first and last day whose night holds a contest: the days between the midterm and the final. */
+export const rankNights = (k: { readonly midDay: number; readonly finDay: number }): { readonly from: number; readonly to: number } => ({ from: k.midDay + 1, to: k.finDay - 1 });
 
 /** Score that fills the board, the first hour's score at S = 1, how much each further hour of the same night keeps, and the most hours a night. */
 export const RANK_FULL = 60;

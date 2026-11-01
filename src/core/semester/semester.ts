@@ -9,7 +9,7 @@ import { addAmount, amount, EMPTY_TAGS, flag, holds, lowerAmount, onWake, setAmo
 import { EMPTY_LOADS, elevatorPanel, FLOORS, lightOf, litFloors, mapFloors, type FloorId } from './floors.ts';
 import {
   archiveRate, creditsOf, debugHoursFor, fixedHour, HOMEWORK_MISS_PENALTY, HOMEWORK_PROGRESS, MAX_DEBUG_PER_NIGHT, MAX_RANK_HOURS, nightRoom, OS_ASSIGNMENTS, paperShare, rankGain,
-  PROJECT_DAY_MAX, PROJECT_FIN_PENALTY, PROJECT_FROM_DAY, PROJECT_NEED, PROJECT_PRACTICE_SHARE, rankPercent, RANK_SHARE, selectionProblem, SIT_LIMIT, STUCK_MULT, takes, thresholdMult, UNARCHIVED_KEPT,
+  PROJECT_DAY_MAX, PROJECT_FIN_PENALTY, PROJECT_FROM_DAY, PROJECT_NEED, PROJECT_PRACTICE_SHARE, projectDue, rankNights, rankPercent, RANK_SHARE, selectionProblem, SIT_LIMIT, STUCK_MULT, takes, thresholdMult, UNARCHIVED_KEPT,
   WALK_EFFORT, WRITE_HOURS,
 } from './courses.ts';
 import { liverClues, liverStrikes } from './liver.ts';
@@ -156,8 +156,11 @@ const examOn = (day: number, ctx: SemesterContext): 'mid' | 'fin' | null =>
  * Whether the leaderboard contest is open tonight (design doc 8.3): the nights between the midterm and the final, never on a
  * hospital day. Undefined when the algorithms card is not taken.
  */
-const rankOpen = (ctx: SemesterContext, s: SemesterState): boolean | undefined =>
-  takes(ctx.courses, 'algorithms') ? s.day > ctx.params.midDay && s.day < ctx.params.finDay && s.hospitalDay !== s.day : undefined;
+const rankOpen = (ctx: SemesterContext, s: SemesterState): boolean | undefined => {
+  if (!takes(ctx.courses, 'algorithms')) return undefined;
+  const { from, to } = rankNights(ctx.params);
+  return s.day >= from && s.day <= to && s.hospitalDay !== s.day;
+};
 
 function viewOf(d: DayRun): DayView {
   const { ctx, s } = d;
@@ -184,7 +187,7 @@ function viewOf(d: DayRun): DayView {
     })),
     ...(open === undefined ? {} : { rank: { score: s.rank, open } }),
     ...(takes(ctx.courses, 'compiler')
-      ? { project: { done: s.project, need: PROJECT_NEED, open: s.day >= PROJECT_FROM_DAY && s.day < k.finDay && s.project < PROJECT_NEED && s.hospitalDay !== s.day } }
+      ? { project: { done: s.project, need: PROJECT_NEED, open: s.day >= PROJECT_FROM_DAY && s.day <= projectDue(k) && s.project < PROJECT_NEED && s.hospitalDay !== s.day } }
       : {}),
   };
 }

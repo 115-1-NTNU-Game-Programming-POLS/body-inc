@@ -1,5 +1,5 @@
 import {
-  advanceDay, amount, BURDEN_REWARD, burdenOf, composeReport, creditsOf, EVENTS, HOMEWORK_MISS_PENALTY, HOMEWORK_PROGRESS, PROJECT_FIN_PENALTY, PROJECT_NEED, PROJECT_REVIEW, RANK_FULL, RANK_SHARE, reviewPoints, PROGRESS, takes, prototypeContext, semesterInputs, startSemester, summarize, withBarbecueOn,
+  advanceDay, amount, BURDEN_REWARD, burdenOf, commitmentsOf, composeReport, creditsOf, EVENTS, HOMEWORK_MISS_PENALTY, HOMEWORK_PROGRESS, PROJECT_FIN_PENALTY, PROJECT_NEED, PROJECT_REVIEW, RANK_FULL, rankNights, RANK_SHARE, reviewPoints, PROGRESS, takes, prototypeContext, semesterInputs, startSemester, summarize, withBarbecueOn,
   type FloorChoice, type FloorId, type MorningPlan, type NightPlan, type ProgressData, type ReportDocument, type Scenario, type SemesterContext, type SemesterRun, type SemesterState,
 } from '../core/index.ts';
 import { fillStr as fill, PARAMS, REPORT, str, STRINGS, TAGS } from './content.ts';
@@ -33,6 +33,25 @@ export const freshSeed = (semestersDone: number, now: number): number => (semest
 export function finishSemester(saves: SaveStore, progress: ProgressData): { progress: ProgressData; issues: SaveIssue[] } {
   const next = { ...progress, semestersDone: progress.semestersDone + 1 };
   return { progress: next, issues: saves.save(PROGRESS, next) };
+}
+
+/** The note under card `id` in the picker, with the days, hours and credits its rules hold filled in. */
+export function courseNote(id: string): string {
+  const key = `course.note.${id}`;
+  switch (id) {
+    case 'algorithms': {
+      const { from, to } = rankNights(PARAMS);
+      return fill(key, { from, to, share: Math.round(RANK_SHARE * 100) });
+    }
+    case 'compiler':
+      return fill(key, { credits: creditsOf([id]) });
+    case 'ta': {
+      const [first, second] = commitmentsOf(id);
+      return fill(key, { from: first!.day, to: second!.day, hours: first!.hours.length });
+    }
+    default:
+      return str(key);
+  }
 }
 
 /** The chairman's line for the morning of `day`, or undefined when the semester is not the tutorial or the day has none. */

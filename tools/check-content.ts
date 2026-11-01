@@ -52,7 +52,7 @@ export const PLACEHOLDERS: ReadonlySet<string> = new Set([
   '{s}', '{seconds}', '{sign}', '{situation}', '{stay}', '{step}', '{symptom}', '{text}', '{time}', '{title}', '{to}', '{total}', '{unlock}', '{value}',
   '{fin}', '{floor}', '{from}', '{grade}', '{mid}', '{p}', '{progress}', '{weekday}',
   '{burden}', '{credits}', '{mult}', '{points}', '{reward}', '{due}', '{written}', '{debug}', '{spent}', '{hours}',
-  '{staged}', '{archived}', '{rate}', '{gain}', '{score}', '{full}', '{share}', '{done}', '{need}', '{room}',
+  '{staged}', '{archived}', '{rate}', '{gain}', '{score}', '{full}', '{share}', '{done}', '{need}', '{room}', '{limit}',
 ]);
 
 /**
