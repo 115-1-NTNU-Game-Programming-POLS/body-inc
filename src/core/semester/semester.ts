@@ -598,18 +598,16 @@ export function playDay(from: SemesterState, ctx: SemesterContext, strategy: Str
   const sleptIn = Math.min(night.nextWake, k.wakeCap);
   const nextWake = examOn(day + 1, ctx) !== null ? Math.min(sleptIn, k.examWake) : sleptIn;
   // Debugging comes after the planned bedtime and pushes it back, as far as the clock goes; the hours that fit are the ones it counts.
+  // Both it and the contest hold their hours in the bedtime delay now but are credited after the night loop, which can still lengthen it.
   const debugAsked = night.debug ?? 0;
   const toDebug = workable(d.s).find(({ a }) => a.written >= WRITE_HOURS);
   if (!Number.isInteger(debugAsked) || debugAsked < 0 || debugAsked > MAX_DEBUG_PER_NIGHT || (debugAsked > 0 && toDebug === undefined)) {
     throw new RangeError(`${debugAsked} hours of debugging were planned and the night can take 0 to ${toDebug === undefined ? 0 : MAX_DEBUG_PER_NIGHT}`);
   }
+  let debugHours = 0;
   if (toDebug !== undefined && debugAsked > 0) {
-    const spent = Math.min(debugAsked, toDebug.a.debug - toDebug.a.debugged, nightRoom(k, bedBase, d.bedDelay + d.overtimeDelay));
-    const debugged = toDebug.a.debugged + spent;
-    const done = debugged >= toDebug.a.debug;
-    d.bedDelay += spent;
-    d.s = withAssignment(d.s, toDebug.i, { debugged, done });
-    if (done && spent > 0) d.s = { ...d.s, progress: d.s.progress + HOMEWORK_PROGRESS };
+    debugHours = Math.min(debugAsked, toDebug.a.debug - toDebug.a.debugged, nightRoom(k, bedBase, d.bedDelay + d.overtimeDelay));
+    d.bedDelay += debugHours;
   }
   // The contest comes after the debugging and pushes bedtime the same way; the first hour of a night is worth the most.
   const rankAsked = night.rank ?? 0;
@@ -617,14 +615,8 @@ export function playDay(from: SemesterState, ctx: SemesterContext, strategy: Str
   if (!Number.isInteger(rankAsked) || rankAsked < 0 || rankAsked > MAX_RANK_HOURS || (rankAsked > 0 && !contestOpen)) {
     throw new RangeError(`${rankAsked} hours of the contest were planned and the night can take 0 to ${contestOpen ? MAX_RANK_HOURS : 0}`);
   }
-  let rankDone: DayRecord['rank'];
-  if (rankAsked > 0) {
-    const hours = Math.min(rankAsked, nightRoom(k, bedBase, d.bedDelay + d.overtimeDelay));
-    const gain = rankGain(hours, d.S);
-    d.bedDelay += hours;
-    d.s = { ...d.s, rank: d.s.rank + gain };
-    if (hours > 0) rankDone = { hours, gain };
-  }
+  const rankHours = rankAsked > 0 ? Math.min(rankAsked, nightRoom(k, bedBase, d.bedDelay + d.overtimeDelay)) : 0;
+  d.bedDelay += rankHours;
   const bedEndAt = (): number => Math.min(bedBase + d.bedDelay + d.overtimeDelay, k.bedMax + k.bedOverrun);
   for (let t = k.bedMin; ; t += STEP) {
     // Once bedtime has come, an event strictly before it is still due, and it may push bedtime back.
@@ -634,6 +626,25 @@ export function playDay(from: SemesterState, ctx: SemesterContext, strategy: Str
     if (late) d.lateStudy += STEP;
     const activity = late ? 'study' : 'rest';
     spend(d, STEP, activity, sitting(d, activity, STEP, false));
+  }
+
+  // An event in the night can use up the room the plan saw, and the clamp then takes those hours off the bedtime. Only the hours
+  // that still fit once the other delays are counted were really spent, so the contest gives way first, then the debugging.
+  const stayedUp = debugHours + rankHours;
+  const fit = Math.min(stayedUp, nightRoom(k, bedBase, d.bedDelay + d.overtimeDelay - stayedUp));
+  const debugSpent = Math.min(debugHours, fit);
+  const rankSpent = fit - debugSpent;
+  if (toDebug !== undefined && debugSpent > 0) {
+    const debugged = toDebug.a.debugged + debugSpent;
+    const done = debugged >= toDebug.a.debug;
+    d.s = withAssignment(d.s, toDebug.i, { debugged, done });
+    if (done) d.s = { ...d.s, progress: d.s.progress + HOMEWORK_PROGRESS };
+  }
+  let rankDone: DayRecord['rank'];
+  if (rankSpent > 0) {
+    const gain = rankGain(rankSpent, d.S);
+    d.s = { ...d.s, rank: d.s.rank + gain };
+    rankDone = { hours: rankSpent, gain };
   }
 
   const bedEnd = Math.max(bedEndAt(), k.bedMin);
