@@ -158,6 +158,18 @@ describe('the final project', () => {
     expect(() => day(ctx, 8, { project: 1 }, { project: PROJECT_NEED })).toThrow(RangeError);
   });
 
+  it('gives the hours planned past the finish back to study, and keeps them all while it is not finished', () => {
+    const ctx = ctxFor(WITH);
+    const nearly = { project: PROJECT_NEED - 0.1 };
+    const one = day(ctx, 8, { project: 1 }, nearly);
+    const many = day(ctx, 8, { project: PROJECT_DAY_MAX }, nearly);
+    expect(one.history[0]!.project?.done).toBe(true);
+    expect(many.history[0]!.project?.hours).toBe(1);
+    expect(many.history[0]!.studyHours).toBe(one.history[0]!.studyHours);
+    expect(studied(many)).toBeCloseTo(studied(one), 9);
+    expect(day(ctx, 8, { project: PROJECT_DAY_MAX }).history[0]!.project?.hours).toBeGreaterThan(1);
+  });
+
   it('is refused before it opens, past the cap, as part of an hour, and without the card', () => {
     expect(() => day(ctxFor(WITH), 2, { project: 1 })).toThrow(RangeError);
     expect(() => day(ctxFor(WITH), 8, { project: PROJECT_DAY_MAX + 1 })).toThrow(RangeError);

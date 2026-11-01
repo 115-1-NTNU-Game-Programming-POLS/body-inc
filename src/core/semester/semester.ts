@@ -248,6 +248,8 @@ function activityAt(d: DayRun, h: number, rest: ReadonlySet<number>): Activity {
     d.s = withAssignment(d.s, d.writeIdx, { written: d.s.homework[d.writeIdx]!.written + 1 });
     return 'work';
   }
+  // The hours a finish takes depend on the day's efficiency, so the plan cannot cap them; the ones past it go back to study.
+  if (d.s.project >= PROJECT_NEED) d.projectLeft = 0;
   if (d.projectLeft > 0 && !rest.has(h)) {
     d.projectLeft -= 1;
     return 'project';
