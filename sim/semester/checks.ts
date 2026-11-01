@@ -111,6 +111,11 @@ export function courseCardChecks(n = 300): CardCheck[] {
   out.push({ name: 'clauses: the setting card of level 2 costs study', pass: c1.progress - c2.progress >= CLAUSE2_MIN_STUDY_COST, detail: `progress ${f(c2.progress)} against ${f(c1.progress)}, wanted at least ${CLAUSE2_MIN_STUDY_COST} less` });
   for (const level of [1, 2]) {
     const rows = openSelections(level).map((courses) => ({ courses, resp: clauseRow(n, 0.5, level, courses, responsive).pass, owl: clauseRow(n, 0.5, level, courses, owl).pass }));
+    // A level that lets no selection stand is a failed check to report, not a crash of the whole run.
+    if (rows.length === 0) {
+      out.push({ name: `clauses: level ${level} lets some selection stand`, pass: false, detail: 'no selection of the open cards passes the credit cap of the level' });
+      continue;
+    }
     const worst = rows.reduce((a, b) => (b.resp < a.resp ? b : a));
     out.push({
       name: `clauses: the responsive player passes every selection level ${level} lets stand`,

@@ -3,11 +3,11 @@
  * print them as tables, `checks.ts` asserts the thresholds of the design doc on them.
  */
 import {
-  clauseProblem, creditsOf, GRADE_HOURS, MAX_DEBUG_PER_NIGHT, OPEN_COURSES, PROJECT_DAY_MAX, runSemester, selectionProblem, summarize, withClause, WRITE_HOURS,
+  clauseProblem, creditsOf, GRADE_HOURS, gradeDays, MAX_DEBUG_PER_NIGHT, OPEN_COURSES, PROJECT_DAY_MAX, runSemester, selectionProblem, summarize, withClause, WRITE_HOURS,
   type DayView, type MorningPlan, type NightPlan, type Strategy,
 } from '../../src/core/index.ts';
 import { ARCHETYPES } from './archetypes.ts';
-import { contextFor, scenarioFor } from './scenario.ts';
+import { contextFor, PARAMS, scenarioFor } from './scenario.ts';
 
 export const mean = (xs: readonly number[]): number => xs.reduce((a, b) => a + b, 0) / Math.max(1, xs.length);
 
@@ -45,14 +45,17 @@ export const homeworkPlayer = (early: boolean): Strategy => {
   };
 };
 
+/** The days the grades are open: after the midterm day itself, and the last night before they are due. */
+const GRADING = { after: gradeDays(PARAMS).from, lastNight: gradeDays(PARAMS).to - 1 };
+
 /**
  * The TA line's grading played three ways: not at all, in the day hours of the weekend after the midterm (3 hours, then the rest),
- * or all of it in the night of day 6. The hours come from the view, so a card that offers none is simply not played.
+ * or all of it in the last night before the grades are due. The hours come from the view, so a card that offers none is simply not played.
  */
 export const grader = (when: 'skip' | 'day' | 'night'): Strategy =>
   variant(
-    (v) => (when === 'day' && v.grade?.open && v.day > 5 ? { grade: Math.min(v.grade.need - v.grade.done, 3) } : {}),
-    (v, b) => (when === 'night' && v.grade?.night && v.day === 6 && v.grade.need > v.grade.done ? { ...b, grade: v.grade.need - v.grade.done } : b),
+    (v) => (when === 'day' && v.grade?.open && v.day > GRADING.after ? { grade: Math.min(v.grade.need - v.grade.done, 3) } : {}),
+    (v, b) => (when === 'night' && v.grade?.night && v.day === GRADING.lastNight && v.grade.need > v.grade.done ? { ...b, grade: v.grade.need - v.grade.done } : b),
   );
 
 /** The cards of the grading sweep: the TA line with cards that ask for nothing else of the week after the midterm. */
@@ -61,7 +64,7 @@ export const TA_COURSES: readonly string[] = ['database', 'networks', 'software'
 export interface GradeRow {
   /** Percent of semesters whose grades were handed in on time. */
   readonly onTime: number;
-  /** Mean hours slept on the night of day 6, the night the all-nighter grades. */
+  /** Mean hours slept on the last night before the grades are due, the night the all-nighter grades. */
   readonly sleep: number;
   /** Mean study progress the final exam counted. */
   readonly progress: number;
@@ -78,8 +81,9 @@ export function gradeRow(n: number, skill: number, strategy: Strategy): GradeRow
     const end = runSemester(ctx, strategy, seed);
     onTime.push(end.graded >= GRADE_HOURS ? 100 : 0);
     progress.push(end.progress);
-    const night = end.history[5];
-    const next = end.history[6];
+    // History starts at day 1, so the record of a day is at its number less one.
+    const night = end.history[GRADING.lastNight - 1];
+    const next = end.history[GRADING.lastNight];
     if (night?.bedEnd !== undefined && next) sleep.push(24 + next.wake - night.bedEnd);
   }
   return { onTime: mean(onTime), sleep: mean(sleep), progress: mean(progress) };

@@ -1,4 +1,4 @@
-import { drawInt, seedStreams, type RngStreams } from '../rng.ts';
+import { drawDistinct, drawInt, seedStreams } from '../rng.ts';
 import { BASE_CREDITS, MAX_CREDITS, type Commitment } from './courses.ts';
 import type { Scenario, SemesterContext, SemesterParams } from './types.ts';
 
@@ -46,18 +46,6 @@ export interface Setting {
   readonly commitments: readonly Commitment[];
 }
 
-/** `n` distinct values from `pool`, drawn from the setting stream; fewer when the pool runs out. */
-function pick(streams: RngStreams, pool: readonly number[], n: number): [number[], RngStreams] {
-  const left = [...pool];
-  const out: number[] = [];
-  let s = streams;
-  for (let i = 0; i < n && left.length > 0; i++) {
-    let j: number;
-    [j, s] = drawInt(s, 'setting', left.length);
-    out.push(left.splice(j, 1)[0]!);
-  }
-  return [out.sort((a, b) => a - b), s];
-}
 
 /**
  * The semester's setting card, or undefined below DISRUPT_FROM: the regular cards of design doc 8.12 are not built, so a draw
@@ -73,9 +61,9 @@ export function settingFor(seed: number, level: number, params: Pick<SemesterPar
   const days = Array.from({ length: params.days }, (_, d) => d + 1)
     .filter((d) => d !== params.midDay && d !== params.finDay && !(scenario[d] ?? []).includes('bbq'))
     .filter((d) => id === 'shifts' || !params.weekend.includes(d));
-  const [chosen] = pick(s, days, SETTING_DAYS[id]);
+  const [chosen] = drawDistinct(s, 'setting', days, SETTING_DAYS[id]);
   const hours = id === 'shifts' ? params.shiftHours : params.labHours;
-  return { id, commitments: chosen.map((day) => ({ day, hours })) };
+  return { id, commitments: chosen.sort((a, b) => a - b).map((day) => ({ day, hours })) };
 }
 
 export const settingHours = (setting: Setting | undefined, day: number): readonly number[] =>

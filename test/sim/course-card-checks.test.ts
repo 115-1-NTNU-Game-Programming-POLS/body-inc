@@ -69,6 +69,12 @@ describe('the course card checks of design doc 9.6 (issue 45)', () => {
     expect(failing).toContain('grading: grading all in one night hands the grades in too');
   }, 60_000);
 
+  it('report a level that lets no selection stand as a failed check instead of crashing the run', async () => {
+    const failing = await failingUnder(() => ({ OPEN_COURSES: [] }));
+    expect(failing).toContain('clauses: level 1 lets some selection stand');
+    expect(failing).toContain('clauses: level 2 lets some selection stand');
+  }, 60_000);
+
   it('fail the skipping check when the papers need no hours', async () => {
     // With nothing to grade every semester has its grades in, the one that skips included.
     const failing = await failingUnder(() => ({ GRADE_HOURS: 0 }));
