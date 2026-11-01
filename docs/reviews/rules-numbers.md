@@ -9,7 +9,7 @@
 - **出處**：`DOC 5.3` 表示設計文件第 5.3 節有寫這個數字；`ASSUME` 表示設計文件沒寫，是施工時暫定的（程式註解或 `content/` 的 `notes` 也這麼標）；`製作說明` 表示規則寫在製作說明。
 - **規則**：這個數字必須遵守的設計規則。只寫「值等於多少」的不算規則。
 - **測試**：`檔名:行號 測試名稱`。標 **新** 的是本次在 `invariants.test.ts` 新增的測試。「只鎖數值」表示現有測試寫死了數字，調整數值時會誤報失敗，但規則本身另有測試涵蓋。
-- **發現**：F1 到 F6 的內容見文末「發現」一節。F1 到 F5 另開 issue，F6 只是備註。
+- **發現**：F1 到 F6 的內容見文末「發現」一節。F1 到 F4 已另開 issue（#59 至 #62），F5 建議直接修改製作說明，F6 只是備註。
 
 新測試的原則：每個測試都從常數本身推導預期值，調數字但規則還在時測試照樣通過；只有規則被破壞時才會失敗。每個新測試至少用一個突變（故意改壞程式）驗證過會失敗，清單見文末。
 
@@ -19,17 +19,17 @@
 | --- | --- | --- | --- | --- | --- |
 | `BUFFER_TICKS` | 21（0.35 秒） | DOC 5.3 | 冷卻與收招中的輸入被緩衝 0.35 秒，不會被吃掉 | `combat.test.ts:123` a press during recovery or cooldown is buffered for 0.35 s, not dropped（同時鎖了 21） | |
 | `STAPLER.startupFrame` | 3 | DOC 5.3（不超過 6） | 輕攻擊起手不超過 6 幀 | `combat.test.ts:50` the first staple exists within 6 frames of the press | |
-| `STAPLER.intervalTicks`、`speed`、`rangePx`、`damage` | 10、14 格/秒、7 格、1 | DOC 6.1 | 數值本身由設計文件固定 | `combat.test.ts:57`、`:81`；`folder.test.ts:528` | F4（與公文夾的每秒傷害比較） |
+| `STAPLER.intervalTicks`、`speed`、`rangePx`、`damage` | 10、14 格/秒、7 格、1 | DOC 6.1 | 數值本身由設計文件固定 | `combat.test.ts:57`、`:81`；`folder.test.ts:528` | F4（#62，與公文夾的每秒傷害比較） |
 | `STAPLER.holdSpeedFactor` | 0.7 | DOC 6.1 | 按住連射是主動選擇的減速，在 15% 上限之後才乘 | `combat.test.ts:69` holding fire moves at 70%, applied after the 15% slow cap | |
 | `STAPLER.lockHalfAngleDeg`、`lockRangePx` | 25 度、7 格 | DOC 5.2 | 軟鎖定只吸附可結案的目標；鎖定距離不超過釘書針射程 | `combat.test.ts:93`（角度與對象）；**新** soft lock never picks a target farther than a staple can fly | |
 | `DODGE.ticks`、`distancePx` | 13 幀、2.5 格 | DOC 5.3 | 閃身 13 幀移動 2.5 格 | `combat.test.ts:107` covers 2.5 tiles in 13 frames | |
-| `DODGE.iframeFirst`、`iframeLast` | 2、11 | DOC 5.3 | 無敵幀是第 2 至 11 幀，其他幀不是 | `combat.test.ts:113` is invincible on frames 2 to 11 and on no other frame | F2 |
+| `DODGE.iframeFirst`、`iframeLast` | 2、11 | DOC 5.3 | 無敵幀是第 2 至 11 幀，其他幀不是 | `combat.test.ts:113` is invincible on frames 2 to 11 and on no other frame | F2（#60） |
 | `DODGE.recoveryTicks`、`cooldownTicks` | 6、18（0.3 秒） | DOC 5.3 | 冷卻內的輸入被緩衝 | `combat.test.ts:123` | |
 | `DODGE.perfectLast` | 7 | DOC 5.3 | 完美閃身是無敵幀的前 6 幀，且在無敵幀之內 | **新** the perfect-dodge window is the first 6 i-frames and lies inside the dodge；行為面見 `combat.test.ts:167` | F6（演出未實作） |
 | `HURT.freezeTicks`、`knockbackPx`、`invulnTicks` | 4、1 格、60 | DOC 5.3 | 被打中時全場凍結 4 幀、擊退 1 格、之後 1 秒無敵 | `combat.test.ts:146`、`:155`、`:175`、`:182` | |
 | `HURT.knockbackTicks` | 12 | ASSUME | 無（設計文件只給距離） | `combat.test.ts:155` | |
-| `ENEMY_HIT_FREEZE` | 3 | DOC 5.3 | 只凍結被打中的敵人 | `folder.test.ts:180`（3 與連段終結 6） | **F1** |
-| `BASE_HALVES` | 12（6 顆心） | DOC 5.3、5.6 | 基礎 6 顆；上限 = round(6 × P)，不低於 4 顆 | 只有基礎值，上限與 P 連動沒有實作也沒有測試 | **F3** |
+| `ENEMY_HIT_FREEZE` | 3 | DOC 5.3 | 只凍結被打中的敵人 | `folder.test.ts:180`（3 與連段終結 6） | **F1**（#59） |
+| `BASE_HALVES` | 12（6 顆心） | DOC 5.3、5.6 | 基礎 6 顆；上限 = round(6 × P)，不低於 4 顆 | 只有基礎值，上限與 P 連動沒有實作也沒有測試 | **F3**（#61） |
 | `TELEGRAPH.tier1Ticks`、`tier2Ticks`、`tier3MinTicks`、`tier3MaxTicks` | 30、48、72、90 | DOC 5.3 | 各級長度固定；級數越高預警越長 | Boss 載入器檢查各級長度：`boss.test.ts:77`、`:84`；**新** warnings grow longer with their tier | |
 | `ZONE_MAX_ACTIVE` | 10（由 `DODGE` 推導） | DOC 5.3 推導 | 範圍招的有效時間不超過無敵幀長度，所以在預警最後一刻閃身一定躲得掉 | `boss.test.ts:84`（載入器拒絕）、`boss.test.ts:137`（每招都閃得掉） | |
 | `CHEERS`（乾杯小弟全部數值） | 見程式 | DOC 7.7（行為）；數值多為 ASSUME | 一級預警；被婉拒才算結案 | `cheers.test.ts`。不在本 issue 範圍內，列出備查 | |
@@ -69,7 +69,7 @@
 
 | 常數 | 目前的值 | 出處 | 規則 | 測試 | 發現 |
 | --- | --- | --- | --- | --- | --- |
-| `SALESMAN.windupTicks`、`FLYER.windupTicks` | 都等於 `TELEGRAPH.tier1Ticks` | DOC 5.3 | 一般敵人的攻擊是一級預警 0.5 秒 | `combat.test.ts:146`（讀 `SALESMAN.windupTicks`，不讀分級）、`flyer.test.ts:50`；**新** every regular enemy attack telegraphs for exactly the tier-1 warning（推銷員、傳單手、能量飲料推銷員，實際量測） | **F1** |
+| `SALESMAN.windupTicks`、`FLYER.windupTicks` | 都等於 `TELEGRAPH.tier1Ticks` | DOC 5.3 | 一般敵人的攻擊是一級預警 0.5 秒 | `combat.test.ts:146`（讀 `SALESMAN.windupTicks`，不讀分級）、`flyer.test.ts:50`；**新** every regular enemy attack telegraphs for exactly the tier-1 warning（推銷員、傳單手、能量飲料推銷員，實際量測） | **F1**（#59） |
 | `SALESMAN.damageHalves`、`FLYER.damageHalves` | 1、1 | DOC 5.3 | 一般攻擊扣半顆；任何單擊不超過一顆半 | **新** a regular attack costs half a heart, and no single hit anywhere takes more than a heart and a half（也檢查兩個 Boss 的每一招與乙醛紅霧） | |
 | `SALESMAN.speed`、`reachPx`、`strikeTicks`、`recoverTicks` | 1.5 格/秒、40、6、40 | ASSUME | 無 | `combat.test.ts:146` 至 `:182` 間接涵蓋 | |
 | `FLYER.nearPx`、`farPx`、`shotRangePx` | 3 格、6 格、8 格 | ASSUME | 傳單手在自己偏好的距離內一定打得到營運長 | `flyer.test.ts:67`；**新** a flyer can reach the operator from anywhere in the band it keeps | |
@@ -126,27 +126,27 @@
 
 ## 發現
 
-### F1　命中停頓會拉長一般敵人的預警（要開 `bug` issue）
+### F1　命中停頓會拉長一般敵人的預警（#59）
 
 `src/core/combat/actors.ts:119` 在敵人 `frozen > 0` 時直接 return，windup 的 `phaseTicks` 不前進。所以在推銷員或傳單手預警期間打中它，預警就會被拉長：每發釘書針 3 幀、連段終結 6 幀、印章 10 幀。實測：傳單手預警期間按住連射，兩發釘書針命中，預警從 30 幀變成 36 幀。Boss 不受影響，因為 `src/core/game.ts:580` 對 Boss 把 `frozen` 設為 0，`boss.test.ts:162` 也有測試。
 
 設計文件 5.3 把一級預警定為 0.5 秒，同時規定敵人被命中時凍結 3 幀。兩條規則在這裡衝突，需要決定哪條優先：(a) 凍結期間 windup 照樣計時，畫面上的停頓只是演出；(b) 接受預警被拉長，在設計文件註明「預警長度不含命中停頓」。在決定之前，本 PR 不為這條規則寫測試；新測試量的是沒有被打中時的預警長度。
 
-### F2　閃身第 1 幀沒有無敵（寫下來，建議開 `question` issue）
+### F2　閃身第 1 幀沒有無敵（#60）
 
 程式與設計文件 5.3 一致：無敵幀是第 2 至 11 幀（`operator.ts:138`，`combat.test.ts:113`）。後果是：在攻擊命中的同一幀按下閃身，那一幀還不是無敵，會被打中。正面閃進迎面飛來的咖啡杯時特別明顯（見 `docs/build-plan.md` P4 段落）。
 
 這不違反「每招都閃得掉」：在預警最後一幀按下閃身，命中幀已經是閃身的第 2 幀（`boss.test.ts:137`）。玩家需要比命中早 1 幀按，在 60 Hz 下約 17 毫秒，加上 0.35 秒的輸入緩衝，大多數情況感覺不到。需要決定的是：要維持設計文件（第 1 幀是起步，不無敵），還是改成 1 至 11 幀讓反應更寬鬆。後者會讓完美閃身的窗口跟著前移，也要一併更新 5.3。建議留到戰鬥試玩後再決定。
 
-### F3　幹勁上限沒有跟著 P 變動（要開 `bug` issue）
+### F3　幹勁上限沒有跟著 P 變動（#61）
 
 設計文件 5.6 與 9.2：幹勁上限 = round(基礎 6 顆 × P)，不低於 4 顆；睡眠債 0 至 2 小時 6 顆、3 至 7 小時 5 顆、8 小時以上 4 顆。目前 `newOperator` 的 `maxHalves` 在 `game.ts:403` 與 `chapter.ts:296`、`:310` 都直接用 `BASE_HALVES`，P 只影響印章充能，所以睡眠不足的五個管道（5.6）少了一個。build-plan 的進度紀錄沒有提到這項延後。
 
-### F4　公文夾的每秒傷害約是釘書機的 2.7 倍（建議開 `question` issue）
+### F4　公文夾的每秒傷害約是釘書機的 2.7 倍（#62）
 
 設計文件 6.1：「每秒傷害相近（約 4 到 6）」。釘書機每 10 幀 1 點，等於每秒 6 點。公文夾三段 2／2／4，每段 10 幀而且可以接著揮，等於每 0.5 秒 8 點、每秒 16 點；實測對一個血量很厚的木樁連按 2 秒，打掉 32 點。近戰的風險比遠程高，傷害較高或許是刻意的，但與 6.1 的說法不符，需要決定改數值還是改文件。`FOLDER` 的揮擊幀數在程式註解裡本來就標為試玩用的暫定值。
 
-### F5　製作說明對輸送帶與腺苷的描述與數值不符（建議開 `question` issue，或直接改文件）
+### F5　製作說明對輸送帶與腺苷的描述與數值不符（未開 issue，建議直接改文件）
 
 製作說明寫：「按住射擊或身上黏著腺苷而變慢時，`fast` 輸送帶會比營運長走得快」。按住射擊成立：4.5 × 0.7 = 3.15 格/秒，小於 4。但黏 1 層時是 4.275、黏 2 層時是 4.05，都還比 fast 輸送帶快；黏到第 3 層會立刻強制打盹，所以腺苷本身永遠不會讓營運長被輸送帶往後帶。真正會被帶走的是按住連射、舉著公文夾，或肝臟章的暈眩（減速 15%，3.825）。建議把製作說明改成「按住射擊、舉公文夾或暈眩時」。
 
