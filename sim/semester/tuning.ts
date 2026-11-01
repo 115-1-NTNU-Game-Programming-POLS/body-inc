@@ -8,32 +8,15 @@
  * comparison (every night of 2 hours against the last two nights of 4 hours). The `plain cards` yardstick swaps networks
  * for algorithms, so it differs in the paper-study share as well as in the card.
  */
-import { creditsOf, rankGain, reviewPoints, runSemester, summarize, PROJECT_DAY_MAX, PROJECT_NEED, PROJECT_REVIEW, type DayView, type MorningPlan, type NightPlan, type SemesterContext, type SemesterState, type Strategy } from '../../src/core/index.ts';
-import { ARCHETYPES } from './archetypes.ts';
+import { creditsOf, rankGain, reviewPoints, runSemester, summarize, PROJECT_NEED, PROJECT_REVIEW, type SemesterContext, type SemesterState, type Strategy } from '../../src/core/index.ts';
+import { contest, mean, project } from './cards.ts';
 import { contextFor, scenarioFor } from './scenario.ts';
 
 const n = Number(process.argv.slice(2).find((a) => /^\d+$/.test(a)) ?? 300);
 const SKILLS = [0.2, 0.5, 0.9] as const;
 
-const mean = (xs: readonly number[]): number => xs.reduce((a, b) => a + b, 0) / Math.max(1, xs.length);
 const pct = (xs: readonly boolean[]): number => (100 * xs.filter(Boolean).length) / Math.max(1, xs.length);
 const f1 = (x: number): string => x.toFixed(1).padStart(6);
-
-const variant = (
-  plan: (v: DayView) => Partial<MorningPlan>,
-  night: (v: DayView, base: NightPlan) => NightPlan,
-): Strategy => {
-  const base = ARCHETYPES.balanced;
-  return { ...base, plan: (v) => ({ ...base.plan(v), ...plan(v) }), night: (v) => night(v, base.night(v)) };
-};
-
-/** Nights of the contest are the ones the view marks open; `bed` is the planned bedtime the hours come after. */
-const contest = (hours: number, bed: number, from = 0): Strategy =>
-  variant(() => ({}), (v, b) => (v.rank?.open && hours > 0 && v.day >= from ? { ...b, bed, rank: hours } : b));
-
-/** `perDay` project hours whenever the view allows them, from day `from`, until the project is done. */
-const project = (perDay: number, from: number, walk: boolean): Strategy =>
-  variant((v) => (v.project?.open && v.day >= from ? { project: Math.min(perDay, PROJECT_DAY_MAX), walk } : {}), (_v, b) => b);
 
 const sleepOf = (s: SemesterState): number => {
   const h = s.history;
