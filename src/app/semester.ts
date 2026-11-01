@@ -6,8 +6,9 @@ import { fillStr as fill, PARAMS, REPORT, str, STRINGS, TAGS } from './content.t
 import type { SaveIssue, SaveStore } from './storage.ts';
 
 /**
- * The patrol is not played yet (design doc 8.5 wants four rooms per patrol): its grade is drawn from
- * this abstract combat skill, as in `sim/`. 0.5 is a player who is neither struggling nor skilled.
+ * A floor without patrol rooms (the immune, stomach and gut floors have none yet, design doc 8.5) has
+ * its grade drawn from this abstract combat skill, as in `sim/`. 0.5 is a player who is neither
+ * struggling nor skilled.
  */
 export const PATROL_SKILL = 0.5;
 

@@ -61,7 +61,8 @@ interface Menu {
  * Semester mode (design doc 8): the day's questions in the order the rules ask them, one screen
  * each. Like the title it runs outside the chapter loop. Every answer goes to `advanceDay`, which
  * replays the day with it, so the choices here and a strategy in `sim/` play the same rules. The
- * patrol itself is not played yet; its grade is drawn from an abstract skill (app/semester.ts).
+ * brain and liver patrols are played in the rooms; a floor without rooms draws its grade from an
+ * abstract skill (app/semester.ts).
  */
 export class SemesterScene extends Phaser.Scene {
   private ctx!: SemesterContext;
@@ -486,14 +487,15 @@ export class SemesterScene extends Phaser.Scene {
     this.lines = [];
   }
 
-  /** A screen of text lines, left until Enter. */
+  /** A screen of text lines, left until Enter. The lines close up when there are too many for the prompt to stay on the canvas. */
   private page(title: string, lines: readonly string[], next: string, go: () => void): void {
     this.clear();
+    const step = Math.min(48, Math.floor((this.scale.height - 230 - 80) / Math.max(1, lines.length)));
     this.lines.push(addText(this, this.scale.width / 2, 130, title, { role: 'hand', weight: 700, size: 44, color: PAPER }).setOrigin(0.5, 0));
     lines.forEach((line, i) => {
-      this.lines.push(addText(this, this.scale.width / 2, 230 + i * 48, line, { role: 'print', weight: 400, size: 26, color: PAPER }).setOrigin(0.5, 0));
+      this.lines.push(addText(this, this.scale.width / 2, 230 + i * step, line, { role: 'print', weight: 400, size: 26, color: PAPER }).setOrigin(0.5, 0));
     });
-    this.lines.push(addText(this, this.scale.width / 2, 230 + lines.length * 48 + 40, next, { role: 'print', weight: 700, size: 22, color: DIM }).setOrigin(0.5, 0));
+    this.lines.push(addText(this, this.scale.width / 2, 230 + lines.length * step + 40, next, { role: 'print', weight: 700, size: 22, color: DIM }).setOrigin(0.5, 0));
     this.onContinue = go;
   }
 

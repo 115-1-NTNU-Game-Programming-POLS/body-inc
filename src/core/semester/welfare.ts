@@ -30,8 +30,6 @@ export const WELFARE_CARDS: readonly WelfareCard[] = [
   { id: 'fast_return', source: 'general', perks: { parryBoost: true } },
 ];
 
-export const isWelfare = (id: unknown): id is string => WELFARE_CARDS.some((c) => c.id === id);
-
 /** The cards offered for a rating (design doc 8.8): one for C, two for B, three for A and S. */
 export const OFFER_SIZE: Readonly<Record<Grade, number>> = { C: 1, B: 2, A: 3, S: 3 };
 
@@ -58,8 +56,6 @@ export interface PatrolKit {
   readonly gauge: number;
   readonly perks: Perks;
 }
-
-export const NO_KIT: PatrolKit = { gauge: 0, perks: BASE_PERKS };
 
 export function perksOf(held: readonly string[]): Perks {
   let perks = BASE_PERKS;

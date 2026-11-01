@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
-  BASE_PERKS, decode, EMPTY_LOADS, encode, EARLY_SLEEP_GAUGE, EARLY_SLEEP_HOURS, GRADES, isWelfare, minutesProgress, OFFER_SIZE, patrolKit, perksOf, playDay, RUN, startSemester, STOP_GAUGE,
+  BASE_PERKS, decode, EMPTY_LOADS, encode, EARLY_SLEEP_GAUGE, EARLY_SLEEP_HOURS, GRADES, minutesProgress, OFFER_SIZE, patrolKit, perksOf, playDay, RUN, startSemester, STOP_GAUGE,
   WELFARE_CARDS, welfareOffer,
   type DayView, type FloorChoice, type NightPlan, type SemesterContext, type SemesterState, type Strategy,
 } from '../../src/core/index.ts';
@@ -33,8 +33,6 @@ describe('the welfare cards (design doc 8.8)', () => {
       expect(strings[`welfare.${id}.name`]?.text, id).toBeTruthy();
       expect(strings[`welfare.${id}.effect`]?.text, id).toBeTruthy();
     }
-    expect(isWelfare('minutes')).toBe(true);
-    expect(isWelfare('nope')).toBe(false);
   });
 
   it('change the fight only through the perks of the cards held', () => {

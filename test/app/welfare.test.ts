@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { fillStr, str } from '../../src/app/content.ts';
-import { daySummary, floorChoice, kitWith, newSemester, patrolOffer, welfareCaption, welfareText } from '../../src/app/semester.ts';
+import { daySummary, floorChoice, kitWith, newSemester, patrolOffer, resumeSemester, welfareCaption, welfareText } from '../../src/app/semester.ts';
 import { BASE_PERKS, GRADES, playDay, WELFARE_CARDS, welfareOffer, type DayView, type Strategy } from '../../src/core/index.ts';
 
 const player = (choice: ReturnType<typeof floorChoice>, seen: DayView[] = []): Strategy => ({
@@ -60,6 +60,20 @@ describe('the welfare cards on the screens', () => {
     const held = { ...state, welfare: ['minutes'] };
     const after = playDay(held, ctx, player({ patrol: 'brain', played: [{ grade: 'A', records: 6 }] }));
     expect(daySummary(held, after, ctx)).toContain(fillStr('semester.sum.minutes', { p: '1.0' }));
+  });
+
+  it('refuses to resume a save that holds a card the patrol never offered, instead of throwing', () => {
+    const run = (card?: string) => ({
+      seed: 1,
+      courses: ['algorithms', 'os', 'database', 'ta'],
+      days: [[
+        { kind: 'plan' as const, plan: { coffee: [], rest: [21] } },
+        { kind: 'floor' as const, choice: floorChoice('brain', undefined, [{ grade: 'A' }], card) },
+        { kind: 'night' as const, plan: { bed: 22.5, nextWake: 7, lateNight: 'rest' as const } },
+      ]],
+    });
+    expect(resumeSemester(run())).toBeDefined();
+    expect(resumeSemester(run('nope'))).toBeUndefined();
   });
 
   it('gives the overtime patrol the kit the card just picked makes, and the first patrol the one it had', () => {
