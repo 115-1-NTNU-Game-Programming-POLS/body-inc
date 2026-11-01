@@ -8,7 +8,7 @@ import { fillStr, REPORT, str } from '../../app/content.ts';
 import { keepPage } from '../../app/handbook.ts';
 import type { SaveStore } from '../../app/storage.ts';
 import {
-  advanceDay, buildWall, MAX_DEBUG_PER_NIGHT, MAX_RANK_HOURS, nightRoom, PROJECT_DAY_MAX, pinWall, rankGain, RANK_FULL, RANK_SHARE, reviewWall, RUN, WRITE_HOURS, type Answer, type Ask, type ChapterContent, type DayView, type FloorId, type HomeworkView, type ProgressData, type ReportDocument, type RunData,
+  advanceDay, buildWall, MAX_DEBUG_PER_NIGHT, MAX_RANK_HOURS, nightRoom, pinWall, projectRoom, rankGain, RANK_FULL, RANK_SHARE, reviewWall, RUN, WRITE_HOURS, type Answer, type Ask, type ChapterContent, type DayView, type FloorId, type HomeworkView, type ProgressData, type ReportDocument, type RunData,
   type SemesterContext, type SemesterRun, type SemesterState, type Settings, type Wall,
 } from '../../core/index.ts';
 import { WALL_CHAPTER, wallLoop, type WallSession } from '../../app/wall.ts';
@@ -259,19 +259,21 @@ export class SemesterScene extends Phaser.Scene {
         if (view.project === undefined) return this.answer({ kind: 'plan', plan: morningPlan(coffee, rest, write) });
         const askWalk = (project: number): void => this.askWalk((walk) => this.answer({ kind: 'plan', plan: morningPlan(coffee, rest, write, project, walk) }));
         if (!view.project.open) return askWalk(0);
-        this.askProject(view.project, askWalk);
+        const room = projectRoom(this.ctx.params, this.ctx.courses, view.day, view.wake, view.exam !== null, REST_PLANS[rest], write);
+        this.askProject(view.project, room, askWalk);
       };
       if (writing === undefined) return afterWrite(0);
       this.askWrite(writing, afterWrite);
     });
   }
 
-  private askProject(project: NonNullable<DayView['project']>, done: (hours: number) => void): void {
-    const hours = Array.from({ length: PROJECT_DAY_MAX + 1 }, (_, n) => n);
+  /** `room` is how many hours the plan so far leaves for the project, so the cards offer no more than the day has. */
+  private askProject(project: NonNullable<DayView['project']>, room: number, done: (hours: number) => void): void {
+    const hours = Array.from({ length: room + 1 }, (_, n) => n);
     const labels = hours.map((n) => (n === 0
       ? { label: str('semester.project.none'), note: str('semester.project.none.note') }
       : { label: fillStr('semester.project.hours', { hours: n }), note: fillStr('semester.project.hours.note', { hours: n }) }));
-    this.cards(labels, str('semester.project.title'), fillStr('semester.project.caption', { done: project.done.toFixed(1), need: project.need }), (i) => done(hours[i]!));
+    this.cards(labels, str('semester.project.title'), fillStr('semester.project.caption', { done: project.done.toFixed(1), need: project.need, room }), (i) => done(hours[i]!));
   }
 
   private askWalk(done: (walk: boolean) => void): void {

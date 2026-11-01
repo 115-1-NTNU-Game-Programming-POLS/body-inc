@@ -89,6 +89,20 @@ export const takes = (courses: readonly string[] | undefined, id: string): boole
 export const isCommitted = (courses: readonly string[], day: number, h: number): boolean =>
   courses.some((id) => (COMMITMENTS[id] ?? []).some((c) => c.day === day && c.hours.includes(h)));
 
+export type FixedHour = 'exam' | 'class' | 'meal' | 'work';
+
+/** What hour `h` of a day is already spoken for by whatever the plan says, in the order the day takes them; undefined when the plan decides it. */
+export function fixedHour(
+  k: { readonly weekend: readonly number[]; readonly classes: readonly number[]; readonly meals: readonly number[]; readonly examHours: readonly number[] },
+  courses: readonly string[] | undefined, day: number, wake: number, examDay: boolean, h: number,
+): FixedHour | undefined {
+  if (examDay && k.examHours.includes(h)) return 'exam';
+  if (!k.weekend.includes(day) && k.classes.includes(h)) return 'class';
+  if (h === wake || k.meals.slice(1).includes(h)) return 'meal';
+  if (courses !== undefined && isCommitted(courses, day, h)) return 'work';
+  return undefined;
+}
+
 /** The two system-programming assignments of the operating-systems card (design doc 8.3): announced on `announce`, handed in by the morning of `due`. */
 export const OS_ASSIGNMENTS: readonly { readonly announce: number; readonly due: number }[] = [
   { announce: 2, due: 4 },
@@ -166,6 +180,20 @@ export const PROJECT_NEED = 10;
 export const PROJECT_DAY_MAX = 4;
 export const PROJECT_REVIEW = 10;
 export const PROJECT_FIN_PENALTY = 8;
+
+/**
+ * The project hours a morning plan can count on: what is left of the day from `wake` to the evening after the fixed hours, the
+ * `rest` hours and the `write` hours of the assignment, up to PROJECT_DAY_MAX. It cannot see the events of the day, which put
+ * work in front of the project once they are chosen, so the hours played can still fall short of the ones planned.
+ */
+export function projectRoom(
+  k: Parameters<typeof fixedHour>[0] & { readonly bedMin: number },
+  courses: readonly string[] | undefined, day: number, wake: number, examDay: boolean, rest: readonly number[], write: number,
+): number {
+  let free = 0;
+  for (let h = wake; h < k.bedMin; h++) if (fixedHour(k, courses, day, wake, examDay, h) === undefined && !rest.includes(h)) free++;
+  return Math.max(0, Math.min(PROJECT_DAY_MAX, free - write));
+}
 
 /**
  * Sitting at the desk (design doc 8.3): from the hour after this many in a row, the stuck point of a compiler assignment
