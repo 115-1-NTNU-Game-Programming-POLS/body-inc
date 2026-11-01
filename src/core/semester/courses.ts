@@ -125,8 +125,7 @@ export const WRITE_HOURS = 2;
 export const DEBUG_PERCENT: readonly number[] = [20, 25, 20, 15, 12, 8];
 /**
  * Study progress a handed-in assignment is worth. ASSUME: more than the hours it takes, or skipping it would be the better play;
- * the re-simulation of design doc 9.6 sets it. 12 with WRITE_HOURS 2 (8 and 3 before) cut the selections under the responsive
- * floor with the assignments played from 93 to 49 of 315 (issue 52).
+ * the re-simulation of design doc 9.6 sets it. Kept under the midterm pass threshold, or one assignment would carry the midterm alone.
  */
 export const HOMEWORK_PROGRESS = 12;
 /**
