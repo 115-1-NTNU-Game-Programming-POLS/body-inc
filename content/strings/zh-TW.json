@@ -641,7 +641,7 @@
     "course.note.os": { "text": "有兩次作業，要先寫完才看得到要除錯多久，除錯會讓就寢時間往後延。沒交的作業會扣期末考。", "fact": "" },
     "course.note.database": { "text": "只有紙筆考，讀過的內容要睡過才算進度，考前一晚通宵讀的記不住。", "fact": "" },
     "course.note.compiler": { "text": "{credits} 學分的選修，有期末專案，沒完成期末考扣分；連續坐太久效率會掉，起來走走可以解除。", "fact": "" },
-    "course.note.ta": { "text": "第 {from} 天與第 {to} 天下午各有 {hours} 小時 office hour，那兩個小時不能讀書。", "fact": "" },
+    "course.note.ta": { "text": "第 {from} 天與第 {to} 天下午各有 {hours} 小時 office hour，那段時間不能讀書。", "fact": "" },
     "semester.end.debt": { "text": "期末的睡眠債：{debt} 小時", "fact": "" },
     "semester.end.back": { "text": "按 Enter 回到標題畫面", "fact": "" }
   }
