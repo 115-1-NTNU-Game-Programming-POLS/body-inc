@@ -155,14 +155,14 @@ describe('debugging an assignment', () => {
     };
 
     it('counts only the debugging hours that still fit once the event has taken its delay', () => {
-      const s = snackNight(LONG, 2, { debug: MAX_DEBUG_PER_NIGHT });
+      const s = snackNight(LONG, OS_ASSIGNMENTS[0]!.announce, { debug: MAX_DEBUG_PER_NIGHT });
       expect(s.homework[0]).toMatchObject({ debugged: 1, done: false });
       expect(s.history[0]!.homework).toEqual([{ n: 1, wrote: 3, debugged: 1, done: false, missed: false }]);
     });
 
     it('does not hand the assignment in on hours the clock took back', () => {
       // The seed's debugging is 2 hours; the plan sees both fit, the snack leaves room for one.
-      const s = snackNight(SHORT, 2, { debug: 2 });
+      const s = snackNight(SHORT, OS_ASSIGNMENTS[0]!.announce, { debug: 2 });
       expect(s.homework[0]).toMatchObject({ debugged: 1, done: false });
       expect(s.progress).toBeLessThan(HOMEWORK_PROGRESS);
     });
