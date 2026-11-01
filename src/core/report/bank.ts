@@ -33,7 +33,7 @@ export const DOC_PLACEHOLDERS: Readonly<Record<keyof Doc, readonly string[]>> = 
   wallMore: ['n'],
   wallOrder: ['day'],
   wallSmile: [],
-  reviewLiverCheck: ['day'], reviewDeclined: ['day'], reviewBed: ['from', 'to', 'n'], reviewPatrol: ['day', 'dept', 'grade'],
+  reviewLiverCheck: ['day'], reviewDeclined: ['day'], reviewBed: ['from', 'to', 'n'], reviewGrades: ['day'], reviewPatrol: ['day', 'dept', 'grade'],
   reviewHospital: [], reviewFin: [], reviewMid: [],
 };
 

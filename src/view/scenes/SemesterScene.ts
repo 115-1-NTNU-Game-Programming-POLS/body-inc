@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import {
-  COFFEE_PLANS, daySummary, endSummary, finishSemester, floorChoice, freshSeed, morningPlan, newSemester, NIGHT_PLANS, nightPlan, projectPrompt, REST_PLANS, resumeSemester, servesAlcohol,
+  COFFEE_PLANS, daySummary, endSummary, finishSemester, floorChoice, freshSeed, gradePrompt, morningPlan, newSemester, NIGHT_PLANS, nightPlan, projectPrompt, REST_PLANS, resumeSemester, semesterCleared, servesAlcohol, settingLines,
   TUTORIAL_COURSES, TUTORIAL_SEED, tutorLine, visitReport, walkPrompt, weekdayOf,
   type CoffeePlanId, type NightPlanId, type RestPlanId,
 } from '../../app/semester.ts';
@@ -8,7 +8,7 @@ import { fillStr, REPORT, str } from '../../app/content.ts';
 import { keepPage } from '../../app/handbook.ts';
 import type { SaveStore } from '../../app/storage.ts';
 import {
-  advanceDay, buildWall, MAX_DEBUG_PER_NIGHT, MAX_RANK_HOURS, nightRoom, pinWall, projectRoom, rankGain, RANK_FULL, rankSharePercent, reviewWall, RUN, WRITE_HOURS, type Answer, type Ask, type ChapterContent, type DayView, type FloorId, type HomeworkView, type ProgressData, type ReportDocument, type RunData,
+  advanceDay, buildWall, gradeRoom, MAX_DEBUG_PER_NIGHT, MAX_RANK_HOURS, nightRoom, pinWall, projectRoom, rankGain, RANK_FULL, rankSharePercent, reviewWall, RUN, WRITE_HOURS, type Answer, type Ask, type ChapterContent, type DayView, type FloorId, type HomeworkView, type ProgressData, type ReportDocument, type RunData,
   type SemesterContext, type SemesterRun, type SemesterState, type Settings, type Wall,
 } from '../../core/index.ts';
 import { WALL_CHAPTER, wallLoop, type WallSession } from '../../app/wall.ts';
@@ -40,6 +40,8 @@ export interface SemesterData {
   readonly resume?: SemesterRun;
   /** The cards picked on the course scene, for a new semester; the scripted first week takes its own list. */
   readonly courses?: readonly string[];
+  /** The overtime clause level picked on the course scene; absent is level 0. */
+  readonly clause?: number;
   /** The presentation's demo save: played from the run given in `resume`, but never written to the run slot or counted. */
   readonly demo?: boolean;
 }
@@ -90,7 +92,7 @@ export class SemesterScene extends Phaser.Scene {
     const seed = data.resume?.seed ?? data.seed ?? freshSeed(done, Date.now());
     // The scripted first week has its course list; any other new semester has the picks of the course scene, and a dev one none.
     const courses = data.courses ?? (data.seed === undefined && seed === TUTORIAL_SEED ? [...TUTORIAL_COURSES] : undefined);
-    const fresh = back ?? newSemester(seed, data.bbqDays, courses);
+    const fresh = back ?? newSemester(seed, data.bbqDays, courses, data.clause);
     this.seed = seed;
     this.ctx = fresh.ctx;
     this.state = fresh.state;
@@ -238,13 +240,14 @@ export class SemesterScene extends Phaser.Scene {
     this.clear();
     const table = new CardTable(this, { ...(caption ? { caption } : {}), title, options: labels }, this.textScale, (i) => this.choose(i), (i) => this.select(i));
     this.menu = { n: labels.length, paint: (c) => table.paint(c), destroy: () => table.destroy(), allowed: () => true, choose: pick };
-    this.select(0);
+    this.start(0);
   }
 
   private askCoffee(view: DayView): void {
     this.banner(view, 'plan');
     const ids = Object.keys(COFFEE_PLANS) as CoffeePlanId[];
-    this.cards(ids.map((id) => ({ label: str(`semester.coffee.${id}`), note: str(`semester.coffee.${id}.note`) })), str('semester.coffee.title'), tutorLine(this.seed, view.day), (i) => {
+    const caption = [tutorLine(this.seed, view.day), ...settingLines(this.ctx, view.day)].filter((l): l is string => l !== undefined).join('\n');
+    this.cards(ids.map((id) => ({ label: str(`semester.coffee.${id}`), note: str(`semester.coffee.${id}.note`) })), str('semester.coffee.title'), caption === '' ? undefined : caption, (i) => {
       this.askRest(view, ids[i]!);
     });
   }
@@ -254,13 +257,19 @@ export class SemesterScene extends Phaser.Scene {
     this.cards(ids.map((id) => ({ label: str(`semester.rest.${id}`), note: str(`semester.rest.${id}.note`) })), str('semester.rest.title'), undefined, (i) => {
       const rest = ids[i]!;
       const writing = view.homework.find((h) => h.written < WRITE_HOURS);
-      // The assignment, the compiler project and the walk are asked in turn, each only when the day has it.
+      // The assignment, the grading, the compiler project and the walk are asked in turn, each only when the day has it.
       const afterWrite = (write: number): void => {
-        if (view.project === undefined) return this.answer({ kind: 'plan', plan: morningPlan(coffee, rest, write) });
-        const askWalk = (project: number): void => this.askWalk((walk) => this.answer({ kind: 'plan', plan: morningPlan(coffee, rest, write, project, walk) }));
-        if (!view.project.open) return askWalk(0);
-        const room = projectRoom(this.ctx.params, this.ctx.courses, view.day, view.wake, view.exam !== null, REST_PLANS[rest], write);
-        this.askProject(view.project, room, askWalk);
+        const afterGrade = (grade: number): void => {
+          if (view.project === undefined) return this.answer({ kind: 'plan', plan: morningPlan(coffee, rest, write, 0, false, grade) });
+          const askWalk = (project: number): void => this.askWalk((walk) => this.answer({ kind: 'plan', plan: morningPlan(coffee, rest, write, project, walk, grade) }));
+          if (!view.project.open) return askWalk(0);
+          const room = projectRoom(this.ctx.params, this.ctx.courses, view.day, view.wake, view.exam !== null, REST_PLANS[rest], write + grade, this.ctx.setting?.commitments);
+          this.askProject(view.project, room, askWalk);
+        };
+        if (view.grade?.open !== true) return afterGrade(0);
+        const room = gradeRoom(this.ctx.params, this.ctx.courses, view.day, view.wake, view.exam !== null, REST_PLANS[rest], write, view.grade.done, this.ctx.setting?.commitments);
+        if (room === 0) return afterGrade(0);
+        this.askGrade(view.grade, false, room, afterGrade);
       };
       if (writing === undefined) return afterWrite(0);
       this.askWrite(writing, afterWrite);
@@ -274,6 +283,17 @@ export class SemesterScene extends Phaser.Scene {
       ? { label: str('semester.project.none'), note: str('semester.project.none.note') }
       : { label: fillStr('semester.project.hours', { hours: n }), note: fillStr('semester.project.hours.note', { hours: n }) }));
     const { title, caption } = projectPrompt(project, room, this.ctx.params);
+    this.cards(labels, title, caption, (i) => done(hours[i]!));
+  }
+
+  /** `room` is how many hours the plan so far leaves for the grading of the TA line, so the cards offer no more than the day or the night has. */
+  private askGrade(grade: NonNullable<DayView['grade']>, night: boolean, room: number, done: (hours: number) => void): void {
+    const hours = Array.from({ length: room + 1 }, (_, n) => n);
+    const kind = night ? 'gradenight' : 'grade';
+    const labels = hours.map((n) => (n === 0
+      ? { label: str(`semester.${kind}.none`), note: str(`semester.${kind}.none.note`) }
+      : { label: fillStr(`semester.${kind}.hours`, { hours: n }), note: fillStr(`semester.${kind}.hours.note`, { hours: n }) }));
+    const { title, caption } = gradePrompt(grade, night, room);
     this.cards(labels, title, caption, (i) => done(hours[i]!));
   }
 
@@ -326,7 +346,7 @@ export class SemesterScene extends Phaser.Scene {
       allowed: (i) => !panel.isDisabled(i),
       choose: (i) => pick(panel.floorAt(i)!),
     };
-    this.select(Math.max(0, view.panel.buttons.findIndex((b) => b.floor !== disabled)));
+    this.start(Math.max(0, view.panel.buttons.findIndex((b) => b.floor !== disabled)));
   }
 
   private askNight(view: DayView): void {
@@ -335,18 +355,24 @@ export class SemesterScene extends Phaser.Scene {
     const title = str(view.examTomorrow ? 'semester.night.exam.title' : 'semester.night.title');
     this.cards(ids.map((id) => ({ label: str(`semester.night.${id}`), note: str(`semester.night.${id}.note`) })), title, undefined, (i) => {
       const bed = ids[i]!;
-      // Debugging is asked once the writing is done, which is also when its length is told (design doc 8.3); the contest follows on its nights.
+      // Debugging is asked once the writing is done, which is also when its length is told (design doc 8.3); the grading and the contest follow on their nights.
       const debugging = view.homework.find((h) => h.debug !== undefined);
-      // Both only offer the hours that still fit before the clock stops (nightRoom), so a card never promises a delay the night cannot give.
+      // Each only offers the hours that still fit before the clock stops (nightRoom), so a card never promises a delay the night cannot give.
       const room = (spent: number): number => nightRoom(this.ctx.params, NIGHT_PLANS[bed].bed, view.bedDelay + spent);
-      const finish = (debug: number): void => {
-        const most = Math.min(MAX_RANK_HOURS, room(debug));
-        if (!view.rank?.open || most === 0) return this.answer({ kind: 'night', plan: nightPlan(bed, debug) });
-        this.askRank(view, most, (hours) => this.answer({ kind: 'night', plan: nightPlan(bed, debug, hours) }));
+      const finish = (debug: number, grade: number): void => {
+        const most = Math.min(MAX_RANK_HOURS, room(debug + grade));
+        if (!view.rank?.open || most === 0) return this.answer({ kind: 'night', plan: nightPlan(bed, debug, 0, grade) });
+        this.askRank(view, most, (hours) => this.answer({ kind: 'night', plan: nightPlan(bed, debug, hours, grade) }));
+      };
+      const afterDebug = (debug: number): void => {
+        const grading = view.grade;
+        const most = grading?.night === true ? Math.min(grading.need - grading.done, room(debug)) : 0;
+        if (grading === undefined || most === 0) return finish(debug, 0);
+        this.askGrade(grading, true, most, (grade) => finish(debug, grade));
       };
       const most = debugging?.debug === undefined ? 0 : Math.min(MAX_DEBUG_PER_NIGHT, debugging.debug - debugging.debugged, room(0));
-      if (debugging?.debug === undefined || most === 0) return finish(0);
-      this.askDebug(debugging, debugging.debug, most, finish);
+      if (debugging?.debug === undefined || most === 0) return afterDebug(0);
+      this.askDebug(debugging, debugging.debug, most, afterDebug);
     });
   }
 
@@ -371,6 +397,15 @@ export class SemesterScene extends Phaser.Scene {
     if (this.busy || !this.menu?.allowed(i)) return;
     this.cursor = i;
     this.menu.paint(i);
+  }
+
+  /**
+   * Puts the cursor on the first card of a menu just built. Unlike `select` it does not wait for `busy`: the page that goes on to
+   * a question is still busy then, and a cursor left where the last menu had it could point past the cards of this one.
+   */
+  private start(i: number): void {
+    this.cursor = i;
+    this.menu?.paint(i);
   }
 
   private move(step: number): void {
@@ -505,14 +540,19 @@ export class SemesterScene extends Phaser.Scene {
     this.registry.set('run', run);
   }
 
-  /** A semester fixed from the URL does not count, so looking at the rules never ends the scripted first week. */
-  private countSemester(): void {
+  /**
+   * A semester fixed from the URL does not count, so looking at the rules never ends the scripted first week. Gives the clause
+   * level the clear just unlocked, if it did.
+   */
+  private countSemester(after: SemesterState): number | undefined {
     const progress = this.registry.get('progress') as ProgressData | undefined;
     const saves = this.registry.get('saves') as SaveStore | undefined;
-    if (!this.keep || progress === undefined || saves === undefined) return;
-    const done = finishSemester(saves, progress);
+    if (!this.keep || progress === undefined || saves === undefined) return undefined;
+    const done = finishSemester(saves, progress, { level: this.ctx.clause ?? 0, cleared: semesterCleared(after, this.ctx) });
     if (done.issues.length > 0) this.game.events.emit('save-issues', done.issues);
     this.registry.set('progress', done.progress);
+    const unlocked = done.progress.clauseUnlocked ?? 0;
+    return unlocked > (progress.clauseUnlocked ?? 0) ? unlocked : undefined;
   }
 
   private endOfDay(after: SemesterState): void {
@@ -526,13 +566,13 @@ export class SemesterScene extends Phaser.Scene {
         this.state = after;
         this.finished.push(this.answers);
         this.answers = [];
-        this.persist({ seed: this.seed, ...(this.ctx.courses ? { courses: [...this.ctx.courses] } : {}), days: this.finished });
+        this.persist({ seed: this.seed, ...(this.ctx.courses ? { courses: [...this.ctx.courses] } : {}), ...(this.ctx.clause ? { clause: this.ctx.clause } : {}), days: this.finished });
         this.ask();
         return;
       }
       this.persist(null);
-      this.countSemester();
-      const toEnd = (): void => this.page(str('semester.end.title'), endSummary(after, this.ctx), str('semester.end.back'), () => this.leave());
+      const opened = this.countSemester(after);
+      const toEnd = (): void => this.page(str('semester.end.title'), endSummary(after, this.ctx, opened), str('semester.end.back'), () => this.leave());
       let review: Wall | undefined;
       try {
         review = reviewWall(after, this.ctx, REPORT, str);

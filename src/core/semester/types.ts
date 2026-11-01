@@ -4,6 +4,7 @@ import type { RngStreams } from '../rng.ts';
 import type { SleepCoefficients } from '../spirit.ts';
 import type { TagDictionary } from '../tags/dictionary.ts';
 import type { TagState } from '../tags/store.ts';
+import type { Setting } from './clauses.ts';
 import type { ElevatorPanel, FloorId, Light, Loads } from './floors.ts';
 import type { LiverClues } from './liver.ts';
 import type { Grade, LoadParams } from './load.ts';
@@ -16,6 +17,7 @@ export type SemesterParams = SleepCoefficients & MetabolismParams & LoadParams &
   | 'meals' | 'classes' | 'sleepNeed' | 'repayRatio' | 'cup' | 'boostMin' | 'boost' | 'boostTolerant' | 'cafSleepK' | 'cafDeadZone'
   | 'tolDays' | 'tolCups' | 'tolResetDays' | 'withdrawal' | 'alcoholSleep' | 'snackSleep' | 'passMid' | 'passFin'
   | 'hospitalDebtMult' | 'hospitalFloorLoad' | 'hospitalSleep' | 'floorStrikeStudyMult' | 'overtimeBedDelay' | 'examPassPercent'
+  | 'shiftHours' | 'labHours'
 >;
 
 /** What one option of an event does to the day; only the fields it names. */
@@ -56,6 +58,10 @@ export interface SemesterContext {
    * some take fixed hours. Absent, the semester is the 12-credit one the thresholds are tuned for.
    */
   readonly courses?: readonly string[];
+  /** The overtime clause level (clauses.ts); absent is level 0. `withClause` sets it together with what it changes. */
+  readonly clause?: number;
+  /** The setting card of the semester, whose hours the days spend as work whatever the plan says. */
+  readonly setting?: Setting;
 }
 
 /** One assignment of the operating-systems card, as the state keeps it. `debug` is drawn at the start and stays hidden until the writing is done. */
@@ -122,6 +128,8 @@ export interface DayRecord {
   readonly rank?: { readonly hours: number; readonly gain: number };
   /** The hours the day gave the compiler project and what they added; absent when none were spent. */
   readonly project?: { readonly hours: number; readonly gain: number; readonly done: boolean };
+  /** The grading hours the day and its night spent and whether they finished the papers; absent when none were spent. */
+  readonly grade?: { readonly hours: number; readonly done: boolean };
 }
 
 export interface ArchiveDay {
@@ -153,6 +161,8 @@ export interface SemesterState {
   readonly rank: number;
   /** The compiler project's progress in study-efficiency hours (design doc 8.3); stays 0 when the card is not taken. */
   readonly project: number;
+  /** Hours of the TA line's midterm grading done (design doc 8.3); stays 0 when the card is not taken. */
+  readonly graded: number;
   readonly loads: Loads;
   /**
    * Causal log entries behind each floor's load since it was last calm (under the yellow line).
@@ -185,6 +195,8 @@ export interface MorningPlan {
   readonly write?: number;
   /** Whole hours of the day's free time given to the compiler project; absent is none. */
   readonly project?: number;
+  /** Whole hours of the day's free time spent grading the midterm papers of the TA line; absent is none. */
+  readonly grade?: number;
   /** Take a 15-minute walk before the hour that would pass SIT_LIMIT in a row at the desk. */
   readonly walk?: boolean;
 }
@@ -206,6 +218,8 @@ export interface NightPlan {
   readonly debug?: number;
   /** Whole hours of the leaderboard contest after the planned bedtime, on the nights it is open; absent is none. */
   readonly rank?: number;
+  /** Whole hours of grading after the planned bedtime, on the nights the papers can still be graded; absent is none. */
+  readonly grade?: number;
 }
 
 /**
@@ -237,6 +251,11 @@ export interface DayView {
   readonly rank?: { readonly score: number; readonly open: boolean };
   /** The compiler card's final project: progress so far, what it needs, and whether it can take hours today; absent without the card. */
   readonly project?: { readonly done: number; readonly need: number; readonly open: boolean };
+  /**
+   * The TA line's midterm grading: hours done, hours it needs, the day the grades are due, and whether today's free hours (`open`)
+   * or tonight's hours after bedtime (`night`) can take it; absent without the card.
+   */
+  readonly grade?: { readonly done: number; readonly need: number; readonly due: number; readonly open: boolean; readonly night: boolean };
 }
 
 export interface Strategy {

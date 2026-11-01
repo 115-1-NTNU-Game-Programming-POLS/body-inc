@@ -27,7 +27,7 @@ export function nextInt(state: RngState, maxExclusive: number): [number, RngStat
  * Independent streams per concern, so adding one enemy decision does not shift which events
  * the day draws, and a demo save's events stay fixed while combat code changes.
  */
-export const RNG_STREAMS = ['map', 'events', 'enemies'] as const;
+export const RNG_STREAMS = ['map', 'events', 'enemies', 'setting'] as const;
 export type RngStream = (typeof RNG_STREAMS)[number];
 export type RngStreams = Readonly<Record<RngStream, RngState>>;
 

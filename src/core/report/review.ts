@@ -43,6 +43,9 @@ export function meritsOf(
   if (declined) add('declined', declined.day);
   const run = earlyRun(state.history);
   if (run) add('early_bed', run.from, { from: String(run.from), to: String(run.to), n: String(run.to - run.from + 1) });
+  // The TA line's column (design doc 8.3); the papers are all graded by the day the grades are due, or the day never records it.
+  const graded = state.history.find((r) => r.grade?.done === true);
+  if (graded) add('grades', graded.day);
   for (const r of state.history) {
     const p = r.patrols.find((x) => !x.overtime && r.lit.includes(x.floor) && GOOD_GRADES.includes(x.grade));
     if (!p) continue;

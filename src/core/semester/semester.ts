@@ -6,9 +6,10 @@ import { sleepFactor } from '../spirit.ts';
 import { addCauses, record, type NodeData, type SourceNodeKind } from '../tags/causal.ts';
 import type { TagDictionary } from '../tags/dictionary.ts';
 import { addAmount, amount, EMPTY_TAGS, flag, holds, lowerAmount, onWake, setAmount, setFlag, type TagState } from '../tags/store.ts';
+import { clauseProblem, MAX_CLAUSE, validClause } from './clauses.ts';
 import { EMPTY_LOADS, elevatorPanel, FLOORS, lightOf, litFloors, mapFloors, type FloorId } from './floors.ts';
 import {
-  archiveRate, creditsOf, debugHoursFor, fixedHour, HOMEWORK_MISS_PENALTY, HOMEWORK_PROGRESS, MAX_DEBUG_PER_NIGHT, MAX_RANK_HOURS, nightRoom, OS_ASSIGNMENTS, paperShare, rankGain,
+  archiveRate, creditsOf, debugHoursFor, fixedHour, GRADE_HOURS, gradeDays, HOMEWORK_MISS_PENALTY, HOMEWORK_PROGRESS, MAX_DEBUG_PER_NIGHT, MAX_RANK_HOURS, nightRoom, OS_ASSIGNMENTS, paperShare, rankGain,
   PROJECT_DAY_MAX, PROJECT_FIN_PENALTY, PROJECT_FROM_DAY, PROJECT_NEED, PROJECT_PRACTICE_SHARE, projectDue, rankNights, rankPercent, RANK_SHARE, selectionProblem, SIT_LIMIT, STUCK_MULT, takes, thresholdMult, UNARCHIVED_KEPT,
   WALK_EFFORT, WRITE_HOURS,
 } from './courses.ts';
@@ -70,6 +71,10 @@ export function startSemester(ctx: SemesterContext, seed: number): SemesterState
   checkParams(ctx.params);
   const problem = ctx.courses === undefined ? undefined : selectionProblem(ctx.courses);
   if (problem !== undefined) throw new RangeError(`the course selection breaks a rule of design doc 8.3 (${problem}): ${ctx.courses!.join(', ')}`);
+  if (ctx.clause !== undefined && !validClause(ctx.clause)) throw new RangeError(`the overtime clause must be a whole level from 0 to ${MAX_CLAUSE}, got ${ctx.clause}`);
+  if (ctx.clause !== undefined && ctx.courses !== undefined && clauseProblem(ctx.clause, creditsOf(ctx.courses)) !== undefined) {
+    throw new RangeError(`overtime clause ${ctx.clause} does not stack with ${creditsOf(ctx.courses)} credits: ${ctx.courses.join(', ')}`);
+  }
   for (const [day, ids] of Object.entries(ctx.scenario)) {
     for (const id of ids) if (!ctx.events.has(id)) throw new RangeError(`scenario day ${day} names the unknown event "${id}"`);
   }
@@ -89,7 +94,7 @@ export function startSemester(ctx: SemesterContext, seed: number): SemesterState
     }
   }
   return {
-    day: 1, wake: ctx.params.wake, tags, progress: 0, staging: 0, rank: 0, project: 0, loads: EMPTY_LOADS, loadCauses: mapFloors(() => []), cupsHist: [], zeroCupDays: 0, liverOrders: [],
+    day: 1, wake: ctx.params.wake, tags, progress: 0, staging: 0, rank: 0, project: 0, graded: 0, loads: EMPTY_LOADS, loadCauses: mapFloors(() => []), cupsHist: [], zeroCupDays: 0, liverOrders: [],
     hospitals: 0, homework, bankrupt: false, rng, history: [], ended: false,
   };
 }
@@ -134,6 +139,8 @@ interface DayRun {
   /** Hours of the day still to go to the compiler project, the hours it got, and whether a walk breaks up the sitting. */
   projectLeft: number;
   projectHours: number;
+  /** Hours of the day still to go to the TA line's grading. */
+  gradeLeft: number;
   walk: boolean;
   /** Hours sat at the desk in a row. */
   sit: number;
@@ -162,10 +169,22 @@ const rankOpen = (ctx: SemesterContext, s: SemesterState): boolean | undefined =
   return s.day >= from && s.day <= to && s.hospitalDay !== s.day;
 };
 
+/**
+ * Whether the midterm papers of the TA line can be graded in today's free hours (`day`) or tonight after bedtime (`night`): from
+ * the midterm to the day the grades are due, and a night only while a day is left to hand them in. Undefined without the card.
+ */
+const gradeOpen = (ctx: SemesterContext, s: SemesterState): { readonly day: boolean; readonly night: boolean } | undefined => {
+  if (!takes(ctx.courses, 'ta')) return undefined;
+  const { from, to } = gradeDays(ctx.params);
+  const left = s.graded < GRADE_HOURS && s.hospitalDay !== s.day;
+  return { day: left && s.day >= from && s.day <= to, night: left && s.day >= from && s.day < to };
+};
+
 function viewOf(d: DayRun): DayView {
   const { ctx, s } = d;
   const k = ctx.params;
   const open = rankOpen(ctx, s);
+  const grading = gradeOpen(ctx, s);
   return {
     day: s.day,
     wake: s.wake,
@@ -189,6 +208,7 @@ function viewOf(d: DayRun): DayView {
     ...(takes(ctx.courses, 'compiler')
       ? { project: { done: s.project, need: PROJECT_NEED, open: s.day >= PROJECT_FROM_DAY && s.day <= projectDue(k) && s.project < PROJECT_NEED && s.hospitalDay !== s.day } }
       : {}),
+    ...(grading === undefined ? {} : { grade: { done: s.graded, need: GRADE_HOURS, due: gradeDays(k).to, open: grading.day, night: grading.night } }),
   };
 }
 
@@ -240,7 +260,7 @@ function applyEvents(d: DayRun, upTo: number, before = false): void {
 
 function activityAt(d: DayRun, h: number, rest: ReadonlySet<number>): Activity {
   const k = d.ctx.params;
-  const fixed = fixedHour(k, d.ctx.courses, d.s.day, d.s.wake, d.exam !== null, h);
+  const fixed = fixedHour(k, d.ctx.courses, d.s.day, d.s.wake, d.exam !== null, h, d.ctx.setting?.commitments);
   if (fixed !== undefined) return fixed;
   if (d.workLeft > 0) {
     d.workLeft -= 1;
@@ -249,6 +269,13 @@ function activityAt(d: DayRun, h: number, rest: ReadonlySet<number>): Activity {
   if (d.writeLeft > 0 && !rest.has(h)) {
     d.writeLeft -= 1;
     d.s = withAssignment(d.s, d.writeIdx, { written: d.s.homework[d.writeIdx]!.written + 1 });
+    return 'work';
+  }
+  // Papers all graded early leave the planned hours to study, like a finished project.
+  if (d.s.graded >= GRADE_HOURS) d.gradeLeft = 0;
+  if (d.gradeLeft > 0 && !rest.has(h)) {
+    d.gradeLeft -= 1;
+    d.s = { ...d.s, graded: d.s.graded + 1 };
     return 'work';
   }
   // The hours a finish takes depend on the day's efficiency, so the plan cannot cap them; the ones past it go back to study.
@@ -512,7 +539,7 @@ export function playDay(from: SemesterState, ctx: SemesterContext, strategy: Str
   const debt = amount(s0.tags, dict, 'sleep_debt');
   const d: DayRun = {
     s: s0, ctx, strategy, exam, S: sleepFactor(debt, k), brainStrike: strikes('brain', s0.loads.brain, k), paper: ctx.courses === undefined ? 0 : paperShare(ctx.courses), morningLoads: s0.loads,
-    cups: 0, alcoholCups: 0, fasting: false, deadline: false, lateSnack: false, workLeft: 0, writeLeft: 0, writeIdx: -1, projectLeft: 0, projectHours: 0, walk: false, sit: 0, bedDelay: 0, overtimeDelay: 0, studyHours: 0, lateStudy: 0,
+    cups: 0, alcoholCups: 0, fasting: false, deadline: false, lateSnack: false, workLeft: 0, writeLeft: 0, writeIdx: -1, projectLeft: 0, projectHours: 0, gradeLeft: 0, walk: false, sit: 0, bedDelay: 0, overtimeDelay: 0, studyHours: 0, lateStudy: 0,
     evidence: { brain: [], stomach: [], liver: [] },
     pending: hospitalDay ? [] : (ctx.scenario[day] ?? []).map((id) => ctx.events.get(id)!).sort((a, b) => a.hour - b.hour),
     played: [],
@@ -558,6 +585,12 @@ export function playDay(from: SemesterState, ctx: SemesterContext, strategy: Str
   if (!Number.isInteger(projectAsked) || projectAsked < 0 || projectAsked > PROJECT_DAY_MAX || (projectAsked > 0 && !projectOpen)) {
     throw new RangeError(`${projectAsked} hours of the project were planned and the day can take 0 to ${projectOpen ? PROJECT_DAY_MAX : 0}`);
   }
+  const gradeAsked = plan.grade ?? 0;
+  const gradeCap = view0.grade?.open === true ? GRADE_HOURS - d.s.graded : 0;
+  if (!Number.isInteger(gradeAsked) || gradeAsked < 0 || gradeAsked > gradeCap) {
+    throw new RangeError(`${gradeAsked} hours of grading were planned and the day can take 0 to ${gradeCap}`);
+  }
+  d.gradeLeft = gradeAsked;
   if (plan.walk === true && view0.project === undefined) throw new RangeError('a walk was planned, and only the compiler card has a stuck point to walk away from');
   d.projectLeft = projectAsked;
   d.walk = plan.walk === true;
@@ -613,7 +646,15 @@ export function playDay(from: SemesterState, ctx: SemesterContext, strategy: Str
     debugHours = Math.min(debugAsked, toDebug.a.debug - toDebug.a.debugged, nightRoom(k, bedBase, d.bedDelay + d.overtimeDelay));
     d.bedDelay += debugHours;
   }
-  // The contest comes after the debugging and pushes bedtime the same way; the first hour of a night is worth the most.
+  // The grading comes next and pushes bedtime the same way; the papers wait for no one, so it takes room before the contest.
+  const gradeNightAsked = night.grade ?? 0;
+  const gradeNightCap = gradeOpen(ctx, d.s)?.night === true ? GRADE_HOURS - d.s.graded : 0;
+  if (!Number.isInteger(gradeNightAsked) || gradeNightAsked < 0 || gradeNightAsked > gradeNightCap) {
+    throw new RangeError(`${gradeNightAsked} hours of grading were planned and the night can take 0 to ${gradeNightCap}`);
+  }
+  const gradeHours = Math.min(gradeNightAsked, nightRoom(k, bedBase, d.bedDelay + d.overtimeDelay));
+  d.bedDelay += gradeHours;
+  // The contest comes after the debugging and the grading and pushes bedtime the same way; the first hour of a night is worth the most.
   const rankAsked = night.rank ?? 0;
   const contestOpen = rankOpen(ctx, d.s) === true;
   if (!Number.isInteger(rankAsked) || rankAsked < 0 || rankAsked > MAX_RANK_HOURS || (rankAsked > 0 && !contestOpen)) {
@@ -633,11 +674,13 @@ export function playDay(from: SemesterState, ctx: SemesterContext, strategy: Str
   }
 
   // An event in the night can use up the room the plan saw, and the clamp then takes those hours off the bedtime. Only the hours
-  // that still fit once the other delays are counted were really spent, so the contest gives way first, then the debugging.
-  const stayedUp = debugHours + rankHours;
+  // that still fit once the other delays are counted were really spent, so the contest gives way first, then the grading, then the debugging.
+  const stayedUp = debugHours + gradeHours + rankHours;
   const fit = Math.min(stayedUp, nightRoom(k, bedBase, d.bedDelay + d.overtimeDelay - stayedUp));
   const debugSpent = Math.min(debugHours, fit);
-  const rankSpent = fit - debugSpent;
+  const gradeSpent = Math.min(gradeHours, fit - debugSpent);
+  const rankSpent = fit - debugSpent - gradeSpent;
+  if (gradeSpent > 0) d.s = { ...d.s, graded: d.s.graded + gradeSpent };
   if (toDebug !== undefined && debugSpent > 0) {
     const debugged = toDebug.a.debugged + debugSpent;
     const done = debugged >= toDebug.a.debug;
@@ -662,6 +705,7 @@ export function playDay(from: SemesterState, ctx: SemesterContext, strategy: Str
     settled: true,
     patrols, events: d.played, loadsAfter: d.s.loads, studyHours: d.studyHours, homework: homeworkDelta(from.homework, d.s.homework), ...(rankDone ? { rank: rankDone } : {}),
     ...(d.projectHours > 0 ? { project: { hours: d.projectHours, gain: d.s.project - from.project, done: from.project < PROJECT_NEED && d.s.project >= PROJECT_NEED } } : {}),
+    ...(d.s.graded > from.graded ? { grade: { hours: d.s.graded - from.graded, done: from.graded < GRADE_HOURS && d.s.graded >= GRADE_HOURS } } : {}),
     ...outcome,
   };
   const ended = d.s.bankrupt;

@@ -86,7 +86,7 @@
         "noticeDate", "noticeNumber", "noticeSubject", "noticePenalty", "noticeMissed", "noticeAdvice", "noticeWarning",
         "bankruptDate", "bankruptNumber", "bankruptPrevious", "bankruptSubject", "bankruptResult",
         "bankruptAdviceHead", "bankruptAdvice1", "bankruptAdvice2", "bankruptAdvice3", "wallStruck", "wallMore", "wallOrder", "wallSmile",
-        "reviewLiverCheck", "reviewDeclined", "reviewBed", "reviewPatrol", "reviewHospital", "reviewFin", "reviewMid"
+        "reviewLiverCheck", "reviewDeclined", "reviewBed", "reviewGrades", "reviewPatrol", "reviewHospital", "reviewFin", "reviewMid"
       ],
       "properties": {
         "letterhead": { "type": "string", "minLength": 1 },
@@ -128,6 +128,7 @@
         "reviewLiverCheck": { "type": "string", "minLength": 1 },
         "reviewDeclined": { "type": "string", "minLength": 1 },
         "reviewBed": { "type": "string", "minLength": 1 },
+        "reviewGrades": { "type": "string", "minLength": 1 },
         "reviewPatrol": { "type": "string", "minLength": 1 },
         "reviewHospital": { "type": "string", "minLength": 1 },
         "reviewFin": { "type": "string", "minLength": 1 },

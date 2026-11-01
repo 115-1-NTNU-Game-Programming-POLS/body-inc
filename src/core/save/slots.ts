@@ -192,11 +192,13 @@ export interface ProgressData {
   readonly hostName: string;
   /** Semesters played to their end; 0 makes the next one the scripted first week (design doc 8.13). */
   readonly semestersDone: number;
+  /** The highest overtime clause level the player may start at (design doc 8.3); absent is 0. A clear of that level opens the next. */
+  readonly clauseUnlocked?: number;
 }
 
 export const PROGRESS: SlotDef<ProgressData> = {
   name: 'progress',
-  version: 3,
+  version: 4,
   schema: {
     type: 'object',
     additionalProperties: false,
@@ -206,6 +208,8 @@ export const PROGRESS: SlotDef<ProgressData> = {
       // The schema cannot count characters; savedHost applies the full rules after loading.
       hostName: { type: 'string', minLength: 1 },
       semestersDone: INT,
+      // The levels that exist are the rules' business (core/semester/clauses.ts); the save only keeps a count.
+      clauseUnlocked: INT,
     },
   },
   defaults: () => ({ handbook: [], hostName: DEFAULT_HOST, semestersDone: 0 }),
@@ -214,6 +218,8 @@ export const PROGRESS: SlotDef<ProgressData> = {
     1: (data) => (isRecord(data) ? { ...data, hostName: DEFAULT_HOST } : data),
     // Version 3 counts finished semesters; a save from before it has none on record.
     2: (data) => (isRecord(data) ? { ...data, semestersDone: 0 } : data),
+    // Version 4 adds the unlocked clause level as an optional field; a save from before it has unlocked none.
+    3: (data) => data,
   },
 };
 
@@ -240,6 +246,8 @@ export interface SemesterRun {
   readonly seed: number;
   /** The course cards taken (design doc 8.3); absent in a run saved before there was a selection, which replays without them. */
   readonly courses?: readonly string[];
+  /** The overtime clause level (design doc 8.3); absent is level 0, which is what a run saved before the clauses replays as. */
+  readonly clause?: number;
   /** The answers of each finished day, in the order the day asked its questions. */
   readonly days: readonly (readonly Answer[])[];
 }
@@ -262,7 +270,7 @@ const ANSWER: Schema = {
           type: 'object',
           additionalProperties: false,
           required: ['coffee', 'rest'],
-          properties: { coffee: { type: 'array', items: INT }, rest: { type: 'array', items: INT }, write: INT, project: INT, walk: { type: 'boolean' } },
+          properties: { coffee: { type: 'array', items: INT }, rest: { type: 'array', items: INT }, write: INT, project: INT, grade: INT, walk: { type: 'boolean' } },
         },
       },
     },
@@ -286,7 +294,7 @@ const ANSWER: Schema = {
           type: 'object',
           additionalProperties: false,
           required: ['bed', 'nextWake', 'lateNight'],
-          properties: { bed: { type: 'number' }, nextWake: INT, lateNight: { enum: ['study', 'rest'] }, debug: INT, rank: INT },
+          properties: { bed: { type: 'number' }, nextWake: INT, lateNight: { enum: ['study', 'rest'] }, debug: INT, rank: INT, grade: INT },
         },
       },
     },
@@ -295,7 +303,7 @@ const ANSWER: Schema = {
 
 export const RUN: SlotDef<RunData> = {
   name: 'run',
-  version: 5,
+  version: 7,
   schema: {
     type: 'object',
     additionalProperties: false,
@@ -311,6 +319,7 @@ export const RUN: SlotDef<RunData> = {
             properties: {
               seed: INT,
               courses: { type: 'array', items: { type: 'string', minLength: 1 } },
+              clause: INT,
               days: { type: 'array', items: { type: 'array', items: ANSWER } },
             },
           },
@@ -319,8 +328,8 @@ export const RUN: SlotDef<RunData> = {
     },
   },
   defaults: () => ({ semester: null }),
-  // Versions 2 to 5 add optional fields (the course list; the hours of writing and debugging; the contest hours; the project hours and the walk); an older run is valid without them.
-  migrations: { 1: (data) => data, 2: (data) => data, 3: (data) => data, 4: (data) => data },
+  // Versions 2 to 7 add optional fields (the course list; the hours of writing and debugging; the contest hours; the project hours and the walk; the grading hours; the overtime clause); an older run is valid without them.
+  migrations: { 1: (data) => data, 2: (data) => data, 3: (data) => data, 4: (data) => data, 5: (data) => data, 6: (data) => data },
 };
 
 export const SLOTS = [SETTINGS, STORY, PROGRESS, RUN] as const;

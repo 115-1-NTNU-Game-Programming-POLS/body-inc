@@ -2405,6 +2405,7 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
           "reviewLiverCheck",
           "reviewDeclined",
           "reviewBed",
+          "reviewGrades",
           "reviewPatrol",
           "reviewHospital",
           "reviewFin",
@@ -2564,6 +2565,10 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
             "minLength": 1
           },
           "reviewBed": {
+            "type": "string",
+            "minLength": 1
+          },
+          "reviewGrades": {
             "type": "string",
             "minLength": 1
           },
@@ -3754,6 +3759,7 @@ export interface ReportDoc {
   readonly reviewLiverCheck: string;
   readonly reviewDeclined: string;
   readonly reviewBed: string;
+  readonly reviewGrades: string;
   readonly reviewPatrol: string;
   readonly reviewHospital: string;
   readonly reviewFin: string;
