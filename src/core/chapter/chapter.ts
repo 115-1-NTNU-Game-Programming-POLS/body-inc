@@ -456,10 +456,13 @@ function onBed(ctx: ChapterContent, run: Run, game: GameState, e: Extract<Domain
   // The nap sofa is once per chapter (design doc 7.4); here that is once per bed object.
   const key = `${run.roomId}#${o.id}`;
   if (run.fired.includes(key)) return refused;
-  const slept = passTime(ctx, { ...run, fired: [...run.fired, key] }, game, NAP.minutes);
+  const napping = { ...run, fired: [...run.fired, key] };
+  // A patrol never starts the clock (design doc 8.5), so its sofa only shakes the stacks off and passes no time.
+  const clockless = ctx.chapter.patrol !== undefined;
+  const slept = clockless ? { run: napping, game } : passTime(ctx, napping, game, NAP.minutes);
   const page = String(o.props['unlocks'] ?? '').trim();
   const woke = page === '' ? { tags: slept.run.tags, events: [] } : applyEffects(ctx.dict, slept.run.tags, slept.game.clock, [{ kind: 'unlock', id: page }], { kind: 'activity', key: 'nap' }, ctx.params);
-  return { run: { ...slept.run, tags: woke.tags }, game: sendStacksHome(slept.game), events: [{ type: 'napped', minutes: NAP.minutes }, ...woke.events] };
+  return { run: { ...slept.run, tags: woke.tags }, game: sendStacksHome(slept.game), events: [{ type: 'napped', minutes: clockless ? 0 : NAP.minutes }, ...woke.events] };
 }
 
 /**

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  advanceDay, decode, encode, EMPTY_LOADS, GRADES, HITS_FOR_A, NO_TALLY, patrolReduction, playDay, ratePatrol, RUN, runSemester, startSemester, tallyPatrol,
+  advanceDay, decode, encode, EMPTY_LOADS, GRADES, HITS_FOR_A, MIST, NO_TALLY, patrolReduction, playDay, ratePatrol, RUN, runSemester, startSemester, tallyPatrol,
   type FloorChoice, type Grade, type PatrolResult, type SemesterContext, type SemesterState, type Strategy,
 } from '../../src/core/index.ts';
 import { ARCHETYPES } from '../../sim/semester/archetypes.ts';
@@ -53,7 +53,7 @@ describe('the rating of a played patrol (design doc 8.5)', () => {
   it('counts the hearts lost and the forced clock-out among a patrol\'s events, and nothing else', () => {
     const t = tallyPatrol(NO_TALLY, [{ type: 'heartLost' }, { type: 'dodge' }, { type: 'clung' }, { type: 'hit' }]);
     expect(t).toEqual({ hits: 2, forced: false, records: 0 });
-    expect(tallyPatrol(t, [{ type: 'heartLost', cause: 'acetaldehyde' }])).toBe(t);
+    expect(tallyPatrol(t, [{ type: 'heartLost', cause: MIST.cause }])).toBe(t);
     expect(tallyPatrol(t, [{ type: 'forcedLeave' }])).toEqual({ hits: 2, forced: true, records: 0 });
     expect(tallyPatrol(t, [{ type: 'dodge' }])).toBe(t);
   });

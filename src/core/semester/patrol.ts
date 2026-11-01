@@ -1,3 +1,4 @@
+import { MIST } from '../liver/factory.ts';
 import { GRADES, type Grade } from './load.ts';
 
 /**
@@ -21,7 +22,7 @@ export interface PatrolTally {
 export const NO_TALLY: PatrolTally = { hits: 0, forced: false, records: 0 };
 
 /** The fog of an acetaldehyde crate costs a heart for staying near it, which the liver's core goal (pushing the crates on) cannot avoid: it is not a hit. */
-const NOT_A_HIT = 'acetaldehyde';
+const NOT_A_HIT = MIST.cause;
 
 /** The domain events of a patrol's ticks folded into what the rating reads: a heart lost or an adenosine latching on is a hit, a forced clock-out ends it. */
 export function tallyPatrol(tally: PatrolTally, events: readonly { readonly type: string; readonly cause?: string }[]): PatrolTally {

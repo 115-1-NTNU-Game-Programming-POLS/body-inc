@@ -21,6 +21,8 @@ export const MIST = {
   radiusPx: 2 * TILE,
   intervalTicks: 2 * TICK_HZ,
   halves: 1,
+  /** The `cause` of the `heartLost` event the fog gives, which the rating of a patrol must tell from a hit. */
+  cause: 'acetaldehyde',
 } as const;
 
 /** The enemy entry whose category and solution an alcohol crate carries (content/enemies.json). */

@@ -677,6 +677,17 @@ interface MovedBoxes {
   readonly delivered: readonly number[];
 }
 
+const penCache = new WeakMap<readonly RoomObject[], readonly Box[]>();
+/** The rest areas of a room, boxed once for as long as its object list lives: `step` asks every tick. */
+const pensOf = (objects: readonly RoomObject[]): readonly Box[] => {
+  let boxes = penCache.get(objects);
+  if (boxes === undefined) {
+    boxes = objects.filter((o) => o.kind === 'Pen').map(objectBox);
+    penCache.set(objects, boxes);
+  }
+  return boxes;
+};
+
 export function step(state: GameState, pressed: TickInput): StepResult {
   const now = state.tick;
   const events: DomainEvent[] = [];
@@ -840,7 +851,7 @@ export function step(state: GameState, pressed: TickInput): StepResult {
   }
   for (const z of newZones) zones.set(nextId, { ...z, id: nextId++, age: 1, spent: false });
   // The rest area locks what drifts into it: the answer to adenosine that cannot be beaten (design doc 8.5).
-  const pens = state.room.objects.filter((o) => o.kind === 'Pen').map(objectBox);
+  const pens = pensOf(state.room.objects);
   if (pens.length > 0) {
     for (const e of enemies.values()) {
       if (!e.clings || e.phase !== 'idle' || e.frozen > 0) continue;
@@ -1167,7 +1178,7 @@ export function step(state: GameState, pressed: TickInput): StepResult {
     if (mist >= MIST.intervalTicks) {
       mist = 0;
       op = { ...op, halves: op.halves - MIST.halves };
-      events.push({ type: 'heartLost', halves: MIST.halves, cause: 'acetaldehyde' });
+      events.push({ type: 'heartLost', halves: MIST.halves, cause: MIST.cause });
     }
     if (mist !== factory.mist) factory = { ...factory, mist };
   }
