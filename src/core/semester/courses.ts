@@ -112,7 +112,7 @@ export function fixedHour(
 
 /** The two system-programming assignments of the operating-systems card (design doc 8.3): announced on `announce`, handed in by the morning of `due`. */
 export const OS_ASSIGNMENTS: readonly { readonly announce: number; readonly due: number }[] = [
-  { announce: 2, due: 4 },
+  { announce: 4, due: 7 },
   { announce: 6, due: 9 },
 ];
 
