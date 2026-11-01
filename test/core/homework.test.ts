@@ -87,26 +87,26 @@ describe('writing an assignment', () => {
   it('hides the debugging hours until the writing is done', () => {
     const { ctx, s0, debug } = open(SHORT);
     const before: DayView[] = [];
-    play(ctx, player((d) => (d === A ? { write: 2 } : {}), before), s0, A + 1);
+    play(ctx, player((d) => (d === A ? { write: WRITE_HOURS - 1 } : {}), before), s0, A + 1);
     expect(before.filter((v) => v.day >= A).map((v) => v.homework[0]!.debug)).toEqual([undefined, undefined]);
     const after: DayView[] = [];
-    play(ctx, player((d) => (d === A ? { write: 3 } : {}), after), s0, A + 1);
+    play(ctx, player((d) => (d === A ? { write: WRITE_HOURS } : {}), after), s0, A + 1);
     expect(after.find((v) => v.day === A + 1)!.homework[0]).toMatchObject({ written: WRITE_HOURS, debug });
   });
 
   it('spends the writing hours as work, so the day studies that much less', () => {
     const { ctx, s0 } = open(SHORT);
     const hours = (write: number): number => play(ctx, player((d) => (d === A ? { write } : {})), { ...s0, day: A }, A).history[0]!.studyHours;
-    expect(hours(0) - hours(2)).toBe(2);
-    expect(hours(0) - hours(3)).toBe(3);
+    expect(hours(0) - hours(WRITE_HOURS - 1)).toBe(WRITE_HOURS - 1);
+    expect(hours(0) - hours(WRITE_HOURS)).toBe(WRITE_HOURS);
   });
 
-  it('takes at most the 3 hours the assignment needs, over as many days as it takes', () => {
+  it('takes at most the hours the assignment needs, over as many days as it takes', () => {
     const { ctx, s0 } = open(SHORT);
-    const done = play(ctx, player((d) => (d === A ? { write: 2 } : d === A + 1 ? { write: 1 } : {})), s0, A + 1);
-    expect(done.homework[0]!.written).toBe(3);
-    expect(done.history[A - 1]!.homework).toEqual([{ n: 1, wrote: 2, debugged: 0, done: false, missed: false }]);
-    expect(() => play(ctx, player((d) => (d === A ? { write: 4 } : {})), s0, A)).toThrow(/writing/);
+    const done = play(ctx, player((d) => (d === A ? { write: WRITE_HOURS - 1 } : d === A + 1 ? { write: 1 } : {})), s0, A + 1);
+    expect(done.homework[0]!.written).toBe(WRITE_HOURS);
+    expect(done.history[A - 1]!.homework).toEqual([{ n: 1, wrote: WRITE_HOURS - 1, debugged: 0, done: false, missed: false }]);
+    expect(() => play(ctx, player((d) => (d === A ? { write: WRITE_HOURS + 1 } : {})), s0, A)).toThrow(/writing/);
     expect(() => play(ctx, player((d) => (d === A - 1 ? { write: 1 } : {})), s0, A - 1)).toThrow(/writing/);
   });
 });
@@ -114,12 +114,12 @@ describe('writing an assignment', () => {
 describe('debugging an assignment', () => {
   const written = (seed: number): { ctx: SemesterContext; s: SemesterState; debug: number } => {
     const { ctx, s0, debug } = open(seed);
-    return { ctx, s: play(ctx, player((d) => (d === A ? { write: 3 } : {})), s0, A), debug };
+    return { ctx, s: play(ctx, player((d) => (d === A ? { write: WRITE_HOURS } : {})), s0, A), debug };
   };
   /** The night of the day the assignment opens, after writing it that day: plays that day with the writing and `ask` hours of debugging. */
   const firstNight = (seed: number, ask: number): SemesterState => {
     const { ctx, s0 } = open(seed);
-    return playDay({ ...s0, day: A }, ctx, player(() => ({ write: 3, debug: ask })));
+    return playDay({ ...s0, day: A }, ctx, player(() => ({ write: WRITE_HOURS, debug: ask })));
   };
 
   it('comes after the planned bedtime and pushes it back by the hours spent', () => {
@@ -134,8 +134,8 @@ describe('debugging an assignment', () => {
     // Asking for more than is left spends only what is left: the debugging of this seed is 2 hours.
     expect(done.homework[0]).toMatchObject({ debugged: 2, done: true });
     expect(done.history[0]!.bedEnd).toBe(22.5 + 2);
-    expect(done.history[0]!.homework).toEqual([{ n: 1, wrote: 3, debugged: 2, done: true, missed: false }]);
-    const idle = playDay({ ...open(SHORT).s0, day: A }, open(SHORT).ctx, player(() => ({ write: 3 })));
+    expect(done.history[0]!.homework).toEqual([{ n: 1, wrote: WRITE_HOURS, debugged: 2, done: true, missed: false }]);
+    const idle = playDay({ ...open(SHORT).s0, day: A }, open(SHORT).ctx, player(() => ({ write: WRITE_HOURS })));
     // The two hours of debugging cost sleep, so less of the day's study is archived that night; the hand-in is the rest of the difference.
     const lost = idle.history[0]!.archive!.archived - done.history[0]!.archive!.archived;
     expect(lost).toBeGreaterThan(0);
@@ -166,7 +166,7 @@ describe('debugging an assignment', () => {
     it('counts only the debugging hours that still fit once the event has taken its delay', () => {
       const s = snackNight(LONG, OS_ASSIGNMENTS[0]!.announce, { debug: MAX_DEBUG_PER_NIGHT });
       expect(s.homework[0]).toMatchObject({ debugged: 1, done: false });
-      expect(s.history[0]!.homework).toEqual([{ n: 1, wrote: 3, debugged: 1, done: false, missed: false }]);
+      expect(s.history[0]!.homework).toEqual([{ n: 1, wrote: WRITE_HOURS, debugged: 1, done: false, missed: false }]);
     });
 
     it('does not hand the assignment in on hours the clock took back', () => {
@@ -206,7 +206,7 @@ describe('handing in and missing', () => {
 
   it('never marks a handed-in assignment missed', () => {
     const { ctx, s0 } = open(SHORT);
-    const handed = playDay({ ...s0, day: A }, ctx, player(() => ({ write: 3, debug: MAX_DEBUG_PER_NIGHT })));
+    const handed = playDay({ ...s0, day: A }, ctx, player(() => ({ write: WRITE_HOURS, debug: MAX_DEBUG_PER_NIGHT })));
     expect(handed.homework[0]!.done).toBe(true);
     expect(play(ctx, player(), handed, D).homework[0]).toMatchObject({ done: true, missed: false });
   });
@@ -234,12 +234,12 @@ describe('answers through the interactive day', () => {
     const ctx = ctxFor(COURSES, SHORT);
     const s0: SemesterState = { ...startSemester(ctx, SHORT), day: A };
     const answers: Answer[] = [
-      { kind: 'plan', plan: { coffee: [], rest: [], write: 3 } },
+      { kind: 'plan', plan: { coffee: [], rest: [], write: WRITE_HOURS } },
       { kind: 'floor', choice: { patrol: 'brain' } },
       { kind: 'night', plan: { bed: 22.5, nextWake: 7, lateNight: 'rest', debug: 1 } },
     ];
     const step = advanceDay(s0, ctx, answers);
     expect(step.done).toBe(true);
-    if (step.done) expect(step.state.homework[0]).toMatchObject({ written: 3, debugged: 1 });
+    if (step.done) expect(step.state.homework[0]).toMatchObject({ written: WRITE_HOURS, debugged: 1 });
   });
 });

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  decode, encode, playDay, PROJECT_DAY_MAX, PROJECT_FIN_PENALTY, PROJECT_FROM_DAY, PROJECT_NEED, PROJECT_PRACTICE_SHARE, PROJECT_REVIEW, projectRoom, RUN, SIT_LIMIT, startSemester, STUCK_MULT, WALK_EFFORT,
+  decode, encode, playDay, PROJECT_DAY_MAX, PROJECT_FIN_PENALTY, PROJECT_FROM_DAY, PROJECT_NEED, PROJECT_PRACTICE_SHARE, PROJECT_REVIEW, projectRoom, RUN, SIT_LIMIT, startSemester, STUCK_MULT, WALK_EFFORT, WRITE_HOURS,
   type Answer, type DayView, type MorningPlan, type SemesterContext, type SemesterState, type Strategy,
 } from '../../src/core/index.ts';
 import { contextFor } from '../../sim/semester/scenario.ts';
@@ -119,7 +119,7 @@ describe('the project hours a morning plan can count on', () => {
     const ctx = ctxFor(WITH);
     const plans = [[], [21], [17, 21], [16, 17, 20, 21], [8, 9, 13, 16, 17, 19, 20, 21]];
     for (const n of [3, 5, 6, 7, 8, 9]) {
-      const writing = startSemester(ctx, 1).homework.some((a) => a.announce <= n && n < a.due) ? [0, 3] : [0];
+      const writing = startSemester(ctx, 1).homework.some((a) => a.announce <= n && n < a.due) ? [0, WRITE_HOURS] : [0];
       for (const rest of plans) {
         for (const write of writing) {
           const can = room(ctx, n, rest, write);
