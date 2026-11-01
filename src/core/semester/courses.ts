@@ -141,5 +141,25 @@ export const UNARCHIVED_KEPT = 0.5;
 
 export const archiveRate = (effectiveSleep: number): number => Math.min(1, effectiveSleep / ARCHIVE_SLEEP);
 
+/** The nights of the algorithms card's final leaderboard contest (design doc 8.3); the calendar is days 6 to 9. */
+export const LEADERBOARD_DAYS: readonly number[] = [6, 7, 8, 9];
+/** Score that fills the board, the first hour's score at S = 1, how much each further hour of the same night keeps, and the most hours a night. */
+export const RANK_FULL = 60;
+export const RANK_FIRST = 10;
+export const RANK_DECAY = 0.6;
+export const MAX_RANK_HOURS = 4;
+/** The share of the final exam percent the board is worth. */
+export const RANK_SHARE = 0.3;
+
+/** The score `hours` of one night add: 10, 6, 3.6, 2.16 times that day's S for the hours in turn. */
+export function rankGain(hours: number, S: number): number {
+  let gain = 0;
+  for (let h = 0; h < hours; h++) gain += RANK_FIRST * S * RANK_DECAY ** h;
+  return gain;
+}
+
+/** The board as a percent of full marks, which is what the final exam takes its share from. */
+export const rankPercent = (score: number): number => 100 * Math.min(1, score / RANK_FULL);
+
 /** A passed semester's review: the grade times the reward of its burden. */
 export const reviewPoints = (grade: number, credits: number): number => grade * BURDEN_REWARD[burdenOf(credits)];

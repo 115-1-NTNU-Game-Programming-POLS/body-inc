@@ -8,7 +8,7 @@ import { fillStr, REPORT, str } from '../../app/content.ts';
 import { keepPage } from '../../app/handbook.ts';
 import type { SaveStore } from '../../app/storage.ts';
 import {
-  advanceDay, buildWall, MAX_DEBUG_PER_NIGHT, pinWall, reviewWall, RUN, WRITE_HOURS, type Answer, type Ask, type ChapterContent, type DayView, type FloorId, type HomeworkView, type ProgressData, type ReportDocument, type RunData,
+  advanceDay, buildWall, MAX_DEBUG_PER_NIGHT, MAX_RANK_HOURS, pinWall, rankGain, RANK_FULL, RANK_SHARE, reviewWall, RUN, WRITE_HOURS, type Answer, type Ask, type ChapterContent, type DayView, type FloorId, type HomeworkView, type ProgressData, type ReportDocument, type RunData,
   type SemesterContext, type SemesterRun, type SemesterState, type Settings, type Wall,
 } from '../../core/index.ts';
 import { WALL_CHAPTER, wallLoop, type WallSession } from '../../app/wall.ts';
@@ -312,11 +312,23 @@ export class SemesterScene extends Phaser.Scene {
     const title = str(view.examTomorrow ? 'semester.night.exam.title' : 'semester.night.title');
     this.cards(ids.map((id) => ({ label: str(`semester.night.${id}`), note: str(`semester.night.${id}.note`) })), title, undefined, (i) => {
       const bed = ids[i]!;
-      // Debugging is asked once the writing is done, which is also when its length is told (design doc 8.3).
+      // Debugging is asked once the writing is done, which is also when its length is told (design doc 8.3); the contest follows on its nights.
       const debugging = view.homework.find((h) => h.debug !== undefined);
-      if (debugging?.debug === undefined) return this.answer({ kind: 'night', plan: nightPlan(bed) });
-      this.askDebug(debugging, debugging.debug, (hours) => this.answer({ kind: 'night', plan: nightPlan(bed, hours) }));
+      const finish = (debug: number): void => (view.rank?.open
+        ? this.askRank(view, (hours) => this.answer({ kind: 'night', plan: nightPlan(bed, debug, hours) }))
+        : this.answer({ kind: 'night', plan: nightPlan(bed, debug) }));
+      if (debugging?.debug === undefined) return finish(0);
+      this.askDebug(debugging, debugging.debug, finish);
     });
+  }
+
+  private askRank(view: DayView, done: (hours: number) => void): void {
+    const hours = Array.from({ length: MAX_RANK_HOURS + 1 }, (_, n) => n);
+    const labels = hours.map((n) => (n === 0
+      ? { label: str('semester.rank.none'), note: str('semester.rank.none.note') }
+      : { label: fillStr('semester.rank.hours', { hours: n }), note: fillStr('semester.rank.hours.note', { hours: n, gain: rankGain(n, view.S).toFixed(1) }) }));
+    const caption = fillStr('semester.rank.caption', { score: (view.rank?.score ?? 0).toFixed(1), full: RANK_FULL, share: Math.round(RANK_SHARE * 100) });
+    this.cards(labels, str('semester.rank.title'), caption, (i) => done(hours[i]!));
   }
 
   private askDebug(hw: HomeworkView, total: number, done: (hours: number) => void): void {

@@ -118,6 +118,8 @@ export interface DayRecord {
   readonly homework: readonly HomeworkDay[];
   /** What the night's sleep did to the staging pile; absent when the pile was empty. */
   readonly archive?: ArchiveDay;
+  /** The leaderboard hours the night spent and the score they added; absent when none were spent. */
+  readonly rank?: { readonly hours: number; readonly gain: number };
 }
 
 export interface ArchiveDay {
@@ -145,6 +147,8 @@ export interface SemesterState {
   readonly progress: number;
   /** Paper-exam study done and not yet archived by sleep (design doc 8.3); an exam does not count it. */
   readonly staging: number;
+  /** The algorithms card's leaderboard score (design doc 8.3); stays 0 when the card is not taken. */
+  readonly rank: number;
   readonly loads: Loads;
   /**
    * Causal log entries behind each floor's load since it was last calm (under the yellow line).
@@ -192,6 +196,8 @@ export interface NightPlan {
   readonly lateNight: 'study' | 'rest';
   /** Whole hours of debugging after the planned bedtime, which push bedtime back; absent is none. */
   readonly debug?: number;
+  /** Whole hours of the leaderboard contest after the planned bedtime, on the nights it is open; absent is none. */
+  readonly rank?: number;
 }
 
 /**
@@ -217,6 +223,8 @@ export interface DayView {
   readonly modifiers: readonly string[];
   /** The assignments that can be worked on today. */
   readonly homework: readonly HomeworkView[];
+  /** The leaderboard of the algorithms card: the score so far, and whether tonight is a contest night; absent without the card. */
+  readonly rank?: { readonly score: number; readonly open: boolean };
 }
 
 export interface Strategy {

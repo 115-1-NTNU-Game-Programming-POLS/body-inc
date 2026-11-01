@@ -1,5 +1,5 @@
 import {
-  advanceDay, amount, BURDEN_REWARD, burdenOf, composeReport, creditsOf, EVENTS, HOMEWORK_PROGRESS, reviewPoints, PROGRESS, prototypeContext, semesterInputs, startSemester, summarize, withBarbecueOn,
+  advanceDay, amount, BURDEN_REWARD, burdenOf, composeReport, creditsOf, EVENTS, HOMEWORK_PROGRESS, RANK_FULL, RANK_SHARE, reviewPoints, PROGRESS, prototypeContext, semesterInputs, startSemester, summarize, withBarbecueOn,
   type FloorChoice, type FloorId, type MorningPlan, type NightPlan, type ProgressData, type ReportDocument, type Scenario, type SemesterContext, type SemesterRun, type SemesterState,
 } from '../core/index.ts';
 import { fillStr as fill, PARAMS, REPORT, str, STRINGS, TAGS } from './content.ts';
@@ -107,7 +107,8 @@ export const morningPlan = (coffee: CoffeePlanId, rest: RestPlanId, write = 0): 
   ({ coffee: [...COFFEE_PLANS[coffee]], rest: [...REST_PLANS[rest]], ...(write > 0 ? { write } : {}) });
 
 /** Everyone wakes at the usual hour; sleeping in is not offered yet. */
-export const nightPlan = (id: NightPlanId, debug = 0): NightPlan => ({ ...NIGHT_PLANS[id], nextWake: PARAMS.wake, ...(debug > 0 ? { debug } : {}) });
+export const nightPlan = (id: NightPlanId, debug = 0, rank = 0): NightPlan =>
+  ({ ...NIGHT_PLANS[id], nextWake: PARAMS.wake, ...(debug > 0 ? { debug } : {}), ...(rank > 0 ? { rank } : {}) });
 
 export const floorChoice = (patrol: FloorId, overtime?: FloorId): FloorChoice => (overtime === undefined ? { patrol } : { patrol, overtime });
 
@@ -143,6 +144,7 @@ export function daySummary(before: SemesterState, after: SemesterState, ctx: Sem
     if (h.done) lines.push(fill('semester.sum.hw.done', { n: h.n, p: HOMEWORK_PROGRESS }));
     if (h.missed) lines.push(fill('semester.sum.hw.missed', { n: h.n }));
   }
+  if (rec.rank !== undefined) lines.push(fill('semester.sum.rank', { hours: rec.rank.hours, gain: oneDecimal(rec.rank.gain), score: oneDecimal(after.rank) }));
   if (rec.archive !== undefined) {
     const { staged, archived, rate } = rec.archive;
     lines.push(fill('semester.sum.archive', { staged: oneDecimal(staged), archived: oneDecimal(archived), rate: percent(rate * 100) }));
@@ -183,6 +185,7 @@ export function endSummary(state: SemesterState, ctx: SemesterContext): string[]
     fill('semester.end.grade', { grade: percent(sum.grade) }),
     str(sum.passMid && sum.passFin ? 'semester.end.pass' : 'semester.end.fail'),
   ];
+  if (ctx.courses?.includes('algorithms')) lines.push(fill('semester.end.rank', { score: oneDecimal(state.rank), full: RANK_FULL, share: percent(RANK_SHARE * 100) }));
   if (sum.bankrupt) lines.push(str('semester.end.bankrupt'));
   else if (sum.hospitalized) lines.push(str('semester.end.hospital'));
   lines.push(fill('semester.end.debt', { debt: oneDecimal(sum.finalDebt) }));

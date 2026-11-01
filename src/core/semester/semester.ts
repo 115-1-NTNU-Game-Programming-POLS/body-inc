@@ -7,7 +7,10 @@ import { addCauses, record, type NodeData, type SourceNodeKind } from '../tags/c
 import type { TagDictionary } from '../tags/dictionary.ts';
 import { addAmount, amount, EMPTY_TAGS, flag, holds, lowerAmount, onWake, setAmount, setFlag, type TagState } from '../tags/store.ts';
 import { EMPTY_LOADS, elevatorPanel, FLOORS, lightOf, litFloors, mapFloors, type FloorId } from './floors.ts';
-import { archiveRate, creditsOf, debugHoursFor, HOMEWORK_PROGRESS, paperShare, UNARCHIVED_KEPT, isCommitted, MAX_DEBUG_PER_NIGHT, OS_ASSIGNMENTS, selectionProblem, thresholdMult, WRITE_HOURS } from './courses.ts';
+import {
+  archiveRate, creditsOf, debugHoursFor, HOMEWORK_PROGRESS, isCommitted, LEADERBOARD_DAYS, MAX_DEBUG_PER_NIGHT, MAX_RANK_HOURS, OS_ASSIGNMENTS, paperShare, rankGain,
+  rankPercent, RANK_SHARE, selectionProblem, thresholdMult, UNARCHIVED_KEPT, WRITE_HOURS,
+} from './courses.ts';
 import { liverClues, liverStrikes } from './liver.ts';
 import { contributions, nextLoad, strikes, type DayFacts } from './load.ts';
 import { examPerformance, gradeFor } from './rating.ts';
@@ -85,7 +88,7 @@ export function startSemester(ctx: SemesterContext, seed: number): SemesterState
     }
   }
   return {
-    day: 1, wake: ctx.params.wake, tags, progress: 0, staging: 0, loads: EMPTY_LOADS, loadCauses: mapFloors(() => []), cupsHist: [], zeroCupDays: 0, liverOrders: [],
+    day: 1, wake: ctx.params.wake, tags, progress: 0, staging: 0, rank: 0, loads: EMPTY_LOADS, loadCauses: mapFloors(() => []), cupsHist: [], zeroCupDays: 0, liverOrders: [],
     hospitals: 0, homework, bankrupt: false, rng, history: [], ended: false,
   };
 }
@@ -140,9 +143,14 @@ interface DayRun {
 const examOn = (day: number, ctx: SemesterContext): 'mid' | 'fin' | null =>
   day === ctx.params.midDay ? 'mid' : day === ctx.params.finDay ? 'fin' : null;
 
+/** Whether the leaderboard contest is open on `day`; undefined when the algorithms card is not taken. */
+const rankOpen = (ctx: SemesterContext, day: number): boolean | undefined =>
+  ctx.courses?.includes('algorithms') ? LEADERBOARD_DAYS.includes(day) : undefined;
+
 function viewOf(d: DayRun): DayView {
   const { ctx, s } = d;
   const k = ctx.params;
+  const open = rankOpen(ctx, s.day);
   return {
     day: s.day,
     wake: s.wake,
@@ -161,6 +169,7 @@ function viewOf(d: DayRun): DayView {
     homework: workable(s).map(({ a, i }) => ({
       n: i + 1, due: a.due, written: a.written, debugged: a.debugged, ...(a.written >= WRITE_HOURS ? { debug: a.debug } : {}),
     })),
+    ...(open === undefined ? {} : { rank: { score: s.rank, open } }),
   };
 }
 
@@ -259,6 +268,8 @@ function sitExam(d: DayRun, kind: 'mid' | 'fin'): number {
   const result = scoreExam({
     kind: 'regular', progress: d.s.progress, sExamDay: d.S, passThreshold: threshold, ...examPerformance(d.ctx.skill, roll(d), k),
   });
+  // The leaderboard is a share of the final exam alone (design doc 8.3).
+  if (kind === 'fin' && d.ctx.courses?.includes('algorithms')) return (1 - RANK_SHARE) * result.examPercent + RANK_SHARE * rankPercent(d.s.rank);
   return result.examPercent;
 }
 
@@ -541,6 +552,21 @@ export function playDay(from: SemesterState, ctx: SemesterContext, strategy: Str
     d.s = withAssignment(d.s, toDebug.i, { debugged, done });
     if (done && spent > 0) d.s = { ...d.s, progress: d.s.progress + HOMEWORK_PROGRESS };
   }
+  // The contest comes after the debugging and pushes bedtime the same way; the first hour of a night is worth the most.
+  const rankAsked = night.rank ?? 0;
+  const contestOpen = rankOpen(ctx, day) === true && !hospitalDay;
+  if (!Number.isInteger(rankAsked) || rankAsked < 0 || rankAsked > MAX_RANK_HOURS || (rankAsked > 0 && !contestOpen)) {
+    throw new RangeError(`${rankAsked} hours of the contest were planned and the night can take 0 to ${contestOpen ? MAX_RANK_HOURS : 0}`);
+  }
+  let rankDone: DayRecord['rank'];
+  if (rankAsked > 0) {
+    const room = Math.max(0, Math.floor(k.bedMax + k.bedOverrun - (bedBase + d.bedDelay + overtimeDelay)));
+    const hours = Math.min(rankAsked, room);
+    const gain = rankGain(hours, d.S);
+    d.bedDelay += hours;
+    d.s = { ...d.s, rank: d.s.rank + gain };
+    if (hours > 0) rankDone = { hours, gain };
+  }
   const bedEndAt = (): number => Math.min(bedBase + d.bedDelay + overtimeDelay, k.bedMax + k.bedOverrun);
   for (let t = k.bedMin; ; t += STEP) {
     // Once bedtime has come, an event strictly before it is still due, and it may push bedtime back.
@@ -560,7 +586,7 @@ export function playDay(from: SemesterState, ctx: SemesterContext, strategy: Str
     bedEnd,
     kind: hospitalDay ? 'hospital' : exam !== null ? 'exam' : 'normal',
     settled: true,
-    patrols, events: d.played, loadsAfter: d.s.loads, studyHours: d.studyHours, homework: homeworkDelta(from.homework, d.s.homework), ...outcome,
+    patrols, events: d.played, loadsAfter: d.s.loads, studyHours: d.studyHours, homework: homeworkDelta(from.homework, d.s.homework), ...(rankDone ? { rank: rankDone } : {}), ...outcome,
   };
   const ended = d.s.bankrupt;
   return { ...d.s, history: [...d.s.history, rec], ended, ...(ended ? { fin: d.s.fin ?? 0 } : {}) };
