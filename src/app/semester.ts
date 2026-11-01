@@ -1,5 +1,5 @@
 import {
-  advanceDay, amount, BURDEN_REWARD, burdenOf, composeReport, creditsOf, EVENTS, HOMEWORK_PROGRESS, PROJECT_FIN_PENALTY, PROJECT_NEED, PROJECT_REVIEW, RANK_FULL, RANK_SHARE, reviewPoints, PROGRESS, prototypeContext, semesterInputs, startSemester, summarize, withBarbecueOn,
+  advanceDay, amount, BURDEN_REWARD, burdenOf, composeReport, creditsOf, EVENTS, HOMEWORK_PROGRESS, PROJECT_FIN_PENALTY, PROJECT_NEED, PROJECT_REVIEW, RANK_FULL, RANK_SHARE, reviewPoints, PROGRESS, takes, prototypeContext, semesterInputs, startSemester, summarize, withBarbecueOn,
   type FloorChoice, type FloorId, type MorningPlan, type NightPlan, type ProgressData, type ReportDocument, type Scenario, type SemesterContext, type SemesterRun, type SemesterState,
 } from '../core/index.ts';
 import { fillStr as fill, PARAMS, REPORT, str, STRINGS, TAGS } from './content.ts';
@@ -184,23 +184,29 @@ export function visitReport(state: SemesterState, ctx: SemesterContext, seed: nu
 export function endSummary(state: SemesterState, ctx: SemesterContext): string[] {
   if (!state.ended) throw new RangeError('the semester has not ended');
   const sum = summarize(state, ctx);
+  const passed = sum.passMid && sum.passFin;
+  const hospitalFinal = state.history.at(-1)?.kind === 'hospital';
+  const projectDone = state.project >= PROJECT_NEED;
   const lines = [
     fill('semester.end.exams', { mid: percent(sum.mid), fin: percent(sum.fin) }),
     fill('semester.end.grade', { grade: percent(sum.grade) }),
-    str(sum.passMid && sum.passFin ? 'semester.end.pass' : 'semester.end.fail'),
+    str(passed ? 'semester.end.pass' : 'semester.end.fail'),
   ];
-  // A bankrupt semester and a final spent in hospital score 0 whole, board included, so the line would only mislead.
-  if (ctx.courses?.includes('algorithms') && !sum.bankrupt && state.history.at(-1)?.kind !== 'hospital') lines.push(fill('semester.end.rank', { score: oneDecimal(state.rank), full: RANK_FULL, share: percent(RANK_SHARE * 100) }));
+  // A bankrupt semester and a final spent in hospital score 0 whole, board and project penalty included, so those lines would only mislead.
+  if (takes(ctx.courses, 'algorithms') && !sum.bankrupt && !hospitalFinal) lines.push(fill('semester.end.rank', { score: oneDecimal(state.rank), full: RANK_FULL, share: percent(RANK_SHARE * 100) }));
   if (sum.bankrupt) lines.push(str('semester.end.bankrupt'));
   else if (sum.hospitalized) lines.push(str('semester.end.hospital'));
   lines.push(fill('semester.end.debt', { debt: oneDecimal(sum.finalDebt) }));
-  if (ctx.courses?.includes('compiler') && !sum.bankrupt) {
-    lines.push(state.project >= PROJECT_NEED ? fill('semester.end.project.done', { points: PROJECT_REVIEW }) : fill('semester.end.project.fail', { points: PROJECT_FIN_PENALTY }));
+  // The review points of a finished project are only paid into a passed semester's review below.
+  if (takes(ctx.courses, 'compiler') && !sum.bankrupt) {
+    if (projectDone && passed) lines.push(fill('semester.end.project.done', { points: PROJECT_REVIEW }));
+    else if (!projectDone && !hospitalFinal) lines.push(fill('semester.end.project.fail', { points: PROJECT_FIN_PENALTY }));
   }
-  if (ctx.courses !== undefined && sum.passMid && sum.passFin) {
+  if (ctx.courses !== undefined && passed) {
     const credits = creditsOf(ctx.courses);
     const burden = burdenOf(credits);
-    lines.push(fill('semester.end.review', { points: percent(reviewPoints(sum.grade, credits)), burden: str(`semester.burden.${burden}`), reward: BURDEN_REWARD[burden].toFixed(2) }));
+    const bonus = takes(ctx.courses, 'compiler') && projectDone ? PROJECT_REVIEW : 0;
+    lines.push(fill('semester.end.review', { points: percent(reviewPoints(sum.grade, credits, bonus)), burden: str(`semester.burden.${burden}`), reward: BURDEN_REWARD[burden].toFixed(2) }));
   }
   return lines;
 }

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { fillStr, str } from '../../src/app/content.ts';
 import { daySummary, endSummary, morningPlan, newSemester, nightPlan } from '../../src/app/semester.ts';
-import { playDay, PROJECT_FIN_PENALTY, PROJECT_NEED, PROJECT_REVIEW, type SemesterState, type Strategy } from '../../src/core/index.ts';
+import { creditsOf, playDay, PROJECT_FIN_PENALTY, PROJECT_NEED, PROJECT_REVIEW, reviewPoints, summarize, type SemesterState, type Strategy } from '../../src/core/index.ts';
 
 const player = (project: number, walk: boolean): Strategy => ({
   plan: () => morningPlan('none', 'balanced', 0, project, walk),
@@ -28,7 +28,7 @@ describe('what the player is told about the compiler project', () => {
   it('closes the semester with the review points or the penalty, and with nothing without the card or after bankruptcy', () => {
     const end = (courses: readonly string[], project: number): { ctx: ReturnType<typeof newSemester>['ctx']; s: SemesterState } => {
       const { ctx, state } = newSemester(1, [], courses);
-      return { ctx, s: playDay({ ...state, day: 10, progress: 40, project }, ctx, player(0, false)) };
+      return { ctx, s: playDay({ ...state, day: 10, mid: 80, progress: 40, project }, ctx, player(0, false)) };
     };
     const done = end(WITH, PROJECT_NEED);
     expect(endSummary(done.s, done.ctx)).toContain(fillStr('semester.end.project.done', { points: PROJECT_REVIEW }));
@@ -37,5 +37,26 @@ describe('what the player is told about the compiler project', () => {
     const without = end(WITHOUT, 0);
     expect(endSummary(without.s, without.ctx).some((l) => l.includes('專案'))).toBe(false);
     expect(endSummary({ ...missed.s, bankrupt: true }, missed.ctx).some((l) => l.includes('專案'))).toBe(false);
+  });
+
+  it('pays the review points into the review line, and only for a passed semester', () => {
+    const { ctx, state } = newSemester(1, [], WITH);
+    const end = (progress: number, project: number): SemesterState => playDay({ ...state, day: 10, mid: 80, progress, project }, ctx, player(0, false));
+    const reviewOf = (s: SemesterState): number => Number(/學期評價：(\d+) 點/.exec(endSummary(s, ctx).find((l) => l.startsWith('學期評價'))!)![1]);
+    const done = end(40, PROJECT_NEED);
+    const grade = summarize(done, ctx).grade;
+    expect(summarize(done, ctx).passFin).toBe(true);
+    expect(reviewOf(done)).toBe(Math.round(reviewPoints(grade, creditsOf(WITH), PROJECT_REVIEW)));
+    expect(reviewOf(done)).toBeGreaterThan(Math.round(reviewPoints(grade, creditsOf(WITH))));
+    const failed = end(0, PROJECT_NEED);
+    expect(summarize(failed, ctx).passFin).toBe(false);
+    expect(endSummary(failed, ctx).some((l) => l.includes('另加') || l.startsWith('學期評價'))).toBe(false);
+  });
+
+  it('leaves the penalty line out when the final was spent in hospital, where nothing was sat to take it off', () => {
+    const { ctx, state } = newSemester(1, [], WITH);
+    const hospital = playDay({ ...state, day: 10, mid: 80, progress: 40, project: 0, hospitalDay: 10 }, ctx, player(0, false));
+    expect(hospital.history.at(-1)!.kind).toBe('hospital');
+    expect(endSummary(hospital, ctx).some((l) => l.includes('專案'))).toBe(false);
   });
 });

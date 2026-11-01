@@ -9,7 +9,7 @@ import { addAmount, amount, EMPTY_TAGS, flag, holds, lowerAmount, onWake, setAmo
 import { EMPTY_LOADS, elevatorPanel, FLOORS, lightOf, litFloors, mapFloors, type FloorId } from './floors.ts';
 import {
   archiveRate, creditsOf, debugHoursFor, HOMEWORK_PROGRESS, isCommitted, MAX_DEBUG_PER_NIGHT, MAX_RANK_HOURS, nightRoom, OS_ASSIGNMENTS, paperShare, rankGain,
-  PROJECT_DAY_MAX, PROJECT_FIN_PENALTY, PROJECT_FROM_DAY, PROJECT_NEED, rankPercent, RANK_SHARE, selectionProblem, SIT_LIMIT, STUCK_MULT, thresholdMult, UNARCHIVED_KEPT,
+  PROJECT_DAY_MAX, PROJECT_FIN_PENALTY, PROJECT_FROM_DAY, PROJECT_NEED, rankPercent, RANK_SHARE, selectionProblem, SIT_LIMIT, STUCK_MULT, takes, thresholdMult, UNARCHIVED_KEPT,
   WALK_EFFORT, WRITE_HOURS,
 } from './courses.ts';
 import { liverClues, liverStrikes } from './liver.ts';
@@ -157,7 +157,7 @@ const examOn = (day: number, ctx: SemesterContext): 'mid' | 'fin' | null =>
  * hospital day. Undefined when the algorithms card is not taken.
  */
 const rankOpen = (ctx: SemesterContext, s: SemesterState): boolean | undefined =>
-  ctx.courses?.includes('algorithms') ? s.day > ctx.params.midDay && s.day < ctx.params.finDay && s.hospitalDay !== s.day : undefined;
+  takes(ctx.courses, 'algorithms') ? s.day > ctx.params.midDay && s.day < ctx.params.finDay && s.hospitalDay !== s.day : undefined;
 
 function viewOf(d: DayRun): DayView {
   const { ctx, s } = d;
@@ -183,7 +183,7 @@ function viewOf(d: DayRun): DayView {
       n: i + 1, due: a.due, written: a.written, debugged: a.debugged, ...(a.written >= WRITE_HOURS ? { debug: a.debug } : {}),
     })),
     ...(open === undefined ? {} : { rank: { score: s.rank, open } }),
-    ...(ctx.courses?.includes('compiler')
+    ...(takes(ctx.courses, 'compiler')
       ? { project: { done: s.project, need: PROJECT_NEED, open: s.day >= PROJECT_FROM_DAY && s.day < k.finDay && s.project < PROJECT_NEED && s.hospitalDay !== s.day } }
       : {}),
   };
@@ -284,7 +284,7 @@ function spend(d: DayRun, dur: number, activity: Activity, effort = 1): void {
  * or the project at the desk ends the sit.
  */
 function sitting(d: DayRun, activity: Activity, dur: number, walkAllowed: boolean): number {
-  if (d.ctx.courses?.includes('compiler') !== true) return 1;
+  if (!takes(d.ctx.courses, 'compiler')) return 1;
   if (activity !== 'study' && activity !== 'project') {
     d.sit = 0;
     return 1;
@@ -317,8 +317,8 @@ function sitExam(d: DayRun, kind: 'mid' | 'fin'): number {
   let percent = result.examPercent;
   if (kind === 'fin') {
     // The leaderboard is a share of the final exam alone, and an unfinished compiler project costs it a few points (design doc 8.3).
-    if (d.ctx.courses?.includes('algorithms')) percent = (1 - RANK_SHARE) * percent + RANK_SHARE * rankPercent(d.s.rank);
-    if (d.ctx.courses?.includes('compiler') && d.s.project < PROJECT_NEED) percent = Math.max(0, percent - PROJECT_FIN_PENALTY);
+    if (takes(d.ctx.courses, 'algorithms')) percent = (1 - RANK_SHARE) * percent + RANK_SHARE * rankPercent(d.s.rank);
+    if (takes(d.ctx.courses, 'compiler') && d.s.project < PROJECT_NEED) percent = Math.max(0, percent - PROJECT_FIN_PENALTY);
   }
   return percent;
 }

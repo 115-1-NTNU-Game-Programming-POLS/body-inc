@@ -82,6 +82,9 @@ const COMMITMENTS: Readonly<Record<string, readonly Commitment[]>> = {
   ta: [{ day: 2, hours: [16, 17] }, { day: 8, hours: [16, 17] }],
 };
 
+/** Whether the semester took the card `id`; a context without a course list (the old sims) takes none. */
+export const takes = (courses: readonly string[] | undefined, id: string): boolean => courses?.includes(id) === true;
+
 /** Whether a course takes hour `h` of `day`; the day's loop asks every hour, so this allocates nothing. */
 export const isCommitted = (courses: readonly string[], day: number, h: number): boolean =>
   courses.some((id) => (COMMITMENTS[id] ?? []).some((c) => c.day === day && c.hours.includes(h)));
@@ -186,5 +189,5 @@ export function rankGain(hours: number, S: number): number {
 /** The board as a percent of full marks, which is what the final exam takes its share from. */
 export const rankPercent = (score: number): number => 100 * Math.min(1, score / RANK_FULL);
 
-/** A passed semester's review: the grade times the reward of its burden. */
-export const reviewPoints = (grade: number, credits: number): number => grade * BURDEN_REWARD[burdenOf(credits)];
+/** A passed semester's review: the grade times the reward of its burden, plus a flat `bonus` such as the final project's. */
+export const reviewPoints = (grade: number, credits: number, bonus = 0): number => grade * BURDEN_REWARD[burdenOf(credits)] + bonus;
