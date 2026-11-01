@@ -7,7 +7,7 @@ import { addCauses, record, type NodeData, type SourceNodeKind } from '../tags/c
 import type { TagDictionary } from '../tags/dictionary.ts';
 import { addAmount, amount, EMPTY_TAGS, flag, holds, lowerAmount, onWake, setAmount, setFlag, type TagState } from '../tags/store.ts';
 import { EMPTY_LOADS, elevatorPanel, FLOORS, lightOf, litFloors, mapFloors, type FloorId } from './floors.ts';
-import { creditsOf, debugHoursFor, HOMEWORK_PROGRESS, isCommitted, MAX_DEBUG_PER_NIGHT, OS_ASSIGNMENTS, selectionProblem, thresholdMult, WRITE_HOURS } from './courses.ts';
+import { archiveRate, creditsOf, debugHoursFor, HOMEWORK_PROGRESS, paperShare, UNARCHIVED_KEPT, isCommitted, MAX_DEBUG_PER_NIGHT, OS_ASSIGNMENTS, selectionProblem, thresholdMult, WRITE_HOURS } from './courses.ts';
 import { liverClues, liverStrikes } from './liver.ts';
 import { contributions, nextLoad, strikes, type DayFacts } from './load.ts';
 import { examPerformance, gradeFor } from './rating.ts';
@@ -85,7 +85,7 @@ export function startSemester(ctx: SemesterContext, seed: number): SemesterState
     }
   }
   return {
-    day: 1, wake: ctx.params.wake, tags, progress: 0, loads: EMPTY_LOADS, loadCauses: mapFloors(() => []), cupsHist: [], zeroCupDays: 0, liverOrders: [],
+    day: 1, wake: ctx.params.wake, tags, progress: 0, staging: 0, loads: EMPTY_LOADS, loadCauses: mapFloors(() => []), cupsHist: [], zeroCupDays: 0, liverOrders: [],
     hospitals: 0, homework, bankrupt: false, rng, history: [], ended: false,
   };
 }
@@ -115,6 +115,8 @@ interface DayRun {
   readonly exam: 'mid' | 'fin' | null;
   readonly S: number;
   readonly brainStrike: boolean;
+  /** Share of the day's study that goes to the staging pile. */
+  readonly paper: number;
   readonly morningLoads: SemesterState['loads'];
   cups: number;
   alcoholCups: number;
@@ -151,6 +153,7 @@ function viewOf(d: DayRun): DayView {
     S: d.S,
     caffeine: caffeineOf(s.tags, ctx.dict),
     progress: s.progress,
+    staging: s.staging,
     hospitals: s.hospitals,
     panel: elevatorPanel(d.morningLoads, k),
     liverClues: liverClues(d.morningLoads.liver, s.liverOrders, k),
@@ -225,18 +228,20 @@ function activityAt(d: DayRun, h: number, rest: ReadonlySet<number>): Activity {
   return rest.has(h) ? 'rest' : 'study';
 }
 
-/** Spends `dur` hours on an activity; only study moves the semester's progress. */
+/** Spends `dur` hours on an activity; only study moves the semester's progress, the paper-exam part of it into the staging pile. */
 function spend(d: DayRun, dur: number, activity: Activity): void {
   const { dict, params: k } = d.ctx;
-  let { tags, progress } = d.s;
+  let { tags, progress, staging } = d.s;
   if (activity === 'study') {
     const boost = caffeineBoost(caffeineOf(tags, dict), flag(tags, dict, 'caffeine_tolerant'), k);
     const efficiency = d.S * boost * (flag(tags, dict, 'withdrawal') ? k.withdrawal : 1) * (d.brainStrike ? k.floorStrikeStudyMult : 1);
-    progress += efficiency * dur;
+    const gain = efficiency * dur;
+    progress += gain * (1 - d.paper);
+    staging += gain * d.paper;
     d.studyHours += dur;
   }
   tags = metabolise(tags, dict, Math.round(dur * 60), k);
-  d.s = { ...d.s, tags, progress };
+  d.s = { ...d.s, tags, progress, staging };
 }
 
 function drinkCup(d: DayRun, h: number): void {
@@ -283,6 +288,7 @@ interface Outcome {
   readonly loadsSettled: SemesterState['loads'];
   readonly liverStrike?: NonNullable<DayRecord['liverStrike']>;
   readonly crisis?: NonNullable<DayRecord['crisis']>;
+  readonly archive?: NonNullable<DayRecord['archive']>;
 }
 
 const nodeOf = (tags: TagState, name: string): number[] => (tags.values[name] ? [tags.values[name]!.node] : []);
@@ -408,15 +414,21 @@ function settle(d: DayRun, n: Night): Outcome {
   tags = lowerAmount(tags, dict, 'alcohol', amount(tags, dict, 'alcohol'));
   tags = setFlag(tags, dict, 'deadline', false, rule, at);
 
+  // Sleep files the day's paper-exam study; what it did not reach keeps only half until the next night.
+  const staged = d.s.staging;
+  const rate = archiveRate(effective);
+  const archived = staged * rate;
+
   const loadCauses = mapFloors((f) => (loads[f] < k.floorYellowAt ? [] : behind[f]));
   d.s = {
-    ...d.s, tags, loads, loadCauses, cupsHist, zeroCupDays, hospitals, bankrupt, day: day + 1, wake: er && !bankrupt ? k.wake : n.nextWake,
+    ...d.s, tags, loads, loadCauses, progress: d.s.progress + archived, staging: (staged - archived) * UNARCHIVED_KEPT, cupsHist, zeroCupDays, hospitals, bankrupt, day: day + 1, wake: er && !bankrupt ? k.wake : n.nextWake,
     ...(hospitalDay !== undefined ? { hospitalDay } : {}),
   };
   return {
     strikes: struck,
     hospitalized: er,
     loadsSettled,
+    ...(staged > 0 ? { archive: { staged, rate, archived } } : {}),
     ...(struck.includes('liver') ? { liverStrike: { alcoholAtBed, dupMedication, orderBefore } } : {}),
     ...(crisis ? { crisis } : {}),
   };
@@ -432,7 +444,7 @@ export function playDay(from: SemesterState, ctx: SemesterContext, strategy: Str
   const hospitalDay = s0.hospitalDay === day;
   const debt = amount(s0.tags, dict, 'sleep_debt');
   const d: DayRun = {
-    s: s0, ctx, strategy, exam, S: sleepFactor(debt, k), brainStrike: strikes('brain', s0.loads.brain, k), morningLoads: s0.loads,
+    s: s0, ctx, strategy, exam, S: sleepFactor(debt, k), brainStrike: strikes('brain', s0.loads.brain, k), paper: ctx.courses === undefined ? 0 : paperShare(ctx.courses), morningLoads: s0.loads,
     cups: 0, alcoholCups: 0, fasting: false, deadline: false, lateSnack: false, workLeft: 0, writeLeft: 0, writeIdx: -1, bedDelay: 0, studyHours: 0, lateStudy: 0,
     evidence: { brain: [], stomach: [], liver: [] },
     pending: hospitalDay ? [] : (ctx.scenario[day] ?? []).map((id) => ctx.events.get(id)!).sort((a, b) => a.hour - b.hour),

@@ -117,5 +117,35 @@ export function debugHoursFor(roll: number): number {
   return DEBUG_PERCENT.length;
 }
 
+/**
+ * The share of a card's study hours that a paper exam asks for (design doc 8.3); the rest is
+ * practice, which counts at once. Cards missing here have no exam form of their own.
+ */
+const PAPER_SHARE: Readonly<Record<string, number>> = { algorithms: 0.5, os: 1, networks: 1, database: 1, compiler: 0 };
+
+/**
+ * The share of the semester's study hours that waits in the staging pile for sleep to archive.
+ * ASSUME: hours are spread over the cards with an exam by credits, since study is not yet chosen per card.
+ */
+export function paperShare(ids: readonly string[]): number {
+  let paper = 0;
+  let total = 0;
+  for (const id of ids) {
+    const share = PAPER_SHARE[id];
+    if (share === undefined) continue;
+    const credits = creditsOf([id]);
+    paper += credits * share;
+    total += credits;
+  }
+  return total === 0 ? 0 : paper / total;
+}
+
+/** Effective sleep that archives the whole staging pile (design doc 8.3). */
+export const ARCHIVE_SLEEP = 7;
+/** What is left of the part sleep did not archive by the next day. */
+export const UNARCHIVED_KEPT = 0.5;
+
+export const archiveRate = (effectiveSleep: number): number => Math.min(1, effectiveSleep / ARCHIVE_SLEEP);
+
 /** A passed semester's review: the grade times the reward of its burden. */
 export const reviewPoints = (grade: number, credits: number): number => grade * BURDEN_REWARD[burdenOf(credits)];

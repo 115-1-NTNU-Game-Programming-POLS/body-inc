@@ -127,7 +127,10 @@ describe('debugging an assignment', () => {
     expect(done.history[0]!.bedEnd).toBe(22.5 + 2);
     expect(done.history[0]!.homework).toEqual([{ n: 1, wrote: 3, debugged: 2, done: true, missed: false }]);
     const idle = playDay({ ...open(SHORT).s0, day: 2 }, open(SHORT).ctx, player(() => ({ write: 3 })));
-    expect(done.progress - idle.progress).toBeCloseTo(HOMEWORK_PROGRESS, 6);
+    // The two hours of debugging cost sleep, so less of the day's study is archived that night; the hand-in is the rest of the difference.
+    const lost = idle.history[0]!.archive!.archived - done.history[0]!.archive!.archived;
+    expect(lost).toBeGreaterThan(0);
+    expect(done.progress - idle.progress).toBeCloseTo(HOMEWORK_PROGRESS - lost, 6);
   });
 
   it('spreads a long debugging over nights, and is handed in only after the last one', () => {

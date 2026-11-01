@@ -143,6 +143,11 @@ export function daySummary(before: SemesterState, after: SemesterState, ctx: Sem
     if (h.done) lines.push(fill('semester.sum.hw.done', { n: h.n, p: HOMEWORK_PROGRESS }));
     if (h.missed) lines.push(fill('semester.sum.hw.missed', { n: h.n }));
   }
+  if (rec.archive !== undefined) {
+    const { staged, archived, rate } = rec.archive;
+    lines.push(fill('semester.sum.archive', { staged: oneDecimal(staged), archived: oneDecimal(archived), rate: percent(rate * 100) }));
+    if (rate < 1) lines.push(str('semester.sum.archive.half'));
+  }
   lines.push(fill('semester.sum.progress', { progress: oneDecimal(after.progress) }));
   for (const f of rec.strikes) lines.push(fill('semester.sum.strike', { floor: floorName(f) }));
   if (rec.kind === 'hospital') lines.push(str('semester.sum.hospital_day'));

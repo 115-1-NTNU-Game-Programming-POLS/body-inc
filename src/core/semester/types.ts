@@ -116,6 +116,17 @@ export interface DayRecord {
   readonly hospitalized: boolean;
   /** What the day did to each assignment it touched: hours written and debugged, and whether it was handed in or came due unfinished. */
   readonly homework: readonly HomeworkDay[];
+  /** What the night's sleep did to the staging pile; absent when the pile was empty. */
+  readonly archive?: ArchiveDay;
+}
+
+export interface ArchiveDay {
+  /** The pile before sleep. */
+  readonly staged: number;
+  /** Share of it the sleep archived, from 0 to 1. */
+  readonly rate: number;
+  /** Progress it became. */
+  readonly archived: number;
 }
 
 export interface HomeworkDay {
@@ -130,7 +141,10 @@ export interface SemesterState {
   readonly day: number;
   readonly wake: number;
   readonly tags: TagState;
+  /** Practice and archived study, which an exam counts. */
   readonly progress: number;
+  /** Paper-exam study done and not yet archived by sleep (design doc 8.3); an exam does not count it. */
+  readonly staging: number;
   readonly loads: Loads;
   /**
    * Causal log entries behind each floor's load since it was last calm (under the yellow line).
@@ -194,6 +208,8 @@ export interface DayView {
   readonly S: number;
   readonly caffeine: number;
   readonly progress: number;
+  /** Study waiting for sleep to archive it. */
+  readonly staging: number;
   readonly hospitals: number;
   readonly panel: ElevatorPanel;
   readonly liverClues: LiverClues;
