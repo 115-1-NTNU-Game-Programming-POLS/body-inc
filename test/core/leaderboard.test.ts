@@ -110,6 +110,42 @@ describe('a contest night', () => {
     expect(s.history[0]!.bedEnd).toBe(k.bedMax + k.bedOverrun);
   });
 
+  describe('with an event that pushes bedtime back after the plan is made', () => {
+    // The 23:00 late snack, taken up, delays bedtime by one hour on top of the plan.
+    const snackCtx = (): SemesterContext => contextFor(0.5, 1, { scenario: { 6: ['late_snack'] }, courses: WITH });
+    const takeSnack = (rank: number, opts: Parameters<typeof player>[1]): SemesterState => {
+      const ctx = snackCtx();
+      const st = { ...player(rank, opts), choose: (_id: string, options: readonly string[]) => (options.includes('go') ? 'go' : options[0]!) };
+      return playDay({ ...startSemester(ctx, 1), day: 6 }, ctx, st);
+    };
+
+    it('credits only the hours that still fit once the event has taken its delay', () => {
+      const k = snackCtx().params;
+      // Bed at the latest 03:00 asks for the 2 hours the clock allows; the snack then takes 1 of them back.
+      const s = takeSnack(2, { bed: k.bedMax });
+      const rec = s.history[0]!;
+      expect(rec.bedEnd).toBe(k.bedMax + k.bedOverrun);
+      expect(rec.rank?.hours).toBe(1);
+      expect(s.rank).toBeCloseTo(rankGain(1, 1), 6);
+      expect(rec.rank?.gain).toBeCloseTo(rankGain(1, 1), 6);
+    });
+
+    it('credits nothing when the delays already on the night fill the clock', () => {
+      const k = snackCtx().params;
+      // The overtime patrol and the snack leave no room for the hour the plan could still see.
+      const s = takeSnack(1, { bed: k.bedMax, overtime: true });
+      expect(s.history[0]!.rank).toBeUndefined();
+      expect(s.rank).toBe(0);
+      expect(s.history[0]!.bedEnd).toBe(k.bedMax + k.bedOverrun);
+    });
+
+    it('credits the whole plan when the clock still has room for the event as well', () => {
+      const s = takeSnack(2, { bed: 22 });
+      expect(s.history[0]!.rank?.hours).toBe(2);
+      expect(s.history[0]!.bedEnd).toBe(22 + 2 + 1);
+    });
+  });
+
   it('is refused on a closed night, without the card, past the cap, or as a part of an hour', () => {
     expect(() => on(ctxFor(WITH), 5, 1)).toThrow(RangeError);
     expect(() => on(ctxFor(WITHOUT), 6, 1)).toThrow(RangeError);

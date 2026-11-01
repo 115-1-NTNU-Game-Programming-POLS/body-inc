@@ -141,6 +141,40 @@ describe('debugging an assignment', () => {
     expect(second.history[1]!.bedEnd).toBe(22.5 + 2);
   });
 
+  describe('with an event that pushes bedtime back after the plan is made', () => {
+    // Bed at the latest hour with the 23:00 late snack taken up: the plan sees 2 hours of room, and the snack then uses 1 of them.
+    const snackNight = (seed: number, day: number, night: { debug?: number; rank?: number }): SemesterState => {
+      const ctx: SemesterContext = { ...ctxFor(COURSES, seed), scenario: { [day]: ['late_snack'] } };
+      const st: Strategy = {
+        ...player(),
+        plan: () => ({ coffee: [], rest: [], write: WRITE_HOURS }),
+        choose: (_id, options) => (options.includes('go') ? 'go' : options[0]!),
+        night: () => ({ bed: ctx.params.bedMax, nextWake: 7, lateNight: 'rest', ...night }),
+      };
+      return playDay({ ...startSemester(ctx, seed), day }, ctx, st);
+    };
+
+    it('counts only the debugging hours that still fit once the event has taken its delay', () => {
+      const s = snackNight(LONG, 2, { debug: MAX_DEBUG_PER_NIGHT });
+      expect(s.homework[0]).toMatchObject({ debugged: 1, done: false });
+      expect(s.history[0]!.homework).toEqual([{ n: 1, wrote: 3, debugged: 1, done: false, missed: false }]);
+    });
+
+    it('does not hand the assignment in on hours the clock took back', () => {
+      // The seed's debugging is 2 hours; the plan sees both fit, the snack leaves room for one.
+      const s = snackNight(SHORT, 2, { debug: 2 });
+      expect(s.homework[0]).toMatchObject({ debugged: 1, done: false });
+      expect(s.progress).toBeLessThan(HOMEWORK_PROGRESS);
+    });
+
+    it('lets the contest give way before the debugging does', () => {
+      const s = snackNight(SHORT, 6, { debug: 1, rank: 1 });
+      expect(s.homework[1]).toMatchObject({ debugged: 1 });
+      expect(s.history[0]!.rank).toBeUndefined();
+      expect(s.rank).toBe(0);
+    });
+  });
+
   it('refuses debugging before the writing is done, and more than a night can take', () => {
     const { ctx, s0 } = open(SHORT);
     expect(() => play(ctx, player((d) => (d === 2 ? { debug: 1 } : {})), s0, 2)).toThrow(/debugging/);
