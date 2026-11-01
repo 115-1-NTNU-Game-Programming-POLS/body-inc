@@ -2,6 +2,11 @@
  * Playtest sweep for the algorithms contest and the compiler project (design doc 9.6): `node tuning.ts [n=300]`.
  * Each variant plays the balanced archetype with one change to the card's own decision, over the same seeds, so a column
  * differs between rows only by that decision. The table is a balance reading, not an invariant check.
+ * `sleep` averages every night of the semester, so the nights a variant changes are diluted in it. The board column is not
+ * capped at RANK_FULL while the final exam caps it, which is why the 3 and 4 hour rows can show a higher board than the 2
+ * hour row and still lose on `fin`: the loss is the sleep, so the decay is only visible in the board of the spread-out
+ * comparison (every night of 2 hours against the last two nights of 4 hours). The `plain cards` yardstick swaps networks
+ * for algorithms, so it differs in the paper-study share as well as in the card.
  */
 import { creditsOf, rankGain, reviewPoints, runSemester, summarize, PROJECT_DAY_MAX, PROJECT_NEED, PROJECT_REVIEW, type DayView, type MorningPlan, type NightPlan, type SemesterContext, type SemesterState, type Strategy } from '../../src/core/index.ts';
 import { ARCHETYPES } from './archetypes.ts';

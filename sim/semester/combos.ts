@@ -97,9 +97,10 @@ console.log(`${all.length} legal selections, ${n} seeds each`);
 console.log(`${'selection'.padEnd(62)} cr   ${SKILLS.map((s) => `resp@${s} owl@${s}`).join('  ')}`);
 let worstResp = 100;
 let worstOwl = 0;
-const rows: { readonly line: string; readonly bad: boolean }[] = [];
+const rows: { readonly line: string; readonly bad: boolean; readonly credits: number; readonly resp: readonly number[] }[] = [];
 for (const courses of all) {
   const cells: string[] = [];
+  const resp: number[] = [];
   let bad = false;
   for (const skill of SKILLS) {
     const r = rates(courses, skill, responsive);
@@ -107,10 +108,18 @@ for (const courses of all) {
     worstResp = Math.min(worstResp, r.pass);
     worstOwl = Math.max(worstOwl, o.pass);
     if (r.pass < RESPONSIVE_PASS || o.pass > 0) bad = true;
+    resp.push(r.pass);
     cells.push(`${r.pass.toFixed(0).padStart(7)} ${o.pass.toFixed(0).padStart(7)}`);
   }
-  rows.push({ line: `${courses.join(',').padEnd(62)} ${String(creditsOf(courses)).padStart(2)}  ${cells.join('  ')}`, bad });
+  rows.push({ line: `${courses.join(',').padEnd(62)} ${String(creditsOf(courses)).padStart(2)}  ${cells.join('  ')}`, bad, credits: creditsOf(courses), resp });
 }
 for (const row of rows.filter((r) => r.bad)) console.log(row.line);
+// Per credit total: how many selections there are and how many of them the responsive player passes under the bound, per skill.
+console.log(`\ncredits  selections  ${SKILLS.map((s) => `resp<${RESPONSIVE_PASS}%@${s}`).join('  ')}`);
+for (const credits of [...new Set(rows.map((r) => r.credits))].sort((a, b) => a - b)) {
+  const group = rows.filter((r) => r.credits === credits);
+  const under = SKILLS.map((_, i) => group.filter((r) => r.resp[i]! < RESPONSIVE_PASS).length);
+  console.log(`${String(credits).padStart(7)}  ${String(group.length).padStart(10)}  ${under.map((u) => String(u).padStart(13)).join('  ')}`);
+}
 console.log(`${rows.filter((r) => r.bad).length} of ${rows.length} selections break a bound; worst responsive pass ${worstResp.toFixed(0)}%, best owl pass ${worstOwl.toFixed(0)}%`);
 process.exitCode = rows.some((r) => r.bad) ? 1 : 0;

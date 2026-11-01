@@ -84,4 +84,15 @@ describe('what the player is told after a day with an assignment', () => {
     expect(end(1)).toContain(fillStr('semester.end.homework.missed', { missed: 1, points: HOMEWORK_MISS_PENALTY }));
     expect(end(0).some((l) => l.includes('作業有'))).toBe(false);
   });
+
+  it('leaves the penalty line out when the final was spent in hospital or the semester went bankrupt, where no exam was sat to take it off', () => {
+    const { ctx, state } = newSemester(TUTORIAL_SEED, undefined, [...TUTORIAL_COURSES]);
+    const missed = state.homework.map((a) => ({ ...a, missed: true }));
+    const hospital = playDay({ ...state, day: 10, mid: 80, progress: 40, homework: missed, hospitalDay: 10 }, ctx, quiet);
+    expect(hospital.history.at(-1)!.kind).toBe('hospital');
+    expect(endSummary(hospital, ctx).some((l) => l.includes('作業有'))).toBe(false);
+    const normal = playDay({ ...state, day: 10, mid: 80, progress: 40, homework: missed }, ctx, quiet);
+    expect(endSummary(normal, ctx).some((l) => l.includes('作業有'))).toBe(true);
+    expect(endSummary({ ...normal, bankrupt: true }, ctx).some((l) => l.includes('作業有'))).toBe(false);
+  });
 });

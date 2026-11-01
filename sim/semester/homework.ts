@@ -2,6 +2,9 @@
  * The operating-systems assignments against when they are started (design doc 9.6): `node homework.ts [n=300]`.
  * Wanted: starting two days or more before the deadline ends after 01:00 less than 10% of debugging nights and starting the
  * night before more than 50%, and starting early is the better play. The reward is HOMEWORK_PROGRESS of courses.ts.
+ * Limits of the columns: the early player debugs at most 2 hours a night, so its `after01%` is bounded by that policy and
+ * cannot fail on its own; read it together with `handed`, which says whether the spread still gets the work in. `sleep`
+ * averages every night of the semester, so the debugging nights are diluted in it.
  */
 import { HOMEWORK_PROGRESS, MAX_DEBUG_PER_NIGHT, runSemester, summarize, WRITE_HOURS, type Strategy } from '../../src/core/index.ts';
 import { ARCHETYPES } from './archetypes.ts';
