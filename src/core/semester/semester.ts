@@ -284,19 +284,19 @@ function spend(d: DayRun, dur: number, activity: Activity, effort = 1): void {
 
 /**
  * What the desk does to the next `dur` hours: with the compiler card, a long unbroken sit leaves the stuck point's 0.3, and a
- * planned walk before the fourth hour clears it at the price of a quarter of that hour (design doc 8.3). Anything but study
- * or the project at the desk ends the sit.
+ * planned walk before the fourth hour clears it at the price of a quarter of that hour (design doc 8.3), in the late-night
+ * steps as in the day's hours. Anything but study or the project at the desk ends the sit.
  */
-function sitting(d: DayRun, activity: Activity, dur: number, walkAllowed: boolean): number {
+function sitting(d: DayRun, activity: Activity, dur: number): number {
   if (!takes(d.ctx.courses, 'compiler')) return 1;
   if (activity !== 'study' && activity !== 'project') {
     d.sit = 0;
     return 1;
   }
   let effort = 1;
-  if (walkAllowed && d.walk && d.sit >= SIT_LIMIT) {
+  if (d.walk && d.sit >= SIT_LIMIT) {
     d.sit = 0;
-    effort = WALK_EFFORT;
+    effort = 1 - (1 - WALK_EFFORT) / dur;
   }
   if (d.sit >= SIT_LIMIT) effort *= STUCK_MULT;
   d.sit += dur;
@@ -576,7 +576,7 @@ export function playDay(from: SemesterState, ctx: SemesterContext, strategy: Str
     applyEvents(d, h);
     if (coffee.has(h)) drinkCup(d, h);
     const activity = activityAt(d, h, rest);
-    spend(d, 1, activity, sitting(d, activity, 1, true));
+    spend(d, 1, activity, sitting(d, activity, 1));
   }
   // An event between two whole hours before 22:00 is still due when the evening begins.
   if (!hospitalDay) applyEvents(d, k.bedMin, true);
@@ -629,7 +629,7 @@ export function playDay(from: SemesterState, ctx: SemesterContext, strategy: Str
     const late = t < bedBase && night.lateNight === 'study';
     if (late) d.lateStudy += STEP;
     const activity = late ? 'study' : 'rest';
-    spend(d, STEP, activity, sitting(d, activity, STEP, false));
+    spend(d, STEP, activity, sitting(d, activity, STEP));
   }
 
   // An event in the night can use up the room the plan saw, and the clamp then takes those hours off the bedtime. Only the hours
