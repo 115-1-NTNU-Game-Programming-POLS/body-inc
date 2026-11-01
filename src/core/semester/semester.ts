@@ -284,8 +284,8 @@ function spend(d: DayRun, dur: number, activity: Activity, effort = 1): void {
 
 /**
  * What the desk does to the next `dur` hours: with the compiler card, a long unbroken sit leaves the stuck point's 0.3, and a
- * planned walk before the fourth hour clears it at the price of a quarter of that hour (design doc 8.3), in the late-night
- * steps as in the day's hours. Anything but study or the project at the desk ends the sit.
+ * planned walk before the hour that would pass SIT_LIMIT clears it at the price of a quarter of that hour (design doc 8.3), in the
+ * late-night steps as in the day's hours. Anything but study or the project at the desk ends the sit.
  */
 function sitting(d: DayRun, activity: Activity, dur: number): number {
   if (!takes(d.ctx.courses, 'compiler')) return 1;

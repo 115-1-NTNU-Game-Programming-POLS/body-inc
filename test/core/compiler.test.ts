@@ -30,7 +30,7 @@ describe('the stuck point of sitting at the desk (design doc 8.3)', () => {
   // Day 7 is a weekend, so there is no class: hours 9 to 21 are free but for the meals.
   const free = 7;
 
-  it('cuts the efficiency to three tenths from the hour after two in a row, with the card only', () => {
+  it('slows a day at the desk, with the card only (the hour it starts at is pinned below)', () => {
     const plain = day(ctxFor(WITHOUT), free);
     const stuck = day(ctxFor(WITH), free);
     expect(studied(stuck)).toBeLessThan(studied(plain) * 0.9);

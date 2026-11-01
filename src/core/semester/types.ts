@@ -185,7 +185,7 @@ export interface MorningPlan {
   readonly write?: number;
   /** Whole hours of the day's free time given to the compiler project; absent is none. */
   readonly project?: number;
-  /** Take a 15-minute walk before the hour that would be the fourth in a row at the desk. */
+  /** Take a 15-minute walk before the hour that would pass SIT_LIMIT in a row at the desk. */
   readonly walk?: boolean;
 }
 
