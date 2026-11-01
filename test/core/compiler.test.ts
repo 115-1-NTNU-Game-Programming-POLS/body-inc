@@ -30,7 +30,7 @@ describe('the stuck point of sitting at the desk (design doc 8.3)', () => {
   // Day 7 is a weekend, so there is no class: hours 9 to 21 are free but for the meals.
   const free = 7;
 
-  it('cuts the efficiency to three tenths from the hour after three in a row, with the card only', () => {
+  it('cuts the efficiency to three tenths from the hour after two in a row, with the card only', () => {
     const plain = day(ctxFor(WITHOUT), free);
     const stuck = day(ctxFor(WITH), free);
     expect(studied(stuck)).toBeLessThan(studied(plain) * 0.9);
@@ -39,10 +39,10 @@ describe('the stuck point of sitting at the desk (design doc 8.3)', () => {
 
   it('is cleared by a rest hour, so the same hours split by a rest lose nothing to it', () => {
     const ctx = ctxFor(WITH);
-    const rest = [11, 15, 19];
+    const rest = [10, 15, 21];
     const split = day(ctx, free, { rest });
     const noCard = day(ctxFor(WITHOUT), free, { rest });
-    // Rest hours never leave three in a row at the desk, so the card changes nothing.
+    // With the meals, these rest hours never leave more than two in a row at the desk, so the card changes nothing.
     expect(studied(split)).toBeCloseTo(studied(noCard), 9);
   });
 
@@ -55,17 +55,19 @@ describe('the stuck point of sitting at the desk (design doc 8.3)', () => {
     expect(studied(walk)).toBeLessThan(studied(day(ctxFor(WITHOUT), free)));
   });
 
-  it('is worth exactly 0.3 of an hour from the fourth in a row, and 0.75 when a walk comes first', () => {
-    // On a Sunday the project takes hours 13 to 16 right after the lunch break, so the fourth hour is the one past three in a row.
+  it('is worth exactly 0.3 of an hour from the third in a row, and 0.75 when a walk comes first', () => {
+    // On a Sunday the project takes hours 13 to 16 right after the lunch break, so the third hour is the one past two in a row.
     const ctx = ctxFor(WITH);
     const rest = [8, 9, 10, 11, 17, 19, 20, 21];
     const hours = (project: number, walk = false): number => day(ctx, free, { rest, project, walk }).project;
-    const e = hours(3) / 3;
+    const e = hours(1);
     expect(e).toBeGreaterThan(0);
-    expect(hours(4)).toBeCloseTo(e * (3 + STUCK_MULT), 9);
+    expect(hours(2)).toBeCloseTo(e * 2, 9);
+    expect(hours(3)).toBeCloseTo(e * (2 + STUCK_MULT), 9);
+    expect(hours(4)).toBeCloseTo(e * (2 + 2 * STUCK_MULT), 9);
+    expect(hours(3, true)).toBeCloseTo(e * (2 + WALK_EFFORT), 9);
     expect(hours(4, true)).toBeCloseTo(e * (3 + WALK_EFFORT), 9);
-    expect(hours(3, true)).toBeCloseTo(e * 3, 9);
-    expect(SIT_LIMIT).toBe(3);
+    expect(SIT_LIMIT).toBe(2);
   });
 
   it('reaches the late-night study, where a planned walk costs a quarter of an hour as it does by day (issue 50)', () => {
@@ -160,7 +162,7 @@ describe('the final project', () => {
     const worked = day(ctx, 7, { rest, project: 3 });
     expect(idle.progress + idle.staging).toBe(0);
     expect(worked.project).toBeGreaterThan(0);
-    expect(PROJECT_PRACTICE_SHARE).toBe(0.5);
+    expect(PROJECT_PRACTICE_SHARE).toBe(0.75);
     expect(worked.progress).toBeCloseTo(PROJECT_PRACTICE_SHARE * worked.project, 9);
     // It does not wait in the staging pile for sleep, whatever share of the semester's study is paper.
     expect(worked.staging).toBe(0);
