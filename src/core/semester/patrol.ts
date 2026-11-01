@@ -15,11 +15,14 @@ export interface PatrolTally {
 
 export const NO_TALLY: PatrolTally = { hits: 0, forced: false };
 
-/** The domain events of a patrol's ticks folded into what the rating reads; only these two types matter. */
-export function tallyPatrol(tally: PatrolTally, events: readonly { readonly type: string }[]): PatrolTally {
+/** The fog of an acetaldehyde crate costs a heart for staying near it, which the liver's core goal (pushing the crates on) cannot avoid: it is not a hit. */
+const NOT_A_HIT = 'acetaldehyde';
+
+/** The domain events of a patrol's ticks folded into what the rating reads: a heart lost or an adenosine latching on is a hit, a forced clock-out ends it. */
+export function tallyPatrol(tally: PatrolTally, events: readonly { readonly type: string; readonly cause?: string }[]): PatrolTally {
   let { hits, forced } = tally;
   for (const e of events) {
-    if (e.type === 'heartLost') hits += 1;
+    if (e.type === 'clung' || (e.type === 'heartLost' && e.cause !== NOT_A_HIT)) hits += 1;
     else if (e.type === 'forcedLeave') forced = true;
   }
   return hits === tally.hits && forced === tally.forced ? tally : { hits, forced };

@@ -817,6 +817,17 @@ export function step(state: GameState, pressed: TickInput): StepResult {
     if (r.respawned) events.push({ type: 'respawned', target: e.id, enemy: e.type });
   }
   for (const z of newZones) zones.set(nextId, { ...z, id: nextId++, age: 1, spent: false });
+  // The rest area locks what drifts into it: the answer to adenosine that cannot be beaten (design doc 8.5).
+  const pens = state.room.objects.filter((o) => o.kind === 'Pen').map(objectBox);
+  if (pens.length > 0) {
+    for (const e of enemies.values()) {
+      if (!e.clings || e.phase !== 'idle' || e.frozen > 0) continue;
+      const c = enemyCenter(e);
+      if (!pens.some((b) => c.x >= b.left && c.x < b.right && c.y >= b.top && c.y < b.bottom)) continue;
+      enemies.set(e.id, { ...e, phase: 'closed', phaseTicks: 0, respawnTicks: 0 });
+      events.push({ type: 'caseClosed', target: e.id, enemy: e.type });
+    }
+  }
   let shots: Shot[] = [...state.shots, ...newShots.map((sh) => ({ ...sh, id: nextId++, spent: false }))];
   // Within a tick enemies are only added, never removed, so the sorted ids change only with the size.
   let order: number[] = [];

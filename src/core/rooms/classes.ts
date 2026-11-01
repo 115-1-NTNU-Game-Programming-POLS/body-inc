@@ -129,6 +129,11 @@ export const OBJECT_CLASSES: Readonly<Record<string, ClassSpec>> = {
     itemId: { type: 'string', default: '' },
     when: { type: 'condition' },
   },
+  /**
+   * A rest area of the brain's patrol (design doc 8.5, the rest room): an adenosine that wanders into the rectangle while
+   * idle is locked there for good, so it neither clings nor reforms. Hitting one still only scatters it. Not in design doc 13.3's table.
+   */
+  Pen: {},
   Bed: {
     bedType: enumOf('BedType', ['nap', 'sleep']),
     requires: { type: 'condition' },

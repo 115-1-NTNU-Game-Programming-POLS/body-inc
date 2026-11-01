@@ -12,6 +12,7 @@ export * from './chapter/glucose.ts';
 export * from './tools.ts';
 export { doorOpen, inWindow, keyOf, keysFor, mayOpen, openByState, parseClockWindow, switchesFor, type ClockWindow } from './rooms/locks.ts';
 export * from './chapter/chapter.ts';
+export * from './chapter/patrol.ts';
 export { eventCard, type CardState } from './chapter/cards.ts';
 export * from './chapter/playable.ts';
 export type { EffectEvent, EffectSource } from './chapter/effects.ts';

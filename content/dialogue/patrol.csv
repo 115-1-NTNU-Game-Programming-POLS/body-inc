@@ -1,0 +1,14 @@
+dialogueId,order,speaker,expression,text,condition,effect,next,fact
+patrol.brain.lobby,1,brain,normal,巡視開始。大腦樓層今天的狀況，我先講給你聽。,,,,
+patrol.brain.lobby,2,brain,warning,睡眠債還沒還清，休息室裡的腺苷不少。硬打只會重組，引進床位區才鎖得住。,sleep_debt>=2,,,general
+patrol.brain.lobby,3,brain,normal,昨晚睡得夠，休息室今天應該很安靜。,sleep_debt<0.5,,,general
+patrol.brain.lobby,4,brain,warning,咖啡因太濃，腺苷看不見你。它們不會跟來，今天的休息室引不進床位區。,caffeine>=50,,,general
+patrol.brain.lobby,5,brain,normal,咖啡因還沒退，腺苷只看得到身邊兩格。要走得很近，它們才會跟來。,"caffeine>=25,caffeine<50",,,general
+patrol.brain.lobby,6,brain,normal,休息室在最東邊，電梯也在那裡。,,,,
+patrol.brain.intern,1,narrator,normal,角落的實習生縮在椅子後面，手上的資料夾被撞得亂七八糟。,,,,
+patrol.brain.intern,2,narrator,normal,你幫他把文件理好，他小聲說了謝謝。,,tag:patrol_side,,
+patrol.liver.lobby,1,liver,normal,巡視開始。肝這裡沒有警報，只有排好隊的工單。,,,,
+patrol.liver.lobby,2,liver,normal,乙醛的箱子要優先送進第二條線，不能丟，也不能打碎。,,,,
+patrol.liver.lobby,3,liver,normal,電梯在產線的東邊。,,,,
+patrol.liver.clerk,1,narrator,normal,倉庫角落的職員抱著一疊工單，不知道該往哪裡送。,,,,
+patrol.liver.clerk,2,narrator,normal,你告訴他排隊的規則，他鬆了一口氣，把工單歸好。,,tag:patrol_side,,

@@ -293,6 +293,7 @@ const ANSWER: Schema = {
               type: 'array',
               items: {
                 anyOf: [
+                  { type: 'null' },
                   { type: 'object', additionalProperties: false, required: ['grade'], properties: { grade: { enum: [...GRADES] } } },
                   { type: 'object', additionalProperties: false, required: ['failed'], properties: { failed: { const: true } } },
                 ],

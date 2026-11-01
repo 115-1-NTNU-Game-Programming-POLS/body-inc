@@ -147,6 +147,11 @@ export class HudScene extends Phaser.Scene {
       this.controls.setY(this.scale.height - this.controls.displayHeight - 12);
       this.game.events.on('wall-note', onWallNote);
     }
+    // A patrol runs no chapter clock (design doc 8.5), so there is none to show; the controls say how to give up instead.
+    if (this.registry.get('patrol') !== undefined) {
+      this.clock.setVisible(false);
+      updateText(this.controls, str('semester.patrol.controls'));
+    }
     // Conversations and event cards draw over the HUD and live exactly as long as it does: one run, from title to title.
     if (!this.scene.isActive('Dialogue')) this.scene.launch('Dialogue');
     if (!this.scene.isActive('Card')) this.scene.launch('Card');

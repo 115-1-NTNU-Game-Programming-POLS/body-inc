@@ -209,10 +209,10 @@ export interface FloorChoice {
   /** An overtime patrol of a second floor, at the price of a later bedtime (design doc 8.4). */
   readonly overtime?: FloorId;
   /**
-   * How the rooms were played, patrol first and then the overtime one. Absent is a patrol drawn from the skill of the context,
-   * which is what `sim/` plays; a played one is kept in the answer so the day replays to the same state.
+   * How the rooms were played, patrol first and then the overtime one; null is a floor with no rooms to play. A patrol with no result
+   * is drawn from the skill of the context, which is what `sim/` plays; a played one is kept in the answer so the day replays to the same state.
    */
-  readonly played?: readonly PatrolResult[];
+  readonly played?: readonly (PatrolResult | null)[];
 }
 
 export interface NightPlan {

@@ -630,10 +630,10 @@ export function playDay(from: SemesterState, ctx: SemesterContext, strategy: Str
     if (choice.played !== undefined && choice.played.length !== rooms) {
       throw new RangeError(`${choice.played.length} played patrols were given for ${rooms} chosen`);
     }
-    patrols.push(patrol(d, choice.patrol, false, choice.played?.[0]));
+    patrols.push(patrol(d, choice.patrol, false, choice.played?.[0] ?? undefined));
     if (choice.overtime !== undefined) {
       if (choice.overtime === choice.patrol) throw new RangeError('an overtime patrol must be on a second floor');
-      patrols.push(patrol(d, choice.overtime, true, choice.played?.[1]));
+      patrols.push(patrol(d, choice.overtime, true, choice.played?.[1] ?? undefined));
       d.overtimeDelay = k.overtimeBedDelay;
     }
   }

@@ -42,8 +42,9 @@ describe('the rating of a played patrol (design doc 8.5)', () => {
   });
 
   it('counts the hearts lost and the forced clock-out among a patrol\'s events, and nothing else', () => {
-    const t = tallyPatrol(NO_TALLY, [{ type: 'heartLost' }, { type: 'dodge' }, { type: 'heartLost' }, { type: 'hit' }]);
+    const t = tallyPatrol(NO_TALLY, [{ type: 'heartLost' }, { type: 'dodge' }, { type: 'clung' }, { type: 'hit' }]);
     expect(t).toEqual({ hits: 2, forced: false });
+    expect(tallyPatrol(t, [{ type: 'heartLost', cause: 'acetaldehyde' }])).toBe(t);
     expect(tallyPatrol(t, [{ type: 'forcedLeave' }])).toEqual({ hits: 2, forced: true });
     expect(tallyPatrol(t, [{ type: 'dodge' }])).toBe(t);
   });
@@ -70,6 +71,14 @@ describe('a played patrol in the semester', () => {
     const from: SemesterState = { ...startSemester(ctx, 1), day: 2 };
     const rec = playDay(from, ctx, striker({ patrol: 'brain', played: [{ failed: true }] })).history.at(-1)!;
     expect(rec.patrols).toEqual([{ floor: 'brain', grade: 'C', overtime: false, failed: true }]);
+  });
+
+  it('draws a floor with no rooms to play from the skill, the one next to it being played', () => {
+    const from: SemesterState = { ...startSemester(ctx, 1), day: 2 };
+    const drawn = playDay(from, ctx, striker({ patrol: 'gut', overtime: 'brain' })).history.at(-1)!.patrols;
+    const mixed = playDay(from, ctx, striker({ patrol: 'gut', overtime: 'brain', played: [null, { grade: 'S' }] })).history.at(-1)!.patrols;
+    expect(mixed[0]).toEqual(drawn[0]);
+    expect(mixed[1]).toEqual({ floor: 'brain', grade: 'S', overtime: true });
   });
 
   it('asks for one result for each floor chosen, and a rating that exists', () => {
@@ -118,7 +127,7 @@ describe('a played patrol in the semester', () => {
 });
 
 describe('the run slot with played patrols', () => {
-  const played = [{ grade: 'A' as const }, { failed: true as const }];
+  const played = [{ grade: 'A' as const }, { failed: true as const }, null];
   const run = {
     semester: {
       seed: 3,

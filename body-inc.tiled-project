@@ -638,6 +638,17 @@
     },
     {
       "id": 32,
+      "name": "Pen",
+      "type": "class",
+      "useAs": [
+        "object"
+      ],
+      "color": "#ff3080c0",
+      "drawFill": true,
+      "members": []
+    },
+    {
+      "id": 33,
       "name": "Bed",
       "type": "class",
       "useAs": [

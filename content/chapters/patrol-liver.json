@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "id": "patrol-liver",
+  "start": "patrol-liver/lobby",
+  "patrol": "liver",
+  "links": [
+    { "a": "patrol-liver/lobby#door-e", "b": "patrol-liver/party#door-w" },
+    { "a": "patrol-liver/party#door-e", "b": "patrol-liver/stock#door-w" },
+    { "a": "patrol-liver/stock#door-e", "b": "patrol-liver/core#door-w" }
+  ]
+}
