@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  decode, encode, playDay, PROJECT_DAY_MAX, PROJECT_FIN_PENALTY, PROJECT_FROM_DAY, PROJECT_NEED, PROJECT_REVIEW, RUN, SIT_LIMIT, startSemester, STUCK_MULT, WALK_EFFORT,
+  decode, encode, playDay, PROJECT_DAY_MAX, PROJECT_FIN_PENALTY, PROJECT_FROM_DAY, PROJECT_NEED, PROJECT_REVIEW, projectRoom, RUN, SIT_LIMIT, startSemester, STUCK_MULT, WALK_EFFORT,
   type Answer, type DayView, type MorningPlan, type SemesterContext, type SemesterState, type Strategy,
 } from '../../src/core/index.ts';
 import { contextFor } from '../../sim/semester/scenario.ts';
@@ -71,6 +71,41 @@ describe('the stuck point of sitting at the desk (design doc 8.3)', () => {
   it('refuses a walk without the card, which has no stuck point', () => {
     expect(() => day(ctxFor(WITHOUT), free, { walk: true })).toThrow(RangeError);
     expect(() => day(ctxFor(), free, { walk: true })).toThrow(RangeError);
+  });
+});
+
+describe('the project hours a morning plan can count on', () => {
+  const room = (ctx: SemesterContext, n: number, rest: readonly number[], write: number): number =>
+    projectRoom(ctx.params, ctx.courses, n, ctx.params.wake, n === ctx.params.midDay || n === ctx.params.finDay, rest, write);
+
+  it('is what the day leaves after class, meals, the card\'s hours, rest and writing, up to the cap', () => {
+    const ctx = ctxFor(WITH);
+    // A weekday has 8 free hours (8, 9, 13, 16, 17, 19, 20, 21), the TA's office hours of day 8 take 16 and 17, and a weekend has 12.
+    expect([room(ctx, 3, [], 0), room(ctx, 8, [], 0), room(ctx, 7, [], 0)]).toEqual([4, 4, 4]);
+    expect(room(ctx, 8, [], 3)).toBe(3);
+    expect(room(ctx, 3, [16, 17, 20, 21], 3)).toBe(1);
+    expect(room(ctx, 3, [8, 9, 13, 16, 17, 19, 20, 21], 0)).toBe(0);
+    expect(room(ctx, 3, [8, 9, 13, 16, 17, 19, 20, 21], 3)).toBe(0);
+    // A rest hour that class or the TA already holds is not taken twice.
+    expect(room(ctx, 8, [16, 17, 10, 11], 0)).toBe(4);
+    expect(room(ctx, 8, [8, 9, 13, 19, 20], 0)).toBe(1);
+  });
+
+  it('is what the day plays when no event comes in, for every rest plan and hours of writing', () => {
+    const ctx = ctxFor(WITH);
+    const plans = [[], [21], [17, 21], [16, 17, 20, 21], [8, 9, 13, 16, 17, 19, 20, 21]];
+    for (const n of [3, 5, 6, 7, 8, 9]) {
+      const writing = startSemester(ctx, 1).homework.some((a) => a.announce <= n && n < a.due) ? [0, 3] : [0];
+      for (const rest of plans) {
+        for (const write of writing) {
+          const can = room(ctx, n, rest, write);
+          for (let project = 0; project <= PROJECT_DAY_MAX; project++) {
+            const s = day(ctx, n, { rest, write, project });
+            expect(s.history[0]!.project?.hours ?? 0, `day ${n}, rest ${rest.join()}, write ${write}, asked ${project}`).toBe(Math.min(project, can));
+          }
+        }
+      }
+    }
   });
 });
 

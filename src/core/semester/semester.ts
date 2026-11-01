@@ -8,7 +8,7 @@ import type { TagDictionary } from '../tags/dictionary.ts';
 import { addAmount, amount, EMPTY_TAGS, flag, holds, lowerAmount, onWake, setAmount, setFlag, type TagState } from '../tags/store.ts';
 import { EMPTY_LOADS, elevatorPanel, FLOORS, lightOf, litFloors, mapFloors, type FloorId } from './floors.ts';
 import {
-  archiveRate, creditsOf, debugHoursFor, HOMEWORK_MISS_PENALTY, HOMEWORK_PROGRESS, isCommitted, MAX_DEBUG_PER_NIGHT, MAX_RANK_HOURS, nightRoom, OS_ASSIGNMENTS, paperShare, rankGain,
+  archiveRate, creditsOf, debugHoursFor, fixedHour, HOMEWORK_MISS_PENALTY, HOMEWORK_PROGRESS, MAX_DEBUG_PER_NIGHT, MAX_RANK_HOURS, nightRoom, OS_ASSIGNMENTS, paperShare, rankGain,
   PROJECT_DAY_MAX, PROJECT_FIN_PENALTY, PROJECT_FROM_DAY, PROJECT_NEED, rankPercent, RANK_SHARE, selectionProblem, SIT_LIMIT, STUCK_MULT, takes, thresholdMult, UNARCHIVED_KEPT,
   WALK_EFFORT, WRITE_HOURS,
 } from './courses.ts';
@@ -237,10 +237,8 @@ function applyEvents(d: DayRun, upTo: number, before = false): void {
 
 function activityAt(d: DayRun, h: number, rest: ReadonlySet<number>): Activity {
   const k = d.ctx.params;
-  if (d.exam !== null && k.examHours.includes(h)) return 'exam';
-  if (!k.weekend.includes(d.s.day) && k.classes.includes(h)) return 'class';
-  if (h === d.s.wake || k.meals.slice(1).includes(h)) return 'meal';
-  if (d.ctx.courses !== undefined && isCommitted(d.ctx.courses, d.s.day, h)) return 'work';
+  const fixed = fixedHour(k, d.ctx.courses, d.s.day, d.s.wake, d.exam !== null, h);
+  if (fixed !== undefined) return fixed;
   if (d.workLeft > 0) {
     d.workLeft -= 1;
     return 'work';
