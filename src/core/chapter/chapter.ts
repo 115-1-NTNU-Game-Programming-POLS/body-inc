@@ -3,6 +3,7 @@ import type { BossTable } from '../combat/bosses/boss.ts';
 import type { EnemyTable } from '../combat/enemies.ts';
 import { BASE_HALVES } from '../combat/frames.ts';
 import { OPERATOR_BODY, type TickInput } from '../combat/operator.ts';
+import type { Perks } from '../combat/perks.ts';
 import type { ChapterFile } from '../content/generated.ts';
 import type { DialogueState } from '../dialogue/runner.ts';
 import type { DialogueTable, Effect } from '../dialogue/lines.ts';
@@ -76,6 +77,8 @@ export interface Run {
   readonly walked: number;
   /** Tools the operator holds. A chapter can start without the stamp and hand it over in a conversation. */
   readonly tools: readonly Tool[];
+  /** What the welfare cards of a semester change in every room of the run (core/combat/perks.ts); the base rules when absent. */
+  readonly perks?: Perks;
 }
 
 export interface ChapterState {
@@ -216,6 +219,7 @@ function build(ctx: ChapterContent, run: Run, place: Place, carry: Carry): GameS
     stampLocked: !run.tools.includes('stamp'),
     folderLocked: !run.tools.includes('folder'),
     pie: ctx.chapter.partner === 'chairman',
+    ...(run.perks ? { perks: run.perks } : {}),
     ...(carry.tool ? { tool: carry.tool } : {}),
     waiting: waitingCrates(run.tags, ctx.dict),
     acetaldehyde: acetaldehydeCrates(run.tags, ctx.dict),
@@ -267,6 +271,8 @@ export interface StartOptions {
   readonly clock?: RuleClock;
   /** Tools carried in from an earlier chapter; added to the ones this chapter hands out at its start. */
   readonly tools?: readonly Tool[];
+  /** The welfare cards' effects on the fights of the run. */
+  readonly perks?: Perks;
 }
 
 /** The tools a chapter starts with: what was carried in, plus its own list (every tool when it has none). */
@@ -291,6 +297,7 @@ export function startChapter(ctx: ChapterContent, options: StartOptions = {}): C
     explored: 0,
     walked: 0,
     tools: toolsAtStart(ctx.chapter, options.tools),
+    ...(options.perks ? { perks: options.perks } : {}),
   };
   const game = build(ctx, run, { kind: 'start' }, {
     clock, gauge: options.gauge ?? 0, halves: options.halves ?? BASE_HALVES, stacks: 0,

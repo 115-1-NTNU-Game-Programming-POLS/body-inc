@@ -104,6 +104,22 @@ export const GAUGE = {
 } as const;
 
 /**
+ * Binding (裝訂, design doc 8.8): `hits` staple hits in a row on one enemy pin it for `pinTicks`.
+ * The design doc says 5; the defeatable enemies have 3 to 6 performance, so 3 is the agreed
+ * prototype value and `windowTicks` (the longest gap that keeps a run going) is an ASSUME. See
+ * docs/design-doc.md 8.8.
+ */
+export const BIND = {
+  hits: 3,
+  windowTicks: Math.round(0.75 * TICK_HZ),
+  pinTicks: Math.round(1.5 * TICK_HZ),
+  splashPx: 1.5 * TILE,
+} as const;
+
+/** 退件加速 (design doc 8.8): the speed factor for `ticks` after a parry, with the card held. */
+export const PARRY_BOOST = { ticks: 2 * TICK_HZ, factor: 1.2 } as const;
+
+/**
  * Clinging (design doc 5.5, chapter 1): 5% slow per stack, three stacks is the 15% cap and
  * triggers a forced nap that advances the rule clock one hour. Drift speed and sensing range
  * are not in the design doc and are placeholders for playtesting.

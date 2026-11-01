@@ -29,7 +29,7 @@ describe('the rating of a played patrol (design doc 8.5)', () => {
   });
 
   it('lifts B one step for few hits and one for the side goal, so S needs both', () => {
-    const rate = (hits: number, side: boolean) => ratePatrol({ hits, forced: false }, goals(true, side));
+    const rate = (hits: number, side: boolean) => ratePatrol({ hits, forced: false, records: 0 }, goals(true, side));
     expect(rate(HITS_FOR_A + 1, false)).toEqual({ grade: 'B' });
     expect(rate(HITS_FOR_A, false)).toEqual({ grade: 'A' });
     expect(rate(HITS_FOR_A + 1, true)).toEqual({ grade: 'A' });
@@ -38,14 +38,23 @@ describe('the rating of a played patrol (design doc 8.5)', () => {
   });
 
   it('is a failure after a forced clock-out, even with every goal done', () => {
-    expect(ratePatrol({ hits: 0, forced: true }, goals(true, true))).toEqual({ failed: true });
+    expect(ratePatrol({ hits: 0, forced: true, records: 0 }, goals(true, true))).toEqual({ failed: true });
+  });
+
+  it('counts the perfect dodges as records, and puts them on the rating only when there are some', () => {
+    const t = tallyPatrol(NO_TALLY, [{ type: 'perfectDodge' }, { type: 'dodge' }, { type: 'perfectDodge' }, { type: 'perfectDodge' }]);
+    expect(t).toEqual({ hits: 0, forced: false, records: 3 });
+    expect(ratePatrol(t, goals(true, false))).toEqual({ grade: 'A', records: 3 });
+    expect(ratePatrol(t, goals(false, false))).toEqual({ grade: 'C', records: 3 });
+    expect(ratePatrol(NO_TALLY, goals(true, false))).toEqual({ grade: 'A' });
+    expect(ratePatrol({ ...t, forced: true }, goals(true, true))).toEqual({ failed: true });
   });
 
   it('counts the hearts lost and the forced clock-out among a patrol\'s events, and nothing else', () => {
     const t = tallyPatrol(NO_TALLY, [{ type: 'heartLost' }, { type: 'dodge' }, { type: 'clung' }, { type: 'hit' }]);
-    expect(t).toEqual({ hits: 2, forced: false });
+    expect(t).toEqual({ hits: 2, forced: false, records: 0 });
     expect(tallyPatrol(t, [{ type: 'heartLost', cause: 'acetaldehyde' }])).toBe(t);
-    expect(tallyPatrol(t, [{ type: 'forcedLeave' }])).toEqual({ hits: 2, forced: true });
+    expect(tallyPatrol(t, [{ type: 'forcedLeave' }])).toEqual({ hits: 2, forced: true, records: 0 });
     expect(tallyPatrol(t, [{ type: 'dodge' }])).toBe(t);
   });
 });
@@ -147,7 +156,7 @@ describe('the run slot with played patrols', () => {
   it('refuses a result that is neither a rating nor a failure', () => {
     for (const bad of [{ grade: 'Z' }, { failed: false }, {}, { grade: 'A', failed: true }]) {
       const data = { semester: { seed: 3, days: [[{ kind: 'floor', choice: { patrol: 'brain', played: [bad] } }]] } };
-      expect(decode(RUN, JSON.stringify({ schema: 8, data })).kind, JSON.stringify(bad)).toBe('invalid');
+      expect(decode(RUN, JSON.stringify({ schema: 9, data })).kind, JSON.stringify(bad)).toBe('invalid');
     }
   });
 });

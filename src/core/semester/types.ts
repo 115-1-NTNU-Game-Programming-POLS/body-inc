@@ -10,6 +10,7 @@ import type { LiverClues } from './liver.ts';
 import type { Grade, LoadParams } from './load.ts';
 import type { PatrolResult } from './patrol.ts';
 import type { SkillParams } from './rating.ts';
+import type { LastNight, PatrolKit } from './welfare.ts';
 
 /** The rules of content/params.json that a semester reads; the file's `defaults` satisfies it. */
 export type SemesterParams = SleepCoefficients & MetabolismParams & LoadParams & SkillParams & Pick<
@@ -133,6 +134,14 @@ export interface DayRecord {
   readonly project?: { readonly hours: number; readonly gain: number; readonly done: boolean };
   /** The grading hours the day and its night spent and whether they finished the papers; absent when none were spent. */
   readonly grade?: { readonly hours: number; readonly done: boolean };
+  /** Hours of sleep the night counted for, as the debt saw them (a hospital night counts as good sleep); absent on the final exam day. */
+  readonly slept?: number;
+  /** The leaderboard contest was fought tonight and over before the clock struck 24, which the next patrol's 知所進退 reads. */
+  readonly contestStop?: true;
+  /** The welfare card the day's patrol gave. */
+  readonly card?: string;
+  /** Progress the minutes of 會議紀錄 added from the day's patrols. */
+  readonly minutes?: number;
 }
 
 export interface ArchiveDay {
@@ -188,6 +197,8 @@ export interface SemesterState {
   readonly rng: RngStreams;
   readonly history: readonly DayRecord[];
   readonly ended: boolean;
+  /** The welfare cards taken so far (design doc 8.8), kept to the end; absent until the first. */
+  readonly welfare?: readonly string[];
 }
 
 /** The player's morning plan (design doc 8.2): coffee hours and the free hours spent resting. */
@@ -213,6 +224,8 @@ export interface FloorChoice {
    * is drawn from the skill of the context, which is what `sim/` plays; a played one is kept in the answer so the day replays to the same state.
    */
   readonly played?: readonly (PatrolResult | null)[];
+  /** The welfare card picked from what the first patrol offered (`welfareOffer`); only a played patrol that was not failed offers any. */
+  readonly card?: string;
 }
 
 export interface NightPlan {
@@ -228,6 +241,15 @@ export interface NightPlan {
   readonly rank?: number;
   /** Whole hours of grading after the planned bedtime, on the nights the papers can still be graded; absent is none. */
   readonly grade?: number;
+}
+
+/** The welfare cards in hand, what they give the patrol of the day, and the salt the offers of the run are drawn with. */
+export interface WelfareView {
+  readonly held: readonly string[];
+  readonly kit: PatrolKit;
+  /** The night before, which a card picked in the middle of the day gives the overtime patrol a kit from. */
+  readonly last?: LastNight;
+  readonly salt: number;
 }
 
 /**
@@ -249,6 +271,7 @@ export interface DayView {
   /** Hours bedtime is already pushed back tonight (an overtime patrol, an event), which `nightRoom` takes off what the night can still give. */
   readonly bedDelay: number;
   readonly hospitals: number;
+  readonly welfare: WelfareView;
   readonly panel: ElevatorPanel;
   readonly liverClues: LiverClues;
   /** Dictionary modifiers that hold now (design doc 8.7). */

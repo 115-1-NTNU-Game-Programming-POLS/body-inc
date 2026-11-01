@@ -1,7 +1,7 @@
 import { MINUTES_PER_DAY } from '../clock.ts';
 import { calculateSemesterGrade, scoreExam } from '../exam/scoring.ts';
 import { caffeineOf, metabolise } from '../outer/caffeine.ts';
-import { drawFloat, seedStreams } from '../rng.ts';
+import { drawFloat, nextFloat, seedStreams } from '../rng.ts';
 import { sleepFactor } from '../spirit.ts';
 import { addCauses, record, type NodeData, type SourceNodeKind } from '../tags/causal.ts';
 import type { TagDictionary } from '../tags/dictionary.ts';
@@ -18,8 +18,9 @@ import { contributions, GRADES, nextLoad, strikes, type DayFacts } from './load.
 import { isFailed, type PatrolResult } from './patrol.ts';
 import { examPerformance, gradeFor } from './rating.ts';
 import type {
-  Assignment, DayRecord, DayView, HomeworkDay, PatrolRecord, SemesterContext, SemesterEvent, SemesterParams, SemesterState, SemesterSummary, Strategy,
+  Assignment, DayRecord, DayView, HomeworkDay, PatrolRecord, SemesterContext, SemesterEvent, SemesterParams, SemesterState, SemesterSummary, Strategy, WelfareView,
 } from './types.ts';
+import { EARLY_START_DAYS, minutesProgress, patrolKit, STOP_BY, welfareOffer } from './welfare.ts';
 
 const STEP = 0.5;
 
@@ -155,6 +156,8 @@ interface DayRun {
   evidence: Record<'brain' | 'stomach' | 'liver', number[]>;
   pending: SemesterEvent[];
   played: { id: string; option: string }[];
+  /** Progress the day's patrols added through 會議紀錄. */
+  minutes: number;
 }
 
 const examOn = (day: number, ctx: SemesterContext): 'mid' | 'fin' | null =>
@@ -181,6 +184,17 @@ const gradeOpen = (ctx: SemesterContext, s: SemesterState): { readonly day: bool
   return { day: left && s.day >= from && s.day <= to, night: left && s.day >= from && s.day < to };
 };
 
+/** The welfare cards in hand and what the night just gone gives the patrol; the salt is the run's own, which no stream of the day draws. */
+function welfareView(s: SemesterState): WelfareView {
+  const held = s.welfare ?? [];
+  const night = s.history[s.history.length - 1];
+  const last = night?.slept === undefined ? undefined : { slept: night.slept, stopped: night.contestStop === true };
+  return { held, kit: patrolKit(held, last), ...(last ? { last } : {}), salt: s.rng.setting };
+}
+
+/** 提早開工: the debugging hours a second draw gives assignment `i`, fixed by the run like the first so the card cannot reroll them. */
+const earlyDebug = (s: SemesterState, i: number): number => debugHoursFor(nextFloat((s.rng.setting + Math.imul(i + 1, 0x9e3779b1)) >>> 0)[0]);
+
 function viewOf(d: DayRun): DayView {
   const { ctx, s } = d;
   const k = ctx.params;
@@ -199,6 +213,7 @@ function viewOf(d: DayRun): DayView {
     staging: s.staging,
     bedDelay: d.bedDelay + d.overtimeDelay,
     hospitals: s.hospitals,
+    welfare: welfareView(s),
     panel: elevatorPanel(d.morningLoads, k),
     liverClues: liverClues(d.morningLoads.liver, s.liverOrders, k),
     modifiers: activeModifiers(s.tags, ctx.dict),
@@ -269,7 +284,10 @@ function activityAt(d: DayRun, h: number, rest: ReadonlySet<number>): Activity {
   }
   if (d.writeLeft > 0 && !rest.has(h)) {
     d.writeLeft -= 1;
-    d.s = withAssignment(d.s, d.writeIdx, { written: d.s.homework[d.writeIdx]!.written + 1 });
+    const a = d.s.homework[d.writeIdx]!;
+    // 提早開工: the first hour of an assignment begun early draws its debugging again and keeps the shorter.
+    const early = a.written === 0 && a.due - d.s.day >= EARLY_START_DAYS && (d.s.welfare ?? []).includes('early_start');
+    d.s = withAssignment(d.s, d.writeIdx, { written: a.written + 1, ...(early ? { debug: Math.min(a.debug, earlyDebug(d.s, d.writeIdx)) } : {}) });
     return 'work';
   }
   // Papers all graded early leave the planned hours to study, like a finished project.
@@ -363,6 +381,14 @@ function patrol(d: DayRun, floor: FloorId, overtime: boolean, played?: PatrolRes
   if (played === undefined) return { floor, grade: drawn, overtime };
   if (isFailed(played)) return { floor, grade: 'C', overtime, failed: true };
   if (!GRADES.includes(played.grade)) throw new RangeError(`"${String(played.grade)}" is not a rating`);
+  const records = played.records ?? 0;
+  if (!Number.isInteger(records) || records < 0) throw new RangeError(`a patrol cannot have made ${records} records`);
+  // 會議紀錄 pays at the end of the patrol, with the cards held then.
+  const minutes = minutesProgress(d.s.welfare ?? [], records);
+  if (minutes > 0) {
+    d.s = { ...d.s, progress: d.s.progress + minutes };
+    d.minutes += minutes;
+  }
   return { floor, grade: played.grade, overtime };
 }
 
@@ -388,6 +414,7 @@ interface Outcome {
   readonly liverStrike?: NonNullable<DayRecord['liverStrike']>;
   readonly crisis?: NonNullable<DayRecord['crisis']>;
   readonly archive?: NonNullable<DayRecord['archive']>;
+  readonly slept: number;
 }
 
 const nodeOf = (tags: TagState, name: string): number[] => (tags.values[name] ? [tags.values[name]!.node] : []);
@@ -530,6 +557,8 @@ function settle(d: DayRun, n: Night): Outcome {
     strikes: struck,
     hospitalized: er,
     loadsSettled,
+    // The first emergency-room night counts as good sleep for the debt, so for the early-sleep bonus too.
+    slept: hospitalDay !== undefined ? k.hospitalSleep : effective,
     ...(staged > 0 ? { archive: { staged, rate, archived } } : {}),
     ...(struck.includes('liver') ? { liverStrike: { alcoholAtBed, dupMedication, orderBefore } } : {}),
     ...(crisis ? { crisis } : {}),
@@ -551,6 +580,7 @@ export function playDay(from: SemesterState, ctx: SemesterContext, strategy: Str
     evidence: { brain: [], stomach: [], liver: [] },
     pending: hospitalDay ? [] : (ctx.scenario[day] ?? []).map((id) => ctx.events.get(id)!).sort((a, b) => a.hour - b.hour),
     played: [],
+    minutes: 0,
   };
   const panel = elevatorPanel(s0.loads, k);
   const header = {
@@ -624,13 +654,23 @@ export function playDay(from: SemesterState, ctx: SemesterContext, strategy: Str
 
   // The elevator comes after the day's events and before bedtime (design doc 8.1); exams replace the patrol.
   const patrols: PatrolRecord[] = [];
+  let cardTaken: string | undefined;
   if (!hospitalDay && exam === null) {
     const choice = strategy.floor(viewOf(d), d.s.tags);
     const rooms = 1 + (choice.overtime === undefined ? 0 : 1);
     if (choice.played !== undefined && choice.played.length !== rooms) {
       throw new RangeError(`${choice.played.length} played patrols were given for ${rooms} chosen`);
     }
-    patrols.push(patrol(d, choice.patrol, false, choice.played?.[0] ?? undefined));
+    const first = choice.played?.[0] ?? undefined;
+    patrols.push(patrol(d, choice.patrol, false, first));
+    // The card is taken before the overtime patrol, which then has it.
+    if (choice.card !== undefined) {
+      if (first === undefined || isFailed(first)) throw new RangeError('a welfare card was picked, and only a played patrol that was not failed offers any');
+      const offer = welfareOffer({ salt: d.s.rng.setting, day, floor: choice.patrol, grade: first.grade, held: d.s.welfare ?? [], courses: ctx.courses });
+      if (!offer.includes(choice.card)) throw new RangeError(`"${choice.card}" is not among the cards the patrol offered (${offer.join(', ') || 'none'})`);
+      d.s = { ...d.s, welfare: [...(d.s.welfare ?? []), choice.card] };
+      cardTaken = choice.card;
+    }
     if (choice.overtime !== undefined) {
       if (choice.overtime === choice.patrol) throw new RangeError('an overtime patrol must be on a second floor');
       patrols.push(patrol(d, choice.overtime, true, choice.played?.[1] ?? undefined));
@@ -718,6 +758,9 @@ export function playDay(from: SemesterState, ctx: SemesterContext, strategy: Str
     patrols, events: d.played, loadsAfter: d.s.loads, studyHours: d.studyHours, homework: homeworkDelta(from.homework, d.s.homework), ...(rankDone ? { rank: rankDone } : {}),
     ...(d.projectHours > 0 ? { project: { hours: d.projectHours, gain: d.s.project - from.project, done: from.project < PROJECT_NEED && d.s.project >= PROJECT_NEED } } : {}),
     ...(d.s.graded > from.graded ? { grade: { hours: d.s.graded - from.graded, done: from.graded < GRADE_HOURS && d.s.graded >= GRADE_HOURS } } : {}),
+    ...(rankSpent > 0 && bedEnd <= STOP_BY ? { contestStop: true as const } : {}),
+    ...(cardTaken !== undefined ? { card: cardTaken } : {}),
+    ...(d.minutes > 0 ? { minutes: d.minutes } : {}),
     ...outcome,
   };
   const ended = d.s.bankrupt;

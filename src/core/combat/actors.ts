@@ -51,6 +51,8 @@ export interface EnemyState {
   readonly throws?: 'can';
   /** Cheers kid: a weapon has made him back off since his last toast, so the next one cannot. */
   readonly shooed?: true;
+  /** Tick a binding pin ends (core/combat/perks.ts); the enemy counts as bound while this is ahead and it is still frozen. */
+  readonly boundUntil?: number;
   /** Exam test case: its drift in pixels per tick, turned back by walls (core/exam/fight.ts). */
   readonly drift?: Vec;
 }

@@ -4,7 +4,7 @@ import { chapterContent } from '../../src/app/chapters.ts';
 import { CHAPTERS } from '../../src/app/content.ts';
 import { patrolChapter, patrolLoop, type PatrolPlay } from '../../src/app/patrol.ts';
 import { tagsFromQuery } from '../../src/app/session.ts';
-import { acetaldehydeCrates, amount, enemyCenter, roomsOf, TICK_MS, type ChapterContent, type FloorId, type GameEvent, type TiledMap, type TickInput } from '../../src/core/index.ts';
+import { acetaldehydeCrates, amount, BASE_PERKS, enemyCenter, roomsOf, TICK_MS, type ChapterContent, type FloorId, type GameEvent, type TiledMap, type TickInput } from '../../src/core/index.ts';
 
 const content = (id: string): ChapterContent => {
   const chapter = CHAPTERS.get(id)!;
@@ -62,6 +62,30 @@ describe.each([['brain', '?tags=sleep_debt:1'], ['liver', '?tags=alcohol:2']] as
     }
     expect(rooms.map((r) => r.split('/')[1])).toEqual(roomsOf(base(floor).chapter).map((r) => r.split('/')[1]));
     expect(p.rate()).not.toEqual({ failed: true });
+  });
+});
+
+describe('the kit of welfare cards (design doc 8.8)', () => {
+  const kit = { gauge: 50, perks: { ...BASE_PERKS, bindHits: 2, parryBoost: true } };
+
+  it('starts the patrol with its gauge and perks, and keeps the perks into the next room', () => {
+    const p = patrolLoop(base('brain'), 'brain', tagsFromQuery('?tags=sleep_debt:0', dict), 1, undefined, kit);
+    expect(p.loop.state.game.operator.gauge).toBe(50);
+    expect(p.loop.state.game.perks).toEqual(kit.perks);
+    const rooms: string[] = [];
+    p.loop.onEvent((e) => { if (e.type === 'roomChanged') rooms.push(e.to); });
+    for (let i = 0; i < 3000 && rooms.length === 0; i++) {
+      const o = p.loop.state.game.operator;
+      p.loop.advance(TICK_MS, () => ({ move: { x: 1, y: Math.abs(o.y - 224) < 6 ? 0 : Math.sign(224 - o.y) } }));
+    }
+    expect(rooms).toHaveLength(1);
+    expect(p.loop.state.game.perks).toEqual(kit.perks);
+  });
+
+  it('is the old patrol without a kit: no gauge, no perks', () => {
+    const p = play('brain', '?tags=sleep_debt:0');
+    expect(p.loop.state.game.operator.gauge).toBe(0);
+    expect(p.loop.state.game.perks).toBeUndefined();
   });
 });
 

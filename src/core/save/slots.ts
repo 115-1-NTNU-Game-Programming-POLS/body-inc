@@ -294,11 +294,12 @@ const ANSWER: Schema = {
               items: {
                 anyOf: [
                   { type: 'null' },
-                  { type: 'object', additionalProperties: false, required: ['grade'], properties: { grade: { enum: [...GRADES] } } },
+                  { type: 'object', additionalProperties: false, required: ['grade'], properties: { grade: { enum: [...GRADES] }, records: INT } },
                   { type: 'object', additionalProperties: false, required: ['failed'], properties: { failed: { const: true } } },
                 ],
               },
             },
+            card: { type: 'string', minLength: 1 },
           },
         },
       },
@@ -322,7 +323,7 @@ const ANSWER: Schema = {
 
 export const RUN: SlotDef<RunData> = {
   name: 'run',
-  version: 8,
+  version: 9,
   schema: {
     type: 'object',
     additionalProperties: false,
@@ -347,8 +348,8 @@ export const RUN: SlotDef<RunData> = {
     },
   },
   defaults: () => ({ semester: null }),
-  // Versions 2 to 8 add optional fields (the course list; the hours of writing and debugging; the contest hours; the project hours and the walk; the grading hours; the overtime clause; the results of the patrols played); an older run is valid without them.
-  migrations: { 1: (data) => data, 2: (data) => data, 3: (data) => data, 4: (data) => data, 5: (data) => data, 6: (data) => data, 7: (data) => data },
+  // Versions 2 to 9 add optional fields (the course list; the hours of writing and debugging; the contest hours; the project hours and the walk; the grading hours; the overtime clause; the results of the patrols played; the welfare card picked and the records a patrol made); an older run is valid without them.
+  migrations: { 1: (data) => data, 2: (data) => data, 3: (data) => data, 4: (data) => data, 5: (data) => data, 6: (data) => data, 7: (data) => data, 8: (data) => data },
 };
 
 export const SLOTS = [SETTINGS, STORY, PROGRESS, RUN] as const;

@@ -10,3 +10,4 @@ export * from './rating.ts';
 export * from './scenario.ts';
 export * from './semester.ts';
 export * from './types.ts';
+export * from './welfare.ts';

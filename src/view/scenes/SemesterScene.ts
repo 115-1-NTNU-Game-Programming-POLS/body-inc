@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import {
-  COFFEE_PLANS, daySummary, endSummary, finishSemester, floorChoice, freshSeed, gradePrompt, morningPlan, newSemester, NIGHT_PLANS, nightPlan, patrolResultLine, projectPrompt, REST_PLANS, resumeSemester, semesterCleared, servesAlcohol, settingLines,
-  TUTORIAL_COURSES, TUTORIAL_SEED, tutorLine, visitReport, walkPrompt, weekdayOf,
+  COFFEE_PLANS, daySummary, endSummary, finishSemester, floorChoice, freshSeed, gradePrompt, kitWith, morningPlan, newSemester, NIGHT_PLANS, nightPlan, patrolOffer, patrolResultLine, projectPrompt, REST_PLANS, resumeSemester, semesterCleared, servesAlcohol, settingLines,
+  TUTORIAL_COURSES, TUTORIAL_SEED, tutorLine, visitReport, walkPrompt, weekdayOf, welfareCaption, welfareText,
   type CoffeePlanId, type NightPlanId, type RestPlanId,
 } from '../../app/semester.ts';
 import { fillStr, REPORT, str } from '../../app/content.ts';
@@ -9,7 +9,7 @@ import { keepPage } from '../../app/handbook.ts';
 import { patrolChapter, patrolLoop, type PatrolSession } from '../../app/patrol.ts';
 import type { SaveStore } from '../../app/storage.ts';
 import {
-  advanceDay, buildWall, gradeRoom, MAX_DEBUG_PER_NIGHT, MAX_RANK_HOURS, nightRoom, pinWall, projectRoom, rankGain, RANK_FULL, rankSharePercent, reviewWall, RUN, WRITE_HOURS, type Answer, type Ask, type ChapterContent, type DayView, type FloorId, type HomeworkView, type PatrolResult, type ProgressData, type ReportDocument, type RunData,
+  advanceDay, buildWall, gradeRoom, MAX_DEBUG_PER_NIGHT, MAX_RANK_HOURS, nightRoom, pinWall, projectRoom, rankGain, RANK_FULL, rankSharePercent, reviewWall, RUN, WRITE_HOURS, type Answer, type Ask, type ChapterContent, type DayView, type FloorId, type HomeworkView, type PatrolKit, type PatrolResult, type ProgressData, type ReportDocument, type RunData,
   type SemesterContext, type SemesterRun, type SemesterState, type Settings, type TagState, type Wall,
 } from '../../core/index.ts';
 import { WALL_CHAPTER, wallLoop, type WallSession } from '../../app/wall.ts';
@@ -324,34 +324,46 @@ export class SemesterScene extends Phaser.Scene {
   private askFloor(view: DayView, tags: TagState): void {
     this.banner(view, 'floor');
     this.panel(view, str('semester.floor.title'), undefined, (patrol) => {
-      this.playPatrol(patrol, tags, view.day * 2, (first) => {
-        this.cards(
-          [
-            { label: str('semester.overtime.none'), note: str('semester.overtime.none.note') },
-            { label: str('semester.overtime.yes'), note: str('semester.overtime.yes.note') },
-          ],
-          str('semester.floor.overtime.title'), first === null ? undefined : patrolResultLine(patrol, first),
-          (i) => {
-            if (i === 0) return this.answer({ kind: 'floor', choice: floorChoice(patrol, undefined, [first]) });
-            this.panel(view, str('semester.floor.overtime.again'), patrol, (overtime) => {
-              this.playPatrol(overtime, tags, view.day * 2 + 1, (second) => this.answer({ kind: 'floor', choice: floorChoice(patrol, overtime, [first, second]) }));
-            });
-          },
-        );
+      this.playPatrol(patrol, tags, view.day * 2, view.welfare.kit, (first) => {
+        this.askCard(view, patrol, first, (card) => {
+          this.cards(
+            [
+              { label: str('semester.overtime.none'), note: str('semester.overtime.none.note') },
+              { label: str('semester.overtime.yes'), note: str('semester.overtime.yes.note') },
+            ],
+            str('semester.floor.overtime.title'), first === null ? undefined : patrolResultLine(patrol, first),
+            (i) => {
+              if (i === 0) return this.answer({ kind: 'floor', choice: floorChoice(patrol, undefined, [first], card) });
+              this.panel(view, str('semester.floor.overtime.again'), patrol, (overtime) => {
+                this.playPatrol(overtime, tags, view.day * 2 + 1, kitWith(view, card), (second) => {
+                  this.answer({ kind: 'floor', choice: floorChoice(patrol, overtime, [first, second], card) });
+                });
+              });
+            },
+          );
+        });
       });
     });
+  }
+
+  /** The welfare cards a rated patrol offers (design doc 8.8): one is picked and kept to the end of the semester. No offer, no screen. */
+  private askCard(view: DayView, floor: FloorId, first: PatrolResult | null, done: (card: string | undefined) => void): void {
+    const offer = patrolOffer(view, this.ctx, floor, first);
+    if (first === null || offer.length === 0) return done(undefined);
+    const caption = [patrolResultLine(floor, first), welfareCaption(view.welfare.held)].join('\n');
+    this.cards(offer.map(welfareText), str('semester.welfare.title'), caption, (i) => done(offer[i]!));
   }
 
   /**
    * The rooms of a floor's patrol, played on the World and the HUD while the semester sleeps (as the evidence wall is). A floor with
    * no rooms of its own, or rooms that cannot be built, hands back null and the rules draw its rating from the skill.
    */
-  private playPatrol(floor: FloorId, tags: TagState, salt: number, done: (result: PatrolResult | null) => void): void {
+  private playPatrol(floor: FloorId, tags: TagState, salt: number, kit: PatrolKit, done: (result: PatrolResult | null) => void): void {
     const base = patrolChapter(this.registry.get('chapters') as ReadonlyMap<string, ChapterContent>, floor);
     if (base === undefined) return done(null);
     let play: ReturnType<typeof patrolLoop>;
     try {
-      play = patrolLoop(base, floor, tags, this.seed + salt);
+      play = patrolLoop(base, floor, tags, this.seed + salt, undefined, kit);
     } catch (err) {
       console.error('patrol skipped:', err);
       return done(null);

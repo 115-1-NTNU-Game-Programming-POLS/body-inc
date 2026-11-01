@@ -1,6 +1,6 @@
 import {
-  advanceDay, amount, BURDEN_REWARD, burdenOf, clauseFinMult, CLAUSE_CREDIT_CAP, commitmentsOf, composeReport, creditsOf, EVENTS, fixedHour, GRADE_HOURS, GRADE_PAPERS, gradeDays, HOMEWORK_MISS_PENALTY, HOMEWORK_PROGRESS, isFailed, PROJECT_FIN_PENALTY, PROJECT_NEED, PROJECT_REVIEW, projectDue, RANK_FULL, rankNights, RANK_SHARE, rankSharePercent, reviewPoints, PROGRESS, takes, prototypeContext, semesterInputs, settingHours, SIT_LIMIT, startSemester, summarize, unlockedAfter, withBarbecueOn, withClause,
-  type FloorChoice, type FloorId, type MorningPlan, type NightPlan, type PatrolResult, type ProgressData, type ReportDocument, type Scenario, type SemesterContext, type SemesterRun, type SemesterState,
+  advanceDay, amount, BURDEN_REWARD, burdenOf, clauseFinMult, CLAUSE_CREDIT_CAP, commitmentsOf, composeReport, creditsOf, EVENTS, fixedHour, GRADE_HOURS, GRADE_PAPERS, gradeDays, HOMEWORK_MISS_PENALTY, HOMEWORK_PROGRESS, isFailed, patrolKit, PROJECT_FIN_PENALTY, PROJECT_NEED, PROJECT_REVIEW, projectDue, RANK_FULL, rankNights, RANK_SHARE, rankSharePercent, reviewPoints, PROGRESS, takes, prototypeContext, semesterInputs, settingHours, SIT_LIMIT, startSemester, summarize, unlockedAfter, welfareOffer, withBarbecueOn, withClause,
+  type DayView, type FloorChoice, type FloorId, type MorningPlan, type NightPlan, type PatrolKit, type PatrolResult, type ProgressData, type ReportDocument, type Scenario, type SemesterContext, type SemesterRun, type SemesterState,
 } from '../core/index.ts';
 import { fillStr as fill, PARAMS, REPORT, str, STRINGS, TAGS } from './content.ts';
 import type { SaveIssue, SaveStore } from './storage.ts';
@@ -207,8 +207,21 @@ export const morningPlan = (coffee: CoffeePlanId, rest: RestPlanId, write = 0, p
 export const nightPlan = (id: NightPlanId, debug = 0, rank = 0, grade = 0): NightPlan =>
   ({ ...NIGHT_PLANS[id], nextWake: PARAMS.wake, ...(debug > 0 ? { debug } : {}), ...(rank > 0 ? { rank } : {}), ...(grade > 0 ? { grade } : {}) });
 
-export const floorChoice = (patrol: FloorId, overtime?: FloorId, played?: readonly (PatrolResult | null)[]): FloorChoice =>
-  ({ patrol, ...(overtime === undefined ? {} : { overtime }), ...(played === undefined || played.every((r) => r === null) ? {} : { played }) });
+export const floorChoice = (patrol: FloorId, overtime?: FloorId, played?: readonly (PatrolResult | null)[], card?: string): FloorChoice =>
+  ({ patrol, ...(overtime === undefined ? {} : { overtime }), ...(played === undefined || played.every((r) => r === null) ? {} : { played }), ...(card === undefined ? {} : { card }) });
+
+/** The welfare cards the day's first patrol offers (design doc 8.8): none unless its rooms were played and it was not failed. */
+export const patrolOffer = (view: DayView, ctx: SemesterContext, floor: FloorId, result: PatrolResult | null): readonly string[] =>
+  result === null || isFailed(result) ? [] : welfareOffer({ salt: view.welfare.salt, day: view.day, floor, grade: result.grade, held: view.welfare.held, courses: ctx.courses });
+
+export const welfareText = (id: string): { label: string; note: string } => ({ label: str(`welfare.${id}.name`), note: str(`welfare.${id}.effect`) });
+
+export const welfareCaption = (held: readonly string[]): string =>
+  held.length === 0 ? str('semester.welfare.caption.none') : fill('semester.welfare.caption', { held: held.map((id) => str(`welfare.${id}.name`)).join('、') });
+
+/** What the overtime patrol starts with when `card` was picked after the first one: the kit the cards held then give. */
+export const kitWith = (view: DayView, card: string | undefined): PatrolKit =>
+  card === undefined ? view.welfare.kit : patrolKit([...view.welfare.held, card], view.welfare.last);
 
 /** What the player is told right after the rooms of a patrol: the rating, or that it failed. */
 export const patrolResultLine = (floor: FloorId, result: PatrolResult): string =>
@@ -242,6 +255,8 @@ export function daySummary(before: SemesterState, after: SemesterState, ctx: Sem
     const key = `semester.sum.${p.overtime ? 'overtime' : 'patrol'}${p.failed ? '.failed' : ''}`;
     lines.push(fill(key, { floor: floorName(p.floor), grade: p.grade }));
   }
+  if (rec.card !== undefined) lines.push(fill('semester.sum.card', { name: str(`welfare.${rec.card}.name`) }));
+  if (rec.minutes !== undefined) lines.push(fill('semester.sum.minutes', { p: oneDecimal(rec.minutes) }));
   lines.push(fill('semester.sum.debt', { debt: oneDecimal(amount(after.tags, ctx.dict, 'sleep_debt')) }));
   // Only the hours nothing else (class, meal, a course) already held are the card's to count.
   const taken = settingHours(ctx.setting, before.day).filter((h) => h < k.bedMin && fixedHour(k, ctx.courses, before.day, rec.wake, rec.kind === 'exam', h) === undefined);

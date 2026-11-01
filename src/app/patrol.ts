@@ -1,6 +1,6 @@
 import {
   EMPTY_TAGS, NO_TALLY, patrolGoals, patrolTags, ratePatrol, startChapter, tallyPatrol,
-  type ChapterContent, type ChapterState, type FloorId, type GameEvent, type PatrolResult, type PatrolTally, type TagState,
+  type ChapterContent, type ChapterState, type FloorId, type GameEvent, type PatrolKit, type PatrolResult, type PatrolTally, type TagState,
 } from '../core/index.ts';
 import { chapterLoop } from './chapters.ts';
 import type { FixedStepLoop } from './loop.ts';
@@ -27,9 +27,14 @@ export interface PatrolSession {
   readonly done: (result: PatrolResult) => void;
 }
 
-/** The rooms of `floor`'s patrol, entered with the body's tags of the moment. The tally follows the loop's events for as long as the loop lives. */
-export function patrolLoop(base: ChapterContent, floor: FloorId, tags: TagState = EMPTY_TAGS, seed = 1, room?: string): PatrolPlay {
-  const state = startChapter(base, { tags: patrolTags(floor, tags, base.dict), seed, ...(room ? { room } : {}) });
+/**
+ * The rooms of `floor`'s patrol, entered with the body's tags of the moment and the gauge and fighting rules the welfare cards give.
+ * The tally follows the loop's events for as long as the loop lives.
+ */
+export function patrolLoop(base: ChapterContent, floor: FloorId, tags: TagState = EMPTY_TAGS, seed = 1, room?: string, kit?: PatrolKit): PatrolPlay {
+  const state = startChapter(base, {
+    tags: patrolTags(floor, tags, base.dict), seed, ...(room ? { room } : {}), ...(kit ? { gauge: kit.gauge, perks: kit.perks } : {}),
+  });
   const loop = chapterLoop(base, state);
   let tally: PatrolTally = NO_TALLY;
   loop.onEvent((e) => {
