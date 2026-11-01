@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { fillStr } from '../../src/app/content.ts';
-import { daySummary, floorChoice, morningPlan, newSemester, nightPlan, resumeSemester, TUTORIAL_COURSES, TUTORIAL_SEED } from '../../src/app/semester.ts';
-import { advanceDay, decode, encode, HOMEWORK_PROGRESS, RUN, WRITE_HOURS, type Answer, type SemesterRun } from '../../src/core/index.ts';
+import { daySummary, endSummary, floorChoice, morningPlan, newSemester, nightPlan, resumeSemester, TUTORIAL_COURSES, TUTORIAL_SEED } from '../../src/app/semester.ts';
+import { advanceDay, decode, encode, HOMEWORK_MISS_PENALTY, HOMEWORK_PROGRESS, playDay, RUN, WRITE_HOURS, type Answer, type SemesterRun, type Strategy } from '../../src/core/index.ts';
+
+const quiet: Strategy = {
+  plan: () => morningPlan('none', 'balanced'),
+  choose: (_id, options) => options[0]!,
+  floor: () => floorChoice('brain'),
+  night: () => nightPlan('early'),
+};
 
 /** Plays days 1 to `through` of the tutorial semester, writing the first assignment on day 2 and debugging on the night of `debugNight`. */
 function played(through: number, opts: { debugNight?: number } = {}): { run: SemesterRun; ctx: ReturnType<typeof newSemester>['ctx']; states: ReturnType<typeof newSemester>['state'][] } {
@@ -67,5 +74,14 @@ describe('what the player is told after a day with an assignment', () => {
     const day4 = daySummary(states[3]!, states[4]!, ctx);
     expect(day4.includes(line('semester.sum.hw.missed', { n: 1 }))).toBe(!handedIn);
     expect(daySummary(states[0]!, states[1]!, ctx).some((l) => l.startsWith('作業'))).toBe(false);
+  });
+
+  it('closes the semester with the final-exam penalty for the assignments not handed in, and says nothing when none were missed', () => {
+    const { ctx, state } = newSemester(TUTORIAL_SEED, undefined, [...TUTORIAL_COURSES]);
+    const end = (missed: number): ReturnType<typeof endSummary> =>
+      endSummary(playDay({ ...state, day: 10, mid: 80, progress: 40, homework: state.homework.map((a, i) => ({ ...a, missed: i < missed })) }, ctx, quiet), ctx);
+    expect(end(2)).toContain(fillStr('semester.end.homework.missed', { missed: 2, points: 2 * HOMEWORK_MISS_PENALTY }));
+    expect(end(1)).toContain(fillStr('semester.end.homework.missed', { missed: 1, points: HOMEWORK_MISS_PENALTY }));
+    expect(end(0).some((l) => l.includes('作業有'))).toBe(false);
   });
 });

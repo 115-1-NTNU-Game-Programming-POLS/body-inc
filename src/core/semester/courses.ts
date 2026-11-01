@@ -101,6 +101,11 @@ export const WRITE_HOURS = 3;
 export const DEBUG_PERCENT: readonly number[] = [20, 25, 20, 15, 12, 8];
 /** Study progress a handed-in assignment is worth. ASSUME: more than the hours it takes, or skipping it would be the better play; the re-simulation of design doc 9.6 sets it. */
 export const HOMEWORK_PROGRESS = 8;
+/**
+ * Final exam percent each assignment not handed in costs. ASSUME: raising HOMEWORK_PROGRESS does not make handing in
+ * worth it, because the exam curve already tops out for a player who studies, so skipping has to cost something.
+ */
+export const HOMEWORK_MISS_PENALTY = 4;
 /** The most debugging hours a night offers, which keeps bedtime inside the extended clock. */
 export const MAX_DEBUG_PER_NIGHT = 4;
 
