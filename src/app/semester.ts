@@ -1,5 +1,5 @@
 import {
-  advanceDay, amount, BURDEN_REWARD, burdenOf, composeReport, creditsOf, EVENTS, HOMEWORK_MISS_PENALTY, HOMEWORK_PROGRESS, PROJECT_FIN_PENALTY, PROJECT_NEED, PROJECT_REVIEW, RANK_FULL, RANK_SHARE, reviewPoints, PROGRESS, takes, prototypeContext, semesterInputs, startSemester, summarize, withBarbecueOn,
+  advanceDay, amount, BURDEN_REWARD, burdenOf, commitmentsOf, composeReport, creditsOf, EVENTS, HOMEWORK_MISS_PENALTY, HOMEWORK_PROGRESS, PROJECT_FIN_PENALTY, PROJECT_NEED, PROJECT_REVIEW, projectDue, RANK_FULL, rankNights, RANK_SHARE, rankSharePercent, reviewPoints, PROGRESS, takes, prototypeContext, semesterInputs, SIT_LIMIT, startSemester, summarize, withBarbecueOn,
   type FloorChoice, type FloorId, type MorningPlan, type NightPlan, type ProgressData, type ReportDocument, type Scenario, type SemesterContext, type SemesterRun, type SemesterState,
 } from '../core/index.ts';
 import { fillStr as fill, PARAMS, REPORT, str, STRINGS, TAGS } from './content.ts';
@@ -33,6 +33,44 @@ export const freshSeed = (semestersDone: number, now: number): number => (semest
 export function finishSemester(saves: SaveStore, progress: ProgressData): { progress: ProgressData; issues: SaveIssue[] } {
   const next = { ...progress, semestersDone: progress.semestersDone + 1 };
   return { progress: next, issues: saves.save(PROGRESS, next) };
+}
+
+/** The picker's note under card `id`. A note with a placeholder needs a case here; the test walks every open card to catch one without. */
+export function courseNote(id: string): string {
+  const key = `course.note.${id}`;
+  switch (id) {
+    case 'algorithms': {
+      const { from, to } = rankNights(PARAMS);
+      return fill(key, { from, to, share: rankSharePercent });
+    }
+    case 'compiler':
+      return fill(key, { credits: creditsOf([id]) });
+    case 'ta': {
+      const [first, second] = commitmentsOf(id);
+      return fill(key, { from: first!.day, to: second!.day, hours: first!.hours.length });
+    }
+    default:
+      return str(key);
+  }
+}
+
+/** The title and caption of the compiler project question; `room` is the hours the plan so far leaves for it. */
+export const projectPrompt = (project: { readonly done: number; readonly need: number }, room: number, params: { readonly finDay: number }): { title: string; caption: string } => ({
+  title: fill('semester.project.title', { due: projectDue(params) }),
+  caption: fill('semester.project.caption', { done: project.done.toFixed(1), need: project.need, room, limit: SIT_LIMIT }),
+});
+
+/** The walk question of the stuck point: its title and caption, and the cards for sitting on and for taking the walk, in that order. */
+export function walkPrompt(): { title: string; caption: string; options: { label: string; note: string }[] } {
+  const limit = { limit: SIT_LIMIT };
+  return {
+    title: str('semester.walk.title'),
+    caption: fill('semester.walk.caption', limit),
+    options: [
+      { label: str('semester.walk.none'), note: fill('semester.walk.none.note', limit) },
+      { label: fill('semester.walk.take', limit), note: str('semester.walk.take.note') },
+    ],
+  };
 }
 
 /** The chairman's line for the morning of `day`, or undefined when the semester is not the tutorial or the day has none. */

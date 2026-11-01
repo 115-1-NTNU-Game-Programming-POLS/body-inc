@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { fillStr, str } from '../../app/content.ts';
+import { courseNote } from '../../app/semester.ts';
 import { burdenOf, creditsOf, OPEN_COURSES, selectionProblem, thresholdMult } from '../../core/index.ts';
 import { addText, updateText } from '../text/fonts.ts';
 import type { SemesterData } from './SemesterScene.ts';
@@ -39,7 +40,7 @@ export class CourseScene extends Phaser.Scene {
     OPEN_COURSES.forEach((c, i) => {
       const y = ROW_Y + i * ROW_H;
       const name = addText(this, w / 2 - 330, y, '', { role: 'print', weight: 700, size: 28, color: PAPER, padding: { x: 14, y: 4 } });
-      const note = addText(this, w / 2 - 316, y + NOTE_DY, str(`course.note.${c.id}`), { role: 'print', weight: 400, size: 18, color: DIM });
+      const note = addText(this, w / 2 - 316, y + NOTE_DY, courseNote(c.id), { role: 'print', weight: 400, size: 18, color: DIM });
       this.rows.push({ name, note });
       name.setInteractive({ useHandCursor: true });
       name.on('pointerover', () => this.select(i));
