@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  BURDEN_REWARD, burdenOf, committedHours, COURSES, creditsOf, isCommitted, OPEN_COURSES, playDay, reviewPoints, selectionProblem, startSemester, thresholdMult,
+  BURDEN_REWARD, burdenOf, COURSES, creditsOf, isCommitted, OPEN_COURSES, playDay, reviewPoints, selectionProblem, startSemester, thresholdMult,
   type Course, type SemesterContext, type SemesterState, type Strategy,
 } from '../../src/core/index.ts';
 import { contextFor } from '../../sim/semester/scenario.ts';
@@ -48,11 +48,11 @@ describe('the course selection (design doc 8.3)', () => {
   });
 
   it('takes the TA office hours on the afternoon of days 2 and 8 only when the course is taken', () => {
-    expect([...committedHours(['ta'], 2)]).toEqual([16, 17]);
-    expect([...committedHours(['ta'], 8)]).toEqual([16, 17]);
-    for (const day of [1, 3, 4, 5, 6, 7, 9, 10]) expect(committedHours(['ta'], day).size, `day ${day}`).toBe(0);
-    expect(committedHours(['algorithms', 'os'], 2).size).toBe(0);
-    for (let day = 1; day <= 10; day++) for (let h = 0; h < 28; h++) expect(isCommitted(['ta'], day, h), `day ${day} hour ${h}`).toBe(committedHours(['ta'], day).has(h));
+    const hours = (courses: readonly string[], day: number): number[] => Array.from({ length: 28 }, (_, h) => h).filter((h) => isCommitted(courses, day, h));
+    expect(hours(['ta'], 2)).toEqual([16, 17]);
+    expect(hours(['ta'], 8)).toEqual([16, 17]);
+    for (const day of [1, 3, 4, 5, 6, 7, 9, 10]) expect(hours(['ta'], day), `day ${day}`).toEqual([]);
+    expect(hours(['algorithms', 'os'], 2)).toEqual([]);
   });
 });
 

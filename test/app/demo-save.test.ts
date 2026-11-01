@@ -46,6 +46,12 @@ describe('the demo save (design doc 14.1)', () => {
     expect(events).toEqual([[], [{ kind: 'event', option: 'binge' }], []]);
   });
 
+  it('hands in the first assignment before it falls due, so the first day played is not a missed one', () => {
+    const { state } = morning();
+    expect(state.homework[0]).toMatchObject({ done: true, missed: false });
+    expect(state.history.flatMap((r) => r.homework).filter((h) => h.n === 1).map((h) => h.done)).toEqual([false, true]);
+  });
+
   it('shows the demo opening: a dark panel with the liver\'s order on file and the stomach jammed', () => {
     const { view } = morning();
     expect(view.panel.buttons.map((b) => b.light)).toEqual(view.panel.buttons.map(() => 'off'));
@@ -54,13 +60,13 @@ describe('the demo save (design doc 14.1)', () => {
   });
 
   it('leads to the midterm on day 5 with the result it had when the demo was written', () => {
-    // The 9 credits of the tutorial lower the thresholds so far that the midterm is full marks; the progress it is sat on still moves with the rules.
+    // The 9 credits of the tutorial lower the thresholds; the two late nights of debugging cost sleep, so the midterm is a little under full marks.
     const morning5 = playOn('liver', 4);
     expect(morning5.day).toBe(5);
-    expect(Math.round(morning5.progress * 10) / 10).toBe(23.8);
+    expect(Math.round(morning5.progress * 10) / 10).toBe(25.8);
     const { mid } = playOn('liver', 6);
-    expect(Math.round(mid ?? NaN)).toBe(100);
-    expect(Math.round(playOn('brain', 6).mid ?? NaN)).toBe(100);
+    expect(Math.round(mid ?? NaN)).toBe(88);
+    expect(Math.round(playOn('brain', 6).mid ?? NaN)).toBe(88);
   });
 
   it('lets the liver be patrolled on day 4 and clears the jam', () => {

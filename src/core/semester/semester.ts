@@ -416,7 +416,8 @@ function settle(d: DayRun, n: Night): Outcome {
 
   // Sleep files the day's paper-exam study; what it did not reach keeps only half until the next night.
   const staged = d.s.staging;
-  const rate = archiveRate(effective);
+  // The first emergency-room night counts as hospitalSleep good hours for the debt, so for the archive too.
+  const rate = archiveRate(hospitalDay !== undefined ? k.hospitalSleep : effective);
   const archived = staged * rate;
 
   const loadCauses = mapFloors((f) => (loads[f] < k.floorYellowAt ? [] : behind[f]));

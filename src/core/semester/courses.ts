@@ -82,12 +82,6 @@ const COMMITMENTS: Readonly<Record<string, readonly Commitment[]>> = {
   ta: [{ day: 2, hours: [16, 17] }, { day: 8, hours: [16, 17] }],
 };
 
-export function committedHours(courses: readonly string[], day: number): ReadonlySet<number> {
-  const hours = new Set<number>();
-  for (const id of courses) for (const c of COMMITMENTS[id] ?? []) if (c.day === day) c.hours.forEach((h) => hours.add(h));
-  return hours;
-}
-
 /** Whether a course takes hour `h` of `day`; the day's loop asks every hour, so this allocates nothing. */
 export const isCommitted = (courses: readonly string[], day: number, h: number): boolean =>
   courses.some((id) => (COMMITMENTS[id] ?? []).some((c) => c.day === day && c.hours.includes(h)));

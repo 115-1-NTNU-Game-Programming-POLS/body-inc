@@ -15,7 +15,7 @@ const HOURS = Array.from({ length: 14 }, (_, i) => 8 + i);
 const player = (opts: { bed?: number; late?: boolean; rest?: boolean; coffee?: number[] } = {}): Strategy => ({
   plan: () => ({ coffee: opts.coffee ?? [], rest: opts.rest ? HOURS : [] }),
   choose: (_id, options) => options[0]!,
-  floor: () => ({ patrol: 'brain' }),
+  floor: () => ({ patrol: 'gut' }),
   night: () => ({ bed: opts.bed ?? 22.5, nextWake: 7, lateNight: opts.late ? 'study' : 'rest' }),
 });
 
@@ -85,6 +85,18 @@ describe('a day of study before and after sleep', () => {
     // The bed is 22:30 and the wake 07:00, 8.5 hours either way; only the caffeine at bedtime differs.
     expect(plain.rate).toBe(1);
     expect(coffee.rate).toBeLessThan(1);
+  });
+
+  it('counts the first night in the emergency room as the 9 good hours it is for the debt', () => {
+    const ctx = ctxFor(PAPER);
+    const s0 = startSemester(ctx, 1);
+    const short = { bed: 25, late: true };
+    expect(day(ctx, s0, short).history[0]!.archive!.rate).toBeCloseTo(6 / 7, 12);
+    const strained = { ...s0, loads: { ...s0.loads, brain: 100, stomach: 100 } };
+    const s = day(ctx, strained, short);
+    expect(s.history[0]!.hospitalized).toBe(true);
+    expect(s.history[0]!.archive!.rate).toBe(1);
+    expect(s.staging).toBe(0);
   });
 
   it('files what was left over on the next full night', () => {

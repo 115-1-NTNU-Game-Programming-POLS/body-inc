@@ -89,7 +89,7 @@ export class SemesterScene extends Phaser.Scene {
     const done = (this.registry.get('progress') as ProgressData | undefined)?.semestersDone ?? 1;
     const seed = data.resume?.seed ?? data.seed ?? freshSeed(done, Date.now());
     // The scripted first week has its course list; any other new semester has the picks of the course scene, and a dev one none.
-    const courses = data.courses ?? (seed === TUTORIAL_SEED ? [...TUTORIAL_COURSES] : undefined);
+    const courses = data.courses ?? (data.seed === undefined && seed === TUTORIAL_SEED ? [...TUTORIAL_COURSES] : undefined);
     const fresh = back ?? newSemester(seed, data.bbqDays, courses);
     this.seed = seed;
     this.ctx = fresh.ctx;
@@ -265,7 +265,7 @@ export class SemesterScene extends Phaser.Scene {
     const labels = hours.map((n) => (n === 0
       ? { label: str('semester.write.none'), note: str('semester.write.none.note') }
       : { label: fillStr('semester.write.hours', { hours: n }), note: fillStr('semester.write.hours.note', { hours: n }) }));
-    this.cards(labels, fillStr('semester.write.title', { n: hw.n, due: hw.due }), fillStr('semester.write.caption', { written: hw.written }), (i) => done(hours[i]!));
+    this.cards(labels, fillStr('semester.write.title', { n: hw.n, due: hw.due }), fillStr('semester.write.caption', { written: hw.written, total: WRITE_HOURS }), (i) => done(hours[i]!));
   }
 
   private askEvent(view: DayView, id: string, options: readonly string[]): void {

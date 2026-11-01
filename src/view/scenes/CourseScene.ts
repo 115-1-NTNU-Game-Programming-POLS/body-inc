@@ -94,7 +94,8 @@ export class CourseScene extends Phaser.Scene {
       row.name.setColor(course === undefined && problem !== undefined ? DIM : on ? INK : PAPER).setBackgroundColor(on ? PAPER : 'rgba(0, 0, 0, 0)');
     });
     const credits = creditsOf(picks);
-    const head = fillStr('course.pick.summary', { n: picks.length, credits, burden: str(`semester.burden.${burdenOf(credits)}`), mult: thresholdMult(credits).toFixed(2) });
+    // The burden and the threshold only mean something for a selection that has enough cards and credits.
+    const head = problem === 'few' || problem === 'low_credits' ? fillStr('course.pick.count', { n: picks.length, credits }) : fillStr('course.pick.summary', { n: picks.length, credits, burden: str(`semester.burden.${burdenOf(credits)}`), mult: thresholdMult(credits).toFixed(2) });
     if (this.summary) updateText(this.summary, problem === undefined ? head : `${head}\n${str(`course.pick.problem.${problem}`)}`);
   }
 
