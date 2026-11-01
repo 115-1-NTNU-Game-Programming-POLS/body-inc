@@ -686,7 +686,7 @@ describe('what the player is allowed to see', () => {
     expect(views.length).toBeGreaterThan(5);
     for (const v of views) {
       expect(Object.keys(v).sort()).toEqual([
-        'S', 'caffeine', 'day', 'examTomorrow', 'exam', 'hospitals', 'liverClues', 'modifiers', 'panel', 'progress', 'sleepDebt', 'wake', 'weekend',
+        'S', 'caffeine', 'day', 'examTomorrow', 'exam', 'homework', 'hospitals', 'liverClues', 'modifiers', 'panel', 'progress', 'sleepDebt', 'wake', 'weekend',
       ].sort());
       for (const b of v.panel.buttons) expect(Object.keys(b).every((k) => ['floor', 'light', 'note'].includes(k))).toBe(true);
     }

@@ -8,7 +8,7 @@ import { fillStr, REPORT, str } from '../../app/content.ts';
 import { keepPage } from '../../app/handbook.ts';
 import type { SaveStore } from '../../app/storage.ts';
 import {
-  advanceDay, buildWall, pinWall, reviewWall, RUN, type Answer, type Ask, type ChapterContent, type DayView, type FloorId, type ProgressData, type ReportDocument, type RunData,
+  advanceDay, buildWall, MAX_DEBUG_PER_NIGHT, pinWall, reviewWall, RUN, WRITE_HOURS, type Answer, type Ask, type ChapterContent, type DayView, type FloorId, type HomeworkView, type ProgressData, type ReportDocument, type RunData,
   type SemesterContext, type SemesterRun, type SemesterState, type Settings, type Wall,
 } from '../../core/index.ts';
 import { WALL_CHAPTER, wallLoop, type WallSession } from '../../app/wall.ts';
@@ -245,15 +245,27 @@ export class SemesterScene extends Phaser.Scene {
     this.banner(view, 'plan');
     const ids = Object.keys(COFFEE_PLANS) as CoffeePlanId[];
     this.cards(ids.map((id) => ({ label: str(`semester.coffee.${id}`), note: str(`semester.coffee.${id}.note`) })), str('semester.coffee.title'), tutorLine(this.seed, view.day), (i) => {
-      this.askRest(ids[i]!);
+      this.askRest(view, ids[i]!);
     });
   }
 
-  private askRest(coffee: CoffeePlanId): void {
+  private askRest(view: DayView, coffee: CoffeePlanId): void {
     const ids = Object.keys(REST_PLANS) as RestPlanId[];
     this.cards(ids.map((id) => ({ label: str(`semester.rest.${id}`), note: str(`semester.rest.${id}.note`) })), str('semester.rest.title'), undefined, (i) => {
-      this.answer({ kind: 'plan', plan: morningPlan(coffee, ids[i]!) });
+      const rest = ids[i]!;
+      const writing = view.homework.find((h) => h.written < WRITE_HOURS);
+      if (writing === undefined) return this.answer({ kind: 'plan', plan: morningPlan(coffee, rest) });
+      this.askWrite(writing, (hours) => this.answer({ kind: 'plan', plan: morningPlan(coffee, rest, hours) }));
     });
+  }
+
+  /** How many of the hours the assignment still needs to write go to it today. */
+  private askWrite(hw: HomeworkView, done: (hours: number) => void): void {
+    const hours = Array.from({ length: WRITE_HOURS - hw.written + 1 }, (_, n) => n);
+    const labels = hours.map((n) => (n === 0
+      ? { label: str('semester.write.none'), note: str('semester.write.none.note') }
+      : { label: fillStr('semester.write.hours', { hours: n }), note: fillStr('semester.write.hours.note', { hours: n }) }));
+    this.cards(labels, fillStr('semester.write.title', { n: hw.n, due: hw.due }), fillStr('semester.write.caption', { written: hw.written }), (i) => done(hours[i]!));
   }
 
   private askEvent(view: DayView, id: string, options: readonly string[]): void {
@@ -299,8 +311,20 @@ export class SemesterScene extends Phaser.Scene {
     const ids = Object.keys(NIGHT_PLANS) as NightPlanId[];
     const title = str(view.examTomorrow ? 'semester.night.exam.title' : 'semester.night.title');
     this.cards(ids.map((id) => ({ label: str(`semester.night.${id}`), note: str(`semester.night.${id}.note`) })), title, undefined, (i) => {
-      this.answer({ kind: 'night', plan: nightPlan(ids[i]!) });
+      const bed = ids[i]!;
+      // Debugging is asked once the writing is done, which is also when its length is told (design doc 8.3).
+      const debugging = view.homework.find((h) => h.debug !== undefined);
+      if (debugging?.debug === undefined) return this.answer({ kind: 'night', plan: nightPlan(bed) });
+      this.askDebug(debugging, debugging.debug, (hours) => this.answer({ kind: 'night', plan: nightPlan(bed, hours) }));
     });
+  }
+
+  private askDebug(hw: HomeworkView, total: number, done: (hours: number) => void): void {
+    const hours = Array.from({ length: Math.min(MAX_DEBUG_PER_NIGHT, total - hw.debugged) + 1 }, (_, n) => n);
+    const labels = hours.map((n) => (n === 0
+      ? { label: str('semester.debug.none'), note: str('semester.debug.none.note') }
+      : { label: fillStr('semester.debug.hours', { hours: n }), note: fillStr('semester.debug.hours.note', { hours: n }) }));
+    this.cards(labels, fillStr('semester.debug.title', { n: hw.n }), fillStr('semester.debug.caption', { debug: total, spent: hw.debugged }), (i) => done(hours[i]!));
   }
 
   private select(i: number): void {

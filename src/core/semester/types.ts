@@ -58,6 +58,26 @@ export interface SemesterContext {
   readonly courses?: readonly string[];
 }
 
+/** One assignment of the operating-systems card, as the state keeps it. `debug` is drawn at the start and stays hidden until the writing is done. */
+export interface Assignment {
+  readonly announce: number;
+  readonly due: number;
+  readonly written: number;
+  readonly debug: number;
+  readonly debugged: number;
+  readonly done: boolean;
+  readonly missed: boolean;
+}
+
+/** What the player may know of an assignment that can be worked on today; `debug` appears once the writing is done. */
+export interface HomeworkView {
+  readonly n: number;
+  readonly due: number;
+  readonly written: number;
+  readonly debug?: number;
+  readonly debugged: number;
+}
+
 export interface PatrolRecord {
   readonly floor: FloorId;
   readonly grade: Grade;
@@ -94,6 +114,16 @@ export interface DayRecord {
   /** Why the liver struck, when it did: the second and third condition of design doc 8.6. */
   readonly liverStrike?: { readonly alcoholAtBed: boolean; readonly dupMedication: boolean; readonly orderBefore: boolean };
   readonly hospitalized: boolean;
+  /** What the day did to each assignment it touched: hours written and debugged, and whether it was handed in or came due unfinished. */
+  readonly homework: readonly HomeworkDay[];
+}
+
+export interface HomeworkDay {
+  readonly n: number;
+  readonly wrote: number;
+  readonly debugged: number;
+  readonly done: boolean;
+  readonly missed: boolean;
 }
 
 export interface SemesterState {
@@ -114,6 +144,8 @@ export interface SemesterState {
   /** The day of each work order, one per liver-loading event (design doc 8.6), so a day with two drinks appears twice. */
   readonly liverOrders: readonly number[];
   readonly hospitals: number;
+  /** The assignments of the courses taken, in order; empty when the operating-systems card is not. */
+  readonly homework: readonly Assignment[];
   readonly hospitalDay?: number;
   readonly bankrupt: boolean;
   readonly mid?: number;
@@ -127,6 +159,8 @@ export interface SemesterState {
 export interface MorningPlan {
   readonly coffee: readonly number[];
   readonly rest: readonly number[];
+  /** Whole hours of the day's free time spent writing the assignment that can be worked on; absent is none. */
+  readonly write?: number;
 }
 
 export interface FloorChoice {
@@ -142,6 +176,8 @@ export interface NightPlan {
   readonly nextWake: number;
   /** What the hours between 22:00 and bedtime go to. */
   readonly lateNight: 'study' | 'rest';
+  /** Whole hours of debugging after the planned bedtime, which push bedtime back; absent is none. */
+  readonly debug?: number;
 }
 
 /**
@@ -163,6 +199,8 @@ export interface DayView {
   readonly liverClues: LiverClues;
   /** Dictionary modifiers that hold now (design doc 8.7). */
   readonly modifiers: readonly string[];
+  /** The assignments that can be worked on today. */
+  readonly homework: readonly HomeworkView[];
 }
 
 export interface Strategy {

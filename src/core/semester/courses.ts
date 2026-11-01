@@ -92,5 +92,30 @@ export function committedHours(courses: readonly string[], day: number): Readonl
 export const isCommitted = (courses: readonly string[], day: number, h: number): boolean =>
   courses.some((id) => (COMMITMENTS[id] ?? []).some((c) => c.day === day && c.hours.includes(h)));
 
+/** The two system-programming assignments of the operating-systems card (design doc 8.3): announced on `announce`, handed in by the morning of `due`. */
+export const OS_ASSIGNMENTS: readonly { readonly announce: number; readonly due: number }[] = [
+  { announce: 2, due: 4 },
+  { announce: 6, due: 9 },
+];
+
+/** Hours of writing, spent in the day, before the debugging the night holds. */
+export const WRITE_HOURS = 3;
+/** Debugging hours 1 to 6 in percent (design doc 8.3); the draw is made when the semester starts and shown when the writing is done. */
+export const DEBUG_PERCENT: readonly number[] = [20, 25, 20, 15, 12, 8];
+/** Study progress a handed-in assignment is worth. ASSUME: more than the hours it takes, or skipping it would be the better play; the re-simulation of design doc 9.6 sets it. */
+export const HOMEWORK_PROGRESS = 8;
+/** The most debugging hours a night offers, which keeps bedtime inside the extended clock. */
+export const MAX_DEBUG_PER_NIGHT = 4;
+
+/** The debugging hours a roll in [0, 1) draws. */
+export function debugHoursFor(roll: number): number {
+  let edge = 0;
+  for (let h = 0; h < DEBUG_PERCENT.length; h++) {
+    edge += DEBUG_PERCENT[h]! / 100;
+    if (roll < edge) return h + 1;
+  }
+  return DEBUG_PERCENT.length;
+}
+
 /** A passed semester's review: the grade times the reward of its burden. */
 export const reviewPoints = (grade: number, credits: number): number => grade * BURDEN_REWARD[burdenOf(credits)];

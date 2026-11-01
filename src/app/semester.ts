@@ -1,5 +1,5 @@
 import {
-  advanceDay, amount, BURDEN_REWARD, burdenOf, composeReport, creditsOf, EVENTS, reviewPoints, PROGRESS, prototypeContext, semesterInputs, startSemester, summarize, withBarbecueOn,
+  advanceDay, amount, BURDEN_REWARD, burdenOf, composeReport, creditsOf, EVENTS, HOMEWORK_PROGRESS, reviewPoints, PROGRESS, prototypeContext, semesterInputs, startSemester, summarize, withBarbecueOn,
   type FloorChoice, type FloorId, type MorningPlan, type NightPlan, type ProgressData, type ReportDocument, type Scenario, type SemesterContext, type SemesterRun, type SemesterState,
 } from '../core/index.ts';
 import { fillStr as fill, PARAMS, REPORT, str, STRINGS, TAGS } from './content.ts';
@@ -103,10 +103,11 @@ export type CoffeePlanId = keyof typeof COFFEE_PLANS;
 export type RestPlanId = keyof typeof REST_PLANS;
 export type NightPlanId = keyof typeof NIGHT_PLANS;
 
-export const morningPlan = (coffee: CoffeePlanId, rest: RestPlanId): MorningPlan => ({ coffee: [...COFFEE_PLANS[coffee]], rest: [...REST_PLANS[rest]] });
+export const morningPlan = (coffee: CoffeePlanId, rest: RestPlanId, write = 0): MorningPlan =>
+  ({ coffee: [...COFFEE_PLANS[coffee]], rest: [...REST_PLANS[rest]], ...(write > 0 ? { write } : {}) });
 
 /** Everyone wakes at the usual hour; sleeping in is not offered yet. */
-export const nightPlan = (id: NightPlanId): NightPlan => ({ ...NIGHT_PLANS[id], nextWake: PARAMS.wake });
+export const nightPlan = (id: NightPlanId, debug = 0): NightPlan => ({ ...NIGHT_PLANS[id], nextWake: PARAMS.wake, ...(debug > 0 ? { debug } : {}) });
 
 export const floorChoice = (patrol: FloorId, overtime?: FloorId): FloorChoice => (overtime === undefined ? { patrol } : { patrol, overtime });
 
@@ -136,6 +137,12 @@ export function daySummary(before: SemesterState, after: SemesterState, ctx: Sem
   if (before.day === k.finDay) lines.push(fill('semester.sum.exam.fin', { p: percent(after.fin ?? 0) }));
   for (const p of rec.patrols) lines.push(fill(p.overtime ? 'semester.sum.overtime' : 'semester.sum.patrol', { floor: floorName(p.floor), grade: p.grade }));
   lines.push(fill('semester.sum.debt', { debt: oneDecimal(amount(after.tags, ctx.dict, 'sleep_debt')) }));
+  for (const h of rec.homework) {
+    if (h.wrote > 0) lines.push(fill('semester.sum.hw.wrote', { n: h.n, hours: h.wrote }));
+    if (h.debugged > 0) lines.push(fill('semester.sum.hw.debugged', { n: h.n, hours: h.debugged }));
+    if (h.done) lines.push(fill('semester.sum.hw.done', { n: h.n, p: HOMEWORK_PROGRESS }));
+    if (h.missed) lines.push(fill('semester.sum.hw.missed', { n: h.n }));
+  }
   lines.push(fill('semester.sum.progress', { progress: oneDecimal(after.progress) }));
   for (const f of rec.strikes) lines.push(fill('semester.sum.strike', { floor: floorName(f) }));
   if (rec.kind === 'hospital') lines.push(str('semester.sum.hospital_day'));

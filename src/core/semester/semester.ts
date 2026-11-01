@@ -7,12 +7,12 @@ import { addCauses, record, type NodeData, type SourceNodeKind } from '../tags/c
 import type { TagDictionary } from '../tags/dictionary.ts';
 import { addAmount, amount, EMPTY_TAGS, flag, holds, lowerAmount, onWake, setAmount, setFlag, type TagState } from '../tags/store.ts';
 import { EMPTY_LOADS, elevatorPanel, FLOORS, lightOf, litFloors, mapFloors, type FloorId } from './floors.ts';
-import { creditsOf, isCommitted, selectionProblem, thresholdMult } from './courses.ts';
+import { creditsOf, debugHoursFor, HOMEWORK_PROGRESS, isCommitted, MAX_DEBUG_PER_NIGHT, OS_ASSIGNMENTS, selectionProblem, thresholdMult, WRITE_HOURS } from './courses.ts';
 import { liverClues, liverStrikes } from './liver.ts';
 import { contributions, nextLoad, strikes, type DayFacts } from './load.ts';
 import { examPerformance, gradeFor } from './rating.ts';
 import type {
-  DayRecord, DayView, PatrolRecord, SemesterContext, SemesterEvent, SemesterParams, SemesterState, SemesterSummary, Strategy,
+  Assignment, DayRecord, DayView, HomeworkDay, PatrolRecord, SemesterContext, SemesterEvent, SemesterParams, SemesterState, SemesterSummary, Strategy,
 } from './types.ts';
 
 const STEP = 0.5;
@@ -74,10 +74,35 @@ export function startSemester(ctx: SemesterContext, seed: number): SemesterState
     const [t, cause] = source(tags, 'rule', 'semester.start', 0);
     tags = setAmount(t, ctx.dict, 'sleep_debt', ctx.startDebt!, cause, 0);
   }
+  let rng = seedStreams(seed);
+  const homework: Assignment[] = [];
+  // The debugging hours are fixed by the seed, so starting early or late cannot reroll them (design doc 8.3).
+  if (ctx.courses?.includes('os')) {
+    for (const a of OS_ASSIGNMENTS) {
+      let roll: number;
+      [roll, rng] = drawFloat(rng, 'map');
+      homework.push({ ...a, written: 0, debug: debugHoursFor(roll), debugged: 0, done: false, missed: false });
+    }
+  }
   return {
     day: 1, wake: ctx.params.wake, tags, progress: 0, loads: EMPTY_LOADS, loadCauses: mapFloors(() => []), cupsHist: [], zeroCupDays: 0, liverOrders: [],
-    hospitals: 0, bankrupt: false, rng: seedStreams(seed), history: [], ended: false,
+    hospitals: 0, homework, bankrupt: false, rng, history: [], ended: false,
   };
+}
+
+/** The assignments that can be worked on on the day of `s`: announced, not yet due, not handed in. */
+const workable = (s: SemesterState): { a: Assignment; i: number }[] =>
+  s.homework.flatMap((a, i) => (a.announce <= s.day && s.day < a.due && !a.done ? [{ a, i }] : []));
+
+const withAssignment = (s: SemesterState, i: number, patch: Partial<Assignment>): SemesterState =>
+  ({ ...s, homework: s.homework.map((a, j) => (j === i ? { ...a, ...patch } : a)) });
+
+function homeworkDelta(before: readonly Assignment[], after: readonly Assignment[]): HomeworkDay[] {
+  return after.flatMap((a, i) => {
+    const b = before[i]!;
+    const day: HomeworkDay = { n: i + 1, wrote: a.written - b.written, debugged: a.debugged - b.debugged, done: a.done && !b.done, missed: a.missed && !b.missed };
+    return day.wrote > 0 || day.debugged > 0 || day.done || day.missed ? [day] : [];
+  });
 }
 
 type Activity = 'study' | 'rest' | 'class' | 'meal' | 'exam' | 'work';
@@ -97,6 +122,9 @@ interface DayRun {
   deadline: boolean;
   lateSnack: boolean;
   workLeft: number;
+  /** Hours of the day still to be spent writing the assignment at index `writeIdx` of the state. */
+  writeLeft: number;
+  writeIdx: number;
   bedDelay: number;
   studyHours: number;
   /** Hours between the end of the evening and bedtime spent studying. */
@@ -127,6 +155,9 @@ function viewOf(d: DayRun): DayView {
     panel: elevatorPanel(d.morningLoads, k),
     liverClues: liverClues(d.morningLoads.liver, s.liverOrders, k),
     modifiers: activeModifiers(s.tags, ctx.dict),
+    homework: workable(s).map(({ a, i }) => ({
+      n: i + 1, due: a.due, written: a.written, debugged: a.debugged, ...(a.written >= WRITE_HOURS ? { debug: a.debug } : {}),
+    })),
   };
 }
 
@@ -184,6 +215,11 @@ function activityAt(d: DayRun, h: number, rest: ReadonlySet<number>): Activity {
   if (d.ctx.courses !== undefined && isCommitted(d.ctx.courses, d.s.day, h)) return 'work';
   if (d.workLeft > 0) {
     d.workLeft -= 1;
+    return 'work';
+  }
+  if (d.writeLeft > 0 && !rest.has(h)) {
+    d.writeLeft -= 1;
+    d.s = withAssignment(d.s, d.writeIdx, { written: d.s.homework[d.writeIdx]!.written + 1 });
     return 'work';
   }
   return rest.has(h) ? 'rest' : 'study';
@@ -386,8 +422,10 @@ function settle(d: DayRun, n: Night): Outcome {
   };
 }
 
-export function playDay(s0: SemesterState, ctx: SemesterContext, strategy: Strategy): SemesterState {
-  if (s0.ended) throw new RangeError('the semester is over');
+export function playDay(from: SemesterState, ctx: SemesterContext, strategy: Strategy): SemesterState {
+  if (from.ended) throw new RangeError('the semester is over');
+  // An assignment not handed in by the morning it falls due is missed, whatever the day brings.
+  const s0: SemesterState = { ...from, homework: from.homework.map((a) => (a.due === from.day && !a.done ? { ...a, missed: true } : a)) };
   const { dict, params: k } = ctx;
   const day = s0.day;
   const exam = examOn(day, ctx);
@@ -395,7 +433,7 @@ export function playDay(s0: SemesterState, ctx: SemesterContext, strategy: Strat
   const debt = amount(s0.tags, dict, 'sleep_debt');
   const d: DayRun = {
     s: s0, ctx, strategy, exam, S: sleepFactor(debt, k), brainStrike: strikes('brain', s0.loads.brain, k), morningLoads: s0.loads,
-    cups: 0, alcoholCups: 0, fasting: false, deadline: false, lateSnack: false, workLeft: 0, bedDelay: 0, studyHours: 0, lateStudy: 0,
+    cups: 0, alcoholCups: 0, fasting: false, deadline: false, lateSnack: false, workLeft: 0, writeLeft: 0, writeIdx: -1, bedDelay: 0, studyHours: 0, lateStudy: 0,
     evidence: { brain: [], stomach: [], liver: [] },
     pending: hospitalDay ? [] : (ctx.scenario[day] ?? []).map((id) => ctx.events.get(id)!).sort((a, b) => a.hour - b.hour),
     played: [],
@@ -419,7 +457,7 @@ export function playDay(s0: SemesterState, ctx: SemesterContext, strategy: Strat
   if (exam === 'fin') {
     const rec: DayRecord = {
       ...header, kind: hospitalDay ? 'hospital' : 'exam', settled: false, patrols: [], events: [], loadsAfter: s0.loads, loadsSettled: s0.loads, strikes: [],
-      hospitalized: false, studyHours: 0,
+      hospitalized: false, studyHours: 0, homework: homeworkDelta(from.homework, d.s.homework),
     };
     return { ...d.s, history: [...d.s.history, rec] };
   }
@@ -428,6 +466,14 @@ export function playDay(s0: SemesterState, ctx: SemesterContext, strategy: Strat
   const plan = hospitalDay ? { coffee: [], rest: [] } : strategy.plan(view0);
   const rest = new Set(plan.rest);
   const coffee = new Set(plan.coffee);
+  const toWrite = workable(d.s).find(({ a }) => a.written < WRITE_HOURS);
+  const writeAsked = plan.write ?? 0;
+  const writeCap = toWrite === undefined ? 0 : WRITE_HOURS - toWrite.a.written;
+  if (!Number.isInteger(writeAsked) || writeAsked < 0 || writeAsked > writeCap) {
+    throw new RangeError(`${writeAsked} hours of writing were planned and the day can take 0 to ${writeCap}`);
+  }
+  d.writeLeft = writeAsked;
+  d.writeIdx = toWrite?.i ?? -1;
   // The first cup-free day of a tolerant drinker is the withdrawal day (design doc 9.1).
   if (!hospitalDay && flag(d.s.tags, dict, 'caffeine_tolerant') && coffee.size === 0 && d.s.zeroCupDays === 0) {
     const at = minuteOf(day, d.s.wake);
@@ -467,6 +513,21 @@ export function playDay(s0: SemesterState, ctx: SemesterContext, strategy: Strat
   const sleptIn = Math.min(night.nextWake, k.wakeCap);
   const nextWake = examOn(day + 1, ctx) !== null ? Math.min(sleptIn, k.examWake) : sleptIn;
   const overtimeDelay = patrols.some((p) => p.overtime) ? k.overtimeBedDelay : 0;
+  // Debugging comes after the planned bedtime and pushes it back, as far as the clock goes; the hours that fit are the ones it counts.
+  const debugAsked = night.debug ?? 0;
+  const toDebug = workable(d.s).find(({ a }) => a.written >= WRITE_HOURS);
+  if (!Number.isInteger(debugAsked) || debugAsked < 0 || debugAsked > MAX_DEBUG_PER_NIGHT || (debugAsked > 0 && toDebug === undefined)) {
+    throw new RangeError(`${debugAsked} hours of debugging were planned and the night can take 0 to ${toDebug === undefined ? 0 : MAX_DEBUG_PER_NIGHT}`);
+  }
+  if (toDebug !== undefined && debugAsked > 0) {
+    const room = Math.max(0, Math.floor(k.bedMax + k.bedOverrun - (bedBase + d.bedDelay + overtimeDelay)));
+    const spent = Math.min(debugAsked, toDebug.a.debug - toDebug.a.debugged, room);
+    const debugged = toDebug.a.debugged + spent;
+    const done = debugged >= toDebug.a.debug;
+    d.bedDelay += spent;
+    d.s = withAssignment(d.s, toDebug.i, { debugged, done });
+    if (done && spent > 0) d.s = { ...d.s, progress: d.s.progress + HOMEWORK_PROGRESS };
+  }
   const bedEndAt = (): number => Math.min(bedBase + d.bedDelay + overtimeDelay, k.bedMax + k.bedOverrun);
   for (let t = k.bedMin; ; t += STEP) {
     // Once bedtime has come, an event strictly before it is still due, and it may push bedtime back.
@@ -486,7 +547,7 @@ export function playDay(s0: SemesterState, ctx: SemesterContext, strategy: Strat
     bedEnd,
     kind: hospitalDay ? 'hospital' : exam !== null ? 'exam' : 'normal',
     settled: true,
-    patrols, events: d.played, loadsAfter: d.s.loads, studyHours: d.studyHours, ...outcome,
+    patrols, events: d.played, loadsAfter: d.s.loads, studyHours: d.studyHours, homework: homeworkDelta(from.homework, d.s.homework), ...outcome,
   };
   const ended = d.s.bankrupt;
   return { ...d.s, history: [...d.s.history, rec], ended, ...(ended ? { fin: d.s.fin ?? 0 } : {}) };
