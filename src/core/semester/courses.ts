@@ -195,9 +195,10 @@ export const PROJECT_FIN_PENALTY = 8;
 /**
  * The share of a project hour that also counts as study progress, like the other hands-on work of the compiler card (design
  * doc 8.3). ASSUME: without it the project's 12 hours came out of the final exam's study and the card failed the responsive
- * player at skill 0.2 whatever the threshold; the re-simulation of design doc 9.6 sets it.
+ * player at skill 0.2 whatever the threshold; the re-simulation of design doc 9.6 sets it. 0.75 since the sit limit of 2 hours
+ * (issue 43) left four 19-credit selections with algorithms, operating systems and the compiler at 70% at skill 0.5.
  */
-export const PROJECT_PRACTICE_SHARE = 0.5;
+export const PROJECT_PRACTICE_SHARE = 0.75;
 
 /**
  * The project hours a morning plan can count on: what is left of the day from `wake` to the evening after the fixed hours, the
@@ -218,7 +219,7 @@ export function projectRoom(
  * cuts the efficiency to 0.3. A walk of 15 minutes clears the count and the hour it falls in is worth three quarters.
  * ASSUME: the stuck point is met by any long sit while the card is taken, since study is not yet chosen per card.
  */
-export const SIT_LIMIT = 3;
+export const SIT_LIMIT = 2;
 export const STUCK_MULT = 0.3;
 export const WALK_EFFORT = 0.75;
 

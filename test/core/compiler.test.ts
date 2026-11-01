@@ -30,7 +30,7 @@ describe('the stuck point of sitting at the desk (design doc 8.3)', () => {
   // Day 7 is a weekend, so there is no class: hours 9 to 21 are free but for the meals.
   const free = 7;
 
-  it('cuts the efficiency to three tenths from the hour after three in a row, with the card only', () => {
+  it('slows a day at the desk, with the card only (the hour it starts at is pinned below)', () => {
     const plain = day(ctxFor(WITHOUT), free);
     const stuck = day(ctxFor(WITH), free);
     expect(studied(stuck)).toBeLessThan(studied(plain) * 0.9);
@@ -39,10 +39,10 @@ describe('the stuck point of sitting at the desk (design doc 8.3)', () => {
 
   it('is cleared by a rest hour, so the same hours split by a rest lose nothing to it', () => {
     const ctx = ctxFor(WITH);
-    const rest = [11, 15, 19];
+    const rest = [10, 15, 21];
     const split = day(ctx, free, { rest });
     const noCard = day(ctxFor(WITHOUT), free, { rest });
-    // Rest hours never leave three in a row at the desk, so the card changes nothing.
+    // With the meals, these rest hours never leave more than two in a row at the desk, so the card changes nothing.
     expect(studied(split)).toBeCloseTo(studied(noCard), 9);
   });
 
@@ -55,25 +55,27 @@ describe('the stuck point of sitting at the desk (design doc 8.3)', () => {
     expect(studied(walk)).toBeLessThan(studied(day(ctxFor(WITHOUT), free)));
   });
 
-  it('is worth exactly 0.3 of an hour from the fourth in a row, and 0.75 when a walk comes first', () => {
-    // On a Sunday the project takes hours 13 to 16 right after the lunch break, so the fourth hour is the one past three in a row.
+  it('is worth exactly 0.3 of an hour from the third in a row, and 0.75 when a walk comes first', () => {
+    // On a Sunday the project takes hours 13 to 16 right after the lunch break, so the third hour is the one past two in a row.
     const ctx = ctxFor(WITH);
     const rest = [8, 9, 10, 11, 17, 19, 20, 21];
     const hours = (project: number, walk = false): number => day(ctx, free, { rest, project, walk }).project;
-    const e = hours(3) / 3;
+    const e = hours(1);
     expect(e).toBeGreaterThan(0);
-    expect(hours(4)).toBeCloseTo(e * (3 + STUCK_MULT), 9);
+    expect(hours(2)).toBeCloseTo(e * 2, 9);
+    expect(hours(3)).toBeCloseTo(e * (2 + STUCK_MULT), 9);
+    expect(hours(4)).toBeCloseTo(e * (2 + 2 * STUCK_MULT), 9);
+    expect(hours(3, true)).toBeCloseTo(e * (2 + WALK_EFFORT), 9);
     expect(hours(4, true)).toBeCloseTo(e * (3 + WALK_EFFORT), 9);
-    expect(hours(3, true)).toBeCloseTo(e * 3, 9);
-    expect(SIT_LIMIT).toBe(3);
+    expect(SIT_LIMIT).toBe(2);
   });
 
   it('reaches the late-night study, where a planned walk costs a quarter of an hour as it does by day (issue 50)', () => {
-    // Day 3 sits at the desk through the evening, so the late hours begin at the stuck point.
-    const lateGain = (courses: readonly string[], walk: boolean, bed = 25): number => {
+    // Day 3 sits at the desk through the evening, so the late hours of a player who does not walk begin at the stuck point.
+    const lateGain = (courses: readonly string[], walk: boolean, bed = 25, rest: readonly number[] = []): number => {
       const ctx = ctxFor(courses);
       const play = (late: boolean): number =>
-        studied(playDay({ ...startSemester(ctx, 1), day: 3 }, ctx, { ...player({ walk }), night: () => ({ bed, nextWake: 7, lateNight: late ? 'study' : 'rest' }) }));
+        studied(playDay({ ...startSemester(ctx, 1), day: 3 }, ctx, { ...player({ walk, rest }), night: () => ({ bed, nextWake: 7, lateNight: late ? 'study' : 'rest' }) }));
       return play(true) - play(false);
     };
     const plain = lateGain(WITHOUT, false);
@@ -82,8 +84,12 @@ describe('the stuck point of sitting at the desk (design doc 8.3)', () => {
     expect(stuck).toBeLessThan(plain * 0.5);
     expect(walked).toBeGreaterThan(plain * 0.9);
     expect(walked).toBeLessThan(plain);
-    // One late hour is two half-hour steps: the walk in the first costs a quarter of the hour, not an eighth.
-    expect(lateGain(WITH, true, 23)).toBeCloseTo(lateGain(WITHOUT, false, 23) * WALK_EFFORT, 9);
+    // A rest hour before the evening leaves SIT_LIMIT - 1 hours at the desk, so the third half-hour step is the one that
+    // reaches the limit. The first two steps are at full efficiency, which makes the third exact: the walk takes a quarter of
+    // an hour out of its half hour, not an eighth.
+    const rest = [22 - SIT_LIMIT];
+    expect(lateGain(WITH, false, 23.5, rest)).toBeCloseTo(1 + 0.5 * STUCK_MULT, 9);
+    expect(lateGain(WITH, true, 23.5, rest)).toBeCloseTo(1.5 - (1 - WALK_EFFORT), 9);
   });
 
   it('refuses a walk without the card, which has no stuck point', () => {
@@ -160,7 +166,7 @@ describe('the final project', () => {
     const worked = day(ctx, 7, { rest, project: 3 });
     expect(idle.progress + idle.staging).toBe(0);
     expect(worked.project).toBeGreaterThan(0);
-    expect(PROJECT_PRACTICE_SHARE).toBe(0.5);
+    expect(PROJECT_PRACTICE_SHARE).toBe(0.75);
     expect(worked.progress).toBeCloseTo(PROJECT_PRACTICE_SHARE * worked.project, 9);
     // It does not wait in the staging pile for sleep, whatever share of the semester's study is paper.
     expect(worked.staging).toBe(0);
