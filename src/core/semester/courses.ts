@@ -120,11 +120,15 @@ export const OS_ASSIGNMENTS: readonly { readonly announce: number; readonly due:
 ];
 
 /** Hours of writing, spent in the day, before the debugging the night holds. */
-export const WRITE_HOURS = 3;
+export const WRITE_HOURS = 2;
 /** Debugging hours 1 to 6 in percent (design doc 8.3); the draw is made when the semester starts and shown when the writing is done. */
 export const DEBUG_PERCENT: readonly number[] = [20, 25, 20, 15, 12, 8];
-/** Study progress a handed-in assignment is worth. ASSUME: more than the hours it takes, or skipping it would be the better play; the re-simulation of design doc 9.6 sets it. */
-export const HOMEWORK_PROGRESS = 8;
+/**
+ * Study progress a handed-in assignment is worth. ASSUME: more than the hours it takes, or skipping it would be the better play;
+ * the re-simulation of design doc 9.6 sets it. 12 with WRITE_HOURS 2 (8 and 3 before) cut the selections under the responsive
+ * floor with the assignments played from 93 to 49 of 315 (issue 52).
+ */
+export const HOMEWORK_PROGRESS = 12;
 /**
  * Final exam percent each assignment not handed in costs. ASSUME: raising HOMEWORK_PROGRESS does not make handing in
  * worth it, because the exam curve already tops out for a player who studies, so skipping has to cost something.
