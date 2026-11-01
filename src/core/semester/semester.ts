@@ -9,7 +9,7 @@ import { addAmount, amount, EMPTY_TAGS, flag, holds, lowerAmount, onWake, setAmo
 import { EMPTY_LOADS, elevatorPanel, FLOORS, lightOf, litFloors, mapFloors, type FloorId } from './floors.ts';
 import {
   archiveRate, creditsOf, debugHoursFor, fixedHour, HOMEWORK_MISS_PENALTY, HOMEWORK_PROGRESS, MAX_DEBUG_PER_NIGHT, MAX_RANK_HOURS, nightRoom, OS_ASSIGNMENTS, paperShare, rankGain,
-  PROJECT_DAY_MAX, PROJECT_FIN_PENALTY, PROJECT_FROM_DAY, PROJECT_NEED, rankPercent, RANK_SHARE, selectionProblem, SIT_LIMIT, STUCK_MULT, takes, thresholdMult, UNARCHIVED_KEPT,
+  PROJECT_DAY_MAX, PROJECT_FIN_PENALTY, PROJECT_FROM_DAY, PROJECT_NEED, PROJECT_PRACTICE_SHARE, rankPercent, RANK_SHARE, selectionProblem, SIT_LIMIT, STUCK_MULT, takes, thresholdMult, UNARCHIVED_KEPT,
   WALK_EFFORT, WRITE_HOURS,
 } from './courses.ts';
 import { liverClues, liverStrikes } from './liver.ts';
@@ -255,7 +255,7 @@ function activityAt(d: DayRun, h: number, rest: ReadonlySet<number>): Activity {
   return rest.has(h) ? 'rest' : 'study';
 }
 
-/** Spends `dur` hours on an activity; only study moves the semester's progress, the paper-exam part of it into the staging pile. */
+/** Spends `dur` hours on an activity; study moves the semester's progress, the paper-exam part of it into the staging pile, and the project a share of it at once. */
 function spend(d: DayRun, dur: number, activity: Activity, effort = 1): void {
   const { dict, params: k } = d.ctx;
   let { tags, progress, staging, project } = d.s;
@@ -265,6 +265,7 @@ function spend(d: DayRun, dur: number, activity: Activity, effort = 1): void {
     const gain = efficiency * dur * effort;
     if (activity === 'project') {
       project += gain;
+      progress += gain * PROJECT_PRACTICE_SHARE;
       d.projectHours += dur;
     } else {
       progress += gain * (1 - d.paper);

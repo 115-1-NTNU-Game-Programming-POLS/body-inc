@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  decode, encode, playDay, PROJECT_DAY_MAX, PROJECT_FIN_PENALTY, PROJECT_FROM_DAY, PROJECT_NEED, PROJECT_REVIEW, projectRoom, RUN, SIT_LIMIT, startSemester, STUCK_MULT, WALK_EFFORT,
+  decode, encode, playDay, PROJECT_DAY_MAX, PROJECT_FIN_PENALTY, PROJECT_FROM_DAY, PROJECT_NEED, PROJECT_PRACTICE_SHARE, PROJECT_REVIEW, projectRoom, RUN, SIT_LIMIT, startSemester, STUCK_MULT, WALK_EFFORT,
   type Answer, type DayView, type MorningPlan, type SemesterContext, type SemesterState, type Strategy,
 } from '../../src/core/index.ts';
 import { contextFor } from '../../sim/semester/scenario.ts';
@@ -132,6 +132,20 @@ describe('the final project', () => {
     expect(rec.project?.gain).toBeCloseTo(s.project, 9);
     expect(studied(s)).toBeLessThan(studied(day(ctx, 8)));
     expect(day(ctx, 8).history[0]!.project).toBeUndefined();
+  });
+
+  it('also counts a share of its hours as study progress at once, like the other hands-on work of the card', () => {
+    const ctx = ctxFor(WITH);
+    // Day 7 is a weekend: every hour but the meals rests except 13 to 15, so the only thing that can move progress is the project.
+    const rest = [8, 9, 10, 11, 16, 17, 19, 20, 21];
+    const idle = day(ctx, 7, { rest: [...rest, 13, 14, 15] });
+    const worked = day(ctx, 7, { rest, project: 3 });
+    expect(idle.progress + idle.staging).toBe(0);
+    expect(worked.project).toBeGreaterThan(0);
+    expect(PROJECT_PRACTICE_SHARE).toBe(0.5);
+    expect(worked.progress).toBeCloseTo(PROJECT_PRACTICE_SHARE * worked.project, 9);
+    // It does not wait in the staging pile for sleep, whatever share of the semester's study is paper.
+    expect(worked.staging).toBe(0);
   });
 
   it('is done once the progress reaches what it needs, and is then shut', () => {

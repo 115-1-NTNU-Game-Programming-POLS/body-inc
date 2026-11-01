@@ -33,6 +33,12 @@ export const MAX_CREDITS = 22;
 /** The credits the exam thresholds of content/params.json are tuned for. */
 export const BASE_CREDITS = 12;
 const THRESHOLD_PER_CREDIT = 0.08;
+/**
+ * ASSUME: above the base each credit costs half as much as below it. The re-simulation of design doc 9.6 found that at the
+ * full 8% the responsive player at skill 0.5 fell under the 85% bound in 50 of the 315 selections, all but one of them
+ * with the compiler card; the project's practice share (PROJECT_PRACTICE_SHARE) and this slope bring that to none.
+ */
+const THRESHOLD_PER_CREDIT_HEAVY = 0.04;
 
 export type SelectionProblem = 'unknown' | 'duplicate' | 'few' | 'many' | 'low_credits' | 'high_credits';
 
@@ -65,8 +71,9 @@ export const burdenOf = (credits: number): Burden => (credits <= 12 ? 'light' : 
 /** What a passed semester's review is multiplied by (design doc 8.3): the reward for carrying more. */
 export const BURDEN_REWARD: Readonly<Record<Burden, number>> = { light: 1, standard: 1.15, heavy: 1.35, full: 1.6 };
 
-/** Exam thresholds are tuned for 12 credits; each credit above or below moves them by 8% of that. */
-export const thresholdMult = (credits: number): number => 1 + THRESHOLD_PER_CREDIT * (credits - BASE_CREDITS);
+/** Exam thresholds are tuned for 12 credits; each credit below moves them by 8% of that and each credit above by 4%. */
+export const thresholdMult = (credits: number): number =>
+  1 + (credits > BASE_CREDITS ? THRESHOLD_PER_CREDIT_HEAVY : THRESHOLD_PER_CREDIT) * (credits - BASE_CREDITS);
 
 interface Commitment {
   readonly day: number;
@@ -180,6 +187,12 @@ export const PROJECT_NEED = 10;
 export const PROJECT_DAY_MAX = 4;
 export const PROJECT_REVIEW = 10;
 export const PROJECT_FIN_PENALTY = 8;
+/**
+ * The share of a project hour that also counts as study progress, like the other hands-on work of the compiler card (design
+ * doc 8.3). ASSUME: without it the project's 12 hours came out of the final exam's study and the card failed the responsive
+ * player at skill 0.2 whatever the threshold; the re-simulation of design doc 9.6 sets it.
+ */
+export const PROJECT_PRACTICE_SHARE = 0.5;
 
 /**
  * The project hours a morning plan can count on: what is left of the day from `wake` to the evening after the fixed hours, the
