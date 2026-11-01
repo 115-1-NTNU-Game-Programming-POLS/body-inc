@@ -185,7 +185,8 @@ export function endSummary(state: SemesterState, ctx: SemesterContext): string[]
     fill('semester.end.grade', { grade: percent(sum.grade) }),
     str(sum.passMid && sum.passFin ? 'semester.end.pass' : 'semester.end.fail'),
   ];
-  if (ctx.courses?.includes('algorithms')) lines.push(fill('semester.end.rank', { score: oneDecimal(state.rank), full: RANK_FULL, share: percent(RANK_SHARE * 100) }));
+  // A bankrupt semester and a final spent in hospital score 0 whole, board included, so the line would only mislead.
+  if (ctx.courses?.includes('algorithms') && !sum.bankrupt && state.history.at(-1)?.kind !== 'hospital') lines.push(fill('semester.end.rank', { score: oneDecimal(state.rank), full: RANK_FULL, share: percent(RANK_SHARE * 100) }));
   if (sum.bankrupt) lines.push(str('semester.end.bankrupt'));
   else if (sum.hospitalized) lines.push(str('semester.end.hospital'));
   lines.push(fill('semester.end.debt', { debt: oneDecimal(sum.finalDebt) }));

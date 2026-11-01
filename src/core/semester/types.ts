@@ -216,6 +216,8 @@ export interface DayView {
   readonly progress: number;
   /** Study waiting for sleep to archive it. */
   readonly staging: number;
+  /** Hours bedtime is already pushed back tonight (an overtime patrol, an event), which `nightRoom` takes off what the night can still give. */
+  readonly bedDelay: number;
   readonly hospitals: number;
   readonly panel: ElevatorPanel;
   readonly liverClues: LiverClues;

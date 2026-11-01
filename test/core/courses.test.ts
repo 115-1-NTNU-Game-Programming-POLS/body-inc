@@ -84,6 +84,9 @@ describe('the courses in the semester rules', () => {
     const thirteenFin = withCourses(['os', 'database', 'networks', 'compiler']);
     expect(fin(nineFin)).toBeGreaterThan(fin(none));
     expect(fin(none)).toBeGreaterThan(fin(thirteenFin));
+    // With the card, the same two course lists as the midterm, and the same blend on both sides.
+    const full = (ctx: SemesterContext): number => playDay({ ...startSemester(ctx, 1), day: 10, progress: 37, rank: 60 }, ctx, quiet).fin!;
+    expect(full(nine)).toBeGreaterThan(full(thirteen));
   });
 
   it('spends the office hours as work, so the day studies two hours less', () => {

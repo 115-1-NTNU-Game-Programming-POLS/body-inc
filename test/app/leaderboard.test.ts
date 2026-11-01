@@ -32,4 +32,15 @@ describe('what the player is told about the leaderboard', () => {
     expect(lines).toContain(fillStr('semester.end.rank', { score: '30.0', full: RANK_FULL, share: 30 }));
     expect(endSummary(end(WITHOUT), newSemester(1, [], WITHOUT).ctx).some((l) => l.startsWith('排行榜'))).toBe(false);
   });
+
+  it('leaves the board out when the final scored 0 whole: a bankrupt semester or a final spent in hospital', () => {
+    const { ctx, state } = newSemester(1, [], WITH);
+    const done = playDay({ ...state, day: 10, progress: 40, rank: 30 }, ctx, player(0));
+    const lines = (s: SemesterState): string[] => endSummary(s, ctx);
+    expect(lines(done).some((l) => l.startsWith('排行榜'))).toBe(true);
+    expect(lines({ ...done, bankrupt: true }).some((l) => l.startsWith('排行榜'))).toBe(false);
+    const hospital = playDay({ ...state, day: 10, progress: 40, rank: 30, hospitalDay: 10 }, ctx, player(0));
+    expect(hospital.history.at(-1)!.kind).toBe('hospital');
+    expect(lines(hospital).some((l) => l.startsWith('排行榜'))).toBe(false);
+  });
 });

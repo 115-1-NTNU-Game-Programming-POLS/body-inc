@@ -141,8 +141,13 @@ export const UNARCHIVED_KEPT = 0.5;
 
 export const archiveRate = (effectiveSleep: number): number => Math.min(1, effectiveSleep / ARCHIVE_SLEEP);
 
-/** The nights of the algorithms card's final leaderboard contest (design doc 8.3); the calendar is days 6 to 9. */
-export const LEADERBOARD_DAYS: readonly number[] = [6, 7, 8, 9];
+/**
+ * The whole hours a night can still push bedtime back from `bed`, given the `delay` already taken, before the extended clock
+ * stops. Debugging and the contest both spend them, and the cards offer no more than this.
+ */
+export const nightRoom = (k: { readonly bedMax: number; readonly bedOverrun: number }, bed: number, delay: number): number =>
+  Math.max(0, Math.floor(k.bedMax + k.bedOverrun - (bed + delay)));
+
 /** Score that fills the board, the first hour's score at S = 1, how much each further hour of the same night keeps, and the most hours a night. */
 export const RANK_FULL = 60;
 export const RANK_FIRST = 10;

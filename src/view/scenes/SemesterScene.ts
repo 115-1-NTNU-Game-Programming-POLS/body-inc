@@ -8,7 +8,7 @@ import { fillStr, REPORT, str } from '../../app/content.ts';
 import { keepPage } from '../../app/handbook.ts';
 import type { SaveStore } from '../../app/storage.ts';
 import {
-  advanceDay, buildWall, MAX_DEBUG_PER_NIGHT, MAX_RANK_HOURS, pinWall, rankGain, RANK_FULL, RANK_SHARE, reviewWall, RUN, WRITE_HOURS, type Answer, type Ask, type ChapterContent, type DayView, type FloorId, type HomeworkView, type ProgressData, type ReportDocument, type RunData,
+  advanceDay, buildWall, MAX_DEBUG_PER_NIGHT, MAX_RANK_HOURS, nightRoom, pinWall, rankGain, RANK_FULL, RANK_SHARE, reviewWall, RUN, WRITE_HOURS, type Answer, type Ask, type ChapterContent, type DayView, type FloorId, type HomeworkView, type ProgressData, type ReportDocument, type RunData,
   type SemesterContext, type SemesterRun, type SemesterState, type Settings, type Wall,
 } from '../../core/index.ts';
 import { WALL_CHAPTER, wallLoop, type WallSession } from '../../app/wall.ts';
@@ -314,16 +314,21 @@ export class SemesterScene extends Phaser.Scene {
       const bed = ids[i]!;
       // Debugging is asked once the writing is done, which is also when its length is told (design doc 8.3); the contest follows on its nights.
       const debugging = view.homework.find((h) => h.debug !== undefined);
-      const finish = (debug: number): void => (view.rank?.open
-        ? this.askRank(view, (hours) => this.answer({ kind: 'night', plan: nightPlan(bed, debug, hours) }))
-        : this.answer({ kind: 'night', plan: nightPlan(bed, debug) }));
-      if (debugging?.debug === undefined) return finish(0);
-      this.askDebug(debugging, debugging.debug, finish);
+      // Both only offer the hours that still fit before the clock stops (nightRoom), so a card never promises a delay the night cannot give.
+      const room = (spent: number): number => nightRoom(this.ctx.params, NIGHT_PLANS[bed].bed, view.bedDelay + spent);
+      const finish = (debug: number): void => {
+        const most = Math.min(MAX_RANK_HOURS, room(debug));
+        if (!view.rank?.open || most === 0) return this.answer({ kind: 'night', plan: nightPlan(bed, debug) });
+        this.askRank(view, most, (hours) => this.answer({ kind: 'night', plan: nightPlan(bed, debug, hours) }));
+      };
+      const most = debugging?.debug === undefined ? 0 : Math.min(MAX_DEBUG_PER_NIGHT, debugging.debug - debugging.debugged, room(0));
+      if (debugging?.debug === undefined || most === 0) return finish(0);
+      this.askDebug(debugging, debugging.debug, most, finish);
     });
   }
 
-  private askRank(view: DayView, done: (hours: number) => void): void {
-    const hours = Array.from({ length: MAX_RANK_HOURS + 1 }, (_, n) => n);
+  private askRank(view: DayView, most: number, done: (hours: number) => void): void {
+    const hours = Array.from({ length: most + 1 }, (_, n) => n);
     const labels = hours.map((n) => (n === 0
       ? { label: str('semester.rank.none'), note: str('semester.rank.none.note') }
       : { label: fillStr('semester.rank.hours', { hours: n }), note: fillStr('semester.rank.hours.note', { hours: n, gain: rankGain(n, view.S).toFixed(1) }) }));
@@ -331,8 +336,8 @@ export class SemesterScene extends Phaser.Scene {
     this.cards(labels, str('semester.rank.title'), caption, (i) => done(hours[i]!));
   }
 
-  private askDebug(hw: HomeworkView, total: number, done: (hours: number) => void): void {
-    const hours = Array.from({ length: Math.min(MAX_DEBUG_PER_NIGHT, total - hw.debugged) + 1 }, (_, n) => n);
+  private askDebug(hw: HomeworkView, total: number, most: number, done: (hours: number) => void): void {
+    const hours = Array.from({ length: most + 1 }, (_, n) => n);
     const labels = hours.map((n) => (n === 0
       ? { label: str('semester.debug.none'), note: str('semester.debug.none.note') }
       : { label: fillStr('semester.debug.hours', { hours: n }), note: fillStr('semester.debug.hours.note', { hours: n }) }));

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  decode, encode, LEADERBOARD_DAYS, MAX_RANK_HOURS, playDay, rankGain, rankPercent, RANK_FULL, RANK_SHARE, RUN, startSemester,
+  decode, encode, MAX_RANK_HOURS, nightRoom, playDay, rankGain, rankPercent, RANK_FULL, RANK_SHARE, RUN, startSemester,
   type Answer, type SemesterContext, type SemesterState, type Strategy, type DayView,
 } from '../../src/core/index.ts';
 import { contextFor } from '../../sim/semester/scenario.ts';
@@ -34,7 +34,40 @@ describe('the leaderboard score (design doc 8.3)', () => {
     expect([0, 30, 60, 90].map(rankPercent)).toEqual([0, 50, 100, 100]);
     expect(RANK_FULL).toBe(60);
     expect(RANK_SHARE).toBe(0.3);
-    expect(LEADERBOARD_DAYS).toEqual([6, 7, 8, 9]);
+  });
+
+  it('is open on the nights between the midterm and the final, wherever the calendar puts them', () => {
+    const open = (ctx: SemesterContext): number[] => {
+      const days: number[] = [];
+      let s = startSemester(ctx, 1);
+      while (!s.ended && s.day < ctx.params.finDay) {
+        const seen: DayView[] = [];
+        s = playDay(s, ctx, player(0, { seen }));
+        if (seen[0]!.rank?.open) days.push(seen[0]!.day);
+      }
+      return days;
+    };
+    const ctx = ctxFor(WITH);
+    expect(open(ctx)).toEqual([6, 7, 8, 9]);
+    const later = { ...ctx, params: { ...ctx.params, midDay: 4, finDay: 8 } };
+    expect(open(later)).toEqual([5, 6, 7]);
+  });
+
+});
+
+describe('the room a night has', () => {
+  it('is what is left before the extended clock stops, after the bedtime and the delay', () => {
+    const k = { bedMax: 27, bedOverrun: 2 };
+    expect([nightRoom(k, 22.5, 0), nightRoom(k, 25, 0), nightRoom(k, 25, 1), nightRoom(k, 28.5, 0), nightRoom(k, 29, 3)]).toEqual([6, 4, 3, 0, 0]);
+  });
+
+  it('is told to the player as the delay already taken, so a card offers only what fits', () => {
+    const ctx = ctxFor(WITH);
+    const seen: DayView[] = [];
+    let s = playDay({ ...startSemester(ctx, 1), day: 6 }, ctx, { ...player(0), plan: (v) => (seen.push(v), { coffee: [], rest: [] }) });
+    expect(seen[0]!.bedDelay).toBe(0);
+    s = playDay(s, ctx, { ...player(0, { overtime: true }), night: (v) => { expect(v.bedDelay).toBe(ctx.params.overtimeBedDelay); return { bed: 22.5, nextWake: 7, lateNight: 'rest' }; } });
+    expect(s.history).toHaveLength(2);
   });
 });
 
