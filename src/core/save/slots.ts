@@ -5,6 +5,7 @@ import { isRecord, type Schema } from '../content/schema.ts';
 import type { SlotDef } from './save.ts';
 import type { Answer } from '../semester/interactive.ts';
 import { FLOORS } from '../semester/floors.ts';
+import { GRADES } from '../semester/load.ts';
 import { TOOLS, type Tool } from '../tools.ts';
 
 /**
@@ -281,7 +282,24 @@ const ANSWER: Schema = {
       required: ['kind', 'choice'],
       properties: {
         kind: { const: 'floor' },
-        choice: { type: 'object', additionalProperties: false, required: ['patrol'], properties: { patrol: FLOOR, overtime: FLOOR } },
+        choice: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['patrol'],
+          properties: {
+            patrol: FLOOR,
+            overtime: FLOOR,
+            played: {
+              type: 'array',
+              items: {
+                anyOf: [
+                  { type: 'object', additionalProperties: false, required: ['grade'], properties: { grade: { enum: [...GRADES] } } },
+                  { type: 'object', additionalProperties: false, required: ['failed'], properties: { failed: { const: true } } },
+                ],
+              },
+            },
+          },
+        },
       },
     },
     {
@@ -303,7 +321,7 @@ const ANSWER: Schema = {
 
 export const RUN: SlotDef<RunData> = {
   name: 'run',
-  version: 7,
+  version: 8,
   schema: {
     type: 'object',
     additionalProperties: false,
@@ -328,8 +346,8 @@ export const RUN: SlotDef<RunData> = {
     },
   },
   defaults: () => ({ semester: null }),
-  // Versions 2 to 7 add optional fields (the course list; the hours of writing and debugging; the contest hours; the project hours and the walk; the grading hours; the overtime clause); an older run is valid without them.
-  migrations: { 1: (data) => data, 2: (data) => data, 3: (data) => data, 4: (data) => data, 5: (data) => data, 6: (data) => data },
+  // Versions 2 to 8 add optional fields (the course list; the hours of writing and debugging; the contest hours; the project hours and the walk; the grading hours; the overtime clause; the results of the patrols played); an older run is valid without them.
+  migrations: { 1: (data) => data, 2: (data) => data, 3: (data) => data, 4: (data) => data, 5: (data) => data, 6: (data) => data, 7: (data) => data },
 };
 
 export const SLOTS = [SETTINGS, STORY, PROGRESS, RUN] as const;

@@ -14,7 +14,8 @@ import {
   WALK_EFFORT, WRITE_HOURS,
 } from './courses.ts';
 import { liverClues, liverStrikes } from './liver.ts';
-import { contributions, nextLoad, strikes, type DayFacts } from './load.ts';
+import { contributions, GRADES, nextLoad, strikes, type DayFacts } from './load.ts';
+import { isFailed, type PatrolResult } from './patrol.ts';
 import { examPerformance, gradeFor } from './rating.ts';
 import type {
   Assignment, DayRecord, DayView, HomeworkDay, PatrolRecord, SemesterContext, SemesterEvent, SemesterParams, SemesterState, SemesterSummary, Strategy,
@@ -355,9 +356,14 @@ function sitExam(d: DayRun, kind: 'mid' | 'fin'): number {
   return percent;
 }
 
-function patrol(d: DayRun, floor: FloorId, overtime: boolean): PatrolRecord {
+function patrol(d: DayRun, floor: FloorId, overtime: boolean, played?: PatrolResult): PatrolRecord {
   if (!FLOORS.includes(floor)) throw new RangeError(`"${String(floor)}" is not a floor`);
-  return { floor, grade: gradeFor(d.ctx.skill, roll(d), d.ctx.params), overtime };
+  // Drawn even when the rooms were played, so the stream the rest of the semester draws from stays where a skill-drawn patrol leaves it.
+  const drawn = gradeFor(d.ctx.skill, roll(d), d.ctx.params);
+  if (played === undefined) return { floor, grade: drawn, overtime };
+  if (isFailed(played)) return { floor, grade: 'C', overtime, failed: true };
+  if (!GRADES.includes(played.grade)) throw new RangeError(`"${String(played.grade)}" is not a rating`);
+  return { floor, grade: played.grade, overtime };
 }
 
 function wholeHalfHours(name: string, v: number): number {
@@ -439,10 +445,12 @@ function settle(d: DayRun, n: Night): Outcome {
     alcoholCups: d.alcoholCups, fasting: d.fasting,
   };
   const add = contributions(facts, k);
-  const grades = new Map(n.patrols.map((p) => [p.floor, p.grade] as const));
+  // A failed patrol still looked after the floor, so the neglect bonus is waived, but it cuts nothing.
+  const patrolled = new Map(n.patrols.map((p) => [p.floor, p] as const));
   let loads = mapFloors((f) => {
-    const grade = grades.get(f);
-    return nextLoad(f, d.morningLoads[f], add[f], { sleep: effective, ...(grade ? { grade } : {}), attended: grade !== undefined || n.hospitalDay }, k);
+    const p = patrolled.get(f);
+    const grade = p === undefined || p.failed ? undefined : p.grade;
+    return nextLoad(f, d.morningLoads[f], add[f], { sleep: effective, ...(grade ? { grade } : {}), attended: p !== undefined || n.hospitalDay }, k);
   });
 
   const orderBefore = d.s.liverOrders.some((o) => o < day);
@@ -617,11 +625,15 @@ export function playDay(from: SemesterState, ctx: SemesterContext, strategy: Str
   // The elevator comes after the day's events and before bedtime (design doc 8.1); exams replace the patrol.
   const patrols: PatrolRecord[] = [];
   if (!hospitalDay && exam === null) {
-    const choice = strategy.floor(viewOf(d));
-    patrols.push(patrol(d, choice.patrol, false));
+    const choice = strategy.floor(viewOf(d), d.s.tags);
+    const rooms = 1 + (choice.overtime === undefined ? 0 : 1);
+    if (choice.played !== undefined && choice.played.length !== rooms) {
+      throw new RangeError(`${choice.played.length} played patrols were given for ${rooms} chosen`);
+    }
+    patrols.push(patrol(d, choice.patrol, false, choice.played?.[0]));
     if (choice.overtime !== undefined) {
       if (choice.overtime === choice.patrol) throw new RangeError('an overtime patrol must be on a second floor');
-      patrols.push(patrol(d, choice.overtime, true));
+      patrols.push(patrol(d, choice.overtime, true, choice.played?.[1]));
       d.overtimeDelay = k.overtimeBedDelay;
     }
   }

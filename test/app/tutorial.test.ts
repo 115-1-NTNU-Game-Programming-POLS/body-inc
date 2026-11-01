@@ -10,7 +10,7 @@ const answerFrom = (strategy: Strategy, ask: Ask): Answer => {
   switch (ask.kind) {
     case 'plan': return { kind: 'plan', plan: strategy.plan(ask.view) };
     case 'event': return { kind: 'event', option: strategy.choose(ask.id, ask.options, ask.view) };
-    case 'floor': return { kind: 'floor', choice: strategy.floor(ask.view) };
+    case 'floor': return { kind: 'floor', choice: strategy.floor(ask.view, ask.tags) };
     case 'night': return { kind: 'night', plan: strategy.night(ask.view) };
   }
 };

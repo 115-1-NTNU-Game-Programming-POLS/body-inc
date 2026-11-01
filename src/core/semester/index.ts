@@ -5,6 +5,7 @@ export * from './floors.ts';
 export * from './interactive.ts';
 export * from './liver.ts';
 export * from './load.ts';
+export * from './patrol.ts';
 export * from './rating.ts';
 export * from './scenario.ts';
 export * from './semester.ts';

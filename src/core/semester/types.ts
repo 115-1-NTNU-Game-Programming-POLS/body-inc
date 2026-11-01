@@ -8,6 +8,7 @@ import type { Setting } from './clauses.ts';
 import type { ElevatorPanel, FloorId, Light, Loads } from './floors.ts';
 import type { LiverClues } from './liver.ts';
 import type { Grade, LoadParams } from './load.ts';
+import type { PatrolResult } from './patrol.ts';
 import type { SkillParams } from './rating.ts';
 
 /** The rules of content/params.json that a semester reads; the file's `defaults` satisfies it. */
@@ -86,8 +87,10 @@ export interface HomeworkView {
 
 export interface PatrolRecord {
   readonly floor: FloorId;
+  /** C for a failed patrol, which reads for nothing: the load is not cut and no card is offered. */
   readonly grade: Grade;
   readonly overtime: boolean;
+  readonly failed?: true;
 }
 
 export interface DayRecord {
@@ -205,6 +208,11 @@ export interface FloorChoice {
   readonly patrol: FloorId;
   /** An overtime patrol of a second floor, at the price of a later bedtime (design doc 8.4). */
   readonly overtime?: FloorId;
+  /**
+   * How the rooms were played, patrol first and then the overtime one. Absent is a patrol drawn from the skill of the context,
+   * which is what `sim/` plays; a played one is kept in the answer so the day replays to the same state.
+   */
+  readonly played?: readonly PatrolResult[];
 }
 
 export interface NightPlan {
@@ -261,7 +269,8 @@ export interface DayView {
 export interface Strategy {
   plan(view: DayView): MorningPlan;
   choose(eventId: string, options: readonly string[], view: DayView): string;
-  floor(view: DayView): FloorChoice;
+  /** `tags` are the body's as the elevator is reached, which the rooms of a played patrol are entered with. */
+  floor(view: DayView, tags: TagState): FloorChoice;
   night(view: DayView): NightPlan;
 }
 

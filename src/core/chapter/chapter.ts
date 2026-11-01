@@ -594,8 +594,8 @@ function stepRoom(ctx: ChapterContent, state: ChapterState, input: TickInput): C
   const r = step(unlockedNow(ctx, state.run, cloaked(ctx, state.run, bodyNow(ctx, state.run, state.game))), input);
   let { run } = state;
   let game = r.state;
-  // The chapter clock runs while exploring (design doc 7.2); a conversation, a card or an exam stops it.
-  if (!sitting(state.game.exam)) {
+  // The chapter clock runs while exploring (design doc 7.2); a conversation, a card or an exam stops it, and a patrol never starts it.
+  if (!sitting(state.game.exam) && ctx.chapter.patrol === undefined) {
     const explored = run.explored + 1;
     if (explored < ticksPerMinute(ctx.params)) run = { ...run, explored };
     else ({ run, game } = passTime(ctx, { ...run, explored: 0 }, game, 1));
