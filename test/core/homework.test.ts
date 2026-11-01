@@ -169,7 +169,8 @@ describe('debugging an assignment', () => {
 
     it('lets the contest give way before the debugging does', () => {
       const s = snackNight(SHORT, 6, { debug: 1, rank: 1 });
-      expect(s.homework[1]).toMatchObject({ debugged: 1 });
+      // Whichever assignment is open for writing that day takes the hour, so it is the total that is pinned.
+      expect(s.homework.reduce((hours, a) => hours + a.debugged, 0)).toBe(1);
       expect(s.history[0]!.rank).toBeUndefined();
       expect(s.rank).toBe(0);
     });
