@@ -120,6 +120,8 @@ export interface DayRecord {
   readonly archive?: ArchiveDay;
   /** The leaderboard hours the night spent and the score they added; absent when none were spent. */
   readonly rank?: { readonly hours: number; readonly gain: number };
+  /** The hours the day gave the compiler project and what they added; absent when none were spent. */
+  readonly project?: { readonly hours: number; readonly gain: number; readonly done: boolean };
 }
 
 export interface ArchiveDay {
@@ -149,6 +151,8 @@ export interface SemesterState {
   readonly staging: number;
   /** The algorithms card's leaderboard score (design doc 8.3); stays 0 when the card is not taken. */
   readonly rank: number;
+  /** The compiler project's progress in study-efficiency hours (design doc 8.3); stays 0 when the card is not taken. */
+  readonly project: number;
   readonly loads: Loads;
   /**
    * Causal log entries behind each floor's load since it was last calm (under the yellow line).
@@ -179,6 +183,10 @@ export interface MorningPlan {
   readonly rest: readonly number[];
   /** Whole hours of the day's free time spent writing the assignment that can be worked on; absent is none. */
   readonly write?: number;
+  /** Whole hours of the day's free time given to the compiler project; absent is none. */
+  readonly project?: number;
+  /** Take a 15-minute walk before the hour that would be the fourth in a row at the desk. */
+  readonly walk?: boolean;
 }
 
 export interface FloorChoice {
@@ -227,6 +235,8 @@ export interface DayView {
   readonly homework: readonly HomeworkView[];
   /** The leaderboard of the algorithms card: the score so far, and whether tonight is a contest night; absent without the card. */
   readonly rank?: { readonly score: number; readonly open: boolean };
+  /** The compiler card's final project: progress so far, what it needs, and whether it can take hours today; absent without the card. */
+  readonly project?: { readonly done: number; readonly need: number; readonly open: boolean };
 }
 
 export interface Strategy {

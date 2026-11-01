@@ -148,6 +148,26 @@ export const archiveRate = (effectiveSleep: number): number => Math.min(1, effec
 export const nightRoom = (k: { readonly bedMax: number; readonly bedOverrun: number }, bed: number, delay: number): number =>
   Math.max(0, Math.floor(k.bedMax + k.bedOverrun - (bed + delay)));
 
+/**
+ * The compiler card's final project (design doc 8.3). The design fixes the deadline (day 9), the +10 year-end review points
+ * for finishing and the -8 on the final exam percent otherwise; the rest is ASSUME until the re-simulation of design doc 9.6:
+ * it opens on day 3, needs 10 units of study-efficiency hours, and a day can give it 4 hours.
+ */
+export const PROJECT_FROM_DAY = 3;
+export const PROJECT_NEED = 10;
+export const PROJECT_DAY_MAX = 4;
+export const PROJECT_REVIEW = 10;
+export const PROJECT_FIN_PENALTY = 8;
+
+/**
+ * Sitting at the desk (design doc 8.3): from the hour after this many in a row, the stuck point of a compiler assignment
+ * cuts the efficiency to 0.3. A walk of 15 minutes clears the count and the hour it falls in is worth three quarters.
+ * ASSUME: the stuck point is met by any long sit while the card is taken, since study is not yet chosen per card.
+ */
+export const SIT_LIMIT = 3;
+export const STUCK_MULT = 0.3;
+export const WALK_EFFORT = 0.75;
+
 /** Score that fills the board, the first hour's score at S = 1, how much each further hour of the same night keeps, and the most hours a night. */
 export const RANK_FULL = 60;
 export const RANK_FIRST = 10;

@@ -9,7 +9,8 @@ import { addAmount, amount, EMPTY_TAGS, flag, holds, lowerAmount, onWake, setAmo
 import { EMPTY_LOADS, elevatorPanel, FLOORS, lightOf, litFloors, mapFloors, type FloorId } from './floors.ts';
 import {
   archiveRate, creditsOf, debugHoursFor, HOMEWORK_PROGRESS, isCommitted, MAX_DEBUG_PER_NIGHT, MAX_RANK_HOURS, nightRoom, OS_ASSIGNMENTS, paperShare, rankGain,
-  rankPercent, RANK_SHARE, selectionProblem, thresholdMult, UNARCHIVED_KEPT, WRITE_HOURS,
+  PROJECT_DAY_MAX, PROJECT_FIN_PENALTY, PROJECT_FROM_DAY, PROJECT_NEED, rankPercent, RANK_SHARE, selectionProblem, SIT_LIMIT, STUCK_MULT, thresholdMult, UNARCHIVED_KEPT,
+  WALK_EFFORT, WRITE_HOURS,
 } from './courses.ts';
 import { liverClues, liverStrikes } from './liver.ts';
 import { contributions, nextLoad, strikes, type DayFacts } from './load.ts';
@@ -88,7 +89,7 @@ export function startSemester(ctx: SemesterContext, seed: number): SemesterState
     }
   }
   return {
-    day: 1, wake: ctx.params.wake, tags, progress: 0, staging: 0, rank: 0, loads: EMPTY_LOADS, loadCauses: mapFloors(() => []), cupsHist: [], zeroCupDays: 0, liverOrders: [],
+    day: 1, wake: ctx.params.wake, tags, progress: 0, staging: 0, rank: 0, project: 0, loads: EMPTY_LOADS, loadCauses: mapFloors(() => []), cupsHist: [], zeroCupDays: 0, liverOrders: [],
     hospitals: 0, homework, bankrupt: false, rng, history: [], ended: false,
   };
 }
@@ -108,7 +109,7 @@ function homeworkDelta(before: readonly Assignment[], after: readonly Assignment
   });
 }
 
-type Activity = 'study' | 'rest' | 'class' | 'meal' | 'exam' | 'work';
+type Activity = 'study' | 'rest' | 'class' | 'meal' | 'exam' | 'work' | 'project';
 
 /** One day in progress: the state it is rebuilding and what the day has done so far. */
 interface DayRun {
@@ -130,6 +131,12 @@ interface DayRun {
   /** Hours of the day still to be spent writing the assignment at index `writeIdx` of the state. */
   writeLeft: number;
   writeIdx: number;
+  /** Hours of the day still to go to the compiler project, the hours it got, and whether a walk breaks up the sitting. */
+  projectLeft: number;
+  projectHours: number;
+  walk: boolean;
+  /** Hours sat at the desk in a row. */
+  sit: number;
   bedDelay: number;
   /** What an overtime patrol pushes bedtime back, known once the patrol is chosen. */
   overtimeDelay: number;
@@ -176,6 +183,9 @@ function viewOf(d: DayRun): DayView {
       n: i + 1, due: a.due, written: a.written, debugged: a.debugged, ...(a.written >= WRITE_HOURS ? { debug: a.debug } : {}),
     })),
     ...(open === undefined ? {} : { rank: { score: s.rank, open } }),
+    ...(ctx.courses?.includes('compiler')
+      ? { project: { done: s.project, need: PROJECT_NEED, open: s.day >= PROJECT_FROM_DAY && s.day < k.finDay && s.project < PROJECT_NEED && s.hospitalDay !== s.day } }
+      : {}),
   };
 }
 
@@ -240,23 +250,53 @@ function activityAt(d: DayRun, h: number, rest: ReadonlySet<number>): Activity {
     d.s = withAssignment(d.s, d.writeIdx, { written: d.s.homework[d.writeIdx]!.written + 1 });
     return 'work';
   }
+  if (d.projectLeft > 0 && !rest.has(h)) {
+    d.projectLeft -= 1;
+    return 'project';
+  }
   return rest.has(h) ? 'rest' : 'study';
 }
 
 /** Spends `dur` hours on an activity; only study moves the semester's progress, the paper-exam part of it into the staging pile. */
-function spend(d: DayRun, dur: number, activity: Activity): void {
+function spend(d: DayRun, dur: number, activity: Activity, effort = 1): void {
   const { dict, params: k } = d.ctx;
-  let { tags, progress, staging } = d.s;
-  if (activity === 'study') {
+  let { tags, progress, staging, project } = d.s;
+  if (activity === 'study' || activity === 'project') {
     const boost = caffeineBoost(caffeineOf(tags, dict), flag(tags, dict, 'caffeine_tolerant'), k);
     const efficiency = d.S * boost * (flag(tags, dict, 'withdrawal') ? k.withdrawal : 1) * (d.brainStrike ? k.floorStrikeStudyMult : 1);
-    const gain = efficiency * dur;
-    progress += gain * (1 - d.paper);
-    staging += gain * d.paper;
-    d.studyHours += dur;
+    const gain = efficiency * dur * effort;
+    if (activity === 'project') {
+      project += gain;
+      d.projectHours += dur;
+    } else {
+      progress += gain * (1 - d.paper);
+      staging += gain * d.paper;
+      d.studyHours += dur;
+    }
   }
   tags = metabolise(tags, dict, Math.round(dur * 60), k);
-  d.s = { ...d.s, tags, progress, staging };
+  d.s = { ...d.s, tags, progress, staging, project };
+}
+
+/**
+ * What the desk does to the next `dur` hours: with the compiler card, a long unbroken sit leaves the stuck point's 0.3, and a
+ * planned walk before the fourth hour clears it at the price of a quarter of that hour (design doc 8.3). Anything but study
+ * or the project at the desk ends the sit.
+ */
+function sitting(d: DayRun, activity: Activity, dur: number, walkAllowed: boolean): number {
+  if (d.ctx.courses?.includes('compiler') !== true) return 1;
+  if (activity !== 'study' && activity !== 'project') {
+    d.sit = 0;
+    return 1;
+  }
+  let effort = 1;
+  if (walkAllowed && d.walk && d.sit >= SIT_LIMIT) {
+    d.sit = 0;
+    effort = WALK_EFFORT;
+  }
+  if (d.sit >= SIT_LIMIT) effort *= STUCK_MULT;
+  d.sit += dur;
+  return effort;
 }
 
 function drinkCup(d: DayRun, h: number): void {
@@ -274,9 +314,13 @@ function sitExam(d: DayRun, kind: 'mid' | 'fin'): number {
   const result = scoreExam({
     kind: 'regular', progress: d.s.progress, sExamDay: d.S, passThreshold: threshold, ...examPerformance(d.ctx.skill, roll(d), k),
   });
-  // The leaderboard is a share of the final exam alone (design doc 8.3).
-  if (kind === 'fin' && d.ctx.courses?.includes('algorithms')) return (1 - RANK_SHARE) * result.examPercent + RANK_SHARE * rankPercent(d.s.rank);
-  return result.examPercent;
+  let percent = result.examPercent;
+  if (kind === 'fin') {
+    // The leaderboard is a share of the final exam alone, and an unfinished compiler project costs it a few points (design doc 8.3).
+    if (d.ctx.courses?.includes('algorithms')) percent = (1 - RANK_SHARE) * percent + RANK_SHARE * rankPercent(d.s.rank);
+    if (d.ctx.courses?.includes('compiler') && d.s.project < PROJECT_NEED) percent = Math.max(0, percent - PROJECT_FIN_PENALTY);
+  }
+  return percent;
 }
 
 function patrol(d: DayRun, floor: FloorId, overtime: boolean): PatrolRecord {
@@ -463,7 +507,7 @@ export function playDay(from: SemesterState, ctx: SemesterContext, strategy: Str
   const debt = amount(s0.tags, dict, 'sleep_debt');
   const d: DayRun = {
     s: s0, ctx, strategy, exam, S: sleepFactor(debt, k), brainStrike: strikes('brain', s0.loads.brain, k), paper: ctx.courses === undefined ? 0 : paperShare(ctx.courses), morningLoads: s0.loads,
-    cups: 0, alcoholCups: 0, fasting: false, deadline: false, lateSnack: false, workLeft: 0, writeLeft: 0, writeIdx: -1, bedDelay: 0, overtimeDelay: 0, studyHours: 0, lateStudy: 0,
+    cups: 0, alcoholCups: 0, fasting: false, deadline: false, lateSnack: false, workLeft: 0, writeLeft: 0, writeIdx: -1, projectLeft: 0, projectHours: 0, walk: false, sit: 0, bedDelay: 0, overtimeDelay: 0, studyHours: 0, lateStudy: 0,
     evidence: { brain: [], stomach: [], liver: [] },
     pending: hospitalDay ? [] : (ctx.scenario[day] ?? []).map((id) => ctx.events.get(id)!).sort((a, b) => a.hour - b.hour),
     played: [],
@@ -504,6 +548,14 @@ export function playDay(from: SemesterState, ctx: SemesterContext, strategy: Str
   }
   d.writeLeft = writeAsked;
   d.writeIdx = toWrite?.i ?? -1;
+  const projectAsked = plan.project ?? 0;
+  const projectOpen = view0.project?.open === true;
+  if (!Number.isInteger(projectAsked) || projectAsked < 0 || projectAsked > PROJECT_DAY_MAX || (projectAsked > 0 && !projectOpen)) {
+    throw new RangeError(`${projectAsked} hours of the project were planned and the day can take 0 to ${projectOpen ? PROJECT_DAY_MAX : 0}`);
+  }
+  if (plan.walk === true && view0.project === undefined) throw new RangeError('a walk was planned, and only the compiler card has a stuck point to walk away from');
+  d.projectLeft = projectAsked;
+  d.walk = plan.walk === true;
   // The first cup-free day of a tolerant drinker is the withdrawal day (design doc 9.1).
   if (!hospitalDay && flag(d.s.tags, dict, 'caffeine_tolerant') && coffee.size === 0 && d.s.zeroCupDays === 0) {
     const at = minuteOf(day, d.s.wake);
@@ -518,7 +570,8 @@ export function playDay(from: SemesterState, ctx: SemesterContext, strategy: Str
     }
     applyEvents(d, h);
     if (coffee.has(h)) drinkCup(d, h);
-    spend(d, 1, activityAt(d, h, rest));
+    const activity = activityAt(d, h, rest);
+    spend(d, 1, activity, sitting(d, activity, 1, true));
   }
   // An event between two whole hours before 22:00 is still due when the evening begins.
   if (!hospitalDay) applyEvents(d, k.bedMin, true);
@@ -578,7 +631,8 @@ export function playDay(from: SemesterState, ctx: SemesterContext, strategy: Str
     if (t >= bedEndAt()) break;
     const late = t < bedBase && night.lateNight === 'study';
     if (late) d.lateStudy += STEP;
-    spend(d, STEP, late ? 'study' : 'rest');
+    const activity = late ? 'study' : 'rest';
+    spend(d, STEP, activity, sitting(d, activity, STEP, false));
   }
 
   const bedEnd = Math.max(bedEndAt(), k.bedMin);
@@ -590,7 +644,9 @@ export function playDay(from: SemesterState, ctx: SemesterContext, strategy: Str
     bedEnd,
     kind: hospitalDay ? 'hospital' : exam !== null ? 'exam' : 'normal',
     settled: true,
-    patrols, events: d.played, loadsAfter: d.s.loads, studyHours: d.studyHours, homework: homeworkDelta(from.homework, d.s.homework), ...(rankDone ? { rank: rankDone } : {}), ...outcome,
+    patrols, events: d.played, loadsAfter: d.s.loads, studyHours: d.studyHours, homework: homeworkDelta(from.homework, d.s.homework), ...(rankDone ? { rank: rankDone } : {}),
+    ...(d.projectHours > 0 ? { project: { hours: d.projectHours, gain: d.s.project - from.project, done: from.project < PROJECT_NEED && d.s.project >= PROJECT_NEED } } : {}),
+    ...outcome,
   };
   const ended = d.s.bankrupt;
   return { ...d.s, history: [...d.s.history, rec], ended, ...(ended ? { fin: d.s.fin ?? 0 } : {}) };

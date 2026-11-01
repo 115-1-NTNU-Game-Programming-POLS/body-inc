@@ -8,7 +8,7 @@ import { fillStr, REPORT, str } from '../../app/content.ts';
 import { keepPage } from '../../app/handbook.ts';
 import type { SaveStore } from '../../app/storage.ts';
 import {
-  advanceDay, buildWall, MAX_DEBUG_PER_NIGHT, MAX_RANK_HOURS, nightRoom, pinWall, rankGain, RANK_FULL, RANK_SHARE, reviewWall, RUN, WRITE_HOURS, type Answer, type Ask, type ChapterContent, type DayView, type FloorId, type HomeworkView, type ProgressData, type ReportDocument, type RunData,
+  advanceDay, buildWall, MAX_DEBUG_PER_NIGHT, MAX_RANK_HOURS, nightRoom, PROJECT_DAY_MAX, pinWall, rankGain, RANK_FULL, RANK_SHARE, reviewWall, RUN, WRITE_HOURS, type Answer, type Ask, type ChapterContent, type DayView, type FloorId, type HomeworkView, type ProgressData, type ReportDocument, type RunData,
   type SemesterContext, type SemesterRun, type SemesterState, type Settings, type Wall,
 } from '../../core/index.ts';
 import { WALL_CHAPTER, wallLoop, type WallSession } from '../../app/wall.ts';
@@ -254,9 +254,34 @@ export class SemesterScene extends Phaser.Scene {
     this.cards(ids.map((id) => ({ label: str(`semester.rest.${id}`), note: str(`semester.rest.${id}.note`) })), str('semester.rest.title'), undefined, (i) => {
       const rest = ids[i]!;
       const writing = view.homework.find((h) => h.written < WRITE_HOURS);
-      if (writing === undefined) return this.answer({ kind: 'plan', plan: morningPlan(coffee, rest) });
-      this.askWrite(writing, (hours) => this.answer({ kind: 'plan', plan: morningPlan(coffee, rest, hours) }));
+      // The assignment, the compiler project and the walk are asked in turn, each only when the day has it.
+      const afterWrite = (write: number): void => {
+        if (view.project === undefined) return this.answer({ kind: 'plan', plan: morningPlan(coffee, rest, write) });
+        const askWalk = (project: number): void => this.askWalk((walk) => this.answer({ kind: 'plan', plan: morningPlan(coffee, rest, write, project, walk) }));
+        if (!view.project.open) return askWalk(0);
+        this.askProject(view.project, askWalk);
+      };
+      if (writing === undefined) return afterWrite(0);
+      this.askWrite(writing, afterWrite);
     });
+  }
+
+  private askProject(project: NonNullable<DayView['project']>, done: (hours: number) => void): void {
+    const hours = Array.from({ length: PROJECT_DAY_MAX + 1 }, (_, n) => n);
+    const labels = hours.map((n) => (n === 0
+      ? { label: str('semester.project.none'), note: str('semester.project.none.note') }
+      : { label: fillStr('semester.project.hours', { hours: n }), note: fillStr('semester.project.hours.note', { hours: n }) }));
+    this.cards(labels, str('semester.project.title'), fillStr('semester.project.caption', { done: project.done.toFixed(1), need: project.need }), (i) => done(hours[i]!));
+  }
+
+  private askWalk(done: (walk: boolean) => void): void {
+    this.cards(
+      [
+        { label: str('semester.walk.none'), note: str('semester.walk.none.note') },
+        { label: str('semester.walk.take'), note: str('semester.walk.take.note') },
+      ],
+      str('semester.walk.title'), str('semester.walk.caption'), (i) => done(i === 1),
+    );
   }
 
   /** How many of the hours the assignment still needs to write go to it today. */

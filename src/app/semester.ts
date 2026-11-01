@@ -1,5 +1,5 @@
 import {
-  advanceDay, amount, BURDEN_REWARD, burdenOf, composeReport, creditsOf, EVENTS, HOMEWORK_PROGRESS, RANK_FULL, RANK_SHARE, reviewPoints, PROGRESS, prototypeContext, semesterInputs, startSemester, summarize, withBarbecueOn,
+  advanceDay, amount, BURDEN_REWARD, burdenOf, composeReport, creditsOf, EVENTS, HOMEWORK_PROGRESS, PROJECT_FIN_PENALTY, PROJECT_NEED, PROJECT_REVIEW, RANK_FULL, RANK_SHARE, reviewPoints, PROGRESS, prototypeContext, semesterInputs, startSemester, summarize, withBarbecueOn,
   type FloorChoice, type FloorId, type MorningPlan, type NightPlan, type ProgressData, type ReportDocument, type Scenario, type SemesterContext, type SemesterRun, type SemesterState,
 } from '../core/index.ts';
 import { fillStr as fill, PARAMS, REPORT, str, STRINGS, TAGS } from './content.ts';
@@ -103,8 +103,8 @@ export type CoffeePlanId = keyof typeof COFFEE_PLANS;
 export type RestPlanId = keyof typeof REST_PLANS;
 export type NightPlanId = keyof typeof NIGHT_PLANS;
 
-export const morningPlan = (coffee: CoffeePlanId, rest: RestPlanId, write = 0): MorningPlan =>
-  ({ coffee: [...COFFEE_PLANS[coffee]], rest: [...REST_PLANS[rest]], ...(write > 0 ? { write } : {}) });
+export const morningPlan = (coffee: CoffeePlanId, rest: RestPlanId, write = 0, project = 0, walk = false): MorningPlan =>
+  ({ coffee: [...COFFEE_PLANS[coffee]], rest: [...REST_PLANS[rest]], ...(write > 0 ? { write } : {}), ...(project > 0 ? { project } : {}), ...(walk ? { walk } : {}) });
 
 /** Everyone wakes at the usual hour; sleeping in is not offered yet. */
 export const nightPlan = (id: NightPlanId, debug = 0, rank = 0): NightPlan =>
@@ -143,6 +143,10 @@ export function daySummary(before: SemesterState, after: SemesterState, ctx: Sem
     if (h.debugged > 0) lines.push(fill('semester.sum.hw.debugged', { n: h.n, hours: h.debugged }));
     if (h.done) lines.push(fill('semester.sum.hw.done', { n: h.n, p: HOMEWORK_PROGRESS }));
     if (h.missed) lines.push(fill('semester.sum.hw.missed', { n: h.n }));
+  }
+  if (rec.project !== undefined) {
+    lines.push(fill('semester.sum.project', { hours: rec.project.hours, done: oneDecimal(after.project), need: PROJECT_NEED }));
+    if (rec.project.done) lines.push(str('semester.sum.project.done'));
   }
   if (rec.rank !== undefined) lines.push(fill('semester.sum.rank', { hours: rec.rank.hours, gain: oneDecimal(rec.rank.gain), score: oneDecimal(after.rank) }));
   if (rec.archive !== undefined) {
@@ -190,6 +194,9 @@ export function endSummary(state: SemesterState, ctx: SemesterContext): string[]
   if (sum.bankrupt) lines.push(str('semester.end.bankrupt'));
   else if (sum.hospitalized) lines.push(str('semester.end.hospital'));
   lines.push(fill('semester.end.debt', { debt: oneDecimal(sum.finalDebt) }));
+  if (ctx.courses?.includes('compiler') && !sum.bankrupt) {
+    lines.push(state.project >= PROJECT_NEED ? fill('semester.end.project.done', { points: PROJECT_REVIEW }) : fill('semester.end.project.fail', { points: PROJECT_FIN_PENALTY }));
+  }
   if (ctx.courses !== undefined && sum.passMid && sum.passFin) {
     const credits = creditsOf(ctx.courses);
     const burden = burdenOf(credits);
