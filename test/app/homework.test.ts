@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { fillStr } from '../../src/app/content.ts';
 import { daySummary, endSummary, floorChoice, morningPlan, newSemester, nightPlan, resumeSemester, TUTORIAL_COURSES, TUTORIAL_SEED } from '../../src/app/semester.ts';
-import { advanceDay, decode, encode, HOMEWORK_MISS_PENALTY, HOMEWORK_PROGRESS, playDay, RUN, WRITE_HOURS, type Answer, type SemesterRun, type Strategy } from '../../src/core/index.ts';
+import { advanceDay, decode, encode, HOMEWORK_MISS_PENALTY, HOMEWORK_PROGRESS, OS_ASSIGNMENTS, playDay, RUN, WRITE_HOURS, type Answer, type SemesterRun, type Strategy } from '../../src/core/index.ts';
+
+/** The first assignment's days: announced on `A` and written that day, handed in by the morning of `D`. */
+const { announce: A, due: D } = OS_ASSIGNMENTS[0]!;
 
 const quiet: Strategy = {
   plan: () => morningPlan('none', 'balanced'),
@@ -10,7 +13,7 @@ const quiet: Strategy = {
   night: () => nightPlan('early'),
 };
 
-/** Plays days 1 to `through` of the tutorial semester, writing the first assignment on day 2 and debugging on the night of `debugNight`. */
+/** Plays days 1 to `through` of the tutorial semester, writing the first assignment on the day it opens and debugging on the night of `debugNight`. */
 function played(through: number, opts: { debugNight?: number } = {}): { run: SemesterRun; ctx: ReturnType<typeof newSemester>['ctx']; states: ReturnType<typeof newSemester>['state'][] } {
   const { ctx, state } = newSemester(TUTORIAL_SEED, undefined, [...TUTORIAL_COURSES]);
   let s = state;
@@ -25,7 +28,7 @@ function played(through: number, opts: { debugNight?: number } = {}): { run: Sem
         break;
       }
       const { ask } = step;
-      if (ask.kind === 'plan') answers.push({ kind: 'plan', plan: morningPlan('none', 'balanced', ask.view.day === 2 ? WRITE_HOURS : 0) });
+      if (ask.kind === 'plan') answers.push({ kind: 'plan', plan: morningPlan('none', 'balanced', ask.view.day === A ? WRITE_HOURS : 0) });
       else if (ask.kind === 'event') answers.push({ kind: 'event', option: ask.options[0]! });
       else if (ask.kind === 'floor') answers.push({ kind: 'floor', choice: floorChoice('brain') });
       else answers.push({ kind: 'night', plan: nightPlan('early', ask.view.day === opts.debugNight ? Math.min(4, ask.view.homework[0]?.debug ?? 0) : 0) });
@@ -38,10 +41,10 @@ function played(through: number, opts: { debugNight?: number } = {}): { run: Sem
 
 describe('the assignments in a saved semester', () => {
   it('keeps the hours of writing and debugging through the run slot and replays to the same state', () => {
-    const { run, states } = played(3, { debugNight: 2 });
-    const wrote = run.days[1]!.find((a) => a.kind === 'plan')!;
+    const { run, states } = played(A + 1, { debugNight: A });
+    const wrote = run.days[A - 1]!.find((a) => a.kind === 'plan')!;
     expect(wrote).toMatchObject({ plan: { write: WRITE_HOURS } });
-    expect(JSON.stringify(run.days[1])).toContain('"debug"');
+    expect(JSON.stringify(run.days[A - 1])).toContain('"debug"');
     expect(decode(RUN, encode(RUN, { semester: run }))).toEqual({ kind: 'ok', data: { semester: run } });
     expect(resumeSemester(run)?.state).toEqual(states.at(-1));
   });
@@ -62,17 +65,17 @@ describe('the assignments in a saved semester', () => {
 
 describe('what the player is told after a day with an assignment', () => {
   it('lists the hours written and debugged, the hand-in with its progress, and the miss', () => {
-    const { ctx, states } = played(4, { debugNight: 2 });
+    const { ctx, states } = played(D, { debugNight: A });
     const line = (key: string, vars: Record<string, string | number>): string => fillStr(key, vars);
-    const day2 = daySummary(states[1]!, states[2]!, ctx);
-    expect(day2).toContain(line('semester.sum.hw.wrote', { n: 1, hours: WRITE_HOURS }));
-    const spent = states[2]!.homework[0]!.debugged;
+    const opened = daySummary(states[A - 1]!, states[A]!, ctx);
+    expect(opened).toContain(line('semester.sum.hw.wrote', { n: 1, hours: WRITE_HOURS }));
+    const spent = states[A]!.homework[0]!.debugged;
     expect(spent).toBeGreaterThan(0);
-    expect(day2).toContain(line('semester.sum.hw.debugged', { n: 1, hours: spent }));
-    const handedIn = states[2]!.homework[0]!.done;
-    expect(day2.includes(line('semester.sum.hw.done', { n: 1, p: HOMEWORK_PROGRESS }))).toBe(handedIn);
-    const day4 = daySummary(states[3]!, states[4]!, ctx);
-    expect(day4.includes(line('semester.sum.hw.missed', { n: 1 }))).toBe(!handedIn);
+    expect(opened).toContain(line('semester.sum.hw.debugged', { n: 1, hours: spent }));
+    const handedIn = states[A]!.homework[0]!.done;
+    expect(opened.includes(line('semester.sum.hw.done', { n: 1, p: HOMEWORK_PROGRESS }))).toBe(handedIn);
+    const dueDay = daySummary(states[D - 1]!, states[D]!, ctx);
+    expect(dueDay.includes(line('semester.sum.hw.missed', { n: 1 }))).toBe(!handedIn);
     expect(daySummary(states[0]!, states[1]!, ctx).some((l) => l.startsWith('作業'))).toBe(false);
   });
 

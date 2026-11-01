@@ -5,6 +5,9 @@ import {
 } from '../../src/core/index.ts';
 import { contextFor } from '../../sim/semester/scenario.ts';
 
+/** The first assignment's days, which most of these tests play on: announced on `A`, handed in by the morning of `D`. */
+const { announce: A, due: D } = OS_ASSIGNMENTS[0]!;
+
 const COURSES = ['algorithms', 'os', 'database', 'ta'];
 const ctxFor = (courses: readonly string[] | null = COURSES, seed = 1): SemesterContext => contextFor(0.5, seed, { scenario: {}, ...(courses ? { courses } : {}) });
 
@@ -68,65 +71,71 @@ describe('the debugging hours (design doc 8.3)', () => {
 });
 
 describe('writing an assignment', () => {
+  it('puts the two assignments on the days of the design doc (8.3)', () => {
+    expect(OS_ASSIGNMENTS).toEqual([{ announce: 4, due: 7 }, { announce: 6, due: 9 }]);
+  });
+
   it('shows an assignment only from its announcement to the day before it is due', () => {
     const { ctx, s0 } = open(SHORT);
     const seen: DayView[] = [];
-    play(ctx, player(() => ({}), seen), s0, 4);
-    expect(seen.map((v) => [v.day, v.homework.map((h) => h.n)])).toEqual([[1, []], [2, [1]], [3, [1]], [4, []]]);
+    play(ctx, player(() => ({}), seen), s0, 8);
+    expect(seen.map((v) => [v.day, v.homework.map((h) => h.n)])).toEqual([
+      [1, []], [2, []], [3, []], [4, [1]], [5, [1]], [6, [1, 2]], [7, [2]], [8, [2]],
+    ]);
   });
 
   it('hides the debugging hours until the writing is done', () => {
     const { ctx, s0, debug } = open(SHORT);
     const before: DayView[] = [];
-    play(ctx, player((d) => (d === 2 ? { write: 2 } : {}), before), s0, 3);
-    expect(before.filter((v) => v.day >= 2).map((v) => v.homework[0]!.debug)).toEqual([undefined, undefined]);
+    play(ctx, player((d) => (d === A ? { write: 2 } : {}), before), s0, A + 1);
+    expect(before.filter((v) => v.day >= A).map((v) => v.homework[0]!.debug)).toEqual([undefined, undefined]);
     const after: DayView[] = [];
-    play(ctx, player((d) => (d === 2 ? { write: 3 } : {}), after), s0, 3);
-    expect(after.find((v) => v.day === 3)!.homework[0]).toMatchObject({ written: WRITE_HOURS, debug });
+    play(ctx, player((d) => (d === A ? { write: 3 } : {}), after), s0, A + 1);
+    expect(after.find((v) => v.day === A + 1)!.homework[0]).toMatchObject({ written: WRITE_HOURS, debug });
   });
 
   it('spends the writing hours as work, so the day studies that much less', () => {
     const { ctx, s0 } = open(SHORT);
-    const hours = (write: number): number => play(ctx, player((d) => (d === 2 ? { write } : {})), { ...s0, day: 2 }, 2).history[0]!.studyHours;
+    const hours = (write: number): number => play(ctx, player((d) => (d === A ? { write } : {})), { ...s0, day: A }, A).history[0]!.studyHours;
     expect(hours(0) - hours(2)).toBe(2);
     expect(hours(0) - hours(3)).toBe(3);
   });
 
   it('takes at most the 3 hours the assignment needs, over as many days as it takes', () => {
     const { ctx, s0 } = open(SHORT);
-    const done = play(ctx, player((d) => (d === 2 ? { write: 2 } : d === 3 ? { write: 1 } : {})), s0, 3);
+    const done = play(ctx, player((d) => (d === A ? { write: 2 } : d === A + 1 ? { write: 1 } : {})), s0, A + 1);
     expect(done.homework[0]!.written).toBe(3);
-    expect(done.history[1]!.homework).toEqual([{ n: 1, wrote: 2, debugged: 0, done: false, missed: false }]);
-    expect(() => play(ctx, player((d) => (d === 2 ? { write: 4 } : {})), s0, 2)).toThrow(/writing/);
-    expect(() => play(ctx, player((d) => (d === 1 ? { write: 1 } : {})), s0, 1)).toThrow(/writing/);
+    expect(done.history[A - 1]!.homework).toEqual([{ n: 1, wrote: 2, debugged: 0, done: false, missed: false }]);
+    expect(() => play(ctx, player((d) => (d === A ? { write: 4 } : {})), s0, A)).toThrow(/writing/);
+    expect(() => play(ctx, player((d) => (d === A - 1 ? { write: 1 } : {})), s0, A - 1)).toThrow(/writing/);
   });
 });
 
 describe('debugging an assignment', () => {
   const written = (seed: number): { ctx: SemesterContext; s: SemesterState; debug: number } => {
     const { ctx, s0, debug } = open(seed);
-    return { ctx, s: play(ctx, player((d) => (d === 2 ? { write: 3 } : {})), s0, 2), debug };
+    return { ctx, s: play(ctx, player((d) => (d === A ? { write: 3 } : {})), s0, A), debug };
   };
-  /** Night of day 2 after writing it that day: plays day 2 with the writing and `ask` hours of debugging. */
-  const dayTwo = (seed: number, ask: number): SemesterState => {
+  /** The night of the day the assignment opens, after writing it that day: plays that day with the writing and `ask` hours of debugging. */
+  const firstNight = (seed: number, ask: number): SemesterState => {
     const { ctx, s0 } = open(seed);
-    return playDay({ ...s0, day: 2 }, ctx, player(() => ({ write: 3, debug: ask })));
+    return playDay({ ...s0, day: A }, ctx, player(() => ({ write: 3, debug: ask })));
   };
 
   it('comes after the planned bedtime and pushes it back by the hours spent', () => {
-    const s = dayTwo(SHORT, 2);
+    const s = firstNight(SHORT, 2);
     expect(s.history[0]!.bedEnd).toBe(22.5 + 2);
     expect(s.homework[0]!.debugged).toBe(2);
-    expect(dayTwo(SHORT, 0).history[0]!.bedEnd).toBe(22.5);
+    expect(firstNight(SHORT, 0).history[0]!.bedEnd).toBe(22.5);
   });
 
   it('hands the assignment in when its last hour is done, for the progress it is worth', () => {
-    const done = dayTwo(SHORT, MAX_DEBUG_PER_NIGHT);
+    const done = firstNight(SHORT, MAX_DEBUG_PER_NIGHT);
     // Asking for more than is left spends only what is left: the debugging of this seed is 2 hours.
     expect(done.homework[0]).toMatchObject({ debugged: 2, done: true });
     expect(done.history[0]!.bedEnd).toBe(22.5 + 2);
     expect(done.history[0]!.homework).toEqual([{ n: 1, wrote: 3, debugged: 2, done: true, missed: false }]);
-    const idle = playDay({ ...open(SHORT).s0, day: 2 }, open(SHORT).ctx, player(() => ({ write: 3 })));
+    const idle = playDay({ ...open(SHORT).s0, day: A }, open(SHORT).ctx, player(() => ({ write: 3 })));
     // The two hours of debugging cost sleep, so less of the day's study is archived that night; the hand-in is the rest of the difference.
     const lost = idle.history[0]!.archive!.archived - done.history[0]!.archive!.archived;
     expect(lost).toBeGreaterThan(0);
@@ -134,9 +143,9 @@ describe('debugging an assignment', () => {
   });
 
   it('spreads a long debugging over nights, and is handed in only after the last one', () => {
-    const first = dayTwo(LONG, MAX_DEBUG_PER_NIGHT);
+    const first = firstNight(LONG, MAX_DEBUG_PER_NIGHT);
     expect(first.homework[0]).toMatchObject({ debugged: MAX_DEBUG_PER_NIGHT, done: false });
-    const second = playDay(first, open(LONG).ctx, player((d) => (d === 3 ? { debug: MAX_DEBUG_PER_NIGHT } : {})));
+    const second = playDay(first, open(LONG).ctx, player((d) => (d === A + 1 ? { debug: MAX_DEBUG_PER_NIGHT } : {})));
     expect(second.homework[0]).toMatchObject({ debugged: 6, done: true });
     expect(second.history[1]!.bedEnd).toBe(22.5 + 2);
   });
@@ -178,35 +187,35 @@ describe('debugging an assignment', () => {
 
   it('refuses debugging before the writing is done, and more than a night can take', () => {
     const { ctx, s0 } = open(SHORT);
-    expect(() => play(ctx, player((d) => (d === 2 ? { debug: 1 } : {})), s0, 2)).toThrow(/debugging/);
+    expect(() => play(ctx, player((d) => (d === A ? { debug: 1 } : {})), s0, A)).toThrow(/debugging/);
     const { ctx: c, s } = written(SHORT);
-    expect(() => play(c, player((d) => (d === 3 ? { debug: MAX_DEBUG_PER_NIGHT + 1 } : {})), s, 3)).toThrow(/debugging/);
+    expect(() => play(c, player((d) => (d === A + 1 ? { debug: MAX_DEBUG_PER_NIGHT + 1 } : {})), s, A + 1)).toThrow(/debugging/);
   });
 });
 
 describe('handing in and missing', () => {
   it('marks an assignment missed on the morning it falls due, and not before', () => {
     const { ctx, s0 } = open(SHORT);
-    const day3 = play(ctx, player(), s0, 3);
-    expect(day3.homework[0]).toMatchObject({ done: false, missed: false });
-    const day4 = play(ctx, player(), s0, 4);
-    expect(day4.homework[0]).toMatchObject({ done: false, missed: true });
-    expect(day4.history[3]!.homework).toEqual([{ n: 1, wrote: 0, debugged: 0, done: false, missed: true }]);
-    expect(day4.homework[1]).toMatchObject({ done: false, missed: false });
+    const before = play(ctx, player(), s0, D - 1);
+    expect(before.homework[0]).toMatchObject({ done: false, missed: false });
+    const dueDay = play(ctx, player(), s0, D);
+    expect(dueDay.homework[0]).toMatchObject({ done: false, missed: true });
+    expect(dueDay.history[D - 1]!.homework).toEqual([{ n: 1, wrote: 0, debugged: 0, done: false, missed: true }]);
+    expect(dueDay.homework[1]).toMatchObject({ done: false, missed: false });
   });
 
   it('never marks a handed-in assignment missed', () => {
     const { ctx, s0 } = open(SHORT);
-    const handed = playDay({ ...s0, day: 2 }, ctx, player(() => ({ write: 3, debug: MAX_DEBUG_PER_NIGHT })));
+    const handed = playDay({ ...s0, day: A }, ctx, player(() => ({ write: 3, debug: MAX_DEBUG_PER_NIGHT })));
     expect(handed.homework[0]!.done).toBe(true);
-    expect(play(ctx, player(), handed, 4).homework[0]).toMatchObject({ done: true, missed: false });
+    expect(play(ctx, player(), handed, D).homework[0]).toMatchObject({ done: true, missed: false });
   });
 
-  it('works the second assignment the same way on its own days', () => {
+  it('works the second assignment the same way on its own days, alongside the first where they overlap', () => {
     const { ctx, s0 } = open(SHORT);
     const seen: DayView[] = [];
     play(ctx, player(() => ({}), seen), s0, 9);
-    expect(seen.filter((v) => v.homework.length > 0).map((v) => [v.day, v.homework[0]!.n])).toEqual([[2, 1], [3, 1], [6, 2], [7, 2], [8, 2]]);
+    expect(seen.filter((v) => v.homework.length > 0).map((v) => [v.day, v.homework.map((h) => h.n)])).toEqual([[4, [1]], [5, [1]], [6, [1, 2]], [7, [2]], [8, [2]]]);
   });
 
   it('takes the penalty off the final for each assignment not handed in, and off nothing else', () => {
@@ -223,7 +232,7 @@ describe('handing in and missing', () => {
 describe('answers through the interactive day', () => {
   it('takes the hours of writing as part of the plan', () => {
     const ctx = ctxFor(COURSES, SHORT);
-    const s0: SemesterState = { ...startSemester(ctx, SHORT), day: 2 };
+    const s0: SemesterState = { ...startSemester(ctx, SHORT), day: A };
     const answers: Answer[] = [
       { kind: 'plan', plan: { coffee: [], rest: [], write: 3 } },
       { kind: 'floor', choice: { patrol: 'brain' } },
