@@ -8,7 +8,7 @@ import type { TagDictionary } from '../tags/dictionary.ts';
 import { addAmount, amount, EMPTY_TAGS, flag, holds, lowerAmount, onWake, setAmount, setFlag, type TagState } from '../tags/store.ts';
 import { EMPTY_LOADS, elevatorPanel, FLOORS, lightOf, litFloors, mapFloors, type FloorId } from './floors.ts';
 import {
-  archiveRate, creditsOf, debugHoursFor, HOMEWORK_PROGRESS, isCommitted, MAX_DEBUG_PER_NIGHT, MAX_RANK_HOURS, nightRoom, OS_ASSIGNMENTS, paperShare, rankGain,
+  archiveRate, creditsOf, debugHoursFor, HOMEWORK_MISS_PENALTY, HOMEWORK_PROGRESS, isCommitted, MAX_DEBUG_PER_NIGHT, MAX_RANK_HOURS, nightRoom, OS_ASSIGNMENTS, paperShare, rankGain,
   PROJECT_DAY_MAX, PROJECT_FIN_PENALTY, PROJECT_FROM_DAY, PROJECT_NEED, rankPercent, RANK_SHARE, selectionProblem, SIT_LIMIT, STUCK_MULT, takes, thresholdMult, UNARCHIVED_KEPT,
   WALK_EFFORT, WRITE_HOURS,
 } from './courses.ts';
@@ -316,9 +316,10 @@ function sitExam(d: DayRun, kind: 'mid' | 'fin'): number {
   });
   let percent = result.examPercent;
   if (kind === 'fin') {
-    // The leaderboard is a share of the final exam alone, and an unfinished compiler project costs it a few points (design doc 8.3).
+    // The leaderboard is a share of the final exam alone, and an unfinished compiler project or a missed assignment costs it a few points (design doc 8.3).
     if (takes(d.ctx.courses, 'algorithms')) percent = (1 - RANK_SHARE) * percent + RANK_SHARE * rankPercent(d.s.rank);
     if (takes(d.ctx.courses, 'compiler') && d.s.project < PROJECT_NEED) percent = Math.max(0, percent - PROJECT_FIN_PENALTY);
+    percent = Math.max(0, percent - HOMEWORK_MISS_PENALTY * d.s.homework.filter((a) => a.missed).length);
   }
   return percent;
 }

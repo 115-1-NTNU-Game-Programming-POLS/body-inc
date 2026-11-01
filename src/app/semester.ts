@@ -1,5 +1,5 @@
 import {
-  advanceDay, amount, BURDEN_REWARD, burdenOf, composeReport, creditsOf, EVENTS, HOMEWORK_PROGRESS, PROJECT_FIN_PENALTY, PROJECT_NEED, PROJECT_REVIEW, RANK_FULL, RANK_SHARE, reviewPoints, PROGRESS, takes, prototypeContext, semesterInputs, startSemester, summarize, withBarbecueOn,
+  advanceDay, amount, BURDEN_REWARD, burdenOf, composeReport, creditsOf, EVENTS, HOMEWORK_MISS_PENALTY, HOMEWORK_PROGRESS, PROJECT_FIN_PENALTY, PROJECT_NEED, PROJECT_REVIEW, RANK_FULL, RANK_SHARE, reviewPoints, PROGRESS, takes, prototypeContext, semesterInputs, startSemester, summarize, withBarbecueOn,
   type FloorChoice, type FloorId, type MorningPlan, type NightPlan, type ProgressData, type ReportDocument, type Scenario, type SemesterContext, type SemesterRun, type SemesterState,
 } from '../core/index.ts';
 import { fillStr as fill, PARAMS, REPORT, str, STRINGS, TAGS } from './content.ts';
@@ -202,6 +202,8 @@ export function endSummary(state: SemesterState, ctx: SemesterContext): string[]
     if (projectDone && passed) lines.push(fill('semester.end.project.done', { points: PROJECT_REVIEW }));
     else if (!projectDone && !hospitalFinal) lines.push(fill('semester.end.project.fail', { points: PROJECT_FIN_PENALTY }));
   }
+  const missed = state.homework.filter((a) => a.missed).length;
+  if (missed > 0 && !sum.bankrupt && !hospitalFinal) lines.push(fill('semester.end.homework.missed', { missed, points: missed * HOMEWORK_MISS_PENALTY }));
   if (ctx.courses !== undefined && passed) {
     const credits = creditsOf(ctx.courses);
     const burden = burdenOf(credits);

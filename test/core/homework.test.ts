@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  advanceDay, debugHoursFor, DEBUG_PERCENT, HOMEWORK_PROGRESS, MAX_DEBUG_PER_NIGHT, OS_ASSIGNMENTS, playDay, startSemester, WRITE_HOURS,
+  advanceDay, debugHoursFor, DEBUG_PERCENT, HOMEWORK_MISS_PENALTY, HOMEWORK_PROGRESS, MAX_DEBUG_PER_NIGHT, OS_ASSIGNMENTS, playDay, startSemester, WRITE_HOURS,
   type Answer, type DayView, type SemesterContext, type SemesterState, type Strategy,
 } from '../../src/core/index.ts';
 import { contextFor } from '../../sim/semester/scenario.ts';
@@ -172,6 +172,16 @@ describe('handing in and missing', () => {
     const seen: DayView[] = [];
     play(ctx, player(() => ({}), seen), s0, 9);
     expect(seen.filter((v) => v.homework.length > 0).map((v) => [v.day, v.homework[0]!.n])).toEqual([[2, 1], [3, 1], [6, 2], [7, 2], [8, 2]]);
+  });
+
+  it('takes the penalty off the final for each assignment not handed in, and off nothing else', () => {
+    const { ctx, s0 } = open(SHORT);
+    const exam = (day: number, missed: number): SemesterState =>
+      playDay({ ...s0, day, progress: 30, homework: s0.homework.map((a, i) => ({ ...a, missed: i < missed })) }, ctx, player());
+    expect(HOMEWORK_MISS_PENALTY).toBeGreaterThan(0);
+    expect(exam(10, 0).fin! - exam(10, 1).fin!).toBeCloseTo(HOMEWORK_MISS_PENALTY, 9);
+    expect(exam(10, 0).fin! - exam(10, 2).fin!).toBeCloseTo(2 * HOMEWORK_MISS_PENALTY, 9);
+    expect(exam(5, 0).mid).toBe(exam(5, 2).mid);
   });
 });
 
