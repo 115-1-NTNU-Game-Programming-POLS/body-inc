@@ -581,7 +581,7 @@
     "semester.walk.none": { "text": "照坐", "fact": "" },
     "semester.walk.none.note": { "text": "不中斷，坐滿 {limit} 小時後效率會掉。", "fact": "" },
     "semester.walk.take": { "text": "坐滿 {limit} 小時就起來走走", "fact": "" },
-    "semester.walk.take.note": { "text": "起來走 15 分鐘，那一小時只算四分之三，久坐的計時歸零。", "fact": "" },
+    "semester.walk.take.note": { "text": "起來走 15 分鐘，那一小時只算四分之三，久坐的計時歸零；深夜讀書時也一樣。", "fact": "" },
     "semester.end.project.done": { "text": "期末專案完成，年終評價點數另加 {points}", "fact": "" },
     "semester.end.project.fail": { "text": "期末專案沒完成，期末考扣 {points}%", "fact": "" },
     "semester.end.homework.missed": { "text": "作業有 {missed} 份沒交，期末考扣 {points}%", "fact": "" },

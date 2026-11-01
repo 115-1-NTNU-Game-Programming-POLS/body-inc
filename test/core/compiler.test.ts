@@ -68,6 +68,22 @@ describe('the stuck point of sitting at the desk (design doc 8.3)', () => {
     expect(SIT_LIMIT).toBe(3);
   });
 
+  it('reaches the late-night study, where a planned walk costs a quarter of an hour as it does by day (issue 50)', () => {
+    // Day 3 sits at the desk through the evening, so the late hours begin at the stuck point.
+    const lateGain = (courses: readonly string[], walk: boolean): number => {
+      const ctx = ctxFor(courses);
+      const play = (late: boolean): number =>
+        studied(playDay({ ...startSemester(ctx, 1), day: 3 }, ctx, { ...player({ walk }), night: () => ({ bed: 25, nextWake: 7, lateNight: late ? 'study' : 'rest' }) }));
+      return play(true) - play(false);
+    };
+    const plain = lateGain(WITHOUT, false);
+    const stuck = lateGain(WITH, false);
+    const walked = lateGain(WITH, true);
+    expect(stuck).toBeLessThan(plain * 0.5);
+    expect(walked).toBeGreaterThan(plain * 0.9);
+    expect(walked).toBeLessThan(plain);
+  });
+
   it('refuses a walk without the card, which has no stuck point', () => {
     expect(() => day(ctxFor(WITHOUT), free, { walk: true })).toThrow(RangeError);
     expect(() => day(ctxFor(), free, { walk: true })).toThrow(RangeError);
