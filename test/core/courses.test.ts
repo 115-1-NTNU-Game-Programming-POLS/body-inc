@@ -40,11 +40,12 @@ describe('the course selection (design doc 8.3)', () => {
     expect(reviewPoints(80, 9)).toBe(80);
   });
 
-  it('moves the exam thresholds 8% a credit around the 12 they are tuned for', () => {
+  it('moves the exam thresholds 8% a credit below the 12 they are tuned for and 4% a credit above', () => {
     expect(thresholdMult(12)).toBe(1);
     expect(thresholdMult(9)).toBeCloseTo(0.76);
-    expect(thresholdMult(13)).toBeCloseTo(1.08);
-    expect(thresholdMult(22)).toBeCloseTo(1.8);
+    expect(thresholdMult(13)).toBeCloseTo(1.04);
+    expect(thresholdMult(16)).toBeCloseTo(1.16);
+    expect(thresholdMult(22)).toBeCloseTo(1.4);
   });
 
   it('takes the TA office hours on the afternoon of days 2 and 8 only when the course is taken', () => {
