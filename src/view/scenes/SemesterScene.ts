@@ -8,7 +8,7 @@ import { fillStr, REPORT, str } from '../../app/content.ts';
 import { keepPage } from '../../app/handbook.ts';
 import type { SaveStore } from '../../app/storage.ts';
 import {
-  advanceDay, buildWall, MAX_DEBUG_PER_NIGHT, pinWall, reviewWall, RUN, WRITE_HOURS, type Answer, type Ask, type ChapterContent, type DayView, type FloorId, type HomeworkView, type ProgressData, type ReportDocument, type RunData,
+  advanceDay, buildWall, MAX_DEBUG_PER_NIGHT, MAX_RANK_HOURS, nightRoom, PROJECT_DAY_MAX, pinWall, rankGain, RANK_FULL, RANK_SHARE, reviewWall, RUN, WRITE_HOURS, type Answer, type Ask, type ChapterContent, type DayView, type FloorId, type HomeworkView, type ProgressData, type ReportDocument, type RunData,
   type SemesterContext, type SemesterRun, type SemesterState, type Settings, type Wall,
 } from '../../core/index.ts';
 import { WALL_CHAPTER, wallLoop, type WallSession } from '../../app/wall.ts';
@@ -254,9 +254,34 @@ export class SemesterScene extends Phaser.Scene {
     this.cards(ids.map((id) => ({ label: str(`semester.rest.${id}`), note: str(`semester.rest.${id}.note`) })), str('semester.rest.title'), undefined, (i) => {
       const rest = ids[i]!;
       const writing = view.homework.find((h) => h.written < WRITE_HOURS);
-      if (writing === undefined) return this.answer({ kind: 'plan', plan: morningPlan(coffee, rest) });
-      this.askWrite(writing, (hours) => this.answer({ kind: 'plan', plan: morningPlan(coffee, rest, hours) }));
+      // The assignment, the compiler project and the walk are asked in turn, each only when the day has it.
+      const afterWrite = (write: number): void => {
+        if (view.project === undefined) return this.answer({ kind: 'plan', plan: morningPlan(coffee, rest, write) });
+        const askWalk = (project: number): void => this.askWalk((walk) => this.answer({ kind: 'plan', plan: morningPlan(coffee, rest, write, project, walk) }));
+        if (!view.project.open) return askWalk(0);
+        this.askProject(view.project, askWalk);
+      };
+      if (writing === undefined) return afterWrite(0);
+      this.askWrite(writing, afterWrite);
     });
+  }
+
+  private askProject(project: NonNullable<DayView['project']>, done: (hours: number) => void): void {
+    const hours = Array.from({ length: PROJECT_DAY_MAX + 1 }, (_, n) => n);
+    const labels = hours.map((n) => (n === 0
+      ? { label: str('semester.project.none'), note: str('semester.project.none.note') }
+      : { label: fillStr('semester.project.hours', { hours: n }), note: fillStr('semester.project.hours.note', { hours: n }) }));
+    this.cards(labels, str('semester.project.title'), fillStr('semester.project.caption', { done: project.done.toFixed(1), need: project.need }), (i) => done(hours[i]!));
+  }
+
+  private askWalk(done: (walk: boolean) => void): void {
+    this.cards(
+      [
+        { label: str('semester.walk.none'), note: str('semester.walk.none.note') },
+        { label: str('semester.walk.take'), note: str('semester.walk.take.note') },
+      ],
+      str('semester.walk.title'), str('semester.walk.caption'), (i) => done(i === 1),
+    );
   }
 
   /** How many of the hours the assignment still needs to write go to it today. */
@@ -312,15 +337,32 @@ export class SemesterScene extends Phaser.Scene {
     const title = str(view.examTomorrow ? 'semester.night.exam.title' : 'semester.night.title');
     this.cards(ids.map((id) => ({ label: str(`semester.night.${id}`), note: str(`semester.night.${id}.note`) })), title, undefined, (i) => {
       const bed = ids[i]!;
-      // Debugging is asked once the writing is done, which is also when its length is told (design doc 8.3).
+      // Debugging is asked once the writing is done, which is also when its length is told (design doc 8.3); the contest follows on its nights.
       const debugging = view.homework.find((h) => h.debug !== undefined);
-      if (debugging?.debug === undefined) return this.answer({ kind: 'night', plan: nightPlan(bed) });
-      this.askDebug(debugging, debugging.debug, (hours) => this.answer({ kind: 'night', plan: nightPlan(bed, hours) }));
+      // Both only offer the hours that still fit before the clock stops (nightRoom), so a card never promises a delay the night cannot give.
+      const room = (spent: number): number => nightRoom(this.ctx.params, NIGHT_PLANS[bed].bed, view.bedDelay + spent);
+      const finish = (debug: number): void => {
+        const most = Math.min(MAX_RANK_HOURS, room(debug));
+        if (!view.rank?.open || most === 0) return this.answer({ kind: 'night', plan: nightPlan(bed, debug) });
+        this.askRank(view, most, (hours) => this.answer({ kind: 'night', plan: nightPlan(bed, debug, hours) }));
+      };
+      const most = debugging?.debug === undefined ? 0 : Math.min(MAX_DEBUG_PER_NIGHT, debugging.debug - debugging.debugged, room(0));
+      if (debugging?.debug === undefined || most === 0) return finish(0);
+      this.askDebug(debugging, debugging.debug, most, finish);
     });
   }
 
-  private askDebug(hw: HomeworkView, total: number, done: (hours: number) => void): void {
-    const hours = Array.from({ length: Math.min(MAX_DEBUG_PER_NIGHT, total - hw.debugged) + 1 }, (_, n) => n);
+  private askRank(view: DayView, most: number, done: (hours: number) => void): void {
+    const hours = Array.from({ length: most + 1 }, (_, n) => n);
+    const labels = hours.map((n) => (n === 0
+      ? { label: str('semester.rank.none'), note: str('semester.rank.none.note') }
+      : { label: fillStr('semester.rank.hours', { hours: n }), note: fillStr('semester.rank.hours.note', { hours: n, gain: rankGain(n, view.S).toFixed(1) }) }));
+    const caption = fillStr('semester.rank.caption', { score: (view.rank?.score ?? 0).toFixed(1), full: RANK_FULL, share: Math.round(RANK_SHARE * 100) });
+    this.cards(labels, str('semester.rank.title'), caption, (i) => done(hours[i]!));
+  }
+
+  private askDebug(hw: HomeworkView, total: number, most: number, done: (hours: number) => void): void {
+    const hours = Array.from({ length: most + 1 }, (_, n) => n);
     const labels = hours.map((n) => (n === 0
       ? { label: str('semester.debug.none'), note: str('semester.debug.none.note') }
       : { label: fillStr('semester.debug.hours', { hours: n }), note: fillStr('semester.debug.hours.note', { hours: n }) }));

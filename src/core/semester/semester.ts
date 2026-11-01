@@ -7,7 +7,11 @@ import { addCauses, record, type NodeData, type SourceNodeKind } from '../tags/c
 import type { TagDictionary } from '../tags/dictionary.ts';
 import { addAmount, amount, EMPTY_TAGS, flag, holds, lowerAmount, onWake, setAmount, setFlag, type TagState } from '../tags/store.ts';
 import { EMPTY_LOADS, elevatorPanel, FLOORS, lightOf, litFloors, mapFloors, type FloorId } from './floors.ts';
-import { archiveRate, creditsOf, debugHoursFor, HOMEWORK_PROGRESS, paperShare, UNARCHIVED_KEPT, isCommitted, MAX_DEBUG_PER_NIGHT, OS_ASSIGNMENTS, selectionProblem, thresholdMult, WRITE_HOURS } from './courses.ts';
+import {
+  archiveRate, creditsOf, debugHoursFor, HOMEWORK_PROGRESS, isCommitted, MAX_DEBUG_PER_NIGHT, MAX_RANK_HOURS, nightRoom, OS_ASSIGNMENTS, paperShare, rankGain,
+  PROJECT_DAY_MAX, PROJECT_FIN_PENALTY, PROJECT_FROM_DAY, PROJECT_NEED, rankPercent, RANK_SHARE, selectionProblem, SIT_LIMIT, STUCK_MULT, takes, thresholdMult, UNARCHIVED_KEPT,
+  WALK_EFFORT, WRITE_HOURS,
+} from './courses.ts';
 import { liverClues, liverStrikes } from './liver.ts';
 import { contributions, nextLoad, strikes, type DayFacts } from './load.ts';
 import { examPerformance, gradeFor } from './rating.ts';
@@ -85,7 +89,7 @@ export function startSemester(ctx: SemesterContext, seed: number): SemesterState
     }
   }
   return {
-    day: 1, wake: ctx.params.wake, tags, progress: 0, staging: 0, loads: EMPTY_LOADS, loadCauses: mapFloors(() => []), cupsHist: [], zeroCupDays: 0, liverOrders: [],
+    day: 1, wake: ctx.params.wake, tags, progress: 0, staging: 0, rank: 0, project: 0, loads: EMPTY_LOADS, loadCauses: mapFloors(() => []), cupsHist: [], zeroCupDays: 0, liverOrders: [],
     hospitals: 0, homework, bankrupt: false, rng, history: [], ended: false,
   };
 }
@@ -105,7 +109,7 @@ function homeworkDelta(before: readonly Assignment[], after: readonly Assignment
   });
 }
 
-type Activity = 'study' | 'rest' | 'class' | 'meal' | 'exam' | 'work';
+type Activity = 'study' | 'rest' | 'class' | 'meal' | 'exam' | 'work' | 'project';
 
 /** One day in progress: the state it is rebuilding and what the day has done so far. */
 interface DayRun {
@@ -127,7 +131,15 @@ interface DayRun {
   /** Hours of the day still to be spent writing the assignment at index `writeIdx` of the state. */
   writeLeft: number;
   writeIdx: number;
+  /** Hours of the day still to go to the compiler project, the hours it got, and whether a walk breaks up the sitting. */
+  projectLeft: number;
+  projectHours: number;
+  walk: boolean;
+  /** Hours sat at the desk in a row. */
+  sit: number;
   bedDelay: number;
+  /** What an overtime patrol pushes bedtime back, known once the patrol is chosen. */
+  overtimeDelay: number;
   studyHours: number;
   /** Hours between the end of the evening and bedtime spent studying. */
   lateStudy: number;
@@ -140,9 +152,17 @@ interface DayRun {
 const examOn = (day: number, ctx: SemesterContext): 'mid' | 'fin' | null =>
   day === ctx.params.midDay ? 'mid' : day === ctx.params.finDay ? 'fin' : null;
 
+/**
+ * Whether the leaderboard contest is open tonight (design doc 8.3): the nights between the midterm and the final, never on a
+ * hospital day. Undefined when the algorithms card is not taken.
+ */
+const rankOpen = (ctx: SemesterContext, s: SemesterState): boolean | undefined =>
+  takes(ctx.courses, 'algorithms') ? s.day > ctx.params.midDay && s.day < ctx.params.finDay && s.hospitalDay !== s.day : undefined;
+
 function viewOf(d: DayRun): DayView {
   const { ctx, s } = d;
   const k = ctx.params;
+  const open = rankOpen(ctx, s);
   return {
     day: s.day,
     wake: s.wake,
@@ -154,6 +174,7 @@ function viewOf(d: DayRun): DayView {
     caffeine: caffeineOf(s.tags, ctx.dict),
     progress: s.progress,
     staging: s.staging,
+    bedDelay: d.bedDelay + d.overtimeDelay,
     hospitals: s.hospitals,
     panel: elevatorPanel(d.morningLoads, k),
     liverClues: liverClues(d.morningLoads.liver, s.liverOrders, k),
@@ -161,6 +182,10 @@ function viewOf(d: DayRun): DayView {
     homework: workable(s).map(({ a, i }) => ({
       n: i + 1, due: a.due, written: a.written, debugged: a.debugged, ...(a.written >= WRITE_HOURS ? { debug: a.debug } : {}),
     })),
+    ...(open === undefined ? {} : { rank: { score: s.rank, open } }),
+    ...(takes(ctx.courses, 'compiler')
+      ? { project: { done: s.project, need: PROJECT_NEED, open: s.day >= PROJECT_FROM_DAY && s.day < k.finDay && s.project < PROJECT_NEED && s.hospitalDay !== s.day } }
+      : {}),
   };
 }
 
@@ -225,23 +250,53 @@ function activityAt(d: DayRun, h: number, rest: ReadonlySet<number>): Activity {
     d.s = withAssignment(d.s, d.writeIdx, { written: d.s.homework[d.writeIdx]!.written + 1 });
     return 'work';
   }
+  if (d.projectLeft > 0 && !rest.has(h)) {
+    d.projectLeft -= 1;
+    return 'project';
+  }
   return rest.has(h) ? 'rest' : 'study';
 }
 
 /** Spends `dur` hours on an activity; only study moves the semester's progress, the paper-exam part of it into the staging pile. */
-function spend(d: DayRun, dur: number, activity: Activity): void {
+function spend(d: DayRun, dur: number, activity: Activity, effort = 1): void {
   const { dict, params: k } = d.ctx;
-  let { tags, progress, staging } = d.s;
-  if (activity === 'study') {
+  let { tags, progress, staging, project } = d.s;
+  if (activity === 'study' || activity === 'project') {
     const boost = caffeineBoost(caffeineOf(tags, dict), flag(tags, dict, 'caffeine_tolerant'), k);
     const efficiency = d.S * boost * (flag(tags, dict, 'withdrawal') ? k.withdrawal : 1) * (d.brainStrike ? k.floorStrikeStudyMult : 1);
-    const gain = efficiency * dur;
-    progress += gain * (1 - d.paper);
-    staging += gain * d.paper;
-    d.studyHours += dur;
+    const gain = efficiency * dur * effort;
+    if (activity === 'project') {
+      project += gain;
+      d.projectHours += dur;
+    } else {
+      progress += gain * (1 - d.paper);
+      staging += gain * d.paper;
+      d.studyHours += dur;
+    }
   }
   tags = metabolise(tags, dict, Math.round(dur * 60), k);
-  d.s = { ...d.s, tags, progress, staging };
+  d.s = { ...d.s, tags, progress, staging, project };
+}
+
+/**
+ * What the desk does to the next `dur` hours: with the compiler card, a long unbroken sit leaves the stuck point's 0.3, and a
+ * planned walk before the fourth hour clears it at the price of a quarter of that hour (design doc 8.3). Anything but study
+ * or the project at the desk ends the sit.
+ */
+function sitting(d: DayRun, activity: Activity, dur: number, walkAllowed: boolean): number {
+  if (!takes(d.ctx.courses, 'compiler')) return 1;
+  if (activity !== 'study' && activity !== 'project') {
+    d.sit = 0;
+    return 1;
+  }
+  let effort = 1;
+  if (walkAllowed && d.walk && d.sit >= SIT_LIMIT) {
+    d.sit = 0;
+    effort = WALK_EFFORT;
+  }
+  if (d.sit >= SIT_LIMIT) effort *= STUCK_MULT;
+  d.sit += dur;
+  return effort;
 }
 
 function drinkCup(d: DayRun, h: number): void {
@@ -259,7 +314,13 @@ function sitExam(d: DayRun, kind: 'mid' | 'fin'): number {
   const result = scoreExam({
     kind: 'regular', progress: d.s.progress, sExamDay: d.S, passThreshold: threshold, ...examPerformance(d.ctx.skill, roll(d), k),
   });
-  return result.examPercent;
+  let percent = result.examPercent;
+  if (kind === 'fin') {
+    // The leaderboard is a share of the final exam alone, and an unfinished compiler project costs it a few points (design doc 8.3).
+    if (takes(d.ctx.courses, 'algorithms')) percent = (1 - RANK_SHARE) * percent + RANK_SHARE * rankPercent(d.s.rank);
+    if (takes(d.ctx.courses, 'compiler') && d.s.project < PROJECT_NEED) percent = Math.max(0, percent - PROJECT_FIN_PENALTY);
+  }
+  return percent;
 }
 
 function patrol(d: DayRun, floor: FloorId, overtime: boolean): PatrolRecord {
@@ -446,7 +507,7 @@ export function playDay(from: SemesterState, ctx: SemesterContext, strategy: Str
   const debt = amount(s0.tags, dict, 'sleep_debt');
   const d: DayRun = {
     s: s0, ctx, strategy, exam, S: sleepFactor(debt, k), brainStrike: strikes('brain', s0.loads.brain, k), paper: ctx.courses === undefined ? 0 : paperShare(ctx.courses), morningLoads: s0.loads,
-    cups: 0, alcoholCups: 0, fasting: false, deadline: false, lateSnack: false, workLeft: 0, writeLeft: 0, writeIdx: -1, bedDelay: 0, studyHours: 0, lateStudy: 0,
+    cups: 0, alcoholCups: 0, fasting: false, deadline: false, lateSnack: false, workLeft: 0, writeLeft: 0, writeIdx: -1, projectLeft: 0, projectHours: 0, walk: false, sit: 0, bedDelay: 0, overtimeDelay: 0, studyHours: 0, lateStudy: 0,
     evidence: { brain: [], stomach: [], liver: [] },
     pending: hospitalDay ? [] : (ctx.scenario[day] ?? []).map((id) => ctx.events.get(id)!).sort((a, b) => a.hour - b.hour),
     played: [],
@@ -487,6 +548,14 @@ export function playDay(from: SemesterState, ctx: SemesterContext, strategy: Str
   }
   d.writeLeft = writeAsked;
   d.writeIdx = toWrite?.i ?? -1;
+  const projectAsked = plan.project ?? 0;
+  const projectOpen = view0.project?.open === true;
+  if (!Number.isInteger(projectAsked) || projectAsked < 0 || projectAsked > PROJECT_DAY_MAX || (projectAsked > 0 && !projectOpen)) {
+    throw new RangeError(`${projectAsked} hours of the project were planned and the day can take 0 to ${projectOpen ? PROJECT_DAY_MAX : 0}`);
+  }
+  if (plan.walk === true && view0.project === undefined) throw new RangeError('a walk was planned, and only the compiler card has a stuck point to walk away from');
+  d.projectLeft = projectAsked;
+  d.walk = plan.walk === true;
   // The first cup-free day of a tolerant drinker is the withdrawal day (design doc 9.1).
   if (!hospitalDay && flag(d.s.tags, dict, 'caffeine_tolerant') && coffee.size === 0 && d.s.zeroCupDays === 0) {
     const at = minuteOf(day, d.s.wake);
@@ -501,7 +570,8 @@ export function playDay(from: SemesterState, ctx: SemesterContext, strategy: Str
     }
     applyEvents(d, h);
     if (coffee.has(h)) drinkCup(d, h);
-    spend(d, 1, activityAt(d, h, rest));
+    const activity = activityAt(d, h, rest);
+    spend(d, 1, activity, sitting(d, activity, 1, true));
   }
   // An event between two whole hours before 22:00 is still due when the evening begins.
   if (!hospitalDay) applyEvents(d, k.bedMin, true);
@@ -514,6 +584,7 @@ export function playDay(from: SemesterState, ctx: SemesterContext, strategy: Str
     if (choice.overtime !== undefined) {
       if (choice.overtime === choice.patrol) throw new RangeError('an overtime patrol must be on a second floor');
       patrols.push(patrol(d, choice.overtime, true));
+      d.overtimeDelay = k.overtimeBedDelay;
     }
   }
 
@@ -525,7 +596,6 @@ export function playDay(from: SemesterState, ctx: SemesterContext, strategy: Str
   if (24 + night.nextWake < bedBase) throw new RangeError(`a plan to wake at ${night.nextWake} wakes before the planned bedtime ${bedBase}`);
   const sleptIn = Math.min(night.nextWake, k.wakeCap);
   const nextWake = examOn(day + 1, ctx) !== null ? Math.min(sleptIn, k.examWake) : sleptIn;
-  const overtimeDelay = patrols.some((p) => p.overtime) ? k.overtimeBedDelay : 0;
   // Debugging comes after the planned bedtime and pushes it back, as far as the clock goes; the hours that fit are the ones it counts.
   const debugAsked = night.debug ?? 0;
   const toDebug = workable(d.s).find(({ a }) => a.written >= WRITE_HOURS);
@@ -533,22 +603,36 @@ export function playDay(from: SemesterState, ctx: SemesterContext, strategy: Str
     throw new RangeError(`${debugAsked} hours of debugging were planned and the night can take 0 to ${toDebug === undefined ? 0 : MAX_DEBUG_PER_NIGHT}`);
   }
   if (toDebug !== undefined && debugAsked > 0) {
-    const room = Math.max(0, Math.floor(k.bedMax + k.bedOverrun - (bedBase + d.bedDelay + overtimeDelay)));
-    const spent = Math.min(debugAsked, toDebug.a.debug - toDebug.a.debugged, room);
+    const spent = Math.min(debugAsked, toDebug.a.debug - toDebug.a.debugged, nightRoom(k, bedBase, d.bedDelay + d.overtimeDelay));
     const debugged = toDebug.a.debugged + spent;
     const done = debugged >= toDebug.a.debug;
     d.bedDelay += spent;
     d.s = withAssignment(d.s, toDebug.i, { debugged, done });
     if (done && spent > 0) d.s = { ...d.s, progress: d.s.progress + HOMEWORK_PROGRESS };
   }
-  const bedEndAt = (): number => Math.min(bedBase + d.bedDelay + overtimeDelay, k.bedMax + k.bedOverrun);
+  // The contest comes after the debugging and pushes bedtime the same way; the first hour of a night is worth the most.
+  const rankAsked = night.rank ?? 0;
+  const contestOpen = rankOpen(ctx, d.s) === true;
+  if (!Number.isInteger(rankAsked) || rankAsked < 0 || rankAsked > MAX_RANK_HOURS || (rankAsked > 0 && !contestOpen)) {
+    throw new RangeError(`${rankAsked} hours of the contest were planned and the night can take 0 to ${contestOpen ? MAX_RANK_HOURS : 0}`);
+  }
+  let rankDone: DayRecord['rank'];
+  if (rankAsked > 0) {
+    const hours = Math.min(rankAsked, nightRoom(k, bedBase, d.bedDelay + d.overtimeDelay));
+    const gain = rankGain(hours, d.S);
+    d.bedDelay += hours;
+    d.s = { ...d.s, rank: d.s.rank + gain };
+    if (hours > 0) rankDone = { hours, gain };
+  }
+  const bedEndAt = (): number => Math.min(bedBase + d.bedDelay + d.overtimeDelay, k.bedMax + k.bedOverrun);
   for (let t = k.bedMin; ; t += STEP) {
     // Once bedtime has come, an event strictly before it is still due, and it may push bedtime back.
     if (!hospitalDay) applyEvents(d, t, t >= bedEndAt());
     if (t >= bedEndAt()) break;
     const late = t < bedBase && night.lateNight === 'study';
     if (late) d.lateStudy += STEP;
-    spend(d, STEP, late ? 'study' : 'rest');
+    const activity = late ? 'study' : 'rest';
+    spend(d, STEP, activity, sitting(d, activity, STEP, false));
   }
 
   const bedEnd = Math.max(bedEndAt(), k.bedMin);
@@ -560,7 +644,9 @@ export function playDay(from: SemesterState, ctx: SemesterContext, strategy: Str
     bedEnd,
     kind: hospitalDay ? 'hospital' : exam !== null ? 'exam' : 'normal',
     settled: true,
-    patrols, events: d.played, loadsAfter: d.s.loads, studyHours: d.studyHours, homework: homeworkDelta(from.homework, d.s.homework), ...outcome,
+    patrols, events: d.played, loadsAfter: d.s.loads, studyHours: d.studyHours, homework: homeworkDelta(from.homework, d.s.homework), ...(rankDone ? { rank: rankDone } : {}),
+    ...(d.projectHours > 0 ? { project: { hours: d.projectHours, gain: d.s.project - from.project, done: from.project < PROJECT_NEED && d.s.project >= PROJECT_NEED } } : {}),
+    ...outcome,
   };
   const ended = d.s.bankrupt;
   return { ...d.s, history: [...d.s.history, rec], ended, ...(ended ? { fin: d.s.fin ?? 0 } : {}) };

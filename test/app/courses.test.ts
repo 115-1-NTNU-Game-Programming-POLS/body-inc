@@ -49,8 +49,9 @@ describe('the courses of a saved semester', () => {
     expect(outcomes.some((o) => !o.passed)).toBe(true);
     for (const o of outcomes) expect(o.review, JSON.stringify(o)).toHaveLength(o.passed ? 1 : 0);
     for (const o of outcomes.filter((x) => x.passed)) expect(o.review).toEqual([reviewLine('light', o.grade)]);
-    // At 13 credits the burden is standard and the points are the grade times its reward; at 9 the reward is 1 and a missing factor would not show.
-    const full = newSemester(TUTORIAL_SEED, undefined, ['algorithms', 'os', 'database', 'compiler', 'ta']).ctx;
+    // At 15 credits the burden is standard and the points are the grade times its reward; at 9 the reward is 1 and a missing factor would not show.
+    // No algorithms or compiler card, whose leaderboard and project the sim strategies never play, so some of them still pass.
+    const full = newSemester(TUTORIAL_SEED, undefined, ['os', 'database', 'networks', 'software', 'capstone']).ctx;
     const heavier = Object.values(ARCHETYPES).flatMap((strategy) => {
       const end = runSemester(full, strategy, TUTORIAL_SEED);
       const sum = summarize(end, full);

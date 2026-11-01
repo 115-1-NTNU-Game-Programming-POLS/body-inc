@@ -82,6 +82,9 @@ const COMMITMENTS: Readonly<Record<string, readonly Commitment[]>> = {
   ta: [{ day: 2, hours: [16, 17] }, { day: 8, hours: [16, 17] }],
 };
 
+/** Whether the semester took the card `id`; a context without a course list (the old sims) takes none. */
+export const takes = (courses: readonly string[] | undefined, id: string): boolean => courses?.includes(id) === true;
+
 /** Whether a course takes hour `h` of `day`; the day's loop asks every hour, so this allocates nothing. */
 export const isCommitted = (courses: readonly string[], day: number, h: number): boolean =>
   courses.some((id) => (COMMITMENTS[id] ?? []).some((c) => c.day === day && c.hours.includes(h)));
@@ -141,5 +144,50 @@ export const UNARCHIVED_KEPT = 0.5;
 
 export const archiveRate = (effectiveSleep: number): number => Math.min(1, effectiveSleep / ARCHIVE_SLEEP);
 
-/** A passed semester's review: the grade times the reward of its burden. */
-export const reviewPoints = (grade: number, credits: number): number => grade * BURDEN_REWARD[burdenOf(credits)];
+/**
+ * The whole hours a night can still push bedtime back from `bed`, given the `delay` already taken, before the extended clock
+ * stops. Debugging and the contest both spend them, and the cards offer no more than this.
+ */
+export const nightRoom = (k: { readonly bedMax: number; readonly bedOverrun: number }, bed: number, delay: number): number =>
+  Math.max(0, Math.floor(k.bedMax + k.bedOverrun - (bed + delay)));
+
+/**
+ * The compiler card's final project (design doc 8.3). The design fixes the deadline (day 9), the +10 year-end review points
+ * for finishing and the -8 on the final exam percent otherwise; the rest is ASSUME until the re-simulation of design doc 9.6:
+ * it opens on day 3, needs 10 units of study-efficiency hours, and a day can give it 4 hours.
+ */
+export const PROJECT_FROM_DAY = 3;
+export const PROJECT_NEED = 10;
+export const PROJECT_DAY_MAX = 4;
+export const PROJECT_REVIEW = 10;
+export const PROJECT_FIN_PENALTY = 8;
+
+/**
+ * Sitting at the desk (design doc 8.3): from the hour after this many in a row, the stuck point of a compiler assignment
+ * cuts the efficiency to 0.3. A walk of 15 minutes clears the count and the hour it falls in is worth three quarters.
+ * ASSUME: the stuck point is met by any long sit while the card is taken, since study is not yet chosen per card.
+ */
+export const SIT_LIMIT = 3;
+export const STUCK_MULT = 0.3;
+export const WALK_EFFORT = 0.75;
+
+/** Score that fills the board, the first hour's score at S = 1, how much each further hour of the same night keeps, and the most hours a night. */
+export const RANK_FULL = 60;
+export const RANK_FIRST = 10;
+export const RANK_DECAY = 0.6;
+export const MAX_RANK_HOURS = 4;
+/** The share of the final exam percent the board is worth. */
+export const RANK_SHARE = 0.3;
+
+/** The score `hours` of one night add: 10, 6, 3.6, 2.16 times that day's S for the hours in turn. */
+export function rankGain(hours: number, S: number): number {
+  let gain = 0;
+  for (let h = 0; h < hours; h++) gain += RANK_FIRST * S * RANK_DECAY ** h;
+  return gain;
+}
+
+/** The board as a percent of full marks, which is what the final exam takes its share from. */
+export const rankPercent = (score: number): number => 100 * Math.min(1, score / RANK_FULL);
+
+/** A passed semester's review: the grade times the reward of its burden, plus a flat `bonus` such as the final project's. */
+export const reviewPoints = (grade: number, credits: number, bonus = 0): number => grade * BURDEN_REWARD[burdenOf(credits)] + bonus;

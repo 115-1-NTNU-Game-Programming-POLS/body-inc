@@ -262,7 +262,7 @@ const ANSWER: Schema = {
           type: 'object',
           additionalProperties: false,
           required: ['coffee', 'rest'],
-          properties: { coffee: { type: 'array', items: INT }, rest: { type: 'array', items: INT }, write: INT },
+          properties: { coffee: { type: 'array', items: INT }, rest: { type: 'array', items: INT }, write: INT, project: INT, walk: { type: 'boolean' } },
         },
       },
     },
@@ -286,7 +286,7 @@ const ANSWER: Schema = {
           type: 'object',
           additionalProperties: false,
           required: ['bed', 'nextWake', 'lateNight'],
-          properties: { bed: { type: 'number' }, nextWake: INT, lateNight: { enum: ['study', 'rest'] }, debug: INT },
+          properties: { bed: { type: 'number' }, nextWake: INT, lateNight: { enum: ['study', 'rest'] }, debug: INT, rank: INT },
         },
       },
     },
@@ -295,7 +295,7 @@ const ANSWER: Schema = {
 
 export const RUN: SlotDef<RunData> = {
   name: 'run',
-  version: 3,
+  version: 5,
   schema: {
     type: 'object',
     additionalProperties: false,
@@ -319,8 +319,8 @@ export const RUN: SlotDef<RunData> = {
     },
   },
   defaults: () => ({ semester: null }),
-  // Versions 2 and 3 add optional fields (the course list; the hours of writing and debugging); an older run is valid without them.
-  migrations: { 1: (data) => data, 2: (data) => data },
+  // Versions 2 to 5 add optional fields (the course list; the hours of writing and debugging; the contest hours; the project hours and the walk); an older run is valid without them.
+  migrations: { 1: (data) => data, 2: (data) => data, 3: (data) => data, 4: (data) => data },
 };
 
 export const SLOTS = [SETTINGS, STORY, PROGRESS, RUN] as const;
