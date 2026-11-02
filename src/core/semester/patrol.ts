@@ -9,13 +9,12 @@ export type PatrolResult = { readonly grade: Grade; readonly records?: number } 
 
 export const isFailed = (r: PatrolResult): r is { readonly failed: true } => 'failed' in r;
 
-/** The most hits a patrol can take and still earn the rating for few hits. ASSUME: set by the first playtest, see "巡視的評等" in docs/design-doc.md. */
+/** The most hits a patrol can take and still earn the rating for few hits. ASSUME: set by the first playtest, see the "第一版的做法" paragraph of 8.5 in docs/design-doc.md. */
 export const HITS_FOR_A = 2;
 
 export interface PatrolTally {
   readonly hits: number;
   readonly forced: boolean;
-  /** Perfect dodges made. */
   readonly records: number;
 }
 
@@ -38,7 +37,6 @@ export function tallyPatrol(tally: PatrolTally, events: readonly { readonly type
 export interface PatrolGoals {
   /** The core room's goal, which design doc 8.5 makes necessary for anything above C. */
   readonly core: boolean;
-  /** The side goal of the floor. */
   readonly side: boolean;
 }
 

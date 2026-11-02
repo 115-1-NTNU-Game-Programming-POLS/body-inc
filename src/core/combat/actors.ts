@@ -87,7 +87,7 @@ export const isHittable = (e: EnemyState): boolean =>
 /** A binding pin holds an enemy completely; hit-stop writes the same `frozen` and holds less. */
 export const isBound = (e: EnemyState): boolean => e.frozen > 0 && (e.pin ?? 0) > 0;
 
-export const enemyHurtbox =(e: EnemyState): Box => boxAt(e.boss ? BOSS_HURT : ENEMY_HURT, e.x, e.y);
+export const enemyHurtbox = (e: EnemyState): Box => boxAt(e.boss ? BOSS_HURT : ENEMY_HURT, e.x, e.y);
 
 /** Middle of the hurtbox: soft lock aims here. */
 export const enemyCenter = (e: EnemyState): Vec => ({ x: e.x, y: e.y - (e.boss ? BOSS_HURT : ENEMY_HURT).height / 2 });

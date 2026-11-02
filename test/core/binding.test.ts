@@ -186,6 +186,19 @@ describe('裝訂大師: a hit on a bound enemy chips the ones beside it', () => 
     expect(ofType(r, 'bound').every((e) => e.target === 1)).toBe(true);
     expect(r.state.enemies[1]!.pin).toBeUndefined();
   });
+
+  it('keeps a neighbour the swing also covers whole: the splash is neither overwritten nor counted twice', () => {
+    // The pinned dummy is first in id order, so its splash lands before the swing reaches the one beside it.
+    const swing = (hpBeside: number) => {
+      const g = createGame(room([{ type: 'dummy', x: START.x + 20, y: START.y }, { type: 'dummy', x: START.x + 20, y: START.y + 4 }]), 1, TABLE, { tool: 'folder', perks: { ...BASE_PERKS, bindSplash: 1 } });
+      const enemies = g.enemies.map((e) => (e.id === 1 ? { ...e, hp: 40, maxHp: 40, frozen: 60, pin: 60 } : { ...e, hp: hpBeside, maxHp: hpBeside }));
+      return run({ ...g, operator: { ...g.operator, aim: RIGHT }, enemies }, 20, (t) => press({ attack: t === 0, attackPressed: t === 0 }));
+    };
+    expect(swing(4).state.enemies[1]!.hp).toBe(4 - 1 - FOLDER.damage[0]!);
+    const closing = swing(1);
+    expect(ofType(closing, 'caseClosed').filter((e) => e.target === 2)).toHaveLength(1);
+    expect(ofType(closing, 'hit').filter((e) => e.target === 2)).toHaveLength(0);
+  });
 });
 
 describe('公文回收: a parried sheet that lands binds the flyer', () => {

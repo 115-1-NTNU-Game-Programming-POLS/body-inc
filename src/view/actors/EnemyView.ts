@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { motionOf, tagKey, type ManifestEntry } from '../../app/assets.ts';
-import { REFORM_TICKS, TICK_HZ, type EnemyState } from '../../core/index.ts';
+import { isBound, REFORM_TICKS, TICK_HZ, type EnemyState } from '../../core/index.ts';
 import { tier1Flash } from '../fx/telegraph.ts';
 import { REFORM_STAGES } from '../fx/textures.ts';
 import { puppetSway } from './puppet.ts';
@@ -81,7 +81,8 @@ export class EnemyView {
     else this.sprite.clearTint();
 
     let anim: string | undefined;
-    if (cur.frozen > 0) anim = this.pick(`hurt_${d}`, 'hurt_side', 'hurt_down');
+    // Hit-stop does not pause a windup or a strike (design doc 5.3), so its hurt pose must not hide the telegraph; only a pin does.
+    if (cur.frozen > 0 && (isBound(cur) || (!windup && cur.phase !== 'strike'))) anim = this.pick(`hurt_${d}`, 'hurt_side', 'hurt_down');
     else if (windup) anim = this.pick(`windup_${d}`, 'windup_side', 'windup_down');
     else if (cur.phase === 'strike') anim = this.pick(`attack_${d}`, 'attack_side', 'attack_down');
     if (!anim) anim = this.pick(`walk_${d}`, 'walk_side', 'walk_down', 'float_down', 'idle_down');

@@ -242,8 +242,8 @@ describe('the guard and the parry (design doc 6.1)', () => {
   /** The key pressed so that the guard's frame 1 falls on `raisedAt`: it rises FOLDER.holdTicks - 1 ticks after the press. */
   const guardFrom = (raisedAt: number) => held(raisedAt - (FOLDER.holdTicks - 1));
   /**
-   * The guard already up so that its frame is rame on tick t, with no swing on the way: a swing
-   * hits a salesman close enough to strike and its hit-stop would delay the strike being tested.
+   * The guard already up so that its frame is `frame` on tick `at`, with no swing on the way: a swing
+   * would hit and wear down the salesman close enough to strike, which is not what is being tested.
    */
   function guardedAt(g: GameState, at: number, frame: number, ticks: number): Run {
     const from = at - frame + 1;

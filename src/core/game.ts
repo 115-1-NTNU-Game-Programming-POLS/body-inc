@@ -967,7 +967,9 @@ export function step(state: GameState, pressed: TickInput): StepResult {
   // Alcohol crates in the dock only wobble under it, like under a staple: no tool shortens the wait.
   if (s.swingHit !== undefined) {
     const box = swingBox(op);
-    for (const e of byId()) {
+    // Read each enemy afresh: an earlier hit's splash (裝訂大師) may have changed the ones beside it.
+    for (const { id } of byId()) {
+      const e = enemies.get(id)!;
       if (isHittable(e) && overlaps(box, enemyHurtbox(e))) hitEnemy(e, FOLDER.damage[s.swingHit]!, FOLDER.hitFreeze[s.swingHit]!, GAUGE.folder);
     }
     const f = state.factory;
