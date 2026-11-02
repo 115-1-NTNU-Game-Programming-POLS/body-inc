@@ -472,7 +472,7 @@ function lineProblems(objects: readonly RoomObject[], cols: number, rows: number
   }
 }
 
-/** Objects that stand on a tile; a Trigger may span the dock, and a Box there is already a ox-wall. */
+/** Objects that stand on a tile; a Trigger may span the dock, and a Box there is already a box wall. */
 const DOCK_CLEAR: ReadonlySet<string> = new Set(['PlayerStart', 'NPC', 'Pickup', 'Bed', 'Switch', 'Spawn']);
 
 /** For the game: a room with any problem is a bug that the map check should have caught. */

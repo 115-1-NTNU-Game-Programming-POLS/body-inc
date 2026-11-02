@@ -15,7 +15,7 @@ export interface ManifestEntry {
 export const MOTIONS = ['puppet'] as const;
 export type Motion = (typeof MOTIONS)[number];
 
-/** The entry's motion once the manifest has passed tlasProblems; anything else reads as no motion. */
+/** The entry's motion once the manifest has passed `atlasProblems`; anything else reads as no motion. */
 export const motionOf = (entry: ManifestEntry): Motion | undefined => MOTIONS.find((m) => m === entry.motion);
 
 export interface Manifest {
