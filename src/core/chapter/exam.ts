@@ -36,7 +36,7 @@ export interface SegmentResult {
   readonly answerRate: number;
   readonly hitScore: number;
   readonly bonusRate: number;
-  /** No bonus case appeared in the segment, so onusRate stands in for it (see examResult). */
+  /** No bonus case appeared in the segment, so `bonusRate` stands in for it (see examResult). */
   readonly noBonus: boolean;
   readonly score: ExamScore;
 }
