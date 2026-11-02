@@ -66,6 +66,9 @@ export const STAMP = {
  * and the gauge gains 15. Later frames only block. Areas are never blocked, so every boss move
  * stays avoidable by dodging alone (design doc 5.3). The swing's frames, reach, the hold
  * threshold and the string's gap are not in the design doc and are placeholders for playtesting.
+ * Mashed, the string deals about 2.7 times the stapler's damage per second, which design doc 6.1
+ * states as the price of standing in melee; if the playtest finds it too strong, lengthen
+ * `swingTicks` rather than touching the 2, 2 and 4.
  */
 export const FOLDER = {
   damage: [2, 2, 4],

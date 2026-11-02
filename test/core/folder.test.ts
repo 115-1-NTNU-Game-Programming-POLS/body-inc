@@ -546,6 +546,18 @@ describe('what the folder shares with the stapler', () => {
     expect(FOLDER.holdTicks).toBeLessThanOrEqual(FOLDER.swingTicks);
   });
 
+  it('deals about 2.7 times the stapler\'s damage per second, the risk premium design doc 6.1 states (issue 62)', () => {
+    // Measured, not derived: a mashed folder against a held stapler on a wall of performance, over 5 seconds.
+    const dealt = (tool: 'stapler' | 'folder', dx: number): number => {
+      const g = createGame(room([{ type: 'dummy', x: START.x + dx, y: START.y }]), 1, TABLE, { tool });
+      const wall = { ...g, operator: { ...g.operator, aim: RIGHT }, enemies: g.enemies.map((e) => ({ ...e, hp: 999, maxHp: 999 })) };
+      const r = run(wall, 300, (t) => (tool === 'folder' ? tap(...Array.from({ length: 100 }, (_, i) => i * 3))(t) : held(0)(t)));
+      return 999 - r.state.enemies[0]!.hp;
+    };
+    const ratio = dealt('folder', 20) / dealt('stapler', 4 * TILE);
+    expect(ratio).toBeGreaterThan(2.3);
+    expect(ratio).toBeLessThan(3.1);
+  });
 });
 
 describe('the energy-drink can (design doc 7.4)', () => {
