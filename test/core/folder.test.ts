@@ -375,13 +375,13 @@ describe('the guard and the parry (design doc 6.1)', () => {
     expect(ofType(r, 'parry')).toEqual([]);
   });
 
-  it('pressing the key beside a salesman swings first: the hit-stop delays its strike, then the guard still parries', () => {
+  it('pressing the key beside a salesman swings first: the hit-stop does not delay its strike, and the guard still parries', () => {
     const h = arrival(salesman());
-    // The swing lands on frame 3 and freezes the salesman for 3 ticks, so its strike comes 3 ticks late.
+    // The swing lands on frame 3 and freezes the salesman for 3 ticks, but his telegraph runs on (design doc 5.3).
     const r = run(salesman(), h + 12, guardFrom(h - 4));
     expect(ofType(r, 'hit')).toHaveLength(1);
     expect(ofType(r, 'heartLost')).toEqual([]);
-    expect(r.events.findIndex((es) => es.some((e) => e.type === 'parry'))).toBe(h + 3);
+    expect(r.events.findIndex((es) => es.some((e) => e.type === 'parry'))).toBe(h);
   });
   it('a sheet sent back throws no lever on its way, as a staple would', () => {
     const base = room([{ type: 'flyer', x: START.x + 4 * TILE, y: START.y }]);

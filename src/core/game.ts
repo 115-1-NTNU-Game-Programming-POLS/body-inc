@@ -577,7 +577,8 @@ function bossFactor(e: EnemyState, bosses: Readonly<Record<string, BossDef>>): n
 }
 
 /**
- * Damage to a defeatable enemy. A boss has no hit-stop, so hits never stretch its telegraphs.
+ * Damage to a defeatable enemy. A boss has no hit-stop; the hit-stop of any other enemy does not
+ * stretch its telegraph either (`stepEnemy`).
  * The toast boss is not beaten when his budget runs out: he gives up (design doc 7.7).
  */
 function damage(e: EnemyState, amount: number, freeze: number, events: DomainEvent[], bosses: Readonly<Record<string, BossDef>>): EnemyState {
@@ -842,7 +843,7 @@ export function step(state: GameState, pressed: TickInput): StepResult {
       continue;
     }
     if (enemies.has(e.id)) continue;
-    const r = stepEnemy(grid, e, target, senseRange);
+    const r = stepEnemy(grid, e, target, senseRange, (e.boundUntil ?? 0) > now);
     enemies.set(e.id, r.enemy);
     newShots.push(...r.shots);
     if (r.telegraph) events.push({ type: 'telegraph', source: e.id, tier: 1 });

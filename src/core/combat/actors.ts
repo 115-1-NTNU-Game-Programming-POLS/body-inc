@@ -114,11 +114,20 @@ export interface EnemyStep {
   readonly shots: readonly ShotSpec[];
 }
 
-/** `senseRangePx` is how far a clinging enemy notices the operator; the caffeine cloak lowers it. */
-export function stepEnemy(grid: SolidGrid, e0: EnemyState, target: Vec, senseRangePx: number = CLING.senseRangePx): EnemyStep {
+/**
+ * `senseRangePx` is how far a clinging enemy notices the operator; the caffeine cloak lowers it.
+ * `bound` is a binding pin (裝訂): it holds an attack back, where a hit's hit-stop does not.
+ */
+export function stepEnemy(grid: SolidGrid, e0: EnemyState, target: Vec, senseRangePx: number = CLING.senseRangePx, bound = false): EnemyStep {
   const out = (enemy: EnemyState, flags: Partial<Omit<EnemyStep, 'enemy'>> = {}): EnemyStep =>
     ({ enemy, telegraph: false, reformed: false, respawned: false, shots: [], ...flags });
-  if (e0.frozen > 0) return out({ ...e0, frozen: e0.frozen - 1 });
+  if (e0.frozen > 0) {
+    if (e0.phase !== 'windup' || bound) return out({ ...e0, frozen: e0.frozen - 1 });
+    // Hit-stop is a pose (design doc 5.3): a telegraph keeps its length, and what it announces
+    // is not held back by what is left of the pose.
+    const r = stepEnemy(grid, { ...e0, frozen: 0 }, target, senseRangePx);
+    return { ...r, enemy: { ...r.enemy, frozen: r.enemy.phase === 'windup' ? e0.frozen - 1 : 0 } };
+  }
   const e = { ...e0, phaseTicks: e0.phaseTicks + 1 };
 
   switch (e.phase) {
