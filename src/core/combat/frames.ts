@@ -47,6 +47,16 @@ export const ENEMY_HIT_FREEZE = 3;
 /** Base hearts (design doc 5.3), counted in halves; a normal hit takes one half. */
 export const BASE_HALVES = 12;
 
+/** The fewest hearts a tired chairman keeps (design doc 5.6), counted in halves. */
+export const MIN_HALVES = 8;
+
+/**
+ * The hearts a room opens with, in halves: the base hearts times the chairman's spirit P, rounded
+ * to a whole heart and never under four (design doc 5.6). With the default sleep coefficients that
+ * is 6 hearts for a sleep debt of 0 to 2 hours, 5 for 3 to 7 and 4 from 8.
+ */
+export const heartCap = (p: number): number => Math.min(BASE_HALVES, Math.max(MIN_HALVES, 2 * Math.round((BASE_HALVES / 2) * p)));
+
 /** Reforming enemies come back after 6 s (design doc 5.5). */
 export const REFORM_TICKS = 6 * TICK_HZ;
 

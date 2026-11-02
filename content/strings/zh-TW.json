@@ -391,6 +391,7 @@
     "hud.dizzy": { "text": "頭暈冒冷汗：空腹喝酒，肝醣倉庫暫停出貨，移速 −15%", "fact": "31" },
     "hud.line": { "text": "收貨區 {n} 箱　乙醛 {m} 箱", "fact": "" },
     "hud.work_orders": { "text": "酒精工單 {n} 層：收貨區的箱子拖慢腳步", "fact": "" },
+    "hud.overtime": { "text": "加班單：睡眠債 {debt} 小時，董事長精神不濟，{n} 顆心暫停營業", "fact": "17" },
     "solution.answer": { "text": "打考卷沒有用：去答題", "fact": "" },
     "stamp_void.answer": { "text": "查無可駁回事項\n考卷是來確認你有沒有讀，請作答。", "fact": "" },
     "deck.greybox.study_week.title": { "text": "期中考前一週，晚上怎麼過？", "fact": "" },
