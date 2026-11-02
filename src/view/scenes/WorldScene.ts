@@ -4,12 +4,13 @@ import { FEEDBACK, str, STRINGS } from '../../app/content.ts';
 import { releaseKeysOnClose } from '../../app/dialogue.ts';
 import { keepPage, titleKey } from '../../app/handbook.ts';
 import { sharedKeys, type KeyboardInput } from '../../app/input.ts';
+import type { PatrolSession } from '../../app/patrol.ts';
 import type { WallSession } from '../../app/wall.ts';
 import type { FixedStepLoop } from '../../app/loop.ts';
 import type { SaveStore } from '../../app/storage.ts';
 import {
   carriedTags, CELL_COLS, listProps, selectEnemies, selectOperator, selectProjectiles, storyAtEnd, storyOf, TILE, visibleProps,
-  type ChapterContent, type ChapterState, type EnemyState, type GameEvent, type GameState, type ProgressData, type TiledMapFile,
+  type ChapterContent, type ChapterState, type EnemyState, type GameEvent, type GameState, type PatrolResult, type ProgressData, type TiledMapFile,
 } from '../../core/index.ts';
 import type { CardsData } from './OpeningScene.ts';
 import { saveStory } from './run.ts';
@@ -55,6 +56,8 @@ export class WorldScene extends Phaser.Scene {
   private leaving = false;
   /** Set while the investigation wall is the room: a report's wall, its drawing, and the way back to the semester. */
   private wallSession: WallSession | undefined;
+  /** Set while a patrol of the semester is the run: its rooms are played here and the semester wakes with its result. */
+  private patrolSession: PatrolSession | undefined;
   private board: EvidenceBoard | undefined;
   private wide = false;
 
@@ -122,6 +125,9 @@ export class WorldScene extends Phaser.Scene {
     this.wallSession = this.registry.get('wall') as WallSession | undefined;
     this.board = this.wallSession ? new EvidenceBoard(this, room, this.wallSession.wall) : undefined;
     if (this.wallSession) this.input.keyboard?.on('keydown-ESC', () => this.finishWall());
+    this.patrolSession = this.registry.get('patrol') as PatrolSession | undefined;
+    // Giving up is a failed patrol, not a way out of one that is going badly: it cuts no load and gives no card (design doc 8.4).
+    if (this.patrolSession) this.input.keyboard?.on('keydown-ESC', () => this.finishPatrol({ failed: true }));
 
     // One keyboard tracker for the whole run: a new one per room would not know which keys are
     // already down when the operator walks through a door, and would ignore them until the
@@ -202,7 +208,7 @@ export class WorldScene extends Phaser.Scene {
   private react(e: GameEvent): void {
     switch (e.type) {
       case 'checkpointSaved': {
-        saveStory(this, storyOf(this.loop.state.run));
+        if (!this.patrolSession) saveStory(this, storyOf(this.loop.state.run));
         break;
       }
       case 'handbookUnlocked': {
@@ -221,7 +227,14 @@ export class WorldScene extends Phaser.Scene {
         this.registry.set('arrival-note', STRINGS.strings['checkpoint.returned']!.text);
         this.leave(() => this.scene.restart());
         break;
+      case 'forcedLeave':
+        if (this.patrolSession) this.finishPatrol({ failed: true });
+        break;
       case 'chapterEnded': {
+        if (this.patrolSession) {
+          this.finishPatrol(this.patrolSession.play.rate());
+          break;
+        }
         const { run } = this.loop.state;
         // Matches the card scene, which treats a `next` that is not bundled as the end of the story.
         const chapters = this.registry.get('chapters') as ReadonlyMap<string, ChapterContent>;
@@ -265,6 +278,19 @@ export class WorldScene extends Phaser.Scene {
     this.leave(() => {
       this.scene.stop('Hud');
       session.done();
+      this.scene.stop();
+    });
+  }
+
+  /** Ends the patrol with `result`: the semester that was put to sleep when the rooms opened wakes up and goes on with it. */
+  private finishPatrol(result: PatrolResult): void {
+    const session = this.patrolSession;
+    if (!session || this.leaving) return;
+    this.patrolSession = undefined;
+    this.registry.set('patrol', undefined);
+    this.leave(() => {
+      this.scene.stop('Hud');
+      session.done(result);
       this.scene.stop();
     });
   }

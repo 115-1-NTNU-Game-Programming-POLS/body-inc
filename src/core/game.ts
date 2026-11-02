@@ -1,12 +1,13 @@
 import { boxAt, centeredBox, overlaps, type Box } from './collision/boxes.ts';
 import { isSolid, moveAndCollide } from './collision/grid.ts';
-import { backOff, ENEMY_BODY, enemyCenter, enemyFrom, enemyHurtbox, isHittable, isMelee, stepEnemy, strikeBox, type EnemyState } from './combat/actors.ts';
+import { backOff, ENEMY_BODY, enemyCenter, enemyFrom, enemyHurtbox, isBound, isHittable, isMelee, stepEnemy, strikeBox, type EnemyState } from './combat/actors.ts';
 import { newBossState, type BossDef, type BossTable, type ToastState } from './combat/bosses/boss.ts';
 import { proposalOpen, stepCaffeine } from './combat/bosses/caffeine.ts';
 import { breathing, stepToast } from './combat/bosses/toast.ts';
 import type { EnemyTable } from './combat/enemies.ts';
-import { BASE_HALVES, BOSS, CLING, DODGE, ENEMY_HIT_FREEZE, FOLDER, GAUGE, HURT, SALESMAN, STAMP, STAPLER } from './combat/frames.ts';
+import { BASE_HALVES, BIND, BOSS, CLING, DODGE, ENEMY_HIT_FREEZE, FOLDER, GAUGE, heartCap, HURT, PARRY_BOOST, SALESMAN, STAMP, STAPLER } from './combat/frames.ts';
 import { guardCovers, parryOpen, swingBox } from './combat/folder.ts';
+import { BASE_PERKS, type Perks } from './combat/perks.ts';
 import { pieCovers, PIE_READY, stepPie, sleepOfSpirit, type PieState } from './combat/pie.ts';
 import { circleTouchesBox, shotBox, zoneContinues, zoneLive, type Shot, type ShotSpec, type Zone, type ZoneSpec } from './combat/hazards.ts';
 import type { Vec } from './combat/movement.ts';
@@ -117,6 +118,19 @@ export interface GameState {
   readonly exam?: ExamState;
   /** Its definition, kept in state like the bosses' so a replay needs nothing else. */
   readonly examDef?: ExamDef;
+  /** What the welfare cards held change in this fight (core/combat/perks.ts); the base rules when absent. */
+  readonly perks?: Perks;
+  /** The run of staple hits on one enemy so far, which `BIND.hits` of them turn into a pin. */
+  readonly bind?: BindRun;
+  /** The tick the speed-up of a parry ends (退件加速); only set with the card. */
+  readonly boostUntil?: number;
+}
+
+export interface BindRun {
+  readonly target: number;
+  readonly hits: number;
+  /** Tick of the latest hit; the run is dropped once `BIND.windowTicks` pass without another. */
+  readonly at: number;
 }
 
 export interface FactoryState {
@@ -162,6 +176,8 @@ export type DomainEvent =
   | { readonly type: 'telegraph'; readonly source: number; readonly tier: 1 | 2 | 3; readonly move?: string }
   | { readonly type: 'hit'; readonly target: number; readonly enemy: string; readonly hpLeft: number }
   | { readonly type: 'caseClosed'; readonly target: number; readonly enemy: string }
+  /** 裝訂: enough staple hits in a row pinned the enemy for BIND.pinTicks. */
+  | { readonly type: 'bound'; readonly target: number; readonly enemy: string }
   | { readonly type: 'dispersed'; readonly target: number; readonly enemy: string }
   | { readonly type: 'reformed'; readonly target: number; readonly enemy: string }
   | { readonly type: 'respawned'; readonly target: number; readonly enemy: string }
@@ -309,6 +325,8 @@ export interface GameOptions {
   readonly waiting?: number;
   /** In a factory room: acetaldehyde crates to put out round the outlet at entry. */
   readonly acetaldehyde?: number;
+  /** The welfare cards' effects; the base rules when absent. */
+  readonly perks?: Perks;
 }
 
 /**
@@ -390,8 +408,11 @@ export function createGame(room: EnteredRoom, seed: number, table: EnemyTable, o
   const gauge = options.gauge ?? 0;
   if (!(p > 0 && p <= 1)) throw new GameSetupError(`P must be in (0, 1], got ${p}`);
   if (!(gauge >= 0 && gauge <= STAMP.gaugeMax)) throw new GameSetupError(`gauge must be 0 to ${STAMP.gaugeMax}, got ${gauge}`);
-  const halves = options.halves ?? BASE_HALVES;
-  if (!Number.isInteger(halves) || halves < 1 || halves > BASE_HALVES) throw new GameSetupError(`halves must be a whole number from 1 to ${BASE_HALVES}, got ${halves}`);
+  // Hearts carried in from another room are kept down to what the spirit of this one allows.
+  const cap = heartCap(p);
+  const asked = options.halves ?? BASE_HALVES;
+  if (!Number.isInteger(asked) || asked < 1 || asked > BASE_HALVES) throw new GameSetupError(`halves must be a whole number from 1 to ${BASE_HALVES}, got ${asked}`);
+  const halves = Math.min(asked, cap);
   const carried = options.stacks ?? 0;
   if (!Number.isInteger(carried) || carried < 0 || carried >= CLING.maxStacks) {
     throw new GameSetupError(`stacks must be a whole number from 0 to ${CLING.maxStacks - 1}, got ${carried}`);
@@ -400,7 +421,7 @@ export function createGame(room: EnteredRoom, seed: number, table: EnemyTable, o
   const spawned = spawnEnemies(room, table, options.bosses, 1);
   // A tool carried in is only believed while the folder is handed over, so a locked folder is never in hand.
   const tool: HeldTool = options.tool === 'folder' && !options.folderLocked ? 'folder' : 'stapler';
-  const operator = { ...newOperator(start.x, start.y, BASE_HALVES, gauge), halves, stacks: carried, tool };
+  const operator = { ...newOperator(start.x, start.y, cap, gauge), halves, stacks: carried, tool };
   const body = boxAt(OPERATOR_BODY, operator.x, operator.y);
   const delivered = ascending(options.delivered ?? []);
   const boxes = settleBoxes(room, options.boxes ?? new Map(), occupantsOf(operator, spawned.enemies).bodies, delivered);
@@ -450,6 +471,7 @@ export function createGame(room: EnteredRoom, seed: number, table: EnemyTable, o
     ...(options.folderLocked ? { folderLocked: true as const } : {}),
     ...(options.pie ? { pie: PIE_READY } : {}),
     ...(factory ? { factory } : {}),
+    ...(options.perks ? { perks: options.perks } : {}),
   };
 }
 
@@ -558,7 +580,8 @@ function bossFactor(e: EnemyState, bosses: Readonly<Record<string, BossDef>>): n
 }
 
 /**
- * Damage to a defeatable enemy. A boss has no hit-stop, so hits never stretch its telegraphs.
+ * Damage to a defeatable enemy. A boss has no hit-stop; the hit-stop of any other enemy does not
+ * stretch its telegraph either (`stepEnemy`).
  * The toast boss is not beaten when his budget runs out: he gives up (design doc 7.7).
  */
 function damage(e: EnemyState, amount: number, freeze: number, events: DomainEvent[], bosses: Readonly<Record<string, BossDef>>): EnemyState {
@@ -658,6 +681,17 @@ interface MovedBoxes {
   readonly delivered: readonly number[];
 }
 
+const penCache = new WeakMap<readonly RoomObject[], readonly Box[]>();
+/** The rest areas of a room, boxed once for as long as its object list lives: `step` asks every tick. */
+const pensOf = (objects: readonly RoomObject[]): readonly Box[] => {
+  let boxes = penCache.get(objects);
+  if (boxes === undefined) {
+    boxes = objects.filter((o) => o.kind === 'Pen').map(objectBox);
+    penCache.set(objects, boxes);
+  }
+  return boxes;
+};
+
 export function step(state: GameState, pressed: TickInput): StepResult {
   const now = state.tick;
   const events: DomainEvent[] = [];
@@ -674,7 +708,10 @@ export function step(state: GameState, pressed: TickInput): StepResult {
   const room = state.room;
   let grid = withBoxes(room.grid, state.boxes);
   const senseRange = Math.min(CLING.senseRangePx, state.senseCapPx ?? CLING.senseRangePx);
-  const s = stepOperator(grid, state.operator, input, now);
+  const perks = state.perks ?? BASE_PERKS;
+  let bind = state.bind;
+  let boostUntil = state.boostUntil;
+  const s = stepOperator(grid, state.operator, input, now, boostUntil !== undefined && now < boostUntil ? PARRY_BOOST.factor : 1);
   let op = s.op;
   if (s.blockedX) events.push({ type: 'bumpWall', axis: 'x' });
   if (s.blockedY) events.push({ type: 'bumpWall', axis: 'y' });
@@ -817,6 +854,17 @@ export function step(state: GameState, pressed: TickInput): StepResult {
     if (r.respawned) events.push({ type: 'respawned', target: e.id, enemy: e.type });
   }
   for (const z of newZones) zones.set(nextId, { ...z, id: nextId++, age: 1, spent: false });
+  // The rest area locks what drifts into it: the answer to adenosine that cannot be beaten (design doc 8.5).
+  const pens = pensOf(state.room.objects);
+  if (pens.length > 0) {
+    for (const e of enemies.values()) {
+      if (!e.clings || e.phase !== 'idle' || e.frozen > 0) continue;
+      const c = enemyCenter(e);
+      if (!pens.some((b) => c.x >= b.left && c.x < b.right && c.y >= b.top && c.y < b.bottom)) continue;
+      enemies.set(e.id, { ...e, phase: 'closed', phaseTicks: 0, respawnTicks: 0 });
+      events.push({ type: 'caseClosed', target: e.id, enemy: e.type });
+    }
+  }
   let shots: Shot[] = [...state.shots, ...newShots.map((sh) => ({ ...sh, id: nextId++, spent: false }))];
   // Within a tick enemies are only added, never removed, so the sorted ids change only with the size.
   let order: number[] = [];
@@ -873,7 +921,7 @@ export function step(state: GameState, pressed: TickInput): StepResult {
   // A weapon landing on a hittable enemy. The flag decides what it does, not a large health pool
   // (design doc 5.1, 5.5): immune ones bounce it with no hit-stop and no damage, reforming ones
   // scatter, the rest lose `amount`. `gain` is the gauge the hit charges before P, 0 for none.
-  const hitEnemy = (target: EnemyState, amount: number, freeze: number, gain: number): void => {
+  const hitEnemy = (target: EnemyState, amount: number, freeze: number, gain: number, binds = 0): void => {
     if (target.archetype === 'cheers') {
       shoo(target);
     } else if (target.category === 'immune') {
@@ -884,7 +932,34 @@ export function step(state: GameState, pressed: TickInput): StepResult {
       if (gain > 0) op = charge(op, gain, state.p, events);
     } else {
       if (gain > 0) op = charge(op, gain, state.p, events);
-      enemies.set(target.id, damage(target, amount, freeze, events, state.bosses));
+      const wasBound = isBound(target);
+      const hit = damage(target, amount, freeze, events, state.bosses);
+      enemies.set(target.id, binds > 0 ? bindHit(hit, binds) : hit);
+      if (wasBound && perks.bindSplash > 0) splash(target);
+    }
+  };
+
+  // 裝訂: staple hits in a row on one enemy add up to a pin. A different target, a lapse of
+  // BIND.windowTicks, or a boss (which is never frozen) ends the run.
+  const bindHit = (e: EnemyState, count: number): EnemyState => {
+    if (e.phase === 'closed' || e.boss) return e;
+    const run = bind !== undefined && bind.target === e.id && now - bind.at <= BIND.windowTicks ? bind.hits : 0;
+    const hits = run + count;
+    if (hits < perks.bindHits) {
+      bind = { target: e.id, hits, at: now };
+      return e;
+    }
+    bind = { target: e.id, hits: 0, at: now };
+    events.push({ type: 'bound', target: e.id, enemy: e.type });
+    return { ...e, frozen: Math.max(e.frozen, BIND.pinTicks), pin: BIND.pinTicks };
+  };
+
+  // 裝訂大師: a hit on a bound enemy chips the ordinary enemies around it. The splash binds nothing and splashes nothing.
+  const splash = (centre: EnemyState): void => {
+    for (const o of byId()) {
+      const near = Math.hypot(o.x - centre.x, o.y - centre.y) <= BIND.splashPx;
+      if (o.id === centre.id || !near || !isHittable(o) || o.category !== 'defeatable' || o.archetype === 'cheers' || o.boss) continue;
+      enemies.set(o.id, damage(o, perks.bindSplash, ENEMY_HIT_FREEZE, events, state.bosses));
     }
   };
 
@@ -892,7 +967,9 @@ export function step(state: GameState, pressed: TickInput): StepResult {
   // Alcohol crates in the dock only wobble under it, like under a staple: no tool shortens the wait.
   if (s.swingHit !== undefined) {
     const box = swingBox(op);
-    for (const e of byId()) {
+    // Read each enemy afresh: an earlier hit's splash (裝訂大師) may have changed the ones beside it.
+    for (const { id } of byId()) {
+      const e = enemies.get(id)!;
       if (isHittable(e) && overlaps(box, enemyHurtbox(e))) hitEnemy(e, FOLDER.damage[s.swingHit]!, FOLDER.hitFreeze[s.swingHit]!, GAUGE.folder);
     }
     const f = state.factory;
@@ -934,7 +1011,7 @@ export function step(state: GameState, pressed: TickInput): StepResult {
     if (isSolid(grid, col, row)) continue;
     const target = byId().find((e) => isHittable(e) && overlaps(box, enemyHurtbox(e)));
     if (!target) { flying.push(p); continue; }
-    hitEnemy(target, p.damage ?? STAPLER.damage, ENEMY_HIT_FREEZE, p.reflected ? 0 : GAUGE.staple);
+    hitEnemy(target, p.damage ?? STAPLER.damage, ENEMY_HIT_FREEZE, p.reflected ? 0 : GAUGE.staple, p.reflected ? perks.parryBind : 1);
   }
 
   // A closed boss stops attacking at once: its shots and areas go with it. A closed ordinary
@@ -980,16 +1057,23 @@ export function step(state: GameState, pressed: TickInput): StepResult {
     if (op.action.kind !== 'guard' || !guardCovers(op.aim, from)) return undefined;
     return parryOpen(op.action) ? 'parry' : 'block';
   };
+  // 退件加速: with the card, a parry starts the speed-up, and a later parry renews it.
+  const speedUp = (): void => {
+    if (perks.parryBoost) boostUntil = now + PARRY_BOOST.ticks;
+  };
 
   for (const e of byId()) {
-    if (!isMelee(e) || e.phase !== 'strike' || e.strikeSpent || e.frozen > 0 || !overlaps(strikeBox(e), hurt)) continue;
+    if (!isMelee(e) || e.phase !== 'strike' || e.strikeSpent || isBound(e) || !overlaps(strikeBox(e), hurt)) continue;
     const c = caught({ x: e.x - op.x, y: e.y - op.y });
     if (c) {
       events.push({ type: c === 'parry' ? 'parry' : 'blocked', source: e.id, kind: 'strike' });
       // The stunned enemy wakes into the last tick of its recovery, so the stun is the whole pause.
       const stunned = c === 'parry' ? { frozen: FOLDER.parryStunTicks, phase: 'recover' as const, phaseTicks: SALESMAN.recoverTicks - 1 } : {};
       enemies.set(e.id, { ...e, strikeSpent: true, ...stunned });
-      if (c === 'parry') op = charge(op, GAUGE.parry, state.p, events);
+      if (c === 'parry') {
+        op = charge(op, GAUGE.parry, state.p, events);
+        speedUp();
+      }
       continue;
     }
     if (absorb(e.id, 1, { x: e.x, y: e.y }, e.type) !== 'ignored') enemies.set(e.id, { ...e, strikeSpent: true });
@@ -1000,6 +1084,7 @@ export function step(state: GameState, pressed: TickInput): StepResult {
   const refuse = (owner: number, parry: boolean): void => {
     events.push({ type: 'refused', source: owner, parry });
     if (parry) op = charge(op, GAUGE.parry, state.p, events);
+    if (parry) speedUp();
     const kid = enemies.get(owner);
     if (!kid || kid.archetype !== 'cheers' || kid.phase === 'closed') return;
     const hp = kid.hp - 1;
@@ -1056,6 +1141,7 @@ export function step(state: GameState, pressed: TickInput): StepResult {
         events.push({ type: c === 'parry' ? 'parry' : 'blocked', source: sh.owner, kind: 'shot' });
         if (c === 'parry') {
           op = charge(op, GAUGE.parry, state.p, events);
+          speedUp();
           // Back at the thrower; if it is gone, back the way it came.
           const owner = enemies.get(sh.owner);
           const toOwner = owner ? unit({ x: owner.x - sh.x, y: owner.y - 8 - sh.y }) : { x: 0, y: 0 };
@@ -1098,7 +1184,7 @@ export function step(state: GameState, pressed: TickInput): StepResult {
     if (mist >= MIST.intervalTicks) {
       mist = 0;
       op = { ...op, halves: op.halves - MIST.halves };
-      events.push({ type: 'heartLost', halves: MIST.halves, cause: 'acetaldehyde' });
+      events.push({ type: 'heartLost', halves: MIST.halves, cause: MIST.cause });
     }
     if (mist !== factory.mist) factory = { ...factory, mist };
   }
@@ -1139,6 +1225,8 @@ export function step(state: GameState, pressed: TickInput): StepResult {
     touching: onNow.map((o) => o.id), carried, switches, doorsOpen: doorsOpenNow, taken, boxes, push, delivered: moved.delivered,
     ...(pie ? { pie } : {}),
     ...(factory ? { factory } : {}),
+    ...(bind ? { bind } : {}),
+    ...(boostUntil !== undefined ? { boostUntil } : {}),
   };
   // The exam reads what this tick did (hits, answered cases, a stack failure) and moves its own clock.
   if (examining && next.exam && next.examDef) {

@@ -25,6 +25,9 @@ export function crunchWeek(_seed: number): Scenario {
   return days;
 }
 
+/** The game's tuning as the app reads it, for the sweeps that need a day number the rules derive from it. */
+export const PARAMS = readContent('params', read('params.json')).defaults;
+
 /** The game's own content, read the way the app reads it, for a semester played by a given skill. */
 export function contextFor(skill: number, seed: number, overrides: Partial<SemesterContext> = {}): SemesterContext {
   return {

@@ -1,4 +1,4 @@
-import { drawInt, seedStreams, type RngStreams } from '../rng.ts';
+import { drawDistinct, drawInt, seedStreams, type RngStreams } from '../rng.ts';
 import type { TagDictionary } from '../tags/dictionary.ts';
 import type { Scenario, SemesterContext, SemesterEvent, SemesterParams } from './types.ts';
 
@@ -23,17 +23,7 @@ export const EVENTS: readonly SemesterEvent[] = [
 ];
 
 /** `n` distinct values from `pool`, drawn from the events stream. */
-function pick(streams: RngStreams, pool: readonly number[], n: number): [number[], RngStreams] {
-  const left = [...pool];
-  const out: number[] = [];
-  let s = streams;
-  for (let i = 0; i < n && left.length > 0; i++) {
-    let j: number;
-    [j, s] = drawInt(s, 'events', left.length);
-    out.push(left.splice(j, 1)[0]!);
-  }
-  return [out, s];
-}
+const pick = (streams: RngStreams, pool: readonly number[], n: number): [number[], RngStreams] => drawDistinct(streams, 'events', pool, n);
 
 /**
  * One or two barbecues on days 2 to 4 and two each of deadlines and late snacks (counts follow

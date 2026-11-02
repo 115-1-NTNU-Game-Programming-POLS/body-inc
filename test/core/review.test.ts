@@ -109,6 +109,17 @@ describe('the year-end review of a passed semester (design doc 8.11)', () => {
     expect(idsOf(withHistory((r) => ({ ...QUIET, bedEnd: 23, kind: r.day % 2 === 0 ? 'hospital' : 'normal' }), { hospitals: 1, liverOrders: [] }))).not.toContain('early_bed');
   });
 
+  it('praises the TA line\'s papers graded on time, on the day the last hour was spent, and not hours that left them unfinished', () => {
+    const grading = (day: number, done: boolean) => withHistory((r) => (r.day === day ? { ...QUIET, grade: { hours: 2, done } } : QUIET), { hospitals: 1, liverOrders: [] });
+    expect(meritsOf(grading(7, true), base.ctx, CFG, text).find((m) => m.id === 'grades')).toMatchObject({ day: 7, vars: { day: '7' } });
+    expect(idsOf(grading(7, false))).not.toContain('grades');
+    expect(idsOf(withHistory(() => QUIET, { hospitals: 1, liverOrders: [] }))).not.toContain('grades');
+    // It teaches less than a night's sleep and more than a patrol grade, so it sits between them.
+    expect(MERITS.indexOf('grades')).toBeGreaterThan(MERITS.indexOf('early_bed'));
+    expect(MERITS.indexOf('grades')).toBeLessThan(MERITS.indexOf('patrol'));
+    expect(text(CFG.doc[MERIT_TEXT.grades])).toContain('{day}');
+  });
+
   it('stops on a patrol of a floor the bank does not name, instead of showing its id', () => {
     const odd = withHistory((r) => (r.day === 4 ? { ...QUIET, lit: ['brain'], patrols: [{ floor: 'brain', grade: 'A', overtime: false }] } : QUIET), { hospitals: 1, liverOrders: [] });
     const { brain: _gone, ...scopes } = CFG.scopes;

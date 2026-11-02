@@ -205,6 +205,7 @@
     "reviewLiverCheck": "report.doc.review_liver_check",
     "reviewDeclined": "report.doc.review_declined",
     "reviewBed": "report.doc.review_bed",
+    "reviewGrades": "report.doc.review_grades",
     "reviewPatrol": "report.doc.review_patrol",
     "reviewHospital": "report.doc.review_hospital",
     "reviewFin": "report.doc.review_fin",

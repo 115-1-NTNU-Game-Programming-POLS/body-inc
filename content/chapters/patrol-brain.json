@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "id": "patrol-brain",
+  "start": "patrol-brain/lobby",
+  "patrol": "brain",
+  "links": [
+    { "a": "patrol-brain/lobby#door-e", "b": "patrol-brain/desk#door-w" },
+    { "a": "patrol-brain/desk#door-e", "b": "patrol-brain/hall#door-w" },
+    { "a": "patrol-brain/hall#door-e", "b": "patrol-brain/core#door-w" }
+  ]
+}

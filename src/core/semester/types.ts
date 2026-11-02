@@ -4,10 +4,13 @@ import type { RngStreams } from '../rng.ts';
 import type { SleepCoefficients } from '../spirit.ts';
 import type { TagDictionary } from '../tags/dictionary.ts';
 import type { TagState } from '../tags/store.ts';
+import type { Setting } from './clauses.ts';
 import type { ElevatorPanel, FloorId, Light, Loads } from './floors.ts';
 import type { LiverClues } from './liver.ts';
 import type { Grade, LoadParams } from './load.ts';
+import type { PatrolResult } from './patrol.ts';
 import type { SkillParams } from './rating.ts';
+import type { LastNight, PatrolKit } from './welfare.ts';
 
 /** The rules of content/params.json that a semester reads; the file's `defaults` satisfies it. */
 export type SemesterParams = SleepCoefficients & MetabolismParams & LoadParams & SkillParams & Pick<
@@ -16,6 +19,7 @@ export type SemesterParams = SleepCoefficients & MetabolismParams & LoadParams &
   | 'meals' | 'classes' | 'sleepNeed' | 'repayRatio' | 'cup' | 'boostMin' | 'boost' | 'boostTolerant' | 'cafSleepK' | 'cafDeadZone'
   | 'tolDays' | 'tolCups' | 'tolResetDays' | 'withdrawal' | 'alcoholSleep' | 'snackSleep' | 'passMid' | 'passFin'
   | 'hospitalDebtMult' | 'hospitalFloorLoad' | 'hospitalSleep' | 'floorStrikeStudyMult' | 'overtimeBedDelay' | 'examPassPercent'
+  | 'shiftHours' | 'labHours'
 >;
 
 /** What one option of an event does to the day; only the fields it names. */
@@ -56,6 +60,10 @@ export interface SemesterContext {
    * some take fixed hours. Absent, the semester is the 12-credit one the thresholds are tuned for.
    */
   readonly courses?: readonly string[];
+  /** The overtime clause level (clauses.ts); absent is level 0. `withClause` sets it together with what it changes. */
+  readonly clause?: number;
+  /** The setting card of the semester, whose hours the days spend as work whatever the plan says. */
+  readonly setting?: Setting;
 }
 
 /** One assignment of the operating-systems card, as the state keeps it. `debug` is drawn at the start and stays hidden until the writing is done. */
@@ -80,8 +88,10 @@ export interface HomeworkView {
 
 export interface PatrolRecord {
   readonly floor: FloorId;
+  /** C for a failed patrol, which reads for nothing: the load is not cut and no card is offered. */
   readonly grade: Grade;
   readonly overtime: boolean;
+  readonly failed?: true;
 }
 
 export interface DayRecord {
@@ -122,6 +132,16 @@ export interface DayRecord {
   readonly rank?: { readonly hours: number; readonly gain: number };
   /** The hours the day gave the compiler project and what they added; absent when none were spent. */
   readonly project?: { readonly hours: number; readonly gain: number; readonly done: boolean };
+  /** The grading hours the day and its night spent and whether they finished the papers; absent when none were spent. */
+  readonly grade?: { readonly hours: number; readonly done: boolean };
+  /** Hours of sleep the night counted for, as the debt saw them (a hospital night counts as good sleep); absent on the final exam day. */
+  readonly slept?: number;
+  /** The leaderboard contest was fought tonight and over before the clock struck 24, which the next patrol's 知所進退 reads. */
+  readonly contestStop?: true;
+  /** The welfare card the day's patrol gave. */
+  readonly card?: string;
+  /** Progress the minutes of 會議紀錄 added from the day's patrols. */
+  readonly minutes?: number;
 }
 
 export interface ArchiveDay {
@@ -153,6 +173,8 @@ export interface SemesterState {
   readonly rank: number;
   /** The compiler project's progress in study-efficiency hours (design doc 8.3); stays 0 when the card is not taken. */
   readonly project: number;
+  /** Hours of the TA line's midterm grading done (design doc 8.3); stays 0 when the card is not taken. */
+  readonly graded: number;
   readonly loads: Loads;
   /**
    * Causal log entries behind each floor's load since it was last calm (under the yellow line).
@@ -175,6 +197,8 @@ export interface SemesterState {
   readonly rng: RngStreams;
   readonly history: readonly DayRecord[];
   readonly ended: boolean;
+  /** The welfare cards taken so far (design doc 8.8), kept to the end; absent until the first. */
+  readonly welfare?: readonly string[];
 }
 
 /** The player's morning plan (design doc 8.2): coffee hours and the free hours spent resting. */
@@ -185,6 +209,8 @@ export interface MorningPlan {
   readonly write?: number;
   /** Whole hours of the day's free time given to the compiler project; absent is none. */
   readonly project?: number;
+  /** Whole hours of the day's free time spent grading the midterm papers of the TA line; absent is none. */
+  readonly grade?: number;
   /** Take a 15-minute walk before the hour that would pass SIT_LIMIT in a row at the desk. */
   readonly walk?: boolean;
 }
@@ -193,6 +219,13 @@ export interface FloorChoice {
   readonly patrol: FloorId;
   /** An overtime patrol of a second floor, at the price of a later bedtime (design doc 8.4). */
   readonly overtime?: FloorId;
+  /**
+   * How the rooms were played, patrol first and then the overtime one; null is a floor with no rooms to play. A patrol with no result
+   * is drawn from the skill of the context, which is what `sim/` plays; a played one is kept in the answer so the day replays to the same state.
+   */
+  readonly played?: readonly (PatrolResult | null)[];
+  /** The welfare card picked from what the first patrol offered (`welfareOffer`); only a played patrol that was not failed offers any. */
+  readonly card?: string;
 }
 
 export interface NightPlan {
@@ -206,6 +239,17 @@ export interface NightPlan {
   readonly debug?: number;
   /** Whole hours of the leaderboard contest after the planned bedtime, on the nights it is open; absent is none. */
   readonly rank?: number;
+  /** Whole hours of grading after the planned bedtime, on the nights the papers can still be graded; absent is none. */
+  readonly grade?: number;
+}
+
+/** The welfare cards in hand, what they give the patrol of the day, and the salt the offers of the run are drawn with. */
+export interface WelfareView {
+  readonly held: readonly string[];
+  readonly kit: PatrolKit;
+  /** The night before, which a card picked in the middle of the day gives the overtime patrol a kit from. */
+  readonly last?: LastNight;
+  readonly salt: number;
 }
 
 /**
@@ -227,6 +271,7 @@ export interface DayView {
   /** Hours bedtime is already pushed back tonight (an overtime patrol, an event), which `nightRoom` takes off what the night can still give. */
   readonly bedDelay: number;
   readonly hospitals: number;
+  readonly welfare: WelfareView;
   readonly panel: ElevatorPanel;
   readonly liverClues: LiverClues;
   /** Dictionary modifiers that hold now (design doc 8.7). */
@@ -237,12 +282,18 @@ export interface DayView {
   readonly rank?: { readonly score: number; readonly open: boolean };
   /** The compiler card's final project: progress so far, what it needs, and whether it can take hours today; absent without the card. */
   readonly project?: { readonly done: number; readonly need: number; readonly open: boolean };
+  /**
+   * The TA line's midterm grading: hours done, hours it needs, the day the grades are due, and whether today's free hours (`open`)
+   * or tonight's hours after bedtime (`night`) can take it; absent without the card.
+   */
+  readonly grade?: { readonly done: number; readonly need: number; readonly due: number; readonly open: boolean; readonly night: boolean };
 }
 
 export interface Strategy {
   plan(view: DayView): MorningPlan;
   choose(eventId: string, options: readonly string[], view: DayView): string;
-  floor(view: DayView): FloorChoice;
+  /** `tags` are the body's as the elevator is reached, which the rooms of a played patrol are entered with. */
+  floor(view: DayView, tags: TagState): FloorChoice;
   night(view: DayView): NightPlan;
 }
 

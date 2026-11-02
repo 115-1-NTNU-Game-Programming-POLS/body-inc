@@ -42,8 +42,10 @@ export class CardTable {
     const cx = scene.scale.width / 2;
     let y = 96;
     if (texts.caption) {
-      this.layer.add(addText(scene, cx, y, texts.caption, { role: 'print', weight: 700, size: 18 * scale, color: '#c9d3e3' }).setOrigin(0.5, 0));
-      y += 36 * scale;
+      const caption = addText(scene, cx, y, texts.caption, { role: 'print', weight: 700, size: 18 * scale, color: '#c9d3e3' }).setOrigin(0.5, 0).setAlign('center');
+      this.layer.add(caption);
+      // A caption of several lines (the clause and the setting card on the first morning) pushes the title down by its own height.
+      y += Math.max(36 * scale, caption.displayHeight + 12 * scale);
     }
     const title = addText(scene, cx, y, texts.title, {
       role: CARD.title.role, weight: 700, size: CARD.title.fontSize * scale, color: '#fbfaf6', maxWidth: CARD.title.maxWidth(scale), lineHeight: CARD.title.lineHeight,

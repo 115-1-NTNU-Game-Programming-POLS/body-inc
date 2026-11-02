@@ -95,21 +95,28 @@ export const commitmentsOf = (id: string): readonly Commitment[] => COMMITMENTS[
 /** Whether the semester took the card `id`; a context without a course list (the old sims) takes none. */
 export const takes = (courses: readonly string[] | undefined, id: string): boolean => courses?.includes(id) === true;
 
+/** Whether `list` takes hour `h` of `day`. */
+export const committedIn = (list: readonly Commitment[], day: number, h: number): boolean => list.some((c) => c.day === day && c.hours.includes(h));
+
 /** Whether a course takes hour `h` of `day`; the day's loop asks every hour, so this allocates nothing. */
 export const isCommitted = (courses: readonly string[], day: number, h: number): boolean =>
-  courses.some((id) => (COMMITMENTS[id] ?? []).some((c) => c.day === day && c.hours.includes(h)));
+  courses.some((id) => committedIn(COMMITMENTS[id] ?? [], day, h));
 
 export type FixedHour = 'exam' | 'class' | 'meal' | 'work';
 
-/** What hour `h` of a day is already spoken for by whatever the plan says, in the order the day takes them; undefined when the plan decides it. */
+/**
+ * What hour `h` of a day is already spoken for by whatever the plan says, in the order the day takes them; undefined when the
+ * plan decides it. `setting` is the hours the semester's setting card takes on top of the courses' (clauses.ts).
+ */
 export function fixedHour(
   k: { readonly weekend: readonly number[]; readonly classes: readonly number[]; readonly meals: readonly number[]; readonly examHours: readonly number[] },
-  courses: readonly string[] | undefined, day: number, wake: number, examDay: boolean, h: number,
+  courses: readonly string[] | undefined, day: number, wake: number, examDay: boolean, h: number, setting?: readonly Commitment[],
 ): FixedHour | undefined {
   if (examDay && k.examHours.includes(h)) return 'exam';
   if (!k.weekend.includes(day) && k.classes.includes(h)) return 'class';
   if (h === wake || k.meals.slice(1).includes(h)) return 'meal';
   if (courses !== undefined && isCommitted(courses, day, h)) return 'work';
+  if (setting !== undefined && committedIn(setting, day, h)) return 'work';
   return undefined;
 }
 
@@ -178,7 +185,7 @@ export const archiveRate = (effectiveSleep: number): number => Math.min(1, effec
 
 /**
  * The whole hours a night can still push bedtime back from `bed`, given the `delay` already taken, before the extended clock
- * stops. Debugging and the contest both spend them, and the cards offer no more than this.
+ * stops. Debugging, the grading of the TA line and the contest all spend them, and the cards offer no more than this.
  */
 export const nightRoom = (k: { readonly bedMax: number; readonly bedOverrun: number }, bed: number, delay: number): number =>
   Math.max(0, Math.floor(k.bedMax + k.bedOverrun - (bed + delay)));
@@ -210,11 +217,40 @@ export const PROJECT_PRACTICE_SHARE = 0.75;
  */
 export function projectRoom(
   k: Parameters<typeof fixedHour>[0] & { readonly bedMin: number },
-  courses: readonly string[] | undefined, day: number, wake: number, examDay: boolean, rest: readonly number[], write: number,
+  courses: readonly string[] | undefined, day: number, wake: number, examDay: boolean, rest: readonly number[], write: number, setting?: readonly Commitment[],
+): number {
+  return Math.max(0, Math.min(PROJECT_DAY_MAX, freeHours(k, courses, day, wake, examDay, rest, setting) - write));
+}
+
+/** The hours from `wake` to the evening that no fixed hour and no `rest` hour has taken, which the plan can still give to study or to work. */
+function freeHours(
+  k: Parameters<typeof fixedHour>[0] & { readonly bedMin: number },
+  courses: readonly string[] | undefined, day: number, wake: number, examDay: boolean, rest: readonly number[], setting?: readonly Commitment[],
 ): number {
   let free = 0;
-  for (let h = wake; h < k.bedMin; h++) if (fixedHour(k, courses, day, wake, examDay, h) === undefined && !rest.includes(h)) free++;
-  return Math.max(0, Math.min(PROJECT_DAY_MAX, free - write));
+  for (let h = wake; h < k.bedMin; h++) if (fixedHour(k, courses, day, wake, examDay, h, setting) === undefined && !rest.includes(h)) free++;
+  return free;
+}
+
+/**
+ * The TA line's midterm grading (design doc 8.3): 60 hand-written papers, about 5 hours, whose grades are handed in on day 7.
+ * They can be graded by day from the midterm to day 7 and on the nights of the midterm and the day after, "all at once on the
+ * night of day 6" being the design's own example of the costly way. ASSUME: the 5 hours are one pool, however they are split.
+ * Handing in late costs nothing but the line in the year-end review, as the design has it for a side line.
+ */
+export const GRADE_HOURS = 5;
+/** The papers those hours grade; only the text of the card uses it. */
+export const GRADE_PAPERS = 60;
+
+/** One definition for the rule and the text that names the days: the first day with papers and the day the grades are due. */
+export const gradeDays = (k: { readonly midDay: number }): { readonly from: number; readonly to: number } => ({ from: k.midDay, to: k.midDay + 2 });
+
+/** The grading hours a morning plan can count on: the hours the day leaves after the fixed hours, `rest` and `write`, up to what is still to grade. */
+export function gradeRoom(
+  k: Parameters<typeof fixedHour>[0] & { readonly bedMin: number },
+  courses: readonly string[] | undefined, day: number, wake: number, examDay: boolean, rest: readonly number[], write: number, graded: number, setting?: readonly Commitment[],
+): number {
+  return Math.max(0, Math.min(GRADE_HOURS - graded, freeHours(k, courses, day, wake, examDay, rest, setting) - write));
 }
 
 /**

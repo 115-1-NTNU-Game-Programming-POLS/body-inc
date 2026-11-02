@@ -415,6 +415,16 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
         "description": "Shows the blood glucose meter and runs its rules in this chapter (design doc 7.3).",
         "type": "boolean"
       },
+      "patrol": {
+        "description": "Makes the chapter the rooms of one floor's patrol in the semester mode (design doc 8.5): the chapter clock does not run, so the rooms stay a snapshot of the day the semester handed in. The value is the floor.",
+        "enum": [
+          "brain",
+          "immune",
+          "stomach",
+          "liver",
+          "gut"
+        ]
+      },
       "carry": {
         "description": "Number or boolean tags that cross the day boundary into the next chapter. Without this only the closing cards decide what the next chapter starts with, so nothing the operator did in the rooms would reach it.",
         "type": "array",
@@ -2405,6 +2415,7 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
           "reviewLiverCheck",
           "reviewDeclined",
           "reviewBed",
+          "reviewGrades",
           "reviewPatrol",
           "reviewHospital",
           "reviewFin",
@@ -2564,6 +2575,10 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
             "minLength": 1
           },
           "reviewBed": {
+            "type": "string",
+            "minLength": 1
+          },
+          "reviewGrades": {
             "type": "string",
             "minLength": 1
           },
@@ -3193,6 +3208,8 @@ export interface ChapterFile {
   readonly partner?: "chairman";
   /** Shows the blood glucose meter and runs its rules in this chapter (design doc 7.3). */
   readonly glucose?: boolean;
+  /** Makes the chapter the rooms of one floor's patrol in the semester mode (design doc 8.5): the chapter clock does not run, so the rooms stay a snapshot of the day the semester handed in. The value is the floor. */
+  readonly patrol?: "brain" | "immune" | "stomach" | "liver" | "gut";
   /** Number or boolean tags that cross the day boundary into the next chapter. Without this only the closing cards decide what the next chapter starts with, so nothing the operator did in the rooms would reach it. */
   readonly carry?: readonly string[];
   /** Sleep files the day's memories (design doc 7.4, 7.6). A memory Pickup adds one to the tag `held`, up to `hands` at a time; a conversation moves what is held onto the staging desk with `move:<held>><desk>*100` (a file is 100 on the desk), where the desk's own `fadePerHour` wears it away while the operator is awake. Going to bed sets `into` to the share of `total` files still on the desk, in percent, times the night crew's caffeine coefficient at that moment and the `climax` archive factor when its flag is on. Put `into` in `carry` for the next chapter to read it. */
@@ -3754,6 +3771,7 @@ export interface ReportDoc {
   readonly reviewLiverCheck: string;
   readonly reviewDeclined: string;
   readonly reviewBed: string;
+  readonly reviewGrades: string;
   readonly reviewPatrol: string;
   readonly reviewHospital: string;
   readonly reviewFin: string;

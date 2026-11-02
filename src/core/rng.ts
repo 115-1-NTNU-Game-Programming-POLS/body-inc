@@ -27,7 +27,7 @@ export function nextInt(state: RngState, maxExclusive: number): [number, RngStat
  * Independent streams per concern, so adding one enemy decision does not shift which events
  * the day draws, and a demo save's events stay fixed while combat code changes.
  */
-export const RNG_STREAMS = ['map', 'events', 'enemies'] as const;
+export const RNG_STREAMS = ['map', 'events', 'enemies', 'setting'] as const;
 export type RngStream = (typeof RNG_STREAMS)[number];
 export type RngStreams = Readonly<Record<RngStream, RngState>>;
 
@@ -59,4 +59,17 @@ export function drawFloat(streams: RngStreams, name: RngStream): [number, RngStr
 export function drawInt(streams: RngStreams, name: RngStream, maxExclusive: number): [number, RngStreams] {
   const [f, s] = drawFloat(streams, name);
   return [Math.floor(f * maxExclusive), s];
+}
+
+/** `n` distinct values from `pool` in the order drawn, all from one stream; fewer when the pool runs out. */
+export function drawDistinct<T>(streams: RngStreams, name: RngStream, pool: readonly T[], n: number): [T[], RngStreams] {
+  const left = [...pool];
+  const out: T[] = [];
+  let s = streams;
+  for (let i = 0; i < n && left.length > 0; i++) {
+    let j: number;
+    [j, s] = drawInt(s, name, left.length);
+    out.push(left.splice(j, 1)[0]!);
+  }
+  return [out, s];
 }

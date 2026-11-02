@@ -680,13 +680,13 @@ describe('exams and hospital (design doc 8.9, 8.11)', () => {
 describe('what the player is allowed to see', () => {
   it('hands strategies lights and clues but no floor load', () => {
     const views: DayView[] = [];
-    const spy: Strategy = { ...ARCHETYPES.drinkerBlind, floor: (v) => { views.push(v); return ARCHETYPES.drinkerBlind.floor(v); } };
+    const spy: Strategy = { ...ARCHETYPES.drinkerBlind, floor: (v, t) => { views.push(v); return ARCHETYPES.drinkerBlind.floor(v, t); } };
     const ctx = contextFor(0.5, 1, { scenario: { 2: ['bbq'], 3: ['bbq'] } });
     runSemester(ctx, spy, 1);
     expect(views.length).toBeGreaterThan(5);
     for (const v of views) {
       expect(Object.keys(v).sort()).toEqual([
-        'S', 'bedDelay', 'caffeine', 'day', 'examTomorrow', 'exam', 'homework', 'hospitals', 'liverClues', 'modifiers', 'panel', 'progress', 'sleepDebt', 'staging', 'wake', 'weekend',
+        'S', 'bedDelay', 'caffeine', 'day', 'examTomorrow', 'exam', 'homework', 'hospitals', 'liverClues', 'modifiers', 'panel', 'progress', 'sleepDebt', 'staging', 'wake', 'weekend', 'welfare',
       ].sort());
       for (const b of v.panel.buttons) expect(Object.keys(b).every((k) => ['floor', 'light', 'note'].includes(k))).toBe(true);
     }

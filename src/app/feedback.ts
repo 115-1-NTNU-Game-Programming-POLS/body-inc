@@ -28,7 +28,7 @@ export type StringTable = StringsFile;
 const ALL_EVENTS: Record<GameEvent['type'], true> = {
   bumpWall: true, fire: true, swing: true, toolSwapped: true, guardRaised: true, blocked: true, parry: true,
   toasted: true, refused: true, backedOff: true, refusalSaid: true, canTaken: true, palpitation: true, canDisco: true, pieRaised: true, pieBlocked: true,
-  dodge: true, perfectDodge: true, telegraph: true, hit: true, caseClosed: true,
+  dodge: true, perfectDodge: true, telegraph: true, hit: true, caseClosed: true, bound: true,
   dispersed: true, reformed: true, respawned: true, immuneBounce: true, heartLost: true, freeze: true, forcedLeave: true,
   gaugeFull: true, stampRaised: true, stampLanded: true, stampVoid: true, clung: true, forcedNap: true,
   bossStage: true, bossDrink: true, bossSummon: true, powerCut: true, proposalRejected: true, bossDefeated: true, bossBreath: true, bossRound: true, bossConceded: true,

@@ -4,7 +4,7 @@ import { BOSSES, DECKS, DIALOGUES, ENEMIES, PARAMS, TAGS } from '../../src/app/c
 import { tagsFromQuery } from '../../src/app/session.ts';
 import { bodyOverlapsSolid } from '../../src/core/collision/grid.ts';
 import {
-  advance, ChapterError, LOCK_TICKS, decode, encode, EMPTY_TAGS, NAP, OPERATOR_BODY, parseRoom, readContent, resumeChapter, roomsOf, selectInteractable,
+  advance, amount, ChapterError, LOCK_TICKS, decode, encode, EMPTY_TAGS, NAP, OPERATOR_BODY, parseRoom, readContent, resumeChapter, roomsOf, selectInteractable,
   startChapter, startClock, stateHash, stepChapter, storyOf, STORY, tileOf, touchedObjects, wholeMinutes,
   type ChapterContent, type ChapterState, type GameEvent, type TickInput, type TiledMap,
 } from '../../src/core/index.ts';
@@ -279,6 +279,18 @@ describe('beds', () => {
     expect(second.state.game.clock.minute).toBe(first.state.game.clock.minute);
   });
 
+  it('a nap in a patrol sends the stacks home but passes no time, since a patrol never starts the clock', () => {
+    const asPatrol = lab([nap], { chapter: { version: 1, id: 'lab', start: 'lab/room', links: [], patrol: 'brain' } });
+    const asStory = lab([nap]);
+    const at = (c: ChapterContent) => place(startChapter(c, { tags: tags('caffeine:100') }), 230, 175);
+    const napped = advanceBy(asPatrol, at(asPatrol), PRESS);
+    expect(napped.events).toContainEqual({ type: 'napped', minutes: 0 });
+    expect(napped.state.game.clock.minute).toBe(at(asPatrol).game.clock.minute);
+    expect(amount(napped.state.run.tags, TAGS, 'caffeine')).toBe(100);
+    // The same sofa in a story chapter does wear the caffeine down, so the lines above cannot hold of a sofa that does nothing.
+    expect(amount(advanceBy(asStory, at(asStory), PRESS).state.run.tags, TAGS, 'caffeine')).toBeLessThan(100);
+  });
+
   it('a sleep bed ends the chapter only when its requirement holds', () => {
     const c = lab([sleep('caffeine<15')]);
     const near = (s: ChapterState) => place(s, 430, 175);
@@ -375,9 +387,16 @@ describe('checkpoints and forced leave', () => {
     expect(back.data).toEqual(storyOf(saved.run));
     const resumed = resumeChapter(ctx, back.data.checkpoint!);
     expect(resumed.run.roomId).toBe(REST);
-    expect(resumed.game.operator).toMatchObject({ x: 128, y: 230, halves: 12, gauge: 0 });
+    expect(resumed.game.operator).toMatchObject({ x: 128, y: 230, gauge: 0 });
+    // A sleep debt of 3 hours leaves 5 hearts (design doc 5.6), and the resume opens with all of them.
+    expect(resumed.game.operator).toMatchObject({ halves: 10, maxHalves: 10 });
     expect(resumed.run.tags).toEqual(saved.run.checkpoint!.tags);
     expect(resumed.game.clock).toEqual(saved.run.checkpoint!.clock);
+  });
+
+  it('a tired chairman opens a room with a smaller heart cap, and a rested one with all six hearts (design doc 5.6)', () => {
+    expect(startChapter(ctx, { room: REST, tags: tags('sleep_debt:8') }).game.operator).toMatchObject({ halves: 8, maxHalves: 8 });
+    expect(startChapter(ctx, { room: REST, tags: tags('sleep_debt:0') }).game.operator).toMatchObject({ halves: 12, maxHalves: 12 });
   });
 
   it('a story slot with a broken checkpoint falls back to no checkpoint', () => {

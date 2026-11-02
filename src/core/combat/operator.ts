@@ -189,8 +189,8 @@ function swapTool(op: OperatorState, now: number, drawer: boolean): OperatorStat
   return { ...op, tool, swapPending: false, nextShotAt: null, swapUntil: drawer ? now + FOLDER.swapTicks : now };
 }
 
-/** Advances the operator one unfrozen tick. `now` is the tick being simulated. */
-export function stepOperator(grid: SolidGrid, op0: OperatorState, input: TickInput, now: number): OperatorStep {
+/** Advances the operator one unfrozen tick. `now` is the tick being simulated; `speed` scales how fast the operator walks (1 for none). */
+export function stepOperator(grid: SolidGrid, op0: OperatorState, input: TickInput, now: number, speed = 1): OperatorStep {
   let op = bufferInput(op0, input, now);
   const held = input.attack === true ? op.held + 1 : 0;
   if (held !== op.held) op = { ...op, held };
@@ -301,7 +301,7 @@ export function stepOperator(grid: SolidGrid, op0: OperatorState, input: TickInp
 
   const stick = unit(input.move);
   const aim = stick.x === 0 && stick.y === 0 ? op.aim : stick;
-  const factor = guard ? FOLDER.guardSpeedFactor : op.tool === 'stapler' && input.attack === true ? STAPLER.holdSpeedFactor : 1;
+  const factor = speed * (guard ? FOLDER.guardSpeedFactor : op.tool === 'stapler' && input.attack === true ? STAPLER.holdSpeedFactor : 1);
   const want = desiredVelocity(input.move, [...op.slows, ...(op.bodySlow ? [op.bodySlow] : []), ...Array<number>(op.stacks).fill(CLING.slowPerStack)]);
   const v = approach({ x: op.vx, y: op.vy }, { x: want.x * factor, y: want.y * factor });
   const m = moveAndCollide(grid, OPERATOR_BODY, op.x, op.y, v.x, v.y);

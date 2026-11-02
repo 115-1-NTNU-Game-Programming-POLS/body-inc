@@ -47,6 +47,12 @@ export const ENEMY_HIT_FREEZE = 3;
 /** Base hearts (design doc 5.3), counted in halves; a normal hit takes one half. */
 export const BASE_HALVES = 12;
 
+/** The fewest hearts a tired chairman keeps (design doc 5.6), counted in halves. */
+export const MIN_HALVES = 8;
+
+/** The hearts a room opens with, in halves: base hearts times the chairman's spirit P, rounded to a whole heart (design doc 5.6). */
+export const heartCap = (p: number): number => Math.min(BASE_HALVES, Math.max(MIN_HALVES, 2 * Math.round((BASE_HALVES / 2) * p)));
+
 /** Reforming enemies come back after 6 s (design doc 5.5). */
 export const REFORM_TICKS = 6 * TICK_HZ;
 
@@ -66,6 +72,8 @@ export const STAMP = {
  * and the gauge gains 15. Later frames only block. Areas are never blocked, so every boss move
  * stays avoidable by dodging alone (design doc 5.3). The swing's frames, reach, the hold
  * threshold and the string's gap are not in the design doc and are placeholders for playtesting.
+ * Its damage per second is a deliberate premium over the stapler's (design doc 6.1); if the
+ * playtest finds it too strong, lengthen `swingTicks` rather than touching the 2, 2 and 4.
  */
 export const FOLDER = {
   damage: [2, 2, 4],
@@ -102,6 +110,22 @@ export const GAUGE = {
   parry: 15,
   perfectDodge: 10,
 } as const;
+
+/**
+ * Binding (裝訂, design doc 8.8): `hits` staple hits in a row on one enemy pin it for `pinTicks`.
+ * The design doc said 5; the defeatable enemies have 3 to 6 performance, so the threshold is 3
+ * and `windowTicks` (the longest gap that keeps a run going) is an ASSUME. See
+ * docs/design-doc.md 8.8.
+ */
+export const BIND = {
+  hits: 3,
+  windowTicks: Math.round(0.75 * TICK_HZ),
+  pinTicks: Math.round(1.5 * TICK_HZ),
+  splashPx: 1.5 * TILE,
+} as const;
+
+/** 退件加速 (design doc 8.8): the speed factor for `ticks` after a parry, with the card held. */
+export const PARRY_BOOST = { ticks: 2 * TICK_HZ, factor: 1.2 } as const;
 
 /**
  * Clinging (design doc 5.5, chapter 1): 5% slow per stack, three stacks is the 15% cap and

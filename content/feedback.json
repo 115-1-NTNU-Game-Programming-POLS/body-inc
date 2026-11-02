@@ -9,6 +9,7 @@
   "events": {
     "hit": { "flashTarget": 2, "particles": [{ "preset": "paper", "count": 5 }, { "preset": "ink", "count": 3 }] },
     "caseClosed": { "closeOut": true, "particles": [{ "preset": "paper", "count": 12 }], "note": "stamp.case_closed" },
+    "bound": { "flashTarget": 4, "particles": [{ "preset": "ink", "count": 5 }], "note": "bind.bound" },
     "dispersed": { "particles": [{ "preset": "fuzz", "count": 8 }] },
     "immuneBounce": { "bounce": true, "note": "solution.{solution}" },
     "heartLost": { "flashOperator": 2, "shake": { "px": 4, "seconds": 0.12 }, "particles": [{ "preset": "sweat", "count": 1 }] },

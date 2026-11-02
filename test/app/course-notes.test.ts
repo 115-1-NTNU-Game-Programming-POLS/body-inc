@@ -61,7 +61,7 @@ describe('the numbers in the card texts come from the rules (issue 42)', () => {
   });
 
   it('keeps hardcoded days, hours and credits out of the texts that take them from the rules', () => {
-    for (const key of ['course.note.algorithms', 'course.note.compiler', 'course.note.ta', 'semester.project.title', 'semester.project.caption', 'semester.walk.caption', 'semester.walk.none.note', 'semester.walk.take']) {
+    for (const key of ['course.note.algorithms', 'course.note.compiler', 'course.note.ta', 'semester.grade.title', 'semester.grade.caption', 'semester.gradenight.caption', 'semester.project.title', 'semester.project.caption', 'semester.walk.caption', 'semester.walk.none.note', 'semester.walk.take']) {
       expect(hasDigit(key), key).toBe(false);
     }
   });
