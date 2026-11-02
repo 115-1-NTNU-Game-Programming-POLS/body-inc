@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { createGame, loadEnemyTable, NO_INPUT, step, TILE, type EnteredRoom, type GameState, type TickInput } from '../../src/core/index.ts';
-import { ENEMY_HIT_FREEZE, FLYER, SALESMAN, STAMP } from '../../src/core/combat/frames.ts';
+import { createGame, loadEnemyTable, NO_INPUT, step, TILE, type EnemyState, type EnteredRoom, type GameState, type TickInput } from '../../src/core/index.ts';
+import { BIND, ENEMY_HIT_FREEZE, FLYER, SALESMAN, STAMP } from '../../src/core/combat/frames.ts';
 
 const TABLE = loadEnemyTable(JSON.parse(readFileSync('content/enemies.json', 'utf8')));
 const START = { x: 160, y: 192 };
@@ -100,7 +100,7 @@ describe('hit-stop and the telegraph (design doc 5.3, issue 59)', () => {
   it('still holds the windup of an enemy that a binding pin holds', () => {
     const g = target('salesman', 30);
     const windup = { phase: 'windup' as const, phaseTicks: 5, frozen: 50, strikeDir: RIGHT };
-    const pinned = { ...g, enemies: g.enemies.map((e) => ({ ...e, ...windup, boundUntil: 50 })) };
+    const pinned = { ...g, enemies: g.enemies.map((e) => ({ ...e, ...windup, pin: 50 })) };
     const free = { ...g, enemies: g.enemies.map((e) => ({ ...e, ...windup })) };
     let a: GameState = pinned;
     let b: GameState = free;
@@ -112,4 +112,89 @@ describe('hit-stop and the telegraph (design doc 5.3, issue 59)', () => {
     expect(a.enemies[0]!.phaseTicks).toBe(5);
     expect(b.enemies[0]!.phase, 'hit-stop only: the telegraph has run out by now').not.toBe('windup');
   });
+
+  it('holds a pin for exactly its ticks, no more and no fewer', () => {
+    const g = target('salesman', 30);
+    const pinned = { phase: 'windup' as const, phaseTicks: 0, frozen: BIND.pinTicks, pin: BIND.pinTicks, strikeDir: RIGHT };
+    let s: GameState = { ...g, enemies: g.enemies.map((e) => ({ ...e, ...pinned })) };
+    const after = (ticks: number): EnemyState => {
+      for (let t = 0; t < ticks; t++) s = step(s, NO_INPUT).state;
+      return s.enemies[0]!;
+    };
+    expect(after(BIND.pinTicks - 1)).toMatchObject({ phase: 'windup', phaseTicks: 0, frozen: 1, pin: 1 });
+    expect(after(1)).toMatchObject({ phase: 'windup', phaseTicks: 0, frozen: 0, pin: 0 });
+    expect(after(1)).toMatchObject({ phaseTicks: 1 });
+  });
+
+  it('does not take a pin left behind by a kill or a reset for the next hit-stop', () => {
+    const g = target('salesman', 30);
+    const stale = { phase: 'windup' as const, phaseTicks: 5, frozen: 0, pin: BIND.pinTicks, strikeDir: RIGHT };
+    let s: GameState = { ...g, enemies: g.enemies.map((e) => ({ ...e, ...stale })) };
+    s = step(s, NO_INPUT).state;
+    expect(s.enemies[0]!.phaseTicks).toBe(6);
+    s = { ...s, enemies: s.enemies.map((e) => ({ ...e, frozen: ENEMY_HIT_FREEZE })) };
+    for (let t = 0; t < ENEMY_HIT_FREEZE; t++) s = step(s, NO_INPUT).state;
+    expect(s.enemies[0]!.phaseTicks, 'the windup counted through the hit-stop').toBe(6 + ENEMY_HIT_FREEZE);
+  });
+
+  describe('a strike', () => {
+    /** A salesman in the middle of his strike with the box on the operator, `frozen` ticks of hit-stop or pin on him. */
+    const striking = (extra: Partial<EnemyState>): GameState => {
+      const g = target('salesman', 18);
+      return { ...g, enemies: g.enemies.map((e) => ({ ...e, phase: 'strike' as const, phaseTicks: 1, strikeSpent: false, strikeDir: { x: -1, y: 0 }, ...extra })) };
+    };
+    const landedAt = (s0: GameState): number => {
+      let s = s0;
+      for (let t = 0; t < 12; t++) {
+        const r = step(s, NO_INPUT);
+        s = r.state;
+        if (r.events.some((e) => e.type === 'heartLost')) return t;
+      }
+      return -1;
+    };
+
+    it('lands on schedule through hit-stop', () => {
+      const on = landedAt(striking({}));
+      expect(on).toBe(0);
+      expect(landedAt(striking({ frozen: ENEMY_HIT_FREEZE }))).toBe(on);
+    });
+
+    it('ends on schedule through hit-stop', () => {
+      const endsAt = (s0: GameState): number => {
+        let s = s0;
+        for (let t = 1; t < 30; t++) {
+          s = step(s, NO_INPUT).state;
+          if (s.enemies[0]!.phase !== 'strike') return t;
+        }
+        return -1;
+      };
+      // The operator's own hit-stop when the strike lands is part of both runs.
+      const unfrozen = endsAt(striking({}));
+      expect(unfrozen).toBeGreaterThan(0);
+      expect(endsAt(striking({ frozen: ENEMY_HIT_FREEZE }))).toBe(unfrozen);
+    });
+
+    it('is held back by a binding pin until the pin has run out', () => {
+      expect(landedAt(striking({ frozen: 8, pin: 8 }))).toBeGreaterThanOrEqual(7);
+    });
+  });
+
+  it('is never moved by one staple, whenever it lands in the telegraph or the strike', () => {
+    const baseline = landedTick(target('salesman', 30), -1);
+    expect(baseline).toBeGreaterThan(0);
+    const landed = new Set<number>();
+    for (let at = 0; at < baseline + SALESMAN.strikeTicks; at++) landed.add(landedTick(target('salesman', 30), at));
+    expect([...landed]).toEqual([baseline]);
+  });
 });
+
+/** The first tick the salesman's strike costs the operator a heart, with one staple fired on tick `shot` (never when negative). */
+function landedTick(start: GameState, shot: number): number {
+  let s = start;
+  for (let t = 0; t < 120; t++) {
+    const r = step(s, t === shot ? fire : NO_INPUT);
+    s = r.state;
+    if (r.events.some((e) => e.type === 'heartLost')) return t;
+  }
+  return -1;
+}

@@ -47,7 +47,7 @@ export interface ComboReport {
   /**
    * Enemies, each clinging one counted by `sight`, divided by P: more enemies, and a slower stamp
    * gauge to deal with them. A rough stand-in for difficulty until playtests give a better one;
-   * it does not count the hearts P should scale (design doc 9.2), which the rules do not do yet.
+   * it does not count the heart cap that P also sets (design doc 5.6).
    */
   readonly pressure: number;
   /** Minutes after the chapter opens until a sleep bed first accepts, or undefined. */

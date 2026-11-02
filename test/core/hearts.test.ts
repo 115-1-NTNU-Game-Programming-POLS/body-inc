@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { chairmanSpirit, createGame, loadEnemyTable, sleepFactor, type EnteredRoom, type SleepCoefficients } from '../../src/core/index.ts';
+import { chairmanSpirit, createGame, debtOfSpirit, loadEnemyTable, sleepFactor, type EnteredRoom, type SleepCoefficients } from '../../src/core/index.ts';
 import { BASE_HALVES, heartCap, MIN_HALVES } from '../../src/core/combat/frames.ts';
 
 const TABLE = loadEnemyTable(JSON.parse(readFileSync('content/enemies.json', 'utf8')));
@@ -45,10 +45,27 @@ describe('the heart cap follows the chairman\'s spirit (design doc 5.6, issue 61
     expect(heartCap(1)).toBe(BASE_HALVES);
   });
 
-  it('is the base hearts times P rounded to a whole heart, up to the floor of 4', () => {
-    for (const p of [0.1, 0.5, 0.55, 0.58, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 1]) {
-      expect(heartCap(p), `P ${p}`).toBe(2 * Math.max(4, Math.round(6 * p)));
-    }
+  it('rounds half a heart up and holds the floor of 4 hearts', () => {
+    const table: [p: number, hearts: number][] = [[1, 6], [0.92, 6], [0.9167, 6], [0.9166, 5], [0.75, 5], [0.7499, 4], [0.65, 4], [0.5, 4], [0.1, 4]];
+    for (const [p, hearts] of table) expect(heartCap(p) / 2, `P ${p}`).toBe(hearts);
+  });
+
+  it('follows a fractional debt to the edge of the table, not only whole hours', () => {
+    // 6 hearts need 6 P of at least 5.5, which is an S of 5/6; 5 hearts need an S of 1/2.
+    const edge6 = (1 - 5 / 6) / K.sCoef;
+    const edge5 = (1 - 1 / 2) / K.sCoef;
+    expect([heartsAt(edge6 - 0.01), heartsAt(edge6 + 0.01)]).toEqual([6, 5]);
+    expect([heartsAt(edge5 - 0.01), heartsAt(edge5 + 0.01)]).toEqual([5, 4]);
+  });
+
+  it('reads the debt back from P, up to where S stops falling', () => {
+    for (const debt of [0, 1, 2.4, 5, 7.2, 9]) expect(debtOfSpirit(spiritAt(debt), K).hours, `debt ${debt}`).toBeCloseTo(debt, 6);
+    expect(debtOfSpirit(spiritAt(9), K).atFloor).toBe(false);
+    const floor = debtOfSpirit(spiritAt(30), K);
+    expect(floor.atFloor).toBe(true);
+    expect(floor.hours).toBeCloseTo((1 - K.sFloor) / K.sCoef, 6);
+    // A P below what any debt gives (a test or dev option) still reads as the floor.
+    expect(debtOfSpirit(0.5, K).hours).toBeCloseTo(floor.hours, 6);
   });
 
   it('opens a room with all the hearts the spirit allows, and no more', () => {

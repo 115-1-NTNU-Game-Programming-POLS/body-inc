@@ -1,11 +1,11 @@
 import Phaser from 'phaser';
 import type { FixedStepLoop } from '../../app/loop.ts';
 import {
-  acetaldehydeCrates, amount, BASE_HALVES, GLUCOSE as METER, glucoseOf, isDizzy, MINUTES_PER_DAY, questionOf, selectBoss, selectClock, selectExam, selectFactory, selectGauge, selectHearts,
+  acetaldehydeCrates, BASE_HALVES, debtOfSpirit, GLUCOSE as METER, glucoseOf, isDizzy, MINUTES_PER_DAY, questionOf, selectBoss, selectClock, selectExam, selectFactory, selectGauge, selectHearts,
   selectInteractable, selectPie, selectTick, selectTool, stepAt, TICK_HZ, waitingCrates, workOrders,
   type BossSummary, type ChapterState, type GameEvent, type GameState,
 } from '../../core/index.ts';
-import { str, TAGS } from '../../app/content.ts';
+import { PARAMS, str, TAGS } from '../../app/content.ts';
 import { issueMessage, type SaveIssue } from '../../app/storage.ts';
 import { addText, updateText } from '../text/fonts.ts';
 import type { WallNoteMessage } from '../actors/EvidenceBoard.ts';
@@ -16,7 +16,6 @@ const HEART = ['.##.##.', '#######', '#######', '.#####.', '..###..', '...#...']
 const CELL = 4;
 const HEART_COLOR = 0xf08a80;
 const EMPTY_COLOR = 0x3b4660;
-/** A heart the tired chairman's spirit takes away, grey inside an overtime sheet (design doc 5.6). */
 const OVERTIME_HEART = 0x8b909c;
 const NOTE_SECONDS = 2.5;
 /** Rejection gauge (art direction 8.3): a 200 x 16 ink pad in the one HUD red, ticked at 50%. */
@@ -249,7 +248,6 @@ export class HudScene extends Phaser.Scene {
     else this.glucoseLabel.setOrigin(0, 0.5).setPosition(GLUCOSE.x + GLUCOSE.w + 12, GAUGE_Y + GAUGE_H / 2 + 2);
   }
 
-  /** The base hearts, those the chairman's spirit allows lit or empty, the rest grey inside an overtime sheet. */
   private drawHearts(halves: number, maxHalves: number): void {
     const g = this.hearts.clear();
     for (let h = 0; h < BASE_HALVES / 2; h++) {
@@ -425,10 +423,11 @@ export class HudScene extends Phaser.Scene {
   /** Under the clock: why hearts are suspended, the tool in hand once there is a second to swap to, the factory's crate counts in a factory room, and the dizzy warning (design doc 7.7). */
   private renderStatus(state: ChapterState): void {
     const lines: string[] = [];
-    // The hearts the spirit takes away show why (design doc 5.6), as long as the cap is down.
     const suspended = (BASE_HALVES - selectHearts(state.game).maxHalves) / 2;
     if (suspended > 0) {
-      lines.push(str('hud.overtime').replace('{debt}', String(Math.round(amount(state.run.tags, TAGS, 'sleep_debt')))).replace('{n}', String(suspended)));
+      // Read back from P, not from the live tag: P is fixed at room entry and the hearts follow it.
+      const { hours, atFloor } = debtOfSpirit(state.game.p, PARAMS);
+      lines.push(str('hud.overtime').replace('{debt}', `${Number(hours.toFixed(1))}${atFloor ? '+' : ''}`).replace('{n}', String(suspended)));
     }
     const { tool, canSwap } = selectTool(state.game);
     if (canSwap) lines.push(str(`hud.tool.${tool}`));

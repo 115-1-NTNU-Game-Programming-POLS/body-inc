@@ -1,6 +1,6 @@
 import { boxAt, centeredBox, overlaps, type Box } from './collision/boxes.ts';
 import { isSolid, moveAndCollide } from './collision/grid.ts';
-import { backOff, ENEMY_BODY, enemyCenter, enemyFrom, enemyHurtbox, isHittable, isMelee, stepEnemy, strikeBox, type EnemyState } from './combat/actors.ts';
+import { backOff, ENEMY_BODY, enemyCenter, enemyFrom, enemyHurtbox, isBound, isHittable, isMelee, stepEnemy, strikeBox, type EnemyState } from './combat/actors.ts';
 import { newBossState, type BossDef, type BossTable, type ToastState } from './combat/bosses/boss.ts';
 import { proposalOpen, stepCaffeine } from './combat/bosses/caffeine.ts';
 import { breathing, stepToast } from './combat/bosses/toast.ts';
@@ -846,7 +846,7 @@ export function step(state: GameState, pressed: TickInput): StepResult {
       continue;
     }
     if (enemies.has(e.id)) continue;
-    const r = stepEnemy(grid, e, target, senseRange, (e.boundUntil ?? 0) > now);
+    const r = stepEnemy(grid, e, target, senseRange);
     enemies.set(e.id, r.enemy);
     newShots.push(...r.shots);
     if (r.telegraph) events.push({ type: 'telegraph', source: e.id, tier: 1 });
@@ -932,7 +932,7 @@ export function step(state: GameState, pressed: TickInput): StepResult {
       if (gain > 0) op = charge(op, gain, state.p, events);
     } else {
       if (gain > 0) op = charge(op, gain, state.p, events);
-      const wasBound = target.frozen > 0 && (target.boundUntil ?? 0) > now;
+      const wasBound = isBound(target);
       const hit = damage(target, amount, freeze, events, state.bosses);
       enemies.set(target.id, binds > 0 ? bindHit(hit, binds) : hit);
       if (wasBound && perks.bindSplash > 0) splash(target);
@@ -951,7 +951,7 @@ export function step(state: GameState, pressed: TickInput): StepResult {
     }
     bind = { target: e.id, hits: 0, at: now };
     events.push({ type: 'bound', target: e.id, enemy: e.type });
-    return { ...e, frozen: Math.max(e.frozen, BIND.pinTicks), boundUntil: now + BIND.pinTicks };
+    return { ...e, frozen: Math.max(e.frozen, BIND.pinTicks), pin: BIND.pinTicks };
   };
 
   // 裝訂大師: a hit on a bound enemy chips the ordinary enemies around it. The splash binds nothing and splashes nothing.
@@ -1061,7 +1061,7 @@ export function step(state: GameState, pressed: TickInput): StepResult {
   };
 
   for (const e of byId()) {
-    if (!isMelee(e) || e.phase !== 'strike' || e.strikeSpent || e.frozen > 0 || !overlaps(strikeBox(e), hurt)) continue;
+    if (!isMelee(e) || e.phase !== 'strike' || e.strikeSpent || isBound(e) || !overlaps(strikeBox(e), hurt)) continue;
     const c = caught({ x: e.x - op.x, y: e.y - op.y });
     if (c) {
       events.push({ type: c === 'parry' ? 'parry' : 'blocked', source: e.id, kind: 'strike' });

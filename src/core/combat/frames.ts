@@ -50,11 +50,7 @@ export const BASE_HALVES = 12;
 /** The fewest hearts a tired chairman keeps (design doc 5.6), counted in halves. */
 export const MIN_HALVES = 8;
 
-/**
- * The hearts a room opens with, in halves: the base hearts times the chairman's spirit P, rounded
- * to a whole heart and never under four (design doc 5.6). With the default sleep coefficients that
- * is 6 hearts for a sleep debt of 0 to 2 hours, 5 for 3 to 7 and 4 from 8.
- */
+/** The hearts a room opens with, in halves: base hearts times the chairman's spirit P, rounded to a whole heart (design doc 5.6). */
 export const heartCap = (p: number): number => Math.min(BASE_HALVES, Math.max(MIN_HALVES, 2 * Math.round((BASE_HALVES / 2) * p)));
 
 /** Reforming enemies come back after 6 s (design doc 5.5). */
@@ -76,9 +72,8 @@ export const STAMP = {
  * and the gauge gains 15. Later frames only block. Areas are never blocked, so every boss move
  * stays avoidable by dodging alone (design doc 5.3). The swing's frames, reach, the hold
  * threshold and the string's gap are not in the design doc and are placeholders for playtesting.
- * Mashed, the string deals about 2.7 times the stapler's damage per second, which design doc 6.1
- * states as the price of standing in melee; if the playtest finds it too strong, lengthen
- * `swingTicks` rather than touching the 2, 2 and 4.
+ * Its damage per second is a deliberate premium over the stapler's (design doc 6.1); if the
+ * playtest finds it too strong, lengthen `swingTicks` rather than touching the 2, 2 and 4.
  */
 export const FOLDER = {
   damage: [2, 2, 4],
