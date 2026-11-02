@@ -51,8 +51,8 @@ export interface EnemyState {
   readonly throws?: 'can';
   /** Cheers kid: a weapon has made him back off since his last toast, so the next one cannot. */
   readonly shooed?: true;
-  /** Tick a binding pin ends (core/combat/perks.ts); the enemy counts as bound while this is ahead and it is still frozen. */
-  readonly boundUntil?: number;
+  /** Ticks of a binding pin left (core/combat/perks.ts). It is filled with `frozen` and counts down with it; see `isBound`. */
+  readonly pin?: number;
   /** Exam test case: its drift in pixels per tick, turned back by walls (core/exam/fight.ts). */
   readonly drift?: Vec;
 }
@@ -83,6 +83,9 @@ export const BOSS_HURT: Body = { halfW: 20, height: 44 };
 export const isHittable = (e: EnemyState): boolean =>
   e.phase !== 'dispersed' && e.phase !== 'closed' && e.phase !== 'attached' && e.phase !== 'pinned'
   && !(e.boss?.behaviour === 'toast' && e.boss.part === 'wait');
+
+/** A binding pin holds an enemy completely; hit-stop writes the same `frozen` and holds less. */
+export const isBound = (e: EnemyState): boolean => e.frozen > 0 && (e.pin ?? 0) > 0;
 
 export const enemyHurtbox = (e: EnemyState): Box => boxAt(e.boss ? BOSS_HURT : ENEMY_HURT, e.x, e.y);
 
@@ -115,10 +118,20 @@ export interface EnemyStep {
 }
 
 /** `senseRangePx` is how far a clinging enemy notices the operator; the caffeine cloak lowers it. */
-export function stepEnemy(grid: SolidGrid, e0: EnemyState, target: Vec, senseRangePx: number = CLING.senseRangePx): EnemyStep {
-  const out = (enemy: EnemyState, flags: Partial<Omit<EnemyStep, 'enemy'>> = {}): EnemyStep =>
-    ({ enemy, telegraph: false, reformed: false, respawned: false, shots: [], ...flags });
-  if (e0.frozen > 0) return out({ ...e0, frozen: e0.frozen - 1 });
+export function stepEnemy(grid: SolidGrid, enemy: EnemyState, target: Vec, senseRangePx: number = CLING.senseRangePx): EnemyStep {
+  const out = (e: EnemyState, flags: Partial<Omit<EnemyStep, 'enemy'>> = {}): EnemyStep =>
+    ({ enemy: e, telegraph: false, reformed: false, respawned: false, shots: [], ...flags });
+  // A kill or a reset zeroes `frozen` and leaves the pin, which a later hit-stop must not mistake for its own.
+  const e0 = enemy.frozen === 0 && (enemy.pin ?? 0) > 0 ? { ...enemy, pin: 0 } : enemy;
+  if (e0.frozen > 0) {
+    if (isBound(e0) || (e0.phase !== 'windup' && e0.phase !== 'strike')) {
+      return out({ ...e0, frozen: e0.frozen - 1, ...(isBound(e0) ? { pin: e0.pin! - 1 } : {}) });
+    }
+    // Hit-stop is a pose (design doc 5.3): an attack keeps its schedule, and the rest of the pose
+    // is dropped when it moves on.
+    const r = stepEnemy(grid, { ...e0, frozen: 0 }, target, senseRangePx);
+    return { ...r, enemy: { ...r.enemy, frozen: r.enemy.phase === e0.phase ? e0.frozen - 1 : 0 } };
+  }
   const e = { ...e0, phaseTicks: e0.phaseTicks + 1 };
 
   switch (e.phase) {

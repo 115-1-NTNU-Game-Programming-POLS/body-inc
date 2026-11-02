@@ -387,9 +387,16 @@ describe('checkpoints and forced leave', () => {
     expect(back.data).toEqual(storyOf(saved.run));
     const resumed = resumeChapter(ctx, back.data.checkpoint!);
     expect(resumed.run.roomId).toBe(REST);
-    expect(resumed.game.operator).toMatchObject({ x: 128, y: 230, halves: 12, gauge: 0 });
+    expect(resumed.game.operator).toMatchObject({ x: 128, y: 230, gauge: 0 });
+    // A sleep debt of 3 hours leaves 5 hearts (design doc 5.6), and the resume opens with all of them.
+    expect(resumed.game.operator).toMatchObject({ halves: 10, maxHalves: 10 });
     expect(resumed.run.tags).toEqual(saved.run.checkpoint!.tags);
     expect(resumed.game.clock).toEqual(saved.run.checkpoint!.clock);
+  });
+
+  it('a tired chairman opens a room with a smaller heart cap, and a rested one with all six hearts (design doc 5.6)', () => {
+    expect(startChapter(ctx, { room: REST, tags: tags('sleep_debt:8') }).game.operator).toMatchObject({ halves: 8, maxHalves: 8 });
+    expect(startChapter(ctx, { room: REST, tags: tags('sleep_debt:0') }).game.operator).toMatchObject({ halves: 12, maxHalves: 12 });
   });
 
   it('a story slot with a broken checkpoint falls back to no checkpoint', () => {

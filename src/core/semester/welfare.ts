@@ -7,15 +7,13 @@ import { GRADES, type Grade } from './load.ts';
 /**
  * The welfare cards of design doc 8.8 that the rooms and the semester can carry out. A card is given by a patrol and kept to the end of
  * the run; none of them undoes a cost of the health education (a hard rule of the doc). The ones not listed have no mechanic to act on
- * yet, see "福利卡的實作狀態" in docs/design-doc.md.
+ * yet, see the "第一版的做法" paragraph of 8.8 in docs/design-doc.md.
  */
 export interface WelfareCard {
   readonly id: string;
   /** The department that gives it: a floor's patrol offers its own cards and the general affairs office's. */
   readonly source: FloorId | 'general';
-  /** The course card it needs, when it is about one. */
   readonly course?: string;
-  /** What it changes in a fight. */
   readonly perks?: Partial<Perks>;
 }
 

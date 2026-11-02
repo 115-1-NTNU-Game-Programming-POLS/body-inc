@@ -17,6 +17,12 @@ export function chairmanSpirit(s: number): number {
   return 0.5 + 0.5 * s;
 }
 
+/** The sleep debt in hours that leaves P; at the floor of S that is the least debt that does, since more changes nothing. */
+export function debtOfSpirit(p: number, k: SleepCoefficients): { readonly hours: number; readonly atFloor: boolean } {
+  const s = 2 * p - 1;
+  return { hours: (1 - Math.max(k.sFloor, s)) / k.sCoef, atFloor: s <= k.sFloor + 1e-9 };
+}
+
 /** P for a room entry; it stays fixed until the next entry, like the variant layers. */
 export function spiritAtEntry(tags: TagState, dict: TagDictionary, k: SleepCoefficients): number {
   return chairmanSpirit(sleepFactor(amount(tags, dict, 'sleep_debt'), k));

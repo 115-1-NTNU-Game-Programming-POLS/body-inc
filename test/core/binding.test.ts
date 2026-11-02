@@ -67,7 +67,7 @@ describe('binding (裝訂, design doc 8.8)', () => {
     expect(ofType(r, 'bound')[0]).toEqual({ type: 'bound', target: 1, enemy: 'dummy' });
     const at = run(dummies(ONE), bound + 1, fire).state.enemies[0]!;
     expect(at.frozen).toBeGreaterThanOrEqual(BIND.pinTicks - 1);
-    expect(at.boundUntil).toBe(bound + BIND.pinTicks);
+    expect(at.pin).toBe(BIND.pinTicks);
   });
 
   it('starts the count again after a pin: every third hit binds', () => {
@@ -125,7 +125,7 @@ describe('binding (裝訂, design doc 8.8)', () => {
     const r = run(arena, 120, fire);
     expect(ofType(r, 'hit').filter((e) => e.target === 1).length).toBeGreaterThanOrEqual(BIND.hits);
     expect(ofType(r, 'bound')).toEqual([]);
-    expect(r.state.enemies.find((e) => e.boss)!.boundUntil).toBeUndefined();
+    expect(r.state.enemies.find((e) => e.boss)!.pin).toBeUndefined();
   });
 
   it('takes fewer hits with 快速裝訂 (bindHits 2)', () => {
@@ -173,10 +173,31 @@ describe('裝訂大師: a hit on a bound enemy chips the ones beside it', () => 
     expect(r.state.enemies.filter((e) => e.id > 1).map((e) => e.phase)).toEqual(['idle', 'idle', 'closed']);
   });
 
+  it('is set off by a pin and not by the hit-stop of a plain hit', () => {
+    const g = crowd({ bindSplash: 1 });
+    const frozen = (pin: number | undefined) => ({ ...g, enemies: g.enemies.map((e) => (e.id === 1 ? { ...e, frozen: 60, ...(pin === undefined ? {} : { pin }) } : e)) });
+    const neighbour = (s: GameState) => run(s, 40, (t) => (t === 0 ? fire() : NO_INPUT)).state.enemies[1]!.hp;
+    expect(neighbour(frozen(undefined))).toBe(40);
+    expect(neighbour(frozen(60))).toBe(39);
+  });
+
   it('is not set off by the splash itself: the neighbour is not bound and nothing chains', () => {
     const r = run(crowd({ bindSplash: 1 }), 400, fire);
     expect(ofType(r, 'bound').every((e) => e.target === 1)).toBe(true);
-    expect(r.state.enemies[1]!.boundUntil).toBeUndefined();
+    expect(r.state.enemies[1]!.pin).toBeUndefined();
+  });
+
+  it('keeps a neighbour the swing also covers whole: the splash is neither overwritten nor counted twice', () => {
+    // The pinned dummy is first in id order, so its splash lands before the swing reaches the one beside it.
+    const swing = (hpBeside: number) => {
+      const g = createGame(room([{ type: 'dummy', x: START.x + 20, y: START.y }, { type: 'dummy', x: START.x + 20, y: START.y + 4 }]), 1, TABLE, { tool: 'folder', perks: { ...BASE_PERKS, bindSplash: 1 } });
+      const enemies = g.enemies.map((e) => (e.id === 1 ? { ...e, hp: 40, maxHp: 40, frozen: 60, pin: 60 } : { ...e, hp: hpBeside, maxHp: hpBeside }));
+      return run({ ...g, operator: { ...g.operator, aim: RIGHT }, enemies }, 20, (t) => press({ attack: t === 0, attackPressed: t === 0 }));
+    };
+    expect(swing(4).state.enemies[1]!.hp).toBe(4 - 1 - FOLDER.damage[0]!);
+    const closing = swing(1);
+    expect(ofType(closing, 'caseClosed').filter((e) => e.target === 2)).toHaveLength(1);
+    expect(ofType(closing, 'hit').filter((e) => e.target === 2)).toHaveLength(0);
   });
 });
 

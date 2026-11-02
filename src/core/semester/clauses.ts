@@ -3,7 +3,7 @@ import { BASE_CREDITS, MAX_CREDITS, type Commitment } from './courses.ts';
 import type { Scenario, SemesterContext, SemesterParams } from './types.ts';
 
 /**
- * The overtime clauses of design doc 8.3 the presentation has: 0 normal, 1 heavier finals, 2 a setting card that always
+ * The overtime clauses of design doc 8.14 the presentation has: 0 normal, 1 heavier finals, 2 a setting card that always
  * disrupts. Levels 3 and up come after the presentation. The clauses stack, and the burden of the course selection is a separate axis.
  */
 export const MAX_CLAUSE = 2;
@@ -20,7 +20,7 @@ export const clauseFinMult = (level: number): number => FIN_MULT[level] ?? 1;
 
 /**
  * The highest level a player may start at after a semester played at `level`: clearing the top unlocked level opens the next,
- * and clearing a lower one changes nothing (design doc 8.3).
+ * and clearing a lower one changes nothing (design doc 8.14).
  */
 export const unlockedAfter = (unlocked: number, level: number, cleared: boolean): number =>
   cleared && level === unlocked ? Math.min(MAX_CLAUSE, unlocked + 1) : unlocked;

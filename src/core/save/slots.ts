@@ -193,7 +193,7 @@ export interface ProgressData {
   readonly hostName: string;
   /** Semesters played to their end; 0 makes the next one the scripted first week (design doc 8.13). */
   readonly semestersDone: number;
-  /** The highest overtime clause level the player may start at (design doc 8.3); absent is 0. A clear of that level opens the next. */
+  /** The highest overtime clause level the player may start at (design doc 8.14); absent is 0. A clear of that level opens the next. */
   readonly clauseUnlocked?: number;
 }
 
@@ -247,7 +247,7 @@ export interface SemesterRun {
   readonly seed: number;
   /** The course cards taken (design doc 8.3); absent in a run saved before there was a selection, which replays without them. */
   readonly courses?: readonly string[];
-  /** The overtime clause level (design doc 8.3); absent is level 0, which is what a run saved before the clauses replays as. */
+  /** The overtime clause level (design doc 8.14); absent is level 0, which is what a run saved before the clauses replays as. */
   readonly clause?: number;
   /** The answers of each finished day, in the order the day asked its questions. */
   readonly days: readonly (readonly Answer[])[];

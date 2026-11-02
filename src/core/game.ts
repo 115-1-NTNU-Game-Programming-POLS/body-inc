@@ -1,11 +1,11 @@
 import { boxAt, centeredBox, overlaps, type Box } from './collision/boxes.ts';
 import { isSolid, moveAndCollide } from './collision/grid.ts';
-import { backOff, ENEMY_BODY, enemyCenter, enemyFrom, enemyHurtbox, isHittable, isMelee, stepEnemy, strikeBox, type EnemyState } from './combat/actors.ts';
+import { backOff, ENEMY_BODY, enemyCenter, enemyFrom, enemyHurtbox, isBound, isHittable, isMelee, stepEnemy, strikeBox, type EnemyState } from './combat/actors.ts';
 import { newBossState, type BossDef, type BossTable, type ToastState } from './combat/bosses/boss.ts';
 import { proposalOpen, stepCaffeine } from './combat/bosses/caffeine.ts';
 import { breathing, stepToast } from './combat/bosses/toast.ts';
 import type { EnemyTable } from './combat/enemies.ts';
-import { BASE_HALVES, BIND, BOSS, CLING, DODGE, ENEMY_HIT_FREEZE, FOLDER, GAUGE, HURT, PARRY_BOOST, SALESMAN, STAMP, STAPLER } from './combat/frames.ts';
+import { BASE_HALVES, BIND, BOSS, CLING, DODGE, ENEMY_HIT_FREEZE, FOLDER, GAUGE, heartCap, HURT, PARRY_BOOST, SALESMAN, STAMP, STAPLER } from './combat/frames.ts';
 import { guardCovers, parryOpen, swingBox } from './combat/folder.ts';
 import { BASE_PERKS, type Perks } from './combat/perks.ts';
 import { pieCovers, PIE_READY, stepPie, sleepOfSpirit, type PieState } from './combat/pie.ts';
@@ -408,8 +408,11 @@ export function createGame(room: EnteredRoom, seed: number, table: EnemyTable, o
   const gauge = options.gauge ?? 0;
   if (!(p > 0 && p <= 1)) throw new GameSetupError(`P must be in (0, 1], got ${p}`);
   if (!(gauge >= 0 && gauge <= STAMP.gaugeMax)) throw new GameSetupError(`gauge must be 0 to ${STAMP.gaugeMax}, got ${gauge}`);
-  const halves = options.halves ?? BASE_HALVES;
-  if (!Number.isInteger(halves) || halves < 1 || halves > BASE_HALVES) throw new GameSetupError(`halves must be a whole number from 1 to ${BASE_HALVES}, got ${halves}`);
+  // Hearts carried in from another room are kept down to what the spirit of this one allows.
+  const cap = heartCap(p);
+  const asked = options.halves ?? BASE_HALVES;
+  if (!Number.isInteger(asked) || asked < 1 || asked > BASE_HALVES) throw new GameSetupError(`halves must be a whole number from 1 to ${BASE_HALVES}, got ${asked}`);
+  const halves = Math.min(asked, cap);
   const carried = options.stacks ?? 0;
   if (!Number.isInteger(carried) || carried < 0 || carried >= CLING.maxStacks) {
     throw new GameSetupError(`stacks must be a whole number from 0 to ${CLING.maxStacks - 1}, got ${carried}`);
@@ -418,7 +421,7 @@ export function createGame(room: EnteredRoom, seed: number, table: EnemyTable, o
   const spawned = spawnEnemies(room, table, options.bosses, 1);
   // A tool carried in is only believed while the folder is handed over, so a locked folder is never in hand.
   const tool: HeldTool = options.tool === 'folder' && !options.folderLocked ? 'folder' : 'stapler';
-  const operator = { ...newOperator(start.x, start.y, BASE_HALVES, gauge), halves, stacks: carried, tool };
+  const operator = { ...newOperator(start.x, start.y, cap, gauge), halves, stacks: carried, tool };
   const body = boxAt(OPERATOR_BODY, operator.x, operator.y);
   const delivered = ascending(options.delivered ?? []);
   const boxes = settleBoxes(room, options.boxes ?? new Map(), occupantsOf(operator, spawned.enemies).bodies, delivered);
@@ -577,7 +580,8 @@ function bossFactor(e: EnemyState, bosses: Readonly<Record<string, BossDef>>): n
 }
 
 /**
- * Damage to a defeatable enemy. A boss has no hit-stop, so hits never stretch its telegraphs.
+ * Damage to a defeatable enemy. A boss has no hit-stop; the hit-stop of any other enemy does not
+ * stretch its telegraph either (`stepEnemy`).
  * The toast boss is not beaten when his budget runs out: he gives up (design doc 7.7).
  */
 function damage(e: EnemyState, amount: number, freeze: number, events: DomainEvent[], bosses: Readonly<Record<string, BossDef>>): EnemyState {
@@ -928,7 +932,7 @@ export function step(state: GameState, pressed: TickInput): StepResult {
       if (gain > 0) op = charge(op, gain, state.p, events);
     } else {
       if (gain > 0) op = charge(op, gain, state.p, events);
-      const wasBound = target.frozen > 0 && (target.boundUntil ?? 0) > now;
+      const wasBound = isBound(target);
       const hit = damage(target, amount, freeze, events, state.bosses);
       enemies.set(target.id, binds > 0 ? bindHit(hit, binds) : hit);
       if (wasBound && perks.bindSplash > 0) splash(target);
@@ -947,7 +951,7 @@ export function step(state: GameState, pressed: TickInput): StepResult {
     }
     bind = { target: e.id, hits: 0, at: now };
     events.push({ type: 'bound', target: e.id, enemy: e.type });
-    return { ...e, frozen: Math.max(e.frozen, BIND.pinTicks), boundUntil: now + BIND.pinTicks };
+    return { ...e, frozen: Math.max(e.frozen, BIND.pinTicks), pin: BIND.pinTicks };
   };
 
   // 裝訂大師: a hit on a bound enemy chips the ordinary enemies around it. The splash binds nothing and splashes nothing.
@@ -963,7 +967,9 @@ export function step(state: GameState, pressed: TickInput): StepResult {
   // Alcohol crates in the dock only wobble under it, like under a staple: no tool shortens the wait.
   if (s.swingHit !== undefined) {
     const box = swingBox(op);
-    for (const e of byId()) {
+    // Read each enemy afresh: an earlier hit's splash (裝訂大師) may have changed the ones beside it.
+    for (const { id } of byId()) {
+      const e = enemies.get(id)!;
       if (isHittable(e) && overlaps(box, enemyHurtbox(e))) hitEnemy(e, FOLDER.damage[s.swingHit]!, FOLDER.hitFreeze[s.swingHit]!, GAUGE.folder);
     }
     const f = state.factory;
@@ -1057,7 +1063,7 @@ export function step(state: GameState, pressed: TickInput): StepResult {
   };
 
   for (const e of byId()) {
-    if (!isMelee(e) || e.phase !== 'strike' || e.strikeSpent || e.frozen > 0 || !overlaps(strikeBox(e), hurt)) continue;
+    if (!isMelee(e) || e.phase !== 'strike' || e.strikeSpent || isBound(e) || !overlaps(strikeBox(e), hurt)) continue;
     const c = caught({ x: e.x - op.x, y: e.y - op.y });
     if (c) {
       events.push({ type: c === 'parry' ? 'parry' : 'blocked', source: e.id, kind: 'strike' });

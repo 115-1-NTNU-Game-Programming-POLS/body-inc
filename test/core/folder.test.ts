@@ -242,8 +242,8 @@ describe('the guard and the parry (design doc 6.1)', () => {
   /** The key pressed so that the guard's frame 1 falls on `raisedAt`: it rises FOLDER.holdTicks - 1 ticks after the press. */
   const guardFrom = (raisedAt: number) => held(raisedAt - (FOLDER.holdTicks - 1));
   /**
-   * The guard already up so that its frame is rame on tick t, with no swing on the way: a swing
-   * hits a salesman close enough to strike and its hit-stop would delay the strike being tested.
+   * The guard already up so that its frame is `frame` on tick `at`, with no swing on the way: a swing
+   * would hit and wear down the salesman close enough to strike, which is not what is being tested.
    */
   function guardedAt(g: GameState, at: number, frame: number, ticks: number): Run {
     const from = at - frame + 1;
@@ -375,13 +375,13 @@ describe('the guard and the parry (design doc 6.1)', () => {
     expect(ofType(r, 'parry')).toEqual([]);
   });
 
-  it('pressing the key beside a salesman swings first: the hit-stop delays its strike, then the guard still parries', () => {
+  it('pressing the key beside a salesman swings first: the hit-stop does not delay its strike, and the guard still parries', () => {
     const h = arrival(salesman());
-    // The swing lands on frame 3 and freezes the salesman for 3 ticks, so its strike comes 3 ticks late.
+    // The swing lands on frame 3 and freezes the salesman for 3 ticks, but his telegraph runs on (design doc 5.3).
     const r = run(salesman(), h + 12, guardFrom(h - 4));
     expect(ofType(r, 'hit')).toHaveLength(1);
     expect(ofType(r, 'heartLost')).toEqual([]);
-    expect(r.events.findIndex((es) => es.some((e) => e.type === 'parry'))).toBe(h + 3);
+    expect(r.events.findIndex((es) => es.some((e) => e.type === 'parry'))).toBe(h);
   });
   it('a sheet sent back throws no lever on its way, as a staple would', () => {
     const base = room([{ type: 'flyer', x: START.x + 4 * TILE, y: START.y }]);
@@ -546,6 +546,18 @@ describe('what the folder shares with the stapler', () => {
     expect(FOLDER.holdTicks).toBeLessThanOrEqual(FOLDER.swingTicks);
   });
 
+  it('deals about 2.7 times the stapler\'s damage per second, the risk premium design doc 6.1 states (issue 62)', () => {
+    // Measured, not derived: a mashed folder against a held stapler on a wall of performance, over 5 seconds.
+    const dealt = (tool: 'stapler' | 'folder', dx: number): number => {
+      const g = createGame(room([{ type: 'dummy', x: START.x + dx, y: START.y }]), 1, TABLE, { tool });
+      const wall = { ...g, operator: { ...g.operator, aim: RIGHT }, enemies: g.enemies.map((e) => ({ ...e, hp: 999, maxHp: 999 })) };
+      const r = run(wall, 300, (t) => (tool === 'folder' ? tap(...Array.from({ length: 100 }, (_, i) => i * 3))(t) : held(0)(t)));
+      return 999 - r.state.enemies[0]!.hp;
+    };
+    const ratio = dealt('folder', 20) / dealt('stapler', 4 * TILE);
+    expect(ratio).toBeGreaterThan(2.3);
+    expect(ratio).toBeLessThan(3.1);
+  });
 });
 
 describe('the energy-drink can (design doc 7.4)', () => {

@@ -39,7 +39,7 @@ export * from './tags/store.ts';
 export * from './combat/frames.ts';
 export * from './combat/enemies.ts';
 export { boxAt, centeredBox, overlaps, type Box } from './collision/boxes.ts';
-export { BOSS_BODY, BOSS_HURT, ENEMY_BODY, ENEMY_HURT, enemyCenter, enemyHurtbox, isHittable, isMelee, strikeBox } from './combat/actors.ts';
+export { BOSS_BODY, BOSS_HURT, ENEMY_BODY, ENEMY_HURT, enemyCenter, enemyHurtbox, isBound, isHittable, isMelee, strikeBox } from './combat/actors.ts';
 export * from './combat/bosses/boss.ts';
 export { proposalOpen } from './combat/bosses/caffeine.ts';
 export { breathing } from './combat/bosses/toast.ts';
