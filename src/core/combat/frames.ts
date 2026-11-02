@@ -105,8 +105,8 @@ export const GAUGE = {
 
 /**
  * Binding (裝訂, design doc 8.8): `hits` staple hits in a row on one enemy pin it for `pinTicks`.
- * The design doc says 5; the defeatable enemies have 3 to 6 performance, so 3 is the agreed
- * prototype value and `windowTicks` (the longest gap that keeps a run going) is an ASSUME. See
+ * The design doc said 5; the defeatable enemies have 3 to 6 performance, so the threshold is 3
+ * and `windowTicks` (the longest gap that keeps a run going) is an ASSUME. See
  * docs/design-doc.md 8.8.
  */
 export const BIND = {
