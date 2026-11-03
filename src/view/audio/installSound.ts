@@ -20,7 +20,9 @@ export function installSound(game: Phaser.Game): Sound {
     now: () => performance.now(),
     musicBase: 'assets/audio/music/',
   });
-  for (const type of ['pointerdown', 'keydown']) window.addEventListener(type, () => sound.unlock(), true);
+  // Chrome counts a touch as a gesture on its release (pointerup), not on pointerdown.
+  for (const type of ['pointerdown', 'pointerup', 'keydown']) window.addEventListener(type, () => sound.unlock(), true);
+  sound.hidden(document.hidden);
   document.addEventListener('visibilitychange', () => sound.hidden(document.hidden));
   game.registry.events.on('changedata-settings', () => sound.apply());
   game.registry.set('sound', sound);

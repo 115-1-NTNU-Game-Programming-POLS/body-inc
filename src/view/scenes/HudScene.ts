@@ -145,6 +145,9 @@ export class HudScene extends Phaser.Scene {
     const onCaption = (c: WorldCaption) => this.caption(c);
     this.game.events.on('world-note', onNote);
     this.game.events.on('world-caption', onCaption);
+    // An arrow points at a source in the room the caption came from, so it goes when the room does.
+    const onRoom = () => this.clearCaptions();
+    this.game.events.on('world-room', onRoom);
     this.game.events.on('save-issues', onIssues);
     // The evidence wall has no hearts, stamp pad or rule clock to show; it has its own controls and a note under the lit nodes.
     this.wallMode = this.registry.get('wall') !== undefined;
@@ -170,6 +173,7 @@ export class HudScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.game.events.off('world-note', onNote);
       this.game.events.off('world-caption', onCaption);
+      this.game.events.off('world-room', onRoom);
       this.game.events.off('save-issues', onIssues);
       this.game.events.off('wall-note', onWallNote);
       this.scene.stop('Dialogue');
@@ -405,6 +409,10 @@ export class HudScene extends Phaser.Scene {
     this.captions.push({ text, arrow, until });
     while (this.captions.length > MAX_CAPTIONS) this.dropCaption(0);
     this.layoutCaptions();
+  }
+
+  private clearCaptions(): void {
+    while (this.captions.length > 0) this.dropCaption(0);
   }
 
   private dropCaption(i: number): void {

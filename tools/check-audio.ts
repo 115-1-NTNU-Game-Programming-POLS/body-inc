@@ -41,7 +41,8 @@ export function checkAudio(rootDir = ROOT): string[] {
   const tracks = Object.entries(audio.music.tracks);
 
   const musicDir = join(root, MUSIC_DIR);
-  const onDisk = existsSync(musicDir) ? readdirSync(musicDir).filter((n) => n.endsWith('.mp3')) : [];
+  // Whatever the extension or case: a track under another name, or a stray file, must not ship by accident.
+  const onDisk = existsSync(musicDir) ? readdirSync(musicDir) : [];
   const named = new Set(tracks.map(([, t]) => t.file));
   for (const name of onDisk) if (!named.has(name)) out.push(`${MUSIC_DIR}/${name}：content/audio.json 沒有任何曲目使用這個檔案，請登記或移除`);
 
@@ -75,9 +76,10 @@ export function checkAudio(rootDir = ROOT): string[] {
   if (!existsSync(sheetFile)) {
     out.push(`${CUE_SHEET}：找不到，請寫出每個音效和每首曲目用在哪裡`);
   } else {
-    const sheet = read(sheetFile);
-    for (const id of Object.keys(audio.cues)) if (!sheet.includes(`\`${id}\``)) out.push(`${CUE_SHEET}：沒有提到音效「${id}」`);
-    for (const id of Object.keys(audio.music.tracks)) if (!sheet.includes(`\`${id}\``)) out.push(`${CUE_SHEET}：沒有提到曲目「${id}」`);
+    // A row of a table, not a mention in the text: the id opens the line, so the sheet says what the sound is for.
+    const listed = new Set([...read(sheetFile).matchAll(/^\| `([^`]+)` \|/gm)].map((m) => m[1]!));
+    for (const id of Object.keys(audio.cues)) if (!listed.has(id)) out.push(`${CUE_SHEET}：表格裡沒有音效「${id}」的列`);
+    for (const id of Object.keys(audio.music.tracks)) if (!listed.has(id)) out.push(`${CUE_SHEET}：表格裡沒有曲目「${id}」的列`);
   }
 
   const readme = existsSync(join(root, 'README.md')) ? read(join(root, 'README.md')) : '';

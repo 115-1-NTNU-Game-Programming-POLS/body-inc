@@ -39,6 +39,14 @@ describe('audio files check (art direction 13.7)', () => {
     expect(checkAudio(tree())).toEqual([]);
   });
 
+  it('a file that differs from a track only in case is a stray, not that track', () => {
+    // Linux serves run-amok.mp3 and Run-Amok.mp3 as two files, so the one the page asks for would be missing there.
+    const dir = tree();
+    rmSync(join(dir, MUSIC, 'run-amok.mp3'));
+    writeFileSync(join(dir, MUSIC, 'Run-Amok.mp3'), Buffer.from('ID3....'));
+    expect(checkAudio(dir).join('\n')).toMatch(/Run-Amok\.mp3：content\/audio\.json 沒有任何曲目使用/);
+  });
+
   it('a track whose file is missing, too big or not an MP3', () => {
     const a = tree();
     rmSync(join(a, MUSIC, 'run-amok.mp3'));
@@ -57,10 +65,12 @@ describe('audio files check (art direction 13.7)', () => {
     expect(checkAudio(d)).toEqual([]);
   });
 
-  it('a file in the music folder that no track names', () => {
-    const dir = tree();
-    writeFileSync(join(dir, MUSIC, 'stray.mp3'), Buffer.from('ID3....'));
-    expect(checkAudio(dir)).toEqual([expect.stringMatching(/stray\.mp3：content\/audio\.json 沒有任何曲目使用/)]);
+  it('a file in the music folder that no track names, whatever its extension or case', () => {
+    for (const name of ['stray.mp3', 'STRAY.MP3', 'stray.ogg', 'Thumbs.db']) {
+      const dir = tree();
+      writeFileSync(join(dir, MUSIC, name), Buffer.from('ID3....'));
+      expect(checkAudio(dir), name).toEqual([expect.stringContaining(`${name}：content/audio.json 沒有任何曲目使用`)]);
+    }
   });
 
   it('a track with no license row, a blank credit, or a credit that does not name it', () => {
@@ -86,11 +96,21 @@ describe('audio files check (art direction 13.7)', () => {
   it('a cue sheet that leaves out a cue or a track, and a README that leaves out a credit', () => {
     const cue = tree();
     edit(cue, 'docs/audio/cues.md', (t) => t.replaceAll('`boing`', 'boing'));
-    expect(checkAudio(cue)).toEqual([expect.stringMatching(/cues\.md：沒有提到音效「boing」/)]);
+    expect(checkAudio(cue)).toEqual([expect.stringMatching(/cues\.md：表格裡沒有音效「boing」的列/)]);
 
     const track = tree();
     edit(track, 'docs/audio/cues.md', (t) => t.replaceAll('`liver`', 'liver'));
-    expect(checkAudio(track)).toEqual([expect.stringMatching(/cues\.md：沒有提到曲目「liver」/)]);
+    expect(checkAudio(track)).toEqual([expect.stringMatching(/cues\.md：表格裡沒有曲目「liver」的列/)]);
+
+    // Naming a cue in the text, or in the second column of a row, is not having a row of its own.
+    const mention = tree();
+    edit(mention, 'docs/audio/cues.md', (t) => t.replace(/^\| `boing` \|/m, '| 彈開 `boing` |'));
+    expect(checkAudio(mention)).toEqual([expect.stringMatching(/表格裡沒有音效「boing」的列/)]);
+
+    // A cue whose id contains another's ("telegraph.1" within "telegraph.10") must not be covered by it.
+    const prefix = tree();
+    edit(prefix, 'docs/audio/cues.md', (t) => t.replace(/^\| `telegraph\.1` \|/m, '| `telegraph.10` |'));
+    expect(checkAudio(prefix)).toEqual([expect.stringMatching(/表格裡沒有音效「telegraph\.1」的列/)]);
 
     const readme = tree();
     edit(readme, 'README.md', (t) => t.replaceAll('Easy Lemon', 'Easy'));

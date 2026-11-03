@@ -1,5 +1,5 @@
 import type { Cue, Settings, Voice } from '../core/index.ts';
-import { gapPassed, levelOf, MUSIC_LEVEL, semitoneRatio, trimOf, type AudioTable } from './audio.ts';
+import { clampSemitones, gapPassed, levelOf, MUSIC_LEVEL, semitoneRatio, trimOf, type AudioTable } from './audio.ts';
 
 /** What the synthesis needs of an audio context, so a test can stand in for the browser's. */
 export interface SynthContext {
@@ -131,6 +131,8 @@ export class Sound {
   private readonly playing: Playing[] = [];
   private timer: ReturnType<typeof setInterval> | undefined;
   private unlocked = false;
+  /** The page is hidden: nothing new starts until it is shown. */
+  private away = false;
 
   constructor(audio: AudioTable, deps: SoundDeps) {
     this.audio = audio;
@@ -143,23 +145,39 @@ export class Sound {
     if (this.unlocked && (!this.ctx || this.ctx.state === 'running')) return;
     if (!this.unlocked) {
       this.unlocked = true;
-      this.ctx = this.deps.makeContext();
-      if (this.ctx) {
-        // A limiter on the master so cues that overlap (a swing, a hit and a heart at once) do not clip.
-        const limiter = this.ctx.createDynamicsCompressor();
-        limiter.threshold.value = -2;
-        limiter.knee.value = 0;
-        limiter.ratio.value = 20;
-        limiter.attack.value = 0.002;
-        limiter.release.value = 0.1;
-        this.bus = this.ctx.createGain();
-        this.bus.connect(limiter).connect(this.ctx.destination);
-        this.noise = whiteNoise(this.ctx);
-      }
+      this.build();
     }
     void this.ctx?.resume();
     this.apply();
     this.music(this.wanted);
+  }
+
+  /**
+   * Makes the context and the effects bus. A browser that refuses a context (too many open, or a
+   * policy) leaves the game without effects but still with music, which an Audio element plays
+   * without a context; nothing is kept unless all of it was made.
+   */
+  private build(): void {
+    try {
+      const ctx = this.deps.makeContext();
+      if (!ctx) return;
+      // A limiter on the master so cues that overlap (a swing, a hit and a heart at once) do not clip.
+      const limiter = ctx.createDynamicsCompressor();
+      limiter.threshold.value = -2;
+      limiter.knee.value = 0;
+      limiter.ratio.value = 20;
+      limiter.attack.value = 0.002;
+      limiter.release.value = 0.1;
+      const bus = ctx.createGain();
+      bus.connect(limiter).connect(ctx.destination);
+      this.noise = whiteNoise(ctx);
+      this.bus = bus;
+      this.ctx = ctx;
+    } catch {
+      this.ctx = undefined;
+      this.bus = undefined;
+      this.noise = undefined;
+    }
   }
 
   /** The level of the effects bus under the player's own volume. */
@@ -177,7 +195,7 @@ export class Sound {
     if (!gapPassed(this.lastAt.get(id), now, cue.minGapMs ?? 30)) return false;
     this.lastAt.set(id, now);
     this.bus.gain.value = level;
-    synthesize(this.ctx, this.bus, cue, this.noise, this.ctx.currentTime, semitoneRatio(semitones), trimOf(cue));
+    synthesize(this.ctx, this.bus, cue, this.noise, this.ctx.currentTime, semitoneRatio(clampSemitones(semitones)), trimOf(cue));
     return true;
   }
 
@@ -196,7 +214,7 @@ export class Sound {
   music(id: string | undefined): void {
     if (id === undefined) return;
     this.wanted = id;
-    if (!this.unlocked) return;
+    if (!this.unlocked || this.away) return;
     const current = this.playing.find((p) => p.goal === 1);
     if (current?.id === id) {
       if (current.player.paused) void current.player.play().catch(() => undefined);
@@ -222,12 +240,17 @@ export class Sound {
     this.startFading();
   }
 
-  /** The page is hidden or shown: music is not left running behind a tab. */
+  /**
+   * The page is hidden or shown: music is not left running behind a tab, and a scene that asks for
+   * a track while the page is hidden does not start it. Shown again, the track asked for last plays.
+   */
   hidden(hidden: boolean): void {
-    for (const p of this.playing) {
-      if (hidden) p.player.pause();
-      else if (p.goal === 1) void p.player.play().catch(() => undefined);
+    this.away = hidden;
+    if (hidden) {
+      for (const p of this.playing) p.player.pause();
+      return;
     }
+    this.music(this.wanted);
   }
 
   private startFading(): void {

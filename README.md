@@ -106,7 +106,7 @@ python docs/site/build.py
 
 ## 音樂與音效
 
-遊戲的音效由程式在執行時合成，配方在 `content/audio.json`，沒有音效檔；每個聲音用在哪裡、字幕怎麼對應、響度怎麼校準，見 `docs/audio/cues.md`。音樂是下列七首 Kevin MacLeod 的作品，依 Creative Commons Attribution 4.0 授權使用（https://creativecommons.org/licenses/by/4.0/）。檔案只經過轉檔與響度正規化，沒有更動樂曲內容；逐首的出處記在 `docs/art/asset-license.csv`。
+遊戲的音效由程式在執行時合成，配方在 `content/audio.json`，沒有音效檔；每個聲音用在哪裡、字幕怎麼對應、響度怎麼校準，見 `docs/audio/cues.md`。音樂是下列七首 Kevin MacLeod 的作品，依 Creative Commons Attribution 4.0 授權使用（https://creativecommons.org/licenses/by/4.0/）。檔案經過下列更動：轉成 MP3 並正規化到 -18 LUFS；Lobby Time、Comfortable Mystery 和 Local Forecast - Elevator 為了壓進每首 1.5 MB 的上限，另外降成單聲道並使用較低的位元率（48 至 56 kbps），音質比原曲差。旋律與編曲沒有更動。逐首的原檔出處與更動記在 `docs/art/asset-license.csv`。
 
 - Lobby Time Kevin MacLeod (incompetech.com) Licensed under Creative Commons: By Attribution 4.0 https://creativecommons.org/licenses/by/4.0/
 - Comfortable Mystery Kevin MacLeod (incompetech.com) Licensed under Creative Commons: By Attribution 4.0 https://creativecommons.org/licenses/by/4.0/

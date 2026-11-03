@@ -1,10 +1,13 @@
+import { readdirSync, readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
-  audioProblems, bearing, captionsOn, captionTicks, levelOf, lowHeartTick, musicFor, peakSum, semitoneRatio, SOUND_FIELDS, soundFor, trimOf, UI,
-  type AudioTable,
+  audioProblems, bearing, captionsOn, captionTicks, clampSemitones, levelOf, lowHeartBeat, MAX_SEMITONES, musicFor, peakSum, secondOf, semitoneRatio,
+  SOUND_FIELDS, soundFor, trimOf, UI, type AudioTable,
 } from '../../src/app/audio.ts';
 import { AUDIO, ENEMIES, FEEDBACK, STRINGS } from '../../src/app/content.ts';
 import { noteFields, type FeedbackTable } from '../../src/app/feedback.ts';
+import { FixedStepLoop } from '../../src/app/loop.ts';
 import { SETTINGS, TELEGRAPH, TICK_HZ, type Cue, type GameEvent } from '../../src/core/index.ts';
 
 const FIELDS = noteFields(ENEMIES);
@@ -19,13 +22,6 @@ const tone = (gain: number, at = 0, dur = 0.1): Cue['voices'][number] => ({ kind
 describe('the audio content', () => {
   it('passes its own check against the feedback table and the strings', () => {
     expect(problems()).toEqual([]);
-  });
-
-  it('every event with a sound reaches a cue that exists, for every value its placeholder can take', () => {
-    const events: GameEvent[] = [
-      { type: 'telegraph', source: 1, tier: 1 }, { type: 'telegraph', source: 1, tier: 2 }, { type: 'telegraph', source: 1, tier: 3 },
-    ];
-    for (const e of events) expect(soundFor(FEEDBACK, AUDIO, e), JSON.stringify(e)).toBeDefined();
   });
 
   it('the three telegraph tiers are three different cues with their own captions', () => {
@@ -64,6 +60,23 @@ describe('what an event sounds like', () => {
   it('a cue without a caption gives none', () => {
     expect(soundFor(FEEDBACK, AUDIO, { type: 'swing', combo: 0 })?.caption).toBeUndefined();
   });
+
+  it('a pitch step that is not a number, or is far off, is held to what the synthesis can use', () => {
+    const swing = (combo: number) => soundFor(FEEDBACK, AUDIO, { type: 'swing', combo })!.semitones;
+    expect(swing(Number.NaN)).toBe(0);
+    expect(swing(Infinity)).toBe(MAX_SEMITONES);
+    expect(swing(-1e9)).toBe(-MAX_SEMITONES);
+    expect(clampSemitones(7)).toBe(7);
+  });
+
+  it('what the rescue and the dizziness sound like depends on how they went', () => {
+    const rescue = (outcome: 'step' | 'early' | 'myth') => soundFor(FEEDBACK, AUDIO, { type: 'rescueStep', rescue: 'akai', action: 'x', outcome, done: 1 })?.cue;
+    expect(rescue('step')).not.toBe(rescue('early'));
+    expect(rescue('step')).not.toBe(rescue('myth'));
+    const dizzy = (on: boolean) => soundFor(FEEDBACK, AUDIO, { type: 'dizzyChanged', dizzy: on })?.cue;
+    expect(dizzy(true)).toBeDefined();
+    expect(dizzy(true)).not.toBe(dizzy(false));
+  });
 });
 
 describe('the music', () => {
@@ -79,8 +92,12 @@ describe('the music', () => {
     expect(musicFor(AUDIO, {})).toBeUndefined();
   });
 
-  it('every scene with a track is a real scene key, and every chapter track names a real chapter', () => {
-    expect(Object.keys(AUDIO.music.scenes).sort()).toEqual(['Courses', 'Name', 'Opening', 'Semester', 'Title']);
+  it('every scene with a track is the key of a scene the game has, and every chapter track names a real chapter', () => {
+    // The scenes look their track up by this.scene.key, so a key that no scene registers is a track that never plays.
+    const dir = fileURLToPath(new URL('../../src/view/scenes/', import.meta.url));
+    const keys = new Set(readdirSync(dir).flatMap((f) => [...readFileSync(dir + f, 'utf8').matchAll(/super\('([A-Za-z]+)'\)/g)].map((m) => m[1]!)));
+    expect(keys.size).toBeGreaterThan(10);
+    for (const key of Object.keys(AUDIO.music.scenes)) expect(keys, key).toContain(key);
     for (const id of Object.keys(AUDIO.music.chapters)) expect(CHAPTERS).toContain(id);
   });
 });
@@ -100,12 +117,37 @@ describe('volume and pitch', () => {
 });
 
 describe('the ticking clock of the last heart', () => {
-  it('ticks once a second at one heart or less, and never at none', () => {
-    expect(lowHeartTick(1, 0)).toBe(true);
-    expect(lowHeartTick(2, TICK_HZ)).toBe(true);
-    expect(lowHeartTick(2, TICK_HZ / 2)).toBe(false);
-    expect(lowHeartTick(3, 0)).toBe(false);
-    expect(lowHeartTick(0, 0)).toBe(false);
+  it('ticks when a second has gone by at one heart or less, and never at none', () => {
+    expect(lowHeartBeat(1, 0, TICK_HZ)).toBe(true);
+    expect(lowHeartBeat(2, 0, TICK_HZ)).toBe(true);
+    expect(lowHeartBeat(1, 0, TICK_HZ - 1)).toBe(false);
+    expect(lowHeartBeat(1, 0, 0)).toBe(false);
+    expect(lowHeartBeat(3, 0, TICK_HZ)).toBe(false);
+    expect(lowHeartBeat(0, 0, TICK_HZ)).toBe(false);
+  });
+
+  it('still ticks once when a frame jumps over more than one second, and not again in the same second', () => {
+    expect(lowHeartBeat(1, 0, 3 * TICK_HZ + 7)).toBe(true);
+    expect(lowHeartBeat(1, secondOf(3 * TICK_HZ + 7), 3 * TICK_HZ + 8)).toBe(false);
+  });
+
+  it('ticks once a second at any frame rate, whichever tick the run starts on', () => {
+    // A frame that runs two ticks steps over a multiple of 60 half the time when the count is odd.
+    const beats = (fps: number, seconds: number, startTick: number, halves: number): number => {
+      const loop = new FixedStepLoop<number, never>(startTick, (tick) => ({ state: tick + 1, events: [] }));
+      let last = secondOf(loop.state);
+      let n = 0;
+      for (let frame = 0; frame < fps * seconds; frame++) {
+        loop.advance(1000 / fps);
+        if (lowHeartBeat(halves, last, loop.state)) n++;
+        last = secondOf(loop.state);
+      }
+      return n;
+    };
+    for (const fps of [20, 24, 30, 36, 45, 60, 75, 144]) {
+      for (const start of [0, 1, 37]) expect(beats(fps, 20, start, 1), `${fps} fps from tick ${start}`).toBeGreaterThanOrEqual(19);
+    }
+    expect(beats(30, 20, 1, 3)).toBe(0);
   });
 });
 
@@ -143,6 +185,12 @@ describe('what the check refuses', () => {
   it('a placeholder the event does not have', () => {
     const table = { ...FEEDBACK, events: { ...FEEDBACK.events, swing: { sound: 'swing.{tier}' } } } as unknown as FeedbackTable;
     expect(problems(AUDIO, table).join('\n')).toMatch(/unknown placeholder "\{tier\}"/);
+  });
+
+  it('a cue a scene plays by name that content/audio.json does not have', () => {
+    const run = (used: readonly string[]) => audioProblems(AUDIO, FEEDBACK, STRINGS, FIELDS, used, CHAPTERS).join('\n');
+    expect(run([...Object.values(UI), 'ghost'])).toMatch(/scene cue "ghost" is not a cue of content\/audio.json/);
+    expect(run(Object.values(UI))).toBe('');
   });
 
   it('a cue nothing plays', () => {

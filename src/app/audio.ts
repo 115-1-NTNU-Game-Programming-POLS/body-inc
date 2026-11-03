@@ -8,8 +8,8 @@ import { fillKey, noteKeys, type FeedbackTable, type NoteFields, type StringTabl
  */
 export type AudioTable = AudioFile;
 
-/** The cues scenes play by name, apart from the events: the menus and handbook, and the ticking clock of the last heart. */
-export const UI = { move: 'move', confirm: 'choose', cancel: 'back', page: 'page', lowHeart: 'tick' } as const;
+/** The cues scenes play by name, apart from the events: the menus and handbook, a conversation moving on, and the ticking clock of the last heart. */
+export const UI = { move: 'move', confirm: 'choose', cancel: 'back', page: 'page', advance: 'blip', lowHeart: 'tick' } as const;
 
 /** What a volume setting does to the level. A square, so the middle step sounds like a middle and not like 90%. */
 export const levelOf = (volume: number): number => volume * volume;
@@ -19,6 +19,13 @@ export const MUSIC_LEVEL = 0.5;
 
 /** One semitone up is a factor of 2^(1/12). */
 export const semitoneRatio = (semitones: number): number => 2 ** (semitones / 12);
+
+/** Two octaves either way: further would leave a filter or an oscillator outside what the browser accepts. */
+export const MAX_SEMITONES = 24;
+
+/** A pitch shift the synthesis can use: not a number becomes none, and a long way off stops at the limit. */
+export const clampSemitones = (semitones: number): number =>
+  Number.isNaN(semitones) ? 0 : Math.max(-MAX_SEMITONES, Math.min(MAX_SEMITONES, semitones));
 
 /** The effect's trim in dB as a linear factor. */
 export const trimOf = (cue: Cue): number => 10 ** ((cue.trimDb ?? 0) / 20);
@@ -71,7 +78,7 @@ export function soundFor(table: FeedbackTable, audio: AudioTable, event: GameEve
   const by = def.semitoneBy === undefined ? undefined : (event as unknown as Record<string, unknown>)[def.semitoneBy];
   return {
     cue,
-    semitones: typeof by === 'number' ? by : 0,
+    semitones: typeof by === 'number' ? clampSemitones(by) : 0,
     ...(def.caption === undefined ? {} : { caption: { key: def.caption, ticks: captionTicks(event) } }),
   };
 }
@@ -90,8 +97,16 @@ export function musicFor(audio: AudioTable, where: MusicWhere): string | undefin
   return where.scene === undefined ? undefined : audio.music.scenes[where.scene];
 }
 
-/** The ticking clock of the last heart (design doc 5.8): once a second while one heart or less is left, and never at none. */
-export const lowHeartTick = (halves: number, tick: number): boolean => halves > 0 && halves <= 2 && tick % TICK_HZ === 0;
+/**
+ * The ticking clock of the last heart (design doc 5.8): once a second while one heart or less is left,
+ * and never at none. A frame can run several rule ticks, so this asks whether the second has changed
+ * since `lastSecond` (the second of the previous frame) and not whether the tick is a multiple of a second.
+ */
+export const lowHeartBeat = (halves: number, lastSecond: number, tick: number): boolean =>
+  halves > 0 && halves <= 2 && Math.floor(tick / TICK_HZ) > lastSecond;
+
+/** The second a tick falls in, which the scene hands back to `lowHeartBeat` on the next frame. */
+export const secondOf = (tick: number): number => Math.floor(tick / TICK_HZ);
 
 /** Direction from `from` to `to` in radians, or undefined when they are so close that an arrow would say nothing. */
 export function bearing(from: { readonly x: number; readonly y: number }, to: { readonly x: number; readonly y: number }, minDist: number): number | undefined {
@@ -114,8 +129,14 @@ export function peakSum(cue: Cue): number {
   }));
 }
 
+/** Every way a rescue step can go; a Record so that a new outcome in the rules fails to compile here until it has a sound. */
+const RESCUE_OUTCOMES: Record<Extract<GameEvent, { type: 'rescueStep' }>['outcome'], true> = { step: true, early: true, myth: true };
+
 /** Per event, the values the placeholders of a sound can take, on top of those of its note. */
-export const SOUND_FIELDS: NoteFields = { telegraph: { tier: ['1', '2', '3'] } };
+export const SOUND_FIELDS: NoteFields = {
+  telegraph: { tier: ['1', '2', '3'] },
+  rescueStep: { outcome: Object.keys(RESCUE_OUTCOMES) },
+};
 
 /**
  * Problems in content/audio.json and in the sounds content/feedback.json names, in English like the
@@ -126,6 +147,7 @@ export function audioProblems(
 ): string[] {
   const out: string[] = [];
   const named = new Set<string>(used);
+  for (const id of used) if (!audio.cues[id]) out.push(`scene cue "${id}" is not a cue of content/audio.json`);
   for (const [type, fb] of Object.entries(feedback.events)) {
     if (!fb?.sound) continue;
     const { keys, unknown } = noteKeys(fb.sound, { ...(fields[type as GameEvent['type']] ?? {}), ...(SOUND_FIELDS[type as GameEvent['type']] ?? {}) });

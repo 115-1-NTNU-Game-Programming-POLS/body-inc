@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import type { Manifest, ManifestEntry } from '../../app/assets.ts';
-import { lowHeartTick, musicFor, UI } from '../../app/audio.ts';
+import { lowHeartBeat, musicFor, secondOf, UI } from '../../app/audio.ts';
 import { AUDIO, FEEDBACK, str, STRINGS } from '../../app/content.ts';
 import { releaseKeysOnClose } from '../../app/dialogue.ts';
 import { keepPage, titleKey } from '../../app/handbook.ts';
@@ -65,8 +65,8 @@ export class WorldScene extends Phaser.Scene {
   private patrolSession: PatrolSession | undefined;
   private board: EvidenceBoard | undefined;
   private wide = false;
-  /** The tick the clock of the last heart last sounded on, so a frame that shows the same tick twice sounds it once. */
-  private lastLowTick = -1;
+  /** The second of the previous frame, which the clock of the last heart compares with. */
+  private lastSecond = 0;
 
   constructor() {
     super('World');
@@ -112,7 +112,8 @@ export class WorldScene extends Phaser.Scene {
     this.exam = new ExamLayer(this, this.entry('exam'));
     this.syncViews(chapter.game);
     this.overlay = new CollisionOverlay(this, chapter.game);
-    this.lastLowTick = -1;
+    this.lastSecond = secondOf(chapter.game.tick);
+    this.game.events.emit('world-room');
     this.feedback = new FeedbackPlayer(this, FEEDBACK, AUDIO, STRINGS, {
       enemy: (id): ActorFx | undefined => this.bossViews.get(id) ?? this.enemyViews.get(id),
       operator: this.operator,
@@ -234,10 +235,8 @@ export class WorldScene extends Phaser.Scene {
       this.feedback.play(e, tick);
     }
     // The ticking clock of the last heart (design doc 5.8) stands in for a heartbeat, which the design keeps off.
-    if (tick !== this.lastLowTick && lowHeartTick(cur.halves, tick)) {
-      this.lastLowTick = tick;
-      this.feedback.cue(UI.lowHeart);
-    }
+    if (lowHeartBeat(cur.halves, this.lastSecond, tick)) this.feedback.cue(UI.lowHeart);
+    this.lastSecond = secondOf(tick);
     this.playMusic();
   }
 

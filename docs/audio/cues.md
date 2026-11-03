@@ -43,11 +43,11 @@
 | `poof` | 散開的氣音 | `dispersed`, `bossSummon` |
 | `boing` | 彈開 | `immuneBounce`, `backedOff` |
 | `nope` | 不行：兩個下行短音 | `stampVoid`, `handsFull` |
-| `heart` | 失去一顆心的低音 | `heartLost`, `examHit` |
+| `heart` | 受擊的低音：失去一顆心，或在考試裡被打中 | `heartLost`, `examHit` |
 | `tick` | 時鐘的滴答，有字幕；見下節 | 剩一顆心時由場景每秒播一次 |
 | `heartbeat` | 心悸的三聲心跳；心跳只給能量飲料 | `palpitation` |
 | `stampUp` | 蓋章舉起 | `stampRaised` |
-| `stampDown` | 碰：蓋章落下，有字幕 | `stampLanded`, `proposalRejected` |
+| `stampDown` | 碰：蓋章落下，有字幕 | `stampLanded` |
 | `ready` | 駁回量表滿的喀聲，有字幕 | `gaugeFull` |
 | `cling` | 黏住 | `bound`, `clung`, `examStacked` |
 | `yawn` | 下行的哈欠 | `forcedLeave`, `bedUse`, `forcedNap`, `napped` |
@@ -59,22 +59,34 @@
 | `punch` | 打卡 | `checkpointSaved` |
 | `unlock` | 解鎖：四個上行音 | `handbookUnlocked`, `toolGranted`, `bonusShown` |
 | `card` | 翻開卡牌 | `cardOpened` |
-| `choose` | 選定一個選項 | `cardChosen`, `examAnswered`，選單確認 |
-| `good` | 救援一步完成 | `rescueStep` |
+| `choose` | 選定一個選項 | `cardChosen`，選單確認 |
+| `rescue.step` | 救援一步做對：三個上行音 | `rescueStep`，`outcome` 為 `step` |
+| `rescue.early` | 步驟太早：兩個下行短音 | `rescueStep`，`outcome` 為 `early` |
+| `rescue.myth` | 迷思做法：三個下行音 | `rescueStep`，`outcome` 為 `myth` |
+| `exam.solved` | 答對一題的短促上行音 | `examAnswered`，`how` 為 `solved` |
+| `exam.time` | 時間到：兩個下行短音 | `examAnswered`，`how` 為 `time` |
+| `exam.stacks` | 腺苷黏滿，本題失敗：兩個下行短音 | `examAnswered`，`how` 為 `stacks` |
 | `done` | 完成：四個上行音 | `rescueDone`, `examResult`, `bossDefeated`, `bossConceded` |
 | `bad` | 失敗：三個下行音 | `bedRefused` |
 | `proof.true` | 證明為真的蓋章加上行雙音 | `proofStamped`（`ok` 為真） |
 | `proof.false` | 證明為假的蓋章加下行雙音 | `proofStamped`（`ok` 為假） |
-| `blip` | 對話的短嗶 | `talk`, `dialogueOpened` |
+| `blip` | 對話的短嗶 | `talk`, `dialogueOpened`；對話逐句前進時由對話畫面播放（見下方介面音效） |
 | `gulp` | Boss 喝飲料 | `bossDrink` |
 | `stage` | Boss 換階段或換回合的三個音 | `bossStage`, `bossRound` |
 | `powerdown` | 斷電 | `powerCut` |
-| `wobble` | 暈眩 | `dizzyChanged` |
+| `dizzy.true` | 暈眩：下行的搖晃音 | `dizzyChanged`，`dizzy` 為真 |
+| `dizzy.false` | 恢復：上行雙音 | `dizzyChanged`，`dizzy` 為假 |
 | `disco` | 迪斯可罐頭 | `canDisco` |
 | `breath` | Boss 喘氣 | `bossBreath` |
 | `shield` | 餡餅盾 | `pieRaised`, `pieBlocked` |
 
 設計文件 5.8 規定音效全部取文具的聲音（釘書機的喀擦、公文夾的啪、印章的碰），連段時音高每段升半音；目前的聲音是合成的近似，不是錄音。升半音只接在 `swing`，因為只有 `swing` 事件帶連擊數。剩一顆心時是時鐘的滴答，不是心跳，因為設計文件把心跳留給能量飲料的心悸。婉拒（`refuse`）有專屬的聲音，因為設計文件要求格擋拒絕比喝下去更有成就感。
+
+救援、暈眩與考試作答的 cue 以結果命名（`rescue.step`、`dizzy.true`、`exam.time` 等），`content/feedback.json` 用 `{outcome}`、`{dizzy}`、`{how}` 這樣的佔位符依事件的結果選聲音，所以做對和做錯聽起來不同。`rescue.early` 與 `exam.time`、`exam.stacks` 目前共用 `nope` 的配方，`rescue.myth` 共用 `bad`，`dizzy.false` 共用 `pick`；它們各有自己的 id，是為了日後單獨改，不是疏漏。考試結算（`examResult`）不論分數都播 `done`，因為事件本身只帶總分，沒有及格與否，而結算畫面已經顯示分數；要讓不同分數聽起來不同，需要規則層先把及格與否放進事件。蓋章命中 Boss 的提案時會同時發出 `stampLanded` 與 `proposalRejected`，聲音與字幕只由 `stampLanded` 負責，否則同一下蓋章會出現兩行相同的字幕。
+
+目前沒有聲音的事件共 21 個：`bumpWall`、`refusalSaid`、`reformed`、`respawned`、`freeze`、`proposalRejected`、`boxMoved`、`triggerEntered`、`roomChanged`、`dialogueClosed`、`clockAdvanced`、`glucoseRefilled`、`rescueOpened`、`examStarted`、`examQuestion`、`examFinished`、`examForecast`、`examClosed`、`outerRequested`、`returnedToCheckpoint`、`chapterEnded`。其中換房間、記帳和面板開關這類事件由跟著發生的另一個事件負責聲音（進門有 `doorEntered`），其餘是尚未決定要不要配聲音；要補的話在 `content/feedback.json` 加 `sound` 欄位即可，內容檢查會確認 cue 存在。
+
+與 issue #13 的差異：該 issue 假設音效是檔案，所以要求的欄位是檔案、長度、來源和負責人。音效改成合成配方之後沒有檔案可列，來源一律是 `content/audio.json` 的配方；音樂的檔案、大小與來源在上方的表和 `docs/art/asset-license.csv`。負責人欄沒有填：設計文件第 15 節把打擊與文具的聲音交給楊成宇，`staple`、`swing`、`hit`、`parry`、`stampDown` 等是否採用要由他確認。
 
 ## 預警與字幕
 
@@ -86,7 +98,7 @@
 | `telegraph.2` | 兩下上掃的唰唰 | `telegraph`，`tier` 為 2 | 【唰唰】範圍攻擊 |
 | `telegraph.3` | 影印機：滾動噪音加四下悶響 | `telegraph`，`tier` 為 3 | 【影印機】Boss 大招：可駁回 |
 
-字幕是彈性工時的一個選項「預警音效加字幕」（設定檔的 `captions`，預設關）。開啟後，上表的警告、剩一顆心的滴答、駁回量表滿、退件、婉拒和蓋章會寫成方括號字幕，顯示在畫面下方中央，同時最多三行。警告字幕停留的時間等於它的前搖（一級 30 tick、二級 48 tick，三級依招式在 72 到 90 tick 之間，取中間值 81 tick）；其他字幕停留一秒。同一行字幕再次出現時只延長時間，不重複。聲音來自敵人時，字幕前面有一個黃色箭頭指向敵人相對營運長的方向，來源在營運長身上（距離不到 24 像素）或沒有來源時不畫箭頭。
+字幕是彈性工時的一個選項「預警音效加字幕」（設定檔的 `captions`，預設關）。開啟後，上表的警告、剩一顆心的滴答、駁回量表滿、退件、婉拒和蓋章會寫成方括號字幕，顯示在畫面下方中央，同時最多三行。警告字幕停留的時間等於它的前搖（一級 30 tick、二級 48 tick，三級依招式在 72 到 90 tick 之間，取中間值 81 tick）；其他字幕停留一秒。同一行字幕再次出現時只延長時間，不重複。聲音來自敵人時，字幕前面有一個黃色箭頭指向敵人相對營運長的方向，來源在營運長身上（距離不到 24 像素）或沒有來源時不畫箭頭。幾個敵人同時發出同一階的預警時只顯示一行，箭頭指向最後一個；這是刻意的取捨，三行上限不夠每個敵人各佔一行。換房間時字幕全部清掉，因為箭頭指的是舊房間裡的敵人。
 
 | 字串鍵 | 字幕 | cue |
 | --- | --- | --- |
@@ -109,6 +121,7 @@
 | `choose` | 確定一項、改變一個設定值（改音效音量時在改完之後播放，所以聽到的是新的音量） |
 | `back` | 離開暫停選單的上一頁、返回 |
 | `page` | 員工手冊開啟、翻頁與關閉；也是 `examBreak` |
+| `blip` | 對話逐句前進與選定回覆（第一句由 `dialogueOpened` 的嗶聲負責） |
 
 ## 音量與響度
 
@@ -116,4 +129,4 @@
 
 每個 cue 的 `trimDb` 是校準值。校準頁是 `tools/audio/calibrate.html`：以 `npm run dev` 啟動後開 `/tools/audio/calibrate.html`，它用 `OfflineAudioContext` 以遊戲同一套合成程式把每個 cue 離線算一遍（不套 `trimDb`），量整個 cue 的 RMS（超過 200 毫秒的取最響的 200 毫秒），再算出讓它到達所屬類別目標所需的修正，並印出可貼回 `content/audio.json` 的 JSON。類別與目標如下：一般效果 -22 dBFS、預警 -17 dBFS、選單 -28 dBFS、時鐘滴答 -26 dBFS。修正值以 0.5 dB 為單位捨去，並受峰值上限限制（一般 -3 dBFS，預警 -2 dBFS），所以幾個峰值很高、RMS 很低的 cue 到不了目標：`staple`（-23.4）、`clink`（-22.7）、`telegraph.1`（-17.8）、`telegraph.2`（-22.0）和 `telegraph.3`（-20.6），括號內是套用修正後的 RMS。其餘 cue 都在目標的 0.5 dB 內。改了配方或新增 cue 之後要重跑校準。
 
-驗證過的事：在無頭 Chrome 裡，手勢之前沒有任何聲音，第一個按鍵之後音訊環境解鎖、音樂開始；`stampDown` 經過匯流排時量到峰值 0.36，音效音量 0% 時為 0，改回 100% 後恢復；音樂音量 0% 時播放器音量為 0；一顆心時的 `tick` 每秒一次。
+驗證過的事：在無頭 Chrome 裡，手勢之前沒有任何聲音，第一個按鍵之後音訊環境解鎖、音樂開始；`stampDown` 經過匯流排時量到峰值 0.36，音效音量 0% 時為 0，改回 100% 後恢復；音樂音量 0% 時播放器音量為 0；一顆心時的 `tick` 每秒一次。滴答以「這一幀跨過了新的一秒」判斷，不看 tick 是不是 60 的倍數：一幀可能跑兩個以上的規則 tick，用倍數判斷時，30 fps 且從奇數 tick 開始的畫面會一次都不響。`test/app/audio.test.ts` 用真的 `FixedStepLoop` 在 20 到 144 fps、不同起始 tick 下驗證。

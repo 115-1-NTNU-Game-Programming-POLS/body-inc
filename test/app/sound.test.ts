@@ -315,6 +315,58 @@ describe('effects', () => {
     s.unlock();
     expect(s.cue('ping')).toBe(false);
   });
+
+  it('are held to two octaves either way, and a pitch that is not a number is none', () => {
+    const r = rig();
+    r.sound.unlock();
+    const freq = (): number => r.ctx.oscillators.at(-1)!.frequency.calls[0]!.v;
+    for (const [semitones, ratio] of [[1e9, 4], [-1e9, 0.25], [Infinity, 4], [-Infinity, 0.25], [Number.NaN, 1]] as const) {
+      r.clock += 1000;
+      r.sound.cue('ping', semitones);
+      expect(freq(), String(semitones)).toBeCloseTo(440 * ratio, 6);
+    }
+  });
+
+  describe('where the browser refuses a context', () => {
+    it('leave the game without effects but with its music, and do not ask again on every gesture', () => {
+      let made = 0;
+      const players: FakePlayer[] = [];
+      const deps: SoundDeps = {
+        settings: () => undefined,
+        makeContext: () => {
+          made++;
+          throw new Error('too many AudioContexts');
+        },
+        makePlayer: () => {
+          const p = new FakePlayer();
+          players.push(p);
+          return p;
+        },
+        now: () => 0,
+        musicBase: 'music/',
+      };
+      const s = new Sound(AUDIO, deps);
+      s.music('a');
+      expect(() => s.unlock()).not.toThrow();
+      s.unlock();
+      expect(made).toBe(1);
+      expect(s.cue('ping')).toBe(false);
+      expect(players).toHaveLength(1);
+      expect(players[0]!.paused).toBe(false);
+    });
+
+    it('keep no half-made bus when the failure comes after the context exists', () => {
+      const r = rig();
+      r.ctx.createDynamicsCompressor = () => {
+        throw new Error('no compressor');
+      };
+      r.sound.music('a');
+      expect(() => r.sound.unlock()).not.toThrow();
+      expect(r.sound.cue('ping')).toBe(false);
+      expect(r.ctx.oscillators).toHaveLength(0);
+      expect(r.players).toHaveLength(1);
+    });
+  });
 });
 
 describe('music', () => {
@@ -427,6 +479,37 @@ describe('music', () => {
     r.sound.hidden(false);
     expect(r.players[0]!.paused).toBe(true);
     expect(r.players[1]!.paused).toBe(false);
+  });
+
+  it('does not start a track that is asked for while the page is hidden, and starts the last one asked for when it is shown', () => {
+    const r = rig();
+    r.sound.unlock();
+    r.sound.hidden(true);
+    r.sound.music('a');
+    r.sound.music('b');
+    expect(r.players).toHaveLength(0);
+    r.sound.hidden(false);
+    expect(r.players).toHaveLength(1);
+    expect(r.players[0]!.src).toBe('music/b.mp3');
+    expect(r.players[0]!.paused).toBe(false);
+  });
+
+  it('does not start on the first gesture while the page is hidden, and does not bring back a track that was replaced meanwhile', () => {
+    const r = rig();
+    r.sound.music('a');
+    r.sound.hidden(true);
+    r.sound.unlock();
+    expect(r.players).toHaveLength(0);
+    r.sound.hidden(false);
+    expect(r.players).toHaveLength(1);
+    vi.advanceTimersByTime(2000);
+    r.sound.hidden(true);
+    r.sound.music('b');
+    expect(r.players).toHaveLength(1);
+    r.sound.hidden(false);
+    vi.advanceTimersByTime(2000);
+    expect(r.players.map((p) => p.paused)).toEqual([true, false]);
+    expect(r.players[1]!.src).toBe('music/b.mp3');
   });
 
   it('is silenced with a fade and starts again at the next request', () => {
