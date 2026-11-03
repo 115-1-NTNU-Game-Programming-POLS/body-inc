@@ -186,6 +186,19 @@ describe('automatic perfect dodges (design doc 5.7)', () => {
     expect(dodgeEarly(8, {}).state.operator.gauge).toBe(0);
   });
 
+  it('marks the perfect dodges only the assist made perfect, and no others, so a patrol can leave them out of its records', () => {
+    const marked = (r: Run) => r.events.flat().filter((e) => e.type === 'perfectDodge' && e.assisted === true).length;
+    const first = (r: Run) => r.events.flat().find((e) => e.type === 'perfectDodge');
+    for (const early of [1, 2, 3, 4, 5, 6]) {
+      const r = dodgeEarly(early, { autoPerfect: true });
+      expect([marked(r), perfect(r)], `timed, early ${early}`).toEqual([0, 1]);
+      // The event of a timed dodge is the one a plain run makes, with no extra key.
+      expect(first(r), `early ${early}`).not.toHaveProperty('assisted');
+    }
+    for (const early of [7, 8, 9, 10]) expect([marked(dodgeEarly(early, { autoPerfect: true })), perfect(dodgeEarly(early, { autoPerfect: true }))], `late, early ${early}`).toEqual([1, 1]);
+    for (const early of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]) expect(marked(dodgeEarly(early, {})), `no assist, early ${early}`).toBe(0);
+  });
+
   it('does not dodge for the player: a dodge with no i-frame over the strike, or none at all, still takes the hit', () => {
     for (const early of [0, 11, 12]) expect(hurt(dodgeEarly(early, { autoPerfect: true })), `early ${early}`).toBe(true);
     const none = run(duel(), 90, () => withAssists({ autoPerfect: true }));

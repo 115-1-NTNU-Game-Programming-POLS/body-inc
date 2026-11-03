@@ -24,12 +24,13 @@ export const NO_TALLY: PatrolTally = { hits: 0, forced: false, records: 0 };
 const NOT_A_HIT = MIST.cause;
 
 /** The domain events of a patrol's ticks folded into what the rating reads: a heart lost or an adenosine latching on is a hit, a forced clock-out ends it. */
-export function tallyPatrol(tally: PatrolTally, events: readonly { readonly type: string; readonly cause?: string }[]): PatrolTally {
+export function tallyPatrol(tally: PatrolTally, events: readonly { readonly type: string; readonly cause?: string; readonly assisted?: boolean }[]): PatrolTally {
   let { hits, forced, records } = tally;
   for (const e of events) {
     if (e.type === 'clung' || (e.type === 'heartLost' && e.cause !== NOT_A_HIT)) hits += 1;
     else if (e.type === 'forcedLeave') forced = true;
-    else if (e.type === 'perfectDodge') records += 1;
+    // A dodge the automatic-perfect assist made perfect still charges the gauge, but 會議紀錄 rewards timing, so it is not a record.
+    else if (e.type === 'perfectDodge' && !e.assisted) records += 1;
   }
   return hits === tally.hits && forced === tally.forced && records === tally.records ? tally : { hits, forced, records };
 }

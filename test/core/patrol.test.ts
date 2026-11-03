@@ -50,6 +50,13 @@ describe('the rating of a played patrol (design doc 8.5)', () => {
     expect(ratePatrol({ ...t, forced: true }, goals(true, true))).toEqual({ failed: true });
   });
 
+  it('does not count a perfect dodge that only the automatic-perfect assist made perfect', () => {
+    const t = tallyPatrol(NO_TALLY, [{ type: 'perfectDodge' }, { type: 'perfectDodge', assisted: true }, { type: 'perfectDodge', assisted: true }, { type: 'perfectDodge' }]);
+    expect(t).toEqual({ hits: 0, forced: false, records: 2 });
+    // Only assisted dodges: nothing changes, so the rating carries no records.
+    expect(tallyPatrol(NO_TALLY, [{ type: 'perfectDodge', assisted: true }])).toBe(NO_TALLY);
+  });
+
   it('counts the hearts lost and the forced clock-out among a patrol\'s events, and nothing else', () => {
     const t = tallyPatrol(NO_TALLY, [{ type: 'heartLost' }, { type: 'dodge' }, { type: 'clung' }, { type: 'hit' }]);
     expect(t).toEqual({ hits: 2, forced: false, records: 0 });
