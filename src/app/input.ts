@@ -41,6 +41,8 @@ export class KeyboardInput {
   private queuedPick = 0;
   /** See `ignoreMouse`. */
   private mouseIgnored = false;
+  /** Whether the toggled attack is on (`sample` with `toggleAttack`). */
+  private attackOn = false;
   private readonly target: EventTarget;
   private readonly bindings: Readonly<Record<Action, readonly string[]>>;
   private readonly down = (code: string) => {
@@ -66,6 +68,7 @@ export class KeyboardInput {
   private readonly onBlur = () => {
     this.held.clear();
     this.ignored.clear();
+    this.attackOn = false;
   };
 
   constructor(target: EventTarget, bindings = DEFAULT_BINDINGS) {
@@ -113,6 +116,8 @@ export class KeyboardInput {
     for (const code of this.held) this.ignored.add(code);
     this.pressedSince.clear();
     this.queuedPick = 0;
+    // A conversation, the handbook or the menu was in the way: attacking must be started again.
+    this.attackOn = false;
   }
 
   /**
@@ -129,17 +134,31 @@ export class KeyboardInput {
     this.queuedPick = n;
   }
 
-  /** Called once per rule tick; clears the presses it reports. */
-  sample(): TickInput {
+  /** Stops the toggled attack. A scene that starts calls it, so one left on in a patrol or a room does not carry into the next. */
+  stopAttack(): void {
+    this.attackOn = false;
+  }
+
+  /**
+   * Called once per rule tick; clears the presses it reports. With `toggleAttack` (design doc 5.7)
+   * one press starts attacking and the next stops it: `attack` is the toggled state and the press
+   * that starts it is the only one reported, so the press that stops it fires nothing. The caller
+   * passes false while a panel owns the keys, where the plain press is what confirms.
+   */
+  sample(toggleAttack = false): TickInput {
     const x = (this.isHeld('right') ? 1 : 0) - (this.isHeld('left') ? 1 : 0);
     const y = (this.isHeld('down') ? 1 : 0) - (this.isHeld('up') ? 1 : 0);
     // A press of up and of down in the same tick cancel out, like holding both.
     const menuStep = (this.wasPressed('down') ? 1 : 0) - (this.wasPressed('up') ? 1 : 0) as -1 | 0 | 1;
     const pick = this.queuedPick || (PICKS.findIndex((a) => this.wasPressed(a)) + 1);
+    const tapped = this.wasPressed('attack');
+    if (toggleAttack) {
+      if (tapped) this.attackOn = !this.attackOn;
+    } else this.attackOn = false;
     const input: TickInput = {
       move: { x, y },
-      attack: this.isHeld('attack'),
-      attackPressed: this.wasPressed('attack'),
+      attack: toggleAttack ? this.attackOn : this.isHeld('attack'),
+      attackPressed: toggleAttack ? tapped && this.attackOn : tapped,
       dodgePressed: this.wasPressed('dodge'),
       stampPressed: this.wasPressed('stamp'),
       swapPressed: this.wasPressed('swap'),

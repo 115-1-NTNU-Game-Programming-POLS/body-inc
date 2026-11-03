@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { noteText, type FeedbackTable, type StringTable } from '../../app/feedback.ts';
 import type { GameEvent } from '../../core/index.ts';
 import type { OperatorView } from '../actors/OperatorView.ts';
+import { comfortIn } from './comfortIn.ts';
 
 /** What feedback can do to an enemy or boss sprite. */
 export interface ActorFx {
@@ -78,11 +79,12 @@ export class FeedbackPlayer {
     if (fb.flashOperator) this.targets.operator.flash(fb.flashOperator, tick);
     if (fb.bounce) enemy?.bounce();
     if (fb.closeOut) enemy?.closeOut();
-    if (fb.shake) {
+    const comfort = comfortIn(this.scene);
+    if (fb.shake && !comfort.noShake) {
       const cam = this.scene.cameras.main;
       cam.shake(fb.shake.seconds * 1000, fb.shake.px / cam.width);
     }
-    if (fb.pulse) this.pulse(fb.pulse);
+    if (fb.pulse && !comfort.lessFlash) this.pulse(fb.pulse);
     for (const p of fb.particles ?? []) this.emitter(p.preset)?.explode(p.count, at.x, at.y);
     if (fb.note) {
       const text = noteText(fb.note, event, this.strings);

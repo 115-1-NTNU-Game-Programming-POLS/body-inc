@@ -1,4 +1,5 @@
 import { moveAndCollide, type Body, type SolidGrid } from '../collision/grid.ts';
+import type { Assists } from './assists.ts';
 import { BUFFER_TICKS, CLING, DODGE, FOLDER, HURT, STAMP, STAPLER } from './frames.ts';
 import { approach, desiredVelocity, facingFor, type Facing, type Vec } from './movement.ts';
 
@@ -23,6 +24,8 @@ export interface TickInput {
   readonly menuStep?: -1 | 0 | 1;
   /** A reply picked by number key or click, counted from 1 (0 or absent: none); only a conversation's choice reads it. */
   readonly pick?: number;
+  /** The assists switched on this tick (design doc 5.7); none when absent. */
+  readonly assists?: Assists;
 }
 
 export const NO_INPUT: TickInput = { move: { x: 0, y: 0 } };
@@ -60,6 +63,8 @@ export interface OperatorState {
   /** Clinging stacks riding on the operator, each one a CLING.slowPerStack slow source. */
   readonly stacks: number;
   readonly halves: number;
+  /** One unit of half-damage owed to the next hit while the halved-damage assist is on (assists.ts); absent means none. */
+  readonly halfCarry?: 0 | 1;
   readonly maxHalves: number;
   readonly action: OperatorAction;
   readonly dodgeReadyAt: number;

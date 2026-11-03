@@ -1,7 +1,8 @@
 import Phaser from 'phaser';
 import { motionOf, tagKey, type ManifestEntry } from '../../app/assets.ts';
 import { isBound, REFORM_TICKS, TICK_HZ, type EnemyState } from '../../core/index.ts';
-import { tier1Flash } from '../fx/telegraph.ts';
+import { FlashPainter } from '../fx/FlashPainter.ts';
+import { warningAt } from '../fx/telegraph.ts';
 import { REFORM_STAGES } from '../fx/textures.ts';
 import { puppetSway } from './puppet.ts';
 
@@ -29,6 +30,7 @@ export class EnemyView {
   private readonly ring: Phaser.GameObjects.Image;
   private readonly entry: ManifestEntry;
   private readonly tags: ReadonlySet<string>;
+  private readonly flasher: FlashPainter;
   private flashUntil = 0;
   private walkSince: number | undefined;
 
@@ -36,6 +38,7 @@ export class EnemyView {
     this.entry = entry;
     this.tags = new Set(entry.tags.map((t) => t.name));
     this.sprite = scene.add.sprite(0, 0, entry.key, '0').setOrigin(entry.anchor[0] / entry.frame[0], entry.anchor[1] / entry.frame[1]);
+    this.flasher = new FlashPainter(this.sprite, 'jitter');
     this.bubble = scene.add.image(0, 0, 'fx-alert-bubble').setOrigin(0.5, 1).setVisible(false);
     this.ring = scene.add.image(0, 0, 'fx-reform-ring-1').setVisible(false);
   }
@@ -64,7 +67,10 @@ export class EnemyView {
     }
     const windup = cur.phase === 'windup';
     this.bubble.setVisible(windup).setPosition(Math.round(x), Math.round(y - this.entry.frame[1] + 2)).setDepth(1e5);
-    if (hidden) return;
+    if (hidden) {
+      this.flasher.hide();
+      return;
+    }
 
     const dir = windup || cur.phase === 'strike' ? cur.strikeDir : { x: cur.x - p.x, y: cur.y - p.y };
     const side = Math.abs(dir.x) > Math.abs(dir.y);
@@ -76,23 +82,22 @@ export class EnemyView {
     const bob = cur.category === 'reforming' ? Math.round(Math.sin((ms / 1600) * Math.PI * 2) * 2) : 0;
     this.sprite.setPosition(Math.round(x), Math.round(y) + bob + sway.dy).setAngle(sway.angle).setDepth(y).setFlipX(side && dir.x < 0);
 
-    const inFlash = windup && tier1Flash(cur.phaseTicks);
-    if (tick < this.flashUntil || inFlash) this.sprite.setTintFill(0xffffff);
-    else this.sprite.clearTint();
-
     let anim: string | undefined;
     // Hit-stop does not pause a windup or a strike (design doc 5.3), so its hurt pose must not hide the telegraph; only a pin does.
     if (cur.frozen > 0 && (isBound(cur) || (!windup && cur.phase !== 'strike'))) anim = this.pick(`hurt_${d}`, 'hurt_side', 'hurt_down');
     else if (windup) anim = this.pick(`windup_${d}`, 'windup_side', 'windup_down');
     else if (cur.phase === 'strike') anim = this.pick(`attack_${d}`, 'attack_side', 'attack_down');
     if (!anim) anim = this.pick(`walk_${d}`, 'walk_side', 'walk_down', 'float_down', 'idle_down');
-    if (!anim) return;
-    if (moving || cur.category === 'reforming') this.sprite.play(anim, true);
-    else {
-      this.sprite.anims.stop();
-      const first = this.sprite.scene.anims.get(anim)?.frames[0];
-      if (first) this.sprite.setFrame(first.textureFrame);
+    if (anim) {
+      if (moving || cur.category === 'reforming') this.sprite.play(anim, true);
+      else {
+        this.sprite.anims.stop();
+        const first = this.sprite.scene.anims.get(anim)?.frames[0];
+        if (first) this.sprite.setFrame(first.textureFrame);
+      }
     }
+    // After the pose, so the outline copies the frame that is drawn.
+    if (!this.flasher.paint(tick < this.flashUntil, warningAt(windup, cur.phaseTicks), tick)) this.sprite.clearTint();
   }
 
   /** Soft bounce for immune objects: no hit-stop, only a squash (art direction 9.2). */
@@ -116,6 +121,7 @@ export class EnemyView {
   }
 
   destroy(): void {
+    this.flasher.destroy();
     this.sprite.destroy();
     this.bubble.destroy();
     this.ring.destroy();

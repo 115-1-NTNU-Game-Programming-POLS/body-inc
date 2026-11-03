@@ -82,7 +82,7 @@ The split below is the practical answer to "which side does this go on". A usefu
 | Exam | Question flow, preparedness, score with S factor | Exam room presentation, sheet face sprite |
 | Reports | Causal chain reconstruction, ordering and merge rules from `ux-spec.md` | Evidence wall layout, red string, notes, stamps |
 | Dialogue | Condition evaluation and effects (`unlock:handbook_caffeine`) | Portrait choice, box layout, CJK line breaking, typewriter effect |
-| Assist options | Rule assists: damage x0.5, no forced leave, auto perfect dodge | View assists: no shake, fewer flashes, captions; the 80% and 70% game speed lives in the loop driver |
+| Assist options | Rule assists: damage x0.5, no forced leave, auto perfect dodge | View assists: no shake, fewer flashes, captions; toggle attack is an input transform in `input.ts`; the 80% and 70% game speed lives in the loop driver |
 | Save | Versioned schema, migration functions, serialize and deserialize core state | `localStorage` adapter in app |
 | Randomness | Seeded RNG streams owned by core (map gen, events, enemy decisions) | Cosmetic randomness (particles, idle blinks) uses a separate unseeded source so it can never shift gameplay |
 

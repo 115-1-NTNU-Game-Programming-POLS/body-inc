@@ -1,5 +1,8 @@
 import Phaser from 'phaser';
 import { tagKey, type ManifestEntry } from '../../app/assets.ts';
+import { invulnAlpha } from '../../app/comfort.ts';
+import { comfortIn } from '../fx/comfortIn.ts';
+import { FlashPainter } from '../fx/FlashPainter.ts';
 import { DODGE, FOLDER, inDodgeIframes, parryOpen, STAMP_LAND, STAPLER, swingBox, type OperatorState } from '../../core/index.ts';
 
 /**
@@ -11,9 +14,6 @@ const STACK_ANCHORS: ReadonlyArray<readonly [number, number, number]> = [[12, -2
 
 /** Side frames are drawn facing right; left mirrors the side tag. */
 const DIR_TAG = { down: 'down', up: 'up', left: 'side', right: 'side' } as const;
-/** Invulnerability blink: alpha 0.5 and 1.0 alternate every 0.1 s (art direction 9.2). */
-const BLINK_TICKS = 6;
-
 /**
  * Picks the operator's pose from the snapshot (art direction 5.3). Dodge reuses walk frame 2
  * squashed to 0.85 with afterimages on the invincible frames; there is no dodge tag yet.
@@ -25,6 +25,7 @@ export class OperatorView {
   private readonly stacks: Phaser.GameObjects.Sprite[];
   /** The folder's swing and guard: no folder frames are in the atlas yet, so they are drawn as shapes. */
   private readonly folderFx: Phaser.GameObjects.Graphics;
+  private readonly flasher: FlashPainter;
   private flashUntil = 0;
   private lastFireTick = -1e9;
   private lastGhostTick = -1;
@@ -34,6 +35,7 @@ export class OperatorView {
     this.key = entry.key;
     this.sprite = scene.add.sprite(0, 0, entry.key, '0');
     this.sprite.setOrigin(entry.anchor[0] / entry.frame[0], entry.anchor[1] / entry.frame[1]);
+    this.flasher = new FlashPainter(this.sprite, 'outline');
     this.stacks = STACK_ANCHORS.map(() => scene.add.sprite(0, 0, mini.key, '0')
       .setOrigin(mini.anchor[0] / mini.frame[0], mini.anchor[1] / mini.frame[1]).setVisible(false));
     this.folderFx = scene.add.graphics();
@@ -94,14 +96,19 @@ export class OperatorView {
     }
 
     const invuln = a.kind !== 'dodge' && tick < cur.invulnUntil;
-    this.sprite.setAlpha(invuln && Math.floor(tick / BLINK_TICKS) % 2 === 0 ? 0.5 : 1);
-    if (tick < this.flashUntil) this.sprite.setTintFill(0xffffff);
-    else this.sprite.clearTint();
-    this.renderFolder(cur, a);
+    const lessFlash = comfortIn(this.scene).lessFlash;
+    const hitNow = tick < this.flashUntil;
+    this.sprite.setAlpha(invulnAlpha(invuln, lessFlash, tick, hitNow));
+    if (!this.flasher.paint(hitNow, 'none', tick)) this.sprite.clearTint();
+    this.renderFolder(cur, a, lessFlash);
   }
 
-  /** The guard as a 120 degree wedge, white while it parries and teal after; a swing as a short white slash. */
-  private renderFolder(cur: Readonly<OperatorState>, a: OperatorState['action']): void {
+  /**
+   * The guard as a 120 degree wedge, white while it parries and teal after; a swing as a short white
+   * slash. Swings chain every 10 ticks, which would be six white pulses a second, so with fewer
+   * flashes the slash is teal like the guard.
+   */
+  private renderFolder(cur: Readonly<OperatorState>, a: OperatorState['action'], lessFlash: boolean): void {
     const g = this.folderFx.clear().setDepth(this.sprite.depth + 2);
     if (a.kind === 'guard') {
       const half = (FOLDER.guardHalfAngleDeg * Math.PI) / 180;
@@ -111,7 +118,7 @@ export class OperatorView {
       g.fillPath();
     } else if (a.kind === 'swing' && a.frame >= FOLDER.hitFrame && a.frame < FOLDER.hitFrame + 3) {
       const b = swingBox(cur);
-      g.fillStyle(0xffffff, 0.5);
+      g.fillStyle(lessFlash ? 0x2a9d8f : 0xffffff, 0.5);
       g.fillEllipse((b.left + b.right) / 2, (b.top + b.bottom) / 2, b.right - b.left, b.bottom - b.top);
     }
   }

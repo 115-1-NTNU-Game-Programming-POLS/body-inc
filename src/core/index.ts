@@ -47,6 +47,7 @@ export { circleTouchesBox, shotBox, zoneFill, zoneLive } from './combat/hazards.
 export { MOVE } from './combat/movement.ts';
 export { PIE, sleepOfSpirit, type PieState } from './combat/pie.ts';
 export { BASE_PERKS, type Perks } from './combat/perks.ts';
+export { chip, NO_ASSISTS, type Assists } from './combat/assists.ts';
 export { gaugeFull, inDodgeIframes, isInvincible, STAMP_LAND } from './combat/operator.ts';
 export * from './spirit.ts';
 export * from './content/generated.ts';

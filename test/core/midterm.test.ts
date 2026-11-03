@@ -169,6 +169,29 @@ describe('the exam fight', () => {
     expect(state.game.exam!.tallies[0]!.hits).toBe(events.filter((e) => e.type === 'examHit').length);
   });
 
+  it('the assists change nothing in the exam: a hit still costs no heart and leaves a quarter heart owed as it was', () => {
+    const s = seated();
+    const assisted: TickInput = { ...NONE, assists: { halfDamage: true, neverEmpty: true, autoPerfect: false } };
+    // After every single hit, so a debt that flipped back and forth would be seen at the odd ones.
+    const watch = (from: ChapterState, carry: 0 | 1 | undefined) => {
+      let seen = 0;
+      for (let i = 0; i < 20 * TICK_HZ; i++) {
+        const r = stepChapter(midterm, from, assisted);
+        from = r.state;
+        if (r.events.some((e) => e.type === 'heartLost')) throw new Error('a hit cost a heart in the exam');
+        if (!r.events.some((e) => e.type === 'examHit')) continue;
+        seen++;
+        expect(from.game.operator.halves).toBe(s.game.operator.halves);
+        if (carry === undefined) expect(from.game.operator).not.toHaveProperty('halfCarry');
+        else expect(from.game.operator.halfCarry).toBe(carry);
+      }
+      return seen;
+    };
+    const owed = { ...s, game: { ...s.game, operator: { ...s.game.operator, halfCarry: 1 as const } } };
+    expect(watch(owed, 1)).toBeGreaterThanOrEqual(3);
+    expect(watch(s, undefined)).toBeGreaterThanOrEqual(3);
+  });
+
   it('a question runs out of time with partial credit, and the next one opens after the gap', () => {
     const s = seated();
     const { state, events } = until(s, (_, ev) => ev.some((e) => e.type === 'examAnswered'));

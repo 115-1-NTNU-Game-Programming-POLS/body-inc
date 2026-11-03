@@ -1,4 +1,5 @@
 import { advance, startClock, wholeMinutes, type RuleClock } from '../clock.ts';
+import { owing } from '../combat/assists.ts';
 import type { BossTable } from '../combat/bosses/boss.ts';
 import type { EnemyTable } from '../combat/enemies.ts';
 import { BASE_HALVES } from '../combat/frames.ts';
@@ -186,6 +187,8 @@ interface Carry {
   readonly gauge: number;
   readonly halves: number;
   readonly stacks: number;
+  /** A half-heart owed under the halved-damage assist; none when absent. */
+  readonly halfCarry?: 0 | 1;
   /** The tool in hand; the stapler when absent. */
   readonly tool?: HeldTool;
 }
@@ -207,6 +210,7 @@ function build(ctx: ChapterContent, run: Run, place: Place, carry: Carry): GameS
     gauge: carry.gauge,
     halves: carry.halves,
     stacks: carry.stacks,
+    ...(carry.halfCarry ? { halfCarry: carry.halfCarry } : {}),
     switches: idsHere(run, run.switches),
     unlocked: openByState(room.objects, run.tags, ctx.dict, carry.clock),
     // `fired` also holds triggers and beds; the room keeps only the ids that are its pickups.
@@ -400,7 +404,8 @@ function onTrigger(ctx: ChapterContent, run: Run, game: GameState, e: Extract<Do
       // The tea room sits beside the time clock (design doc 5.6), so punching in also restores the hearts.
       return {
         run: { ...run, checkpoint },
-        game: { ...game, operator: { ...game.operator, halves: game.operator.maxHalves } },
+        // Full hearts again, so a half-heart owed under the halved-damage assist is forgiven with them.
+        game: { ...game, operator: owing({ ...game.operator, halves: game.operator.maxHalves }, 0) },
         events: [{ type: 'checkpointSaved', room: run.roomId }],
       };
     }
@@ -822,6 +827,7 @@ function stepRoom(ctx: ChapterContent, state: ChapterState, input: TickInput): C
     // Only sleep clears adenosine, so a door must not: the stacks ride along into the next room.
     const built = build(ctx, next, { kind: 'door', door: dest.door }, {
       clock: game.clock, gauge: game.operator.gauge, halves: game.operator.halves, stacks: game.operator.stacks, tool: game.operator.tool,
+      ...(game.operator.halfCarry ? { halfCarry: game.operator.halfCarry } : {}),
     });
     return done(plain(remember(next, built), built), [{ type: 'roomChanged', from: run.roomId, to: dest.room }]);
   }

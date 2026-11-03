@@ -8,29 +8,45 @@ import { FLOORS } from '../semester/floors.ts';
 import { GRADES } from '../semester/load.ts';
 import { TOOLS, type Tool } from '../tools.ts';
 
+/** The choices of each setting, in the order the pause menu cycles through them. */
+export const TEXT_SCALES = [1, 1.25] as const;
+export const GAME_SPEEDS = [1, 0.8, 0.7] as const;
+
 /**
- * Player settings. Text scale is the 100% / 125% choice of art direction 8.2; game speed 0.8
- * is the "flexible hours" assist of the design doc.
+ * The on/off assists of "flexible hours" (design doc 5.7), in the order the pause menu lists them.
+ * Three change the fight (core/combat/assists.ts), one changes the input and two the presentation.
  */
-export interface Settings {
-  readonly textScale: 1 | 1.25;
-  readonly gameSpeed: 1 | 0.8;
+export const ASSIST_FLAGS = ['halfDamage', 'neverEmpty', 'autoPerfect', 'toggleAttack', 'noShake', 'lessFlash'] as const;
+export type AssistFlag = (typeof ASSIST_FLAGS)[number];
+
+/**
+ * Player settings. Text scale is the 100% / 125% choice of art direction 8.2; game speed 0.8 and
+ * 0.7 and the assist flags are the "flexible hours" of design doc 5.7.
+ */
+export interface Settings extends Readonly<Record<AssistFlag, boolean>> {
+  readonly textScale: (typeof TEXT_SCALES)[number];
+  readonly gameSpeed: (typeof GAME_SPEEDS)[number];
 }
 
+const ALL_OFF: Readonly<Record<AssistFlag, false>> = Object.fromEntries(ASSIST_FLAGS.map((f) => [f, false])) as Record<AssistFlag, false>;
+
+// Version 1 had the two choices only. Version 2 adds the assist flags, which an old save has off.
 export const SETTINGS: SlotDef<Settings> = {
   name: 'settings',
-  version: 1,
+  version: 2,
   schema: {
     type: 'object',
     additionalProperties: false,
-    required: ['textScale', 'gameSpeed'],
+    required: ['textScale', 'gameSpeed', ...ASSIST_FLAGS],
     properties: {
-      textScale: { enum: [1, 1.25] },
-      gameSpeed: { enum: [1, 0.8] },
+      textScale: { enum: [...TEXT_SCALES] },
+      gameSpeed: { enum: [...GAME_SPEEDS] },
+      ...Object.fromEntries(ASSIST_FLAGS.map((f) => [f, { type: 'boolean' }])),
     },
   },
-  defaults: () => ({ textScale: 1, gameSpeed: 1 }),
-  migrations: {},
+  defaults: () => ({ textScale: 1, gameSpeed: 1, ...ALL_OFF }),
+  // The flags go first so a version 1 file that somehow holds one is judged by the schema, not overwritten.
+  migrations: { 1: (data) => ({ ...ALL_OFF, ...(data as object) }) },
 };
 
 /**

@@ -7,6 +7,7 @@ import { breathing, stepToast } from './combat/bosses/toast.ts';
 import type { EnemyTable } from './combat/enemies.ts';
 import { BASE_HALVES, BIND, BOSS, CLING, DODGE, ENEMY_HIT_FREEZE, FOLDER, GAUGE, heartCap, HURT, PARRY_BOOST, SALESMAN, STAMP, STAPLER } from './combat/frames.ts';
 import { guardCovers, parryOpen, swingBox } from './combat/folder.ts';
+import { chip, NO_ASSISTS, owing } from './combat/assists.ts';
 import { BASE_PERKS, type Perks } from './combat/perks.ts';
 import { pieCovers, PIE_READY, stepPie, sleepOfSpirit, type PieState } from './combat/pie.ts';
 import { circleTouchesBox, shotBox, zoneContinues, zoneLive, type Shot, type ShotSpec, type Zone, type ZoneSpec } from './combat/hazards.ts';
@@ -182,6 +183,10 @@ export type DomainEvent =
   | { readonly type: 'reformed'; readonly target: number; readonly enemy: string }
   | { readonly type: 'respawned'; readonly target: number; readonly enemy: string }
   | { readonly type: 'immuneBounce'; readonly target: number; readonly enemy: string; readonly solution: string }
+  /**
+   * A hit landed. `halves` is what it cost: 0 for a hit the halved-damage assist made free, and under
+   * hearts-that-never-run-out the sum can exceed the hearts really lost.
+   */
   | { readonly type: 'heartLost'; readonly halves: number; readonly cause: string }
   | { readonly type: 'freeze'; readonly frames: number }
   | { readonly type: 'forcedLeave' }
@@ -300,6 +305,8 @@ export interface GameOptions {
   readonly halves?: number;
   /** Clinging stacks carried in, 0 up to one below the forced-nap cap; defaults to none. */
   readonly stacks?: number;
+  /** A half-heart owed under the halved-damage assist (assists.ts), carried in like the hearts; defaults to none. */
+  readonly halfCarry?: 0 | 1;
   /** Toggle switches already on, from an earlier visit; ids that are not toggle switches of this room are ignored. */
   readonly switches?: readonly number[];
   /** Doors open by their clock or resource lock at entry; the chapter refreshes this every tick. */
@@ -421,7 +428,7 @@ export function createGame(room: EnteredRoom, seed: number, table: EnemyTable, o
   const spawned = spawnEnemies(room, table, options.bosses, 1);
   // A tool carried in is only believed while the folder is handed over, so a locked folder is never in hand.
   const tool: HeldTool = options.tool === 'folder' && !options.folderLocked ? 'folder' : 'stapler';
-  const operator = { ...newOperator(start.x, start.y, cap, gauge), halves, stacks: carried, tool };
+  const operator = { ...newOperator(start.x, start.y, cap, gauge), halves, stacks: carried, tool, ...(options.halfCarry ? { halfCarry: options.halfCarry } : {}) };
   const body = boxAt(OPERATOR_BODY, operator.x, operator.y);
   const delivered = ascending(options.delivered ?? []);
   const boxes = settleBoxes(room, options.boxes ?? new Map(), occupantsOf(operator, spawned.enemies).bodies, delivered);
@@ -705,6 +712,7 @@ export function step(state: GameState, pressed: TickInput): StepResult {
     return { state: { ...state, tick: now + 1, freeze: state.freeze - 1, operator: bufferInput(state.operator, input, now) }, events };
   }
 
+  const assists = input.assists ?? NO_ASSISTS;
   const room = state.room;
   let grid = withBoxes(room.grid, state.boxes);
   const senseRange = Math.min(CLING.senseRangePx, state.senseCapPx ?? CLING.senseRangePx);
@@ -1028,7 +1036,7 @@ export function step(state: GameState, pressed: TickInput): StepResult {
   const evade = (source: number): 'dodged' | 'ignored' | undefined => {
     const a = op.action;
     if (inDodgeIframes(a)) {
-      if (a.frame <= DODGE.perfectLast && !a.perfect) {
+      if ((a.frame <= DODGE.perfectLast || assists.autoPerfect) && !a.perfect) {
         op = { ...op, action: { ...a, perfect: true } };
         events.push({ type: 'perfectDodge', source });
         op = charge(op, GAUGE.perfectDodge, state.p, events);
@@ -1043,9 +1051,11 @@ export function step(state: GameState, pressed: TickInput): StepResult {
   const absorb = (source: number, halves: number, from: Vec, cause: string): 'dodged' | 'ignored' | 'hit' => {
     const slipped = evade(source);
     if (slipped) return slipped;
-    op = hurtOperator(op, examining ? 0 : halves, from, now);
+    // An exam hit costs no heart, so it neither halves nor owes anything.
+    const paid = examining ? { cost: 0, owed: op.halfCarry ?? 0 } : chip(halves, op.halfCarry ?? 0, assists);
+    op = owing(hurtOperator(op, paid.cost, from, now), paid.owed);
     freeze = HURT.freezeTicks;
-    events.push(examining ? { type: 'examHit', source, cause } : { type: 'heartLost', halves, cause });
+    events.push(examining ? { type: 'examHit', source, cause } : { type: 'heartLost', halves: paid.cost, cause });
     return 'hit';
   };
   const typeOf = (id: number) => enemies.get(id)?.type ?? 'unknown';
@@ -1183,8 +1193,9 @@ export function step(state: GameState, pressed: TickInput): StepResult {
     let mist = inFog ? factory.mist + 1 : 0;
     if (mist >= MIST.intervalTicks) {
       mist = 0;
-      op = { ...op, halves: op.halves - MIST.halves };
-      events.push({ type: 'heartLost', halves: MIST.halves, cause: MIST.cause });
+      const paid = chip(MIST.halves, op.halfCarry ?? 0, assists);
+      op = owing({ ...op, halves: op.halves - paid.cost }, paid.owed);
+      events.push({ type: 'heartLost', halves: paid.cost, cause: MIST.cause });
     }
     if (mist !== factory.mist) factory = { ...factory, mist };
   }
@@ -1215,6 +1226,8 @@ export function step(state: GameState, pressed: TickInput): StepResult {
     }
   }
   op = withStacks(op, enemies.values(), carried);
+  // The hit above has already knocked back and frozen the fight; the assist only keeps the last half heart.
+  if (assists.neverEmpty && op.halves < 1) op = { ...op, halves: 1 };
 
   let next: GameState = {
     ...state, tick: now + 1, rng, clock, operator: op, enemies: byId(), projectiles: flying,

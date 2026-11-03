@@ -1,8 +1,10 @@
 import Phaser from 'phaser';
 import { tagKey, type ManifestEntry } from '../../app/assets.ts';
+import type { Warning } from '../../app/comfort.ts';
 import { bossMove, BOSS_HURT, TICK_HZ, type BossDef, type EnemyState } from '../../core/index.ts';
 import type { ActorFx } from '../fx/FeedbackPlayer.ts';
-import { dashedCircle, tier1Flash } from '../fx/telegraph.ts';
+import { FlashPainter } from '../fx/FlashPainter.ts';
+import { dashedCircle, warningAt } from '../fx/telegraph.ts';
 
 const RED = 0xc8372d;
 const INK = 0x0c2d5e;
@@ -28,6 +30,7 @@ export class BossView implements ActorFx {
   private readonly marks: Phaser.GameObjects.Graphics;
   private readonly bubble: Phaser.GameObjects.Image;
   private readonly minis: Phaser.GameObjects.Sprite[];
+  private readonly flasher: FlashPainter;
   private flashUntil = 0;
   private gone = false;
 
@@ -35,6 +38,7 @@ export class BossView implements ActorFx {
     this.scene = scene;
     this.entry = entry;
     this.sprite = scene.add.sprite(0, 0, entry.key, '0').setOrigin(entry.anchor[0] / entry.frame[0], entry.anchor[1] / entry.frame[1]);
+    this.flasher = new FlashPainter(this.sprite, 'jitter');
     this.marks = scene.add.graphics().setDepth(1e5);
     this.bubble = scene.add.image(0, 0, 'fx-alert-bubble').setOrigin(0.5, 1).setDepth(1e5).setVisible(false);
     this.minis = PILE.map(() => scene.add.sprite(0, 0, mini.key, '0')
@@ -50,6 +54,7 @@ export class BossView implements ActorFx {
   /** Budget at zero: he shrinks to 0.6 and slides out sideways (art direction 5.5). */
   closeOut(): void {
     this.gone = true;
+    this.flasher.hide();
     this.scene.tweens.killTweensOf(this.sprite);
     this.marks.clear();
     this.bubble.setVisible(false);
@@ -98,7 +103,7 @@ export class BossView implements ActorFx {
     const g = this.marks.clear();
     const move = b.move && b.move.id !== 'drink' && b.move.id !== 'summon' ? bossMove(def, b.move.id) : undefined;
     const telegraphing = move !== undefined && b.move!.frame <= move.telegraphTicks;
-    let flash = false;
+    let warning: Warning = 'none';
 
     if (b.review > 0) this.pose('review_down', true);
     else if (b.stunned > 0) this.pose('idle_down');
@@ -107,9 +112,7 @@ export class BossView implements ActorFx {
     else if (move && (move.tier === 2 || !telegraphing)) this.pose('throw_down');
     else this.pose('idle_down', true);
 
-    if (move?.tier === 1 && telegraphing) {
-      flash = tier1Flash(b.move!.frame - 1);
-    }
+    if (move?.tier === 1 && telegraphing) warning = warningAt(true, b.move!.frame - 1);
     this.bubble.setVisible(move?.tier === 1 && telegraphing).setPosition(x, y - this.entry.frame[1] + 4);
 
     if (move?.tier === 3 && telegraphing) {
@@ -137,9 +140,10 @@ export class BossView implements ActorFx {
       m.setVisible(i < pinned).setPosition(x + dx, y + dy).setDepth(y + 1);
     });
 
-    if (tick < this.flashUntil || flash) this.sprite.setTintFill(0xffffff);
-    else if (b.stunned > 0) this.sprite.setTint(0x9aa0ab);
-    else this.sprite.clearTint();
+    if (!this.flasher.paint(tick < this.flashUntil, warning, tick)) {
+      if (b.stunned > 0) this.sprite.setTint(0x9aa0ab);
+      else this.sprite.clearTint();
+    }
   }
 
   /**
@@ -162,9 +166,8 @@ export class BossView implements ActorFx {
       dashedCircle(g, x, y - BOSS_HURT.height / 2, BOSS_HURT.halfW + 10, INK, tick / 40);
     } else if (telegraphing) this.pose('wave_down');
     else this.pose('idle_down', true);
-    const flash = telegraphing && tier1Flash(b.move!.frame - 1);
-    if (tick < this.flashUntil || flash) this.sprite.setTintFill(0xffffff);
-    else this.sprite.clearTint();
+    const warning = warningAt(telegraphing, telegraphing ? b.move!.frame - 1 : 0);
+    if (!this.flasher.paint(tick < this.flashUntil, warning, tick)) this.sprite.clearTint();
   }
 }
 
