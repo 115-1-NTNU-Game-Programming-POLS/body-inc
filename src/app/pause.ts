@@ -19,7 +19,17 @@ export function stepSetting(settings: Settings, key: ChoiceKey, by: 1 | -1): Set
   return { ...settings, [key]: list[(Math.max(at, 0) + by + list.length) % list.length] };
 }
 
-export const toggleSetting = (settings: Settings, flag: AssistFlag): Settings => ({ ...settings, [flag]: !settings[flag] });
+/**
+ * A press of Enter or a click on a row: the next choice, wrapping like the arrows, except that the
+ * volumes skip 0% on the way round, so a press at 100% never mutes by accident. The arrows still reach 0%.
+ */
+export function cycleSetting(settings: Settings, key: ChoiceKey): Settings {
+  const next = stepSetting(settings, key, 1);
+  const volume = key === 'musicVolume' || key === 'sfxVolume';
+  return volume && next[key] === 0 ? stepSetting(next, key, 1) : next;
+}
+
+export const toggleSetting =(settings: Settings, flag: AssistFlag): Settings => ({ ...settings, [flag]: !settings[flag] });
 
 /** A setting value as the menu prints it: 0.8 is "80%", 1.25 is "125%". */
 export const percent = (value: number): string => `${Math.round(value * 100)}%`;

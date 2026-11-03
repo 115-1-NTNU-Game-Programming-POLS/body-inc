@@ -18,7 +18,7 @@
 | `cards` | Easy Lemon | 開場與結尾卡牌、證據牆 | `easy-lemon.mp3`，立體聲 80 kbps，1.26 MB |
 | `semester` | Local Forecast - Elevator | 選課、學期畫面 | `local-forecast-elevator.mp3`，單聲道 56 kbps，1.32 MB |
 
-出處和授權的逐首紀錄在 `docs/art/asset-license.csv`，標示文字依 incompetech 的要求寫成「曲名 Kevin MacLeod (incompetech.com) Licensed under Creative Commons: By Attribution 4.0 https://creativecommons.org/licenses/by/4.0/」。標題畫面底部有簡短鳴謝，`README.md` 有完整名單。
+出處和授權的逐首紀錄在 `docs/art/asset-license.csv`，標示文字依 incompetech 的要求寫成「曲名 Kevin MacLeod (incompetech.com) Licensed under Creative Commons: By Attribution 4.0 https://creativecommons.org/licenses/by/4.0/」。標題畫面底部有一行鳴謝，寫明作者、授權、更動方式和倉庫網址（倉庫是公開的），`README.md` 有逐首的完整名單。這是 CC BY 4.0 允許的「以連結指向完整資訊」的做法；若要在遊戲內列出七首曲名，需要另做一個鳴謝畫面。
 
 原始 MP3 不放進版本庫。重建的方式是依 `content/audio.json` 每首的 `sourceUrl` 下載到一個資料夾，再執行 `node tools/audio/build-music.ts <資料夾>`，它會用 ffmpeg 做兩段式 loudnorm 到 -18 LUFS（真峰值 -1.5 dB），並在單聲道與立體聲的位元率階梯中挑出 1.45 MB 以內最高的一檔。`node tools/audio/build-music.ts --verify` 會重新量已建好的檔案，響度要在目標的 1 LUFS 內、大小不超過 1,500,000 位元組。需要先安裝 ffmpeg。
 
@@ -125,7 +125,7 @@
 
 ## 音量與響度
 
-設定檔有「音樂音量」和「音效音量」兩個獨立的選項，各五檔（0%、25%、50%、75%、100%），0% 是關。實際的增益是設定值的平方，所以 50% 聽起來像一半。音樂的增益是 0.5 乘設定值的平方，因為音樂檔在 -18 LUFS，音效校準後比它響。音效匯流排最後有一個限幅器（門檻 -2 dB），同時響起的多個 cue 不會破音。同一個 cue 在 `minGapMs`（預設 30 毫秒）內不會重新開始，避免連發的聲音疊成噪音。
+設定檔有「音樂音量」和「音效音量」兩個獨立的選項，各五檔（0%、25%、50%、75%、100%），0% 是關。A／D 一檔一檔調，到頭會繞回另一端；Enter 或點擊從 100% 繞回時跳過 0%、回到 25%，避免按一下就靜音。實際的增益是設定值的平方，所以 50% 聽起來像一半。音樂的增益是 0.5 乘設定值的平方，因為音樂檔在 -18 LUFS，音效校準後比它響。音效匯流排最後有一個限幅器（門檻 -2 dB），同時響起的多個 cue 不會破音。同一個 cue 在 `minGapMs`（預設 30 毫秒）內不會重新開始，避免連發的聲音疊成噪音。
 
 每個 cue 的 `trimDb` 是校準值。校準頁是 `tools/audio/calibrate.html`：以 `npm run dev` 啟動後開 `/tools/audio/calibrate.html`，它用 `OfflineAudioContext` 以遊戲同一套合成程式把每個 cue 離線算一遍（不套 `trimDb`），量整個 cue 的 RMS（超過 200 毫秒的取最響的 200 毫秒），再算出讓它到達所屬類別目標所需的修正，並印出可貼回 `content/audio.json` 的 JSON。類別與目標如下：一般效果 -22 dBFS、預警 -17 dBFS、選單 -28 dBFS、時鐘滴答 -26 dBFS。修正值以 0.5 dB 為單位捨去，並受峰值上限限制（一般 -3 dBFS，預警 -2 dBFS），所以幾個峰值很高、RMS 很低的 cue 到不了目標：`staple`（-23.4）、`clink`（-22.7）、`telegraph.1`（-17.8）、`telegraph.2`（-22.0）和 `telegraph.3`（-20.6），括號內是套用修正後的 RMS。其餘 cue 都在目標的 0.5 dB 內。改了配方或新增 cue 之後要重跑校準。
 

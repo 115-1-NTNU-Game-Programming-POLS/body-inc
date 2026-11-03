@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { chapterContent, chapterLoop } from '../../src/app/chapters.ts';
 import { CHAPTERS } from '../../src/app/content.ts';
-import { assistsOf, mayOpenOverlay, panelOpen, percent, speedOf, stepSetting, toggleSetting, togglesAttack, withAssists, type OverlayGate } from '../../src/app/pause.ts';
+import { assistsOf, cycleSetting, mayOpenOverlay, panelOpen, percent, speedOf, stepSetting, toggleSetting, togglesAttack, withAssists, type OverlayGate } from '../../src/app/pause.ts';
 import {
   ASSIST_FLAGS, decode, encode, GAME_SPEEDS, NO_ASSISTS, NO_INPUT, roomsOf, SETTINGS, startChapter, TEXT_SCALES, TICK_MS, VOLUMES, type ChapterState, type Settings, type TiledMap,
 } from '../../src/core/index.ts';
@@ -41,6 +41,27 @@ describe('the settings the Esc menu steps through (design doc 5.7)', () => {
         expect(decode(SETTINGS, encode(SETTINGS, s)).kind).toBe('ok');
       }
     }
+  });
+
+  it('a press goes round like the arrows, but a volume skips 0% so that a press at 100% does not mute', () => {
+    for (const key of ['textScale', 'gameSpeed'] as const) {
+      const list = key === 'textScale' ? TEXT_SCALES : GAME_SPEEDS;
+      let s = { ...NORMAL, [key]: list[0] } as Settings;
+      const seen: number[] = [];
+      for (let i = 0; i < list.length; i++) { seen.push(s[key]); s = cycleSetting(s, key); }
+      expect(seen).toEqual([...list]);
+      expect(s[key]).toBe(list[0]);
+    }
+    for (const key of ['musicVolume', 'sfxVolume'] as const) {
+      expect(cycleSetting({ ...NORMAL, [key]: 1 }, key)[key]).toBe(0.25);
+      expect(cycleSetting({ ...NORMAL, [key]: 0.75 }, key)[key]).toBe(1);
+      // From mute it climbs, and the arrows still step down to mute and wrap to it.
+      expect(cycleSetting({ ...NORMAL, [key]: 0 }, key)[key]).toBe(0.25);
+      expect(stepSetting({ ...NORMAL, [key]: 0.25 }, key, -1)[key]).toBe(0);
+      expect(stepSetting({ ...NORMAL, [key]: 1 }, key, 1)[key]).toBe(0);
+    }
+    // The other volume is left alone.
+    expect(cycleSetting(NORMAL, 'musicVolume').sfxVolume).toBe(NORMAL.sfxVolume);
   });
 
   it('writes 80% and 70% the way the menu prints them', () => {

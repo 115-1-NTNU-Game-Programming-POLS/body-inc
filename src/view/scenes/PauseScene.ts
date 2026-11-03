@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { UI } from '../../app/audio.ts';
 import { str } from '../../app/content.ts';
-import { choicesOf, percent, stepSetting, toggleSetting, type ChoiceKey } from '../../app/pause.ts';
+import { choicesOf, cycleSetting, percent, stepSetting, toggleSetting, type ChoiceKey } from '../../app/pause.ts';
 import type { SaveStore } from '../../app/storage.ts';
 import { ASSIST_FLAGS, SETTINGS, type AssistFlag, type Settings } from '../../core/index.ts';
 import { playCue } from '../audio/installSound.ts';
@@ -112,14 +112,15 @@ export class PauseScene extends Phaser.Scene {
     if (row.kind === 'action') {
       playCue(this, row.label === 'assist.back' ? UI.cancel : UI.confirm);
       row.run();
-    } else this.change(1);
+    } else this.change(1, true);
   }
 
   /** The cue plays after the save, so a new effects volume is heard at the level it was just set to. */
-  private change(by: 1 | -1): void {
+  private change(by: 1 | -1, pressed = false): void {
     const row = this.rows[this.cursor];
     if (!row || row.kind === 'action') return;
-    this.save(row.kind === 'choice' ? stepSetting(this.settings(), row.key, by) : toggleSetting(this.settings(), row.flag));
+    const choice = (key: ChoiceKey): Settings => (pressed ? cycleSetting(this.settings(), key) : stepSetting(this.settings(), key, by));
+    this.save(row.kind === 'choice' ? choice(row.key) : toggleSetting(this.settings(), row.flag));
     playCue(this, UI.confirm);
   }
 

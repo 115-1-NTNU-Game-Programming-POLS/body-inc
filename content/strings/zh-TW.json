@@ -55,7 +55,7 @@
     "title.new": { "text": "新遊戲", "fact": "" },
     "title.continue": { "text": "繼續遊戲", "fact": "" },
     "title.hint": { "text": "W／S 選擇　J／Enter 確定", "fact": "" },
-    "title.music_credit": { "text": "音樂：Kevin MacLeod (incompetech.com)，CC BY 4.0，已轉檔並調整響度。曲名與授權全文見 README。", "fact": "" },
+    "title.music_credit": { "text": "音樂：Kevin MacLeod (incompetech.com)，CC BY 4.0，已轉檔並調整響度。曲名與授權全文見 github.com/115-1-NTNU-Game-Programming-POLS/body-inc", "fact": "" },
     "title.ended": { "text": "今天的班到此結束。", "fact": "" },
     "title.stale": { "text": "舊存檔和目前的內容對不上，無法繼續。", "fact": "" },
     "title.host": { "text": "宿主名字：{host}", "fact": "" },
