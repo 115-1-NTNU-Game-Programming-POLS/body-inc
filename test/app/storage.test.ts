@@ -114,18 +114,28 @@ describe('SaveStore', () => {
 
   it('asks to write back a migrated slot', () => {
     const mem = new MemoryStore();
-    const next = { ...SETTINGS, version: 3, migrations: { ...SETTINGS.migrations, 2: (d: unknown) => d } };
+    const next = { ...SETTINGS, version: SETTINGS.version + 1, migrations: { ...SETTINGS.migrations, [SETTINGS.version]: (d: unknown) => d } };
     mem.items.set(KEY, encode(SETTINGS, SLOW));
     expect(new SaveStore(mem).load(next)).toEqual({
-      data: SLOW, issues: [{ kind: 'migrated', slot: 'settings', from: 2, to: 3 }], needsWrite: true,
+      data: SLOW, issues: [{ kind: 'migrated', slot: 'settings', from: SETTINGS.version, to: SETTINGS.version + 1 }], needsWrite: true,
     });
   });
 
-  it('reads a settings slot from before the assists with every assist off', () => {
+  it('reads a settings slot from before the assists with every assist off and the volumes at full', () => {
     const mem = new MemoryStore();
     mem.items.set(KEY, JSON.stringify({ schema: 1, data: { textScale: 1.25, gameSpeed: 0.8 } }));
     expect(new SaveStore(mem).load(SETTINGS)).toEqual({
-      data: SLOW, issues: [{ kind: 'migrated', slot: 'settings', from: 1, to: 2 }], needsWrite: true,
+      data: SLOW, issues: [{ kind: 'migrated', slot: 'settings', from: 1, to: SETTINGS.version }], needsWrite: true,
+    });
+  });
+
+  it('reads a version 2 settings slot with the captions off and the volumes at full', () => {
+    const mem = new MemoryStore();
+    const v2 = { ...SLOW, halfDamage: true };
+    const { captions: _c, musicVolume: _m, sfxVolume: _s, ...stored } = v2;
+    mem.items.set(KEY, JSON.stringify({ schema: 2, data: stored }));
+    expect(new SaveStore(mem).load(SETTINGS)).toEqual({
+      data: v2, issues: [{ kind: 'migrated', slot: 'settings', from: 2, to: 3 }], needsWrite: true,
     });
   });
 

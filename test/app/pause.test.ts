@@ -2,25 +2,27 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { chapterContent, chapterLoop } from '../../src/app/chapters.ts';
 import { CHAPTERS } from '../../src/app/content.ts';
-import { assistsOf, mayOpenOverlay, panelOpen, percent, speedOf, stepSetting, toggleSetting, togglesAttack, withAssists, type OverlayGate } from '../../src/app/pause.ts';
+import { assistsOf, cycleSetting, mayOpenOverlay, panelOpen, percent, speedOf, stepSetting, toggleSetting, togglesAttack, withAssists, type OverlayGate } from '../../src/app/pause.ts';
 import {
-  ASSIST_FLAGS, decode, encode, GAME_SPEEDS, NO_ASSISTS, NO_INPUT, roomsOf, SETTINGS, startChapter, TEXT_SCALES, TICK_MS, type ChapterState, type Settings, type TiledMap,
+  ASSIST_FLAGS, decode, encode, GAME_SPEEDS, NO_ASSISTS, NO_INPUT, roomsOf, SETTINGS, startChapter, TEXT_SCALES, TICK_MS, VOLUMES, type ChapterState, type Settings, type TiledMap,
 } from '../../src/core/index.ts';
 
 const NORMAL: Settings = SETTINGS.defaults();
 
 describe('the settings the Esc menu steps through (design doc 5.7)', () => {
   it('visits every choice of a setting once and comes back, forwards and backwards', () => {
-    for (const [key, list] of [['textScale', TEXT_SCALES], ['gameSpeed', GAME_SPEEDS]] as const) {
+    for (const [key, list] of [['textScale', TEXT_SCALES], ['gameSpeed', GAME_SPEEDS], ['musicVolume', VOLUMES], ['sfxVolume', VOLUMES]] as const) {
       const forward: number[] = [];
-      let s = NORMAL;
+      // From the first choice, whatever the default of the setting is (the volumes start at the last).
+      const first = { ...NORMAL, [key]: list[0] } as Settings;
+      let s = first;
       for (let i = 0; i < list.length; i++) {
         forward.push(s[key]);
         s = stepSetting(s, key, 1);
       }
       expect(forward).toEqual([...list]);
       expect(s[key]).toBe(list[0]);
-      expect(stepSetting(NORMAL, key, -1)[key]).toBe(list[list.length - 1]);
+      expect(stepSetting(first, key, -1)[key]).toBe(list[list.length - 1]);
     }
   });
 
@@ -28,17 +30,43 @@ describe('the settings the Esc menu steps through (design doc 5.7)', () => {
     const slow = stepSetting(NORMAL, 'gameSpeed', 1);
     expect(slow).toEqual({ ...NORMAL, gameSpeed: 0.8 });
     expect(stepSetting(slow, 'textScale', 1)).toEqual({ ...NORMAL, textScale: 1.25, gameSpeed: 0.8 });
-    for (const key of ['textScale', 'gameSpeed'] as const) {
+    // The two volumes are set apart: stepping one leaves the other where it was.
+    expect(stepSetting(NORMAL, 'musicVolume', -1)).toEqual({ ...NORMAL, musicVolume: 0.75 });
+    expect(stepSetting(NORMAL, 'musicVolume', 1)).toEqual({ ...NORMAL, musicVolume: 0 });
+    expect(stepSetting(stepSetting(NORMAL, 'sfxVolume', 1), 'musicVolume', -1)).toEqual({ ...NORMAL, sfxVolume: 0, musicVolume: 0.75 });
+    for (const key of ['textScale', 'gameSpeed', 'musicVolume', 'sfxVolume'] as const) {
       let s = NORMAL;
-      for (let i = 0; i < 4; i++) {
+      for (let i = 0; i < 6; i++) {
         s = stepSetting(s, key, 1);
         expect(decode(SETTINGS, encode(SETTINGS, s)).kind).toBe('ok');
       }
     }
   });
 
+  it('a press goes round like the arrows, but a volume skips 0% so that a press at 100% does not mute', () => {
+    for (const key of ['textScale', 'gameSpeed'] as const) {
+      const list = key === 'textScale' ? TEXT_SCALES : GAME_SPEEDS;
+      let s = { ...NORMAL, [key]: list[0] } as Settings;
+      const seen: number[] = [];
+      for (let i = 0; i < list.length; i++) { seen.push(s[key]); s = cycleSetting(s, key); }
+      expect(seen).toEqual([...list]);
+      expect(s[key]).toBe(list[0]);
+    }
+    for (const key of ['musicVolume', 'sfxVolume'] as const) {
+      expect(cycleSetting({ ...NORMAL, [key]: 1 }, key)[key]).toBe(0.25);
+      expect(cycleSetting({ ...NORMAL, [key]: 0.75 }, key)[key]).toBe(1);
+      // From mute it climbs, and the arrows still step down to mute and wrap to it.
+      expect(cycleSetting({ ...NORMAL, [key]: 0 }, key)[key]).toBe(0.25);
+      expect(stepSetting({ ...NORMAL, [key]: 0.25 }, key, -1)[key]).toBe(0);
+      expect(stepSetting({ ...NORMAL, [key]: 1 }, key, 1)[key]).toBe(0);
+    }
+    // The other volume is left alone.
+    expect(cycleSetting(NORMAL, 'musicVolume').sfxVolume).toBe(NORMAL.sfxVolume);
+  });
+
   it('writes 80% and 70% the way the menu prints them', () => {
     expect([...GAME_SPEEDS, ...TEXT_SCALES].map(percent)).toEqual(['100%', '80%', '70%', '100%', '125%']);
+    expect(VOLUMES.map(percent)).toEqual(['0%', '25%', '50%', '75%', '100%']);
     // 0.29 x 100 is 28.999999999999996, which must still read 29.
     expect(percent(0.29)).toBe('29%');
   });
@@ -137,7 +165,7 @@ describe('the assist flags', () => {
     expect(assistsOf(toggleSetting(NORMAL, 'halfDamage'))).toEqual({ ...NO_ASSISTS, halfDamage: true });
     expect(assistsOf(toggleSetting(NORMAL, 'neverEmpty'))).toEqual({ ...NO_ASSISTS, neverEmpty: true });
     expect(assistsOf(toggleSetting(NORMAL, 'autoPerfect'))).toEqual({ ...NO_ASSISTS, autoPerfect: true });
-    for (const flag of ['toggleAttack', 'noShake', 'lessFlash'] as const) expect(assistsOf(toggleSetting(NORMAL, flag)), flag).toEqual(NO_ASSISTS);
+    for (const flag of ['toggleAttack', 'noShake', 'lessFlash', 'captions'] as const) expect(assistsOf(toggleSetting(NORMAL, flag)), flag).toEqual(NO_ASSISTS);
   });
 
   it('puts the assists on a tick only when one is on, so a plain run records plain inputs', () => {

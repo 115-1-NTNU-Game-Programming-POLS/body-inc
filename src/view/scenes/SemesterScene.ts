@@ -4,7 +4,8 @@ import {
   TUTORIAL_COURSES, TUTORIAL_SEED, tutorLine, visitReport, walkPrompt, weekdayOf, welfareCaption, welfareText,
   type CoffeePlanId, type NightPlanId, type RestPlanId,
 } from '../../app/semester.ts';
-import { fillStr, REPORT, str } from '../../app/content.ts';
+import { musicFor } from '../../app/audio.ts';
+import { AUDIO, fillStr, REPORT, str } from '../../app/content.ts';
 import { keepPage } from '../../app/handbook.ts';
 import { patrolChapter, patrolLoop, type PatrolSession } from '../../app/patrol.ts';
 import type { SaveStore } from '../../app/storage.ts';
@@ -13,6 +14,7 @@ import {
   type SemesterContext, type SemesterRun, type SemesterState, type Settings, type TagState, type Wall,
 } from '../../core/index.ts';
 import { WALL_CHAPTER, wallLoop, type WallSession } from '../../app/wall.ts';
+import { soundIn } from '../audio/installSound.ts';
 import { addText, updateText } from '../text/fonts.ts';
 import { CardTable } from '../ui/cardTable.ts';
 import { ElevatorPanelView } from '../ui/elevatorPanel.ts';
@@ -87,7 +89,13 @@ export class SemesterScene extends Phaser.Scene {
     super('Semester');
   }
 
+  /** The elevator music; a patrol or the wall plays its own while this scene sleeps, so it is asked for again on waking. */
+  private music(): void {
+    soundIn(this)?.music(musicFor(AUDIO, { scene: this.scene.key }));
+  }
+
   create(data: SemesterData): void {
+    this.music();
     const back = data.resume === undefined ? undefined : resumeSemester(data.resume);
     if (data.resume !== undefined && back === undefined) throw new Error('the title offered a semester save that no longer replays');
     const done = (this.registry.get('progress') as ProgressData | undefined)?.semestersDone ?? 1;
@@ -167,6 +175,7 @@ export class SemesterScene extends Phaser.Scene {
       done: () => {
         this.registry.set('loop', undefined);
         this.events.once(Phaser.Scenes.Events.WAKE, () => {
+          this.music();
           // Held input: the key that closed the wall must not also turn the first page of the report or leave the semester.
           this.busy = true;
           // Wall-clock time: a sleeping scene's clock stands still, so 	his.time.now would be stale right after the wake.
@@ -376,6 +385,7 @@ export class SemesterScene extends Phaser.Scene {
       done: (result) => {
         this.registry.set('loop', undefined);
         this.events.once(Phaser.Scenes.Events.WAKE, () => {
+          this.music();
           // Held input: the key that closed the rooms must not also pick the first card.
           this.busy = true;
           this.escGuardUntil = performance.now() + ESC_GUARD_MS;

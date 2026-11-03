@@ -11,12 +11,15 @@ import { TOOLS, type Tool } from '../tools.ts';
 /** The choices of each setting, in the order the pause menu cycles through them. */
 export const TEXT_SCALES = [1, 1.25] as const;
 export const GAME_SPEEDS = [1, 0.8, 0.7] as const;
+/** The steps of each volume (ux-spec 設定): music and effects are set apart, and 0 is off. */
+export const VOLUMES = [0, 0.25, 0.5, 0.75, 1] as const;
 
 /**
  * The on/off assists of "flexible hours" (design doc 5.7), in the order the pause menu lists them.
- * Three change the fight (core/combat/assists.ts), one changes the input and two the presentation.
+ * Three change the fight (core/combat/assists.ts), one changes the input, two the presentation and
+ * one writes the warning sounds out as captions.
  */
-export const ASSIST_FLAGS = ['halfDamage', 'neverEmpty', 'autoPerfect', 'toggleAttack', 'noShake', 'lessFlash'] as const;
+export const ASSIST_FLAGS = ['halfDamage', 'neverEmpty', 'autoPerfect', 'toggleAttack', 'noShake', 'lessFlash', 'captions'] as const;
 export type AssistFlag = (typeof ASSIST_FLAGS)[number];
 
 /**
@@ -26,27 +29,35 @@ export type AssistFlag = (typeof ASSIST_FLAGS)[number];
 export interface Settings extends Readonly<Record<AssistFlag, boolean>> {
   readonly textScale: (typeof TEXT_SCALES)[number];
   readonly gameSpeed: (typeof GAME_SPEEDS)[number];
+  readonly musicVolume: (typeof VOLUMES)[number];
+  readonly sfxVolume: (typeof VOLUMES)[number];
 }
 
 const ALL_OFF: Readonly<Record<AssistFlag, false>> = Object.fromEntries(ASSIST_FLAGS.map((f) => [f, false])) as Record<AssistFlag, false>;
 
 // Version 1 had the two choices only. Version 2 adds the assist flags, which an old save has off.
+// Version 3 adds the two volumes, at full, and the captions flag, off.
 export const SETTINGS: SlotDef<Settings> = {
   name: 'settings',
-  version: 2,
+  version: 3,
   schema: {
     type: 'object',
     additionalProperties: false,
-    required: ['textScale', 'gameSpeed', ...ASSIST_FLAGS],
+    required: ['textScale', 'gameSpeed', 'musicVolume', 'sfxVolume', ...ASSIST_FLAGS],
     properties: {
       textScale: { enum: [...TEXT_SCALES] },
       gameSpeed: { enum: [...GAME_SPEEDS] },
+      musicVolume: { enum: [...VOLUMES] },
+      sfxVolume: { enum: [...VOLUMES] },
       ...Object.fromEntries(ASSIST_FLAGS.map((f) => [f, { type: 'boolean' }])),
     },
   },
-  defaults: () => ({ textScale: 1, gameSpeed: 1, ...ALL_OFF }),
-  // The flags go first so a version 1 file that somehow holds one is judged by the schema, not overwritten.
-  migrations: { 1: (data) => ({ ...ALL_OFF, ...(data as object) }) },
+  defaults: () => ({ textScale: 1, gameSpeed: 1, musicVolume: 1, sfxVolume: 1, ...ALL_OFF }),
+  // The old file goes last so a value it holds is judged by the schema, not overwritten.
+  migrations: {
+    1: (data) => ({ ...ALL_OFF, ...(data as object) }),
+    2: (data) => ({ captions: false, musicVolume: 1, sfxVolume: 1, ...(data as object) }),
+  },
 };
 
 /**

@@ -1,7 +1,9 @@
 import Phaser from 'phaser';
+import { UI } from '../../app/audio.ts';
 import { HANDBOOK, str } from '../../app/content.ts';
 import { titleKey } from '../../app/handbook.ts';
 import type { ProgressData, Settings } from '../../core/index.ts';
+import { playCue } from '../audio/installSound.ts';
 import { addText } from '../text/fonts.ts';
 import { HANDBOOK as LAYOUT } from '../text/styles.ts';
 
@@ -53,6 +55,7 @@ export class HandbookScene extends Phaser.Scene {
       role: 'print', weight: 400, size: 18 * scale, color: '#e8edf5',
     }).setOrigin(1, 1);
     this.show(owned, scale);
+    playCue(this, UI.page);
 
     const kb = this.input.keyboard!;
     kb.addCapture('TAB');
@@ -61,6 +64,7 @@ export class HandbookScene extends Phaser.Scene {
       e.preventDefault();
       this.cursor = (this.cursor + by + pages.length) % pages.length;
       this.show(owned, scale);
+      playCue(this, UI.page);
     };
     for (const k of ['W', 'UP']) kb.on(`keydown-${k}`, move(-1));
     for (const k of ['S', 'DOWN']) kb.on(`keydown-${k}`, move(1));
@@ -68,6 +72,7 @@ export class HandbookScene extends Phaser.Scene {
   }
 
   private close(): void {
+    playCue(this, UI.page);
     this.scene.resume('World');
     this.scene.stop();
   }

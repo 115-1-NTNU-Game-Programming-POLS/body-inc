@@ -8,6 +8,7 @@ import prologueChapter from '../../content/chapters/prologue.json';
 import wallChapter from '../../content/chapters/wall.json';
 import patrolBrainChapter from '../../content/chapters/patrol-brain.json';
 import patrolLiverChapter from '../../content/chapters/patrol-liver.json';
+import audioJson from '../../content/audio.json';
 import enemiesJson from '../../content/enemies.json';
 import feedbackJson from '../../content/feedback.json';
 import handbookJson from '../../content/handbook.json';
@@ -21,6 +22,7 @@ import {
   loadBossTable, loadDeck, loadDictionary, loadDialogueTable, loadEnemyTable, loadExamTable, loadRescues, readContent, reportProblems,
   type BossTable, type ChapterFile, type Deck, type DialogueFile, type DialogueTable, type EnemyTable, type ExamTable, type RescueTable, type TagDictionary,
 } from '../core/index.ts';
+import type { AudioTable } from './audio.ts';
 import { speakerProblems, type Speakers } from './dialogue.ts';
 import { feedbackProblems, noteFields, type FeedbackTable, type StringTable } from './feedback.ts';
 import { handbookProblems } from './handbook.ts';
@@ -29,6 +31,7 @@ import { handbookProblems } from './handbook.ts';
 export const TAGS: TagDictionary = loadDictionary(tagsJson);
 export const ENEMIES: EnemyTable = loadEnemyTable(enemiesJson);
 export const FEEDBACK: FeedbackTable = readContent('feedback', feedbackJson);
+export const AUDIO: AudioTable = readContent('audio', audioJson);
 export const STRINGS: StringTable = readContent('strings', stringsJson);
 /** A screen string by key; a key the table lacks is a bug in the scene, so it throws. */
 export const str = (key: string): string => {

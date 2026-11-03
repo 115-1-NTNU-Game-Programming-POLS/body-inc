@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cue calibration</title>
+<style>body { font: 14px/1.4 ui-monospace, monospace; margin: 16px; } td, th { padding: 2px 10px; text-align: right; } td:first-child, th:first-child { text-align: left; }</style>
+</head>
+<body>
+<!--
+  Loudness calibration of the effects (docs/audio/cues.md). Open it from the dev server
+  (npm run dev, then /tools/audio/calibrate.html): it renders every cue of content/audio.json offline
+  with the same synthesis the game uses, at no trim, measures the RMS over the cue (the loudest
+  200 ms for a longer one), and prints the trimDb that brings each to the target of its class, held
+  back so the peak stays under the ceiling of its class (-3 dBFS, -2 for a warning). Paste the JSON
+  it prints into the cues' trimDb.
+-->
+<h1>Cue calibration</h1>
+<p id="state">measuring...</p>
+<table id="table"></table>
+<pre id="json"></pre>
+<script type="module">
+import { AUDIO } from '/src/app/content.ts';
+import { UI } from '/src/app/audio.ts';
+import { synthesize, whiteNoise } from '/src/app/sound.ts';
+
+const RATE = 44100;
+const WINDOW = 0.2;
+/** Peak ceiling in dBFS by class; a warning may go up to where the master limiter starts (-2), to stand out. */
+const CEILING = { effect: -3, warning: -2, menu: -3, clock: -3 };
+/** Target RMS in dBFS by class: the warnings stand out, the menu sounds and the clock stay under the rest. */
+const TARGET = { effect: -22, warning: -17, menu: -28, clock: -26 };
+const MENU = new Set([...Object.values(UI), 'blip', 'click', 'swap']);
+const classOf = (id) => (id.startsWith('telegraph.') ? 'warning' : id === 'tick' ? 'clock' : MENU.has(id) && id !== UI.lowHeart ? 'menu' : 'effect');
+
+const db = (x) => 20 * Math.log10(Math.max(x, 1e-9));
+
+async function render(cue) {
+  const end = Math.max(...cue.voices.map((v) => (v.at ?? 0) + v.dur)) + 0.1;
+  const ctx = new OfflineAudioContext(1, Math.ceil(RATE * end), RATE);
+  const bus = ctx.createGain();
+  bus.connect(ctx.destination);
+  synthesize(ctx, bus, cue, whiteNoise(ctx), 0, 1, 1);
+  const data = (await ctx.startRendering()).getChannelData(0);
+  let peak = 0;
+  for (const s of data) peak = Math.max(peak, Math.abs(s));
+  const span = Math.min(WINDOW, Math.max(...cue.voices.map((v) => (v.at ?? 0) + v.dur)));
+  const n = Math.round(span * RATE);
+  const hop = Math.round(0.01 * RATE);
+  let best = 0;
+  for (let from = 0; from + n <= data.length || from === 0; from += hop) {
+    let sum = 0;
+    const to = Math.min(from + n, data.length);
+    for (let i = from; i < to; i++) sum += data[i] * data[i];
+    best = Math.max(best, Math.sqrt(sum / n));
+    if (to === data.length) break;
+  }
+  return { rmsDb: db(best), peakDb: db(peak), silent: peak === 0 };
+}
+
+const rows = [];
+for (const [id, cue] of Object.entries(AUDIO.cues)) {
+  const m = await render(cue);
+  const cls = classOf(id);
+  const wanted = TARGET[cls] - m.rmsDb;
+  const limit = CEILING[cls] - m.peakDb;
+  // Rounded down to half a dB, so a held cue never ends up above its ceiling.
+  const trim = Math.floor(Math.min(wanted, limit) * 2) / 2;
+  rows.push({ id, cls, ...m, trim, held: limit < wanted });
+}
+const trims = Object.fromEntries(rows.map((r) => [r.id, r.trim]));
+document.getElementById('table').innerHTML = '<tr><th>cue</th><th>class</th><th>rms</th><th>peak</th><th>trimDb</th><th>held by peak</th></tr>'
+  + rows.map((r) => `<tr><td>${r.id}</td><td>${r.cls}</td><td>${r.rmsDb.toFixed(1)}</td><td>${r.peakDb.toFixed(1)}</td><td>${r.trim}</td><td>${r.held ? 'yes' : ''}</td></tr>`).join('');
+document.getElementById('json').textContent = JSON.stringify(trims);
+document.getElementById('state').textContent = `${rows.length} cues measured`;
+window.__cal = { rows, trims };
+</script>
+</body>
+</html>

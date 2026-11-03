@@ -1,8 +1,13 @@
 import Phaser from 'phaser';
+import { bearing, captionsOn, captionTicks, soundFor, type AudioTable, type Caption, type WorldCaption } from '../../app/audio.ts';
 import { noteText, type FeedbackTable, type StringTable } from '../../app/feedback.ts';
-import type { GameEvent } from '../../core/index.ts';
+import { TICK_HZ, type GameEvent, type Settings } from '../../core/index.ts';
 import type { OperatorView } from '../actors/OperatorView.ts';
+import { soundIn } from '../audio/installSound.ts';
 import { comfortIn } from './comfortIn.ts';
+
+/** Closer than this a source needs no arrow: it is on top of the operator. */
+const ARROW_MIN_PX = 24;
 
 /** What feedback can do to an enemy or boss sprite. */
 export interface ActorFx {
@@ -28,17 +33,46 @@ export interface FeedbackTargets {
 export class FeedbackPlayer {
   private readonly scene: Phaser.Scene;
   private readonly table: FeedbackTable;
+  private readonly audio: AudioTable;
   private readonly strings: StringTable;
   private readonly targets: FeedbackTargets;
   private readonly emitters = new Map<string, Phaser.GameObjects.Particles.ParticleEmitter>();
   private beating?: Phaser.Tweens.Tween;
   private zoom0?: number;
 
-  constructor(scene: Phaser.Scene, table: FeedbackTable, strings: StringTable, targets: FeedbackTargets) {
+  constructor(scene: Phaser.Scene, table: FeedbackTable, audio: AudioTable, strings: StringTable, targets: FeedbackTargets) {
     this.scene = scene;
     this.table = table;
+    this.audio = audio;
     this.strings = strings;
     this.targets = targets;
+  }
+
+  /** Shows a caption when the assist is on; `from` is the world position of the sound, for the arrow. */
+  private caption(c: Caption, from?: { readonly x: number; readonly y: number }): void {
+    if (!captionsOn(this.scene.registry.get('settings') as Settings | undefined)) return;
+    const text = this.strings.strings[c.key]?.text;
+    if (!text) return;
+    const angle = from ? bearing(this.targets.operator.position, from, ARROW_MIN_PX) : undefined;
+    this.scene.game.events.emit('world-caption', { text, seconds: c.ticks / TICK_HZ, ...(angle === undefined ? {} : { angle }) } satisfies WorldCaption);
+  }
+
+  /** What an event sounds like and says: the cue, and its caption with an arrow towards the one who made it. */
+  sound(event: GameEvent): void {
+    const s = soundFor(this.table, this.audio, event);
+    if (!s) return;
+    soundIn(this.scene)?.cue(s.cue, s.semitones);
+    if (!s.caption) return;
+    const source = 'source' in event ? event.source : 'target' in event ? event.target : undefined;
+    const sprite = source === undefined ? undefined : this.targets.enemy(source)?.sprite;
+    this.caption(s.caption, sprite ? { x: sprite.x, y: sprite.y } : undefined);
+  }
+
+  /** A cue played on its own, with its caption: the ticking clock of the last heart. */
+  cue(id: string): void {
+    soundIn(this.scene)?.cue(id);
+    const key = this.audio.cues[id]?.caption;
+    if (key) this.caption({ key, ticks: captionTicks() });
   }
 
   private emitter(preset: string): Phaser.GameObjects.Particles.ParticleEmitter | undefined {
@@ -68,6 +102,7 @@ export class FeedbackPlayer {
   }
 
   play(event: GameEvent, tick: number): void {
+    this.sound(event);
     const fb = this.table.events[event.type];
     if (!fb) return;
     const enemy = 'target' in event ? this.targets.enemy(event.target) : undefined;

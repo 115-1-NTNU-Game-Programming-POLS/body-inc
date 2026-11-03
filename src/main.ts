@@ -26,6 +26,8 @@ const game = new Phaser.Game({
   scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
   // The host's name box is a DOM <input> (NameScene), the only way to type through the system IME.
   dom: { createContainer: true },
+  // Sound is the app's own (app/sound.ts): one audio context, unlocked by the first gesture, not Phaser's.
+  audio: { noAudio: true },
   // Draw order: later scenes are on top, so conversations and event cards cover the HUD.
   scene: [BootScene, TitleScene, NameScene, OpeningScene, WorldScene, HudScene, DialogueScene, CardScene, RescueScene, ExamScene, HandbookScene, PauseScene, SemesterScene, CourseScene],
 });

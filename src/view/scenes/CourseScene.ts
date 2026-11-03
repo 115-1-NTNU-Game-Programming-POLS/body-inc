@@ -1,7 +1,9 @@
 import Phaser from 'phaser';
-import { fillStr, str } from '../../app/content.ts';
+import { musicFor, UI } from '../../app/audio.ts';
+import { AUDIO, fillStr, str } from '../../app/content.ts';
 import { clauseName, clauseNote, courseNote } from '../../app/semester.ts';
 import { burdenOf, CLAUSE_CREDIT_CAP, clauseProblem, creditsOf, MAX_CLAUSE, OPEN_COURSES, selectionProblem, thresholdMult, type ProgressData } from '../../core/index.ts';
+import { playCue, soundIn } from '../audio/installSound.ts';
 import { addText, updateText } from '../text/fonts.ts';
 import type { SemesterData } from './SemesterScene.ts';
 
@@ -43,6 +45,7 @@ export class CourseScene extends Phaser.Scene {
     this.unlocked = Math.min(MAX_CLAUSE, (this.registry.get('progress') as ProgressData | undefined)?.clauseUnlocked ?? 0);
     this.rows = [];
     this.starting = false;
+    soundIn(this)?.music(musicFor(AUDIO, { scene: this.scene.key }));
     const w = this.scale.width;
     addText(this, w / 2, 56, str('course.pick.title'), { role: 'hand', weight: 700, size: 44, color: PAPER }).setOrigin(0.5);
 
@@ -52,7 +55,7 @@ export class CourseScene extends Phaser.Scene {
       const note = addText(this, w / 2 - 316, y + NOTE_DY, courseNote(c.id), { role: 'print', weight: 400, size: 18, color: DIM });
       this.rows.push({ name, note });
       name.setInteractive({ useHandCursor: true });
-      name.on('pointerover', () => this.select(i));
+      name.on('pointerover', () => this.step(i));
       name.on('pointerup', () => this.toggle(i));
     });
     const clauseY = ROW_Y + this.clauseRow * ROW_H;
@@ -60,22 +63,22 @@ export class CourseScene extends Phaser.Scene {
     const clauseText = addText(this, w / 2 - 316, clauseY + NOTE_DY, '', { role: 'print', weight: 400, size: 18, color: DIM });
     this.rows.push({ name: clause, note: clauseText });
     clause.setInteractive({ useHandCursor: true });
-    clause.on('pointerover', () => this.select(this.clauseRow));
+    clause.on('pointerover', () => this.step(this.clauseRow));
     clause.on('pointerup', () => this.shift(1));
 
     const startY = ROW_Y + (this.clauseRow + 1) * ROW_H + 8;
     const start = addText(this, w / 2 - 330, startY, str('course.pick.start'), { role: 'print', weight: 700, size: 28, color: PAPER, padding: { x: 14, y: 4 } });
     this.rows.push({ name: start, note: undefined });
     start.setInteractive({ useHandCursor: true });
-    start.on('pointerover', () => this.select(this.rows.length - 1));
+    start.on('pointerover', () => this.step(this.rows.length - 1));
     start.on('pointerup', () => this.begin());
     this.summary = addText(this, w / 2 - 330, startY + 56, '', { role: 'print', weight: 400, size: 20, color: PAPER, maxWidth: 660 });
     addText(this, w / 2, this.scale.height - 40, str('course.pick.hint'), { role: 'print', weight: 400, size: 18, color: DIM }).setOrigin(0.5, 1);
 
     this.paint();
     const onKey = (e: KeyboardEvent): void => {
-      if (e.code === 'KeyW' || e.code === 'ArrowUp') this.select((this.index + this.rows.length - 1) % this.rows.length);
-      else if (e.code === 'KeyS' || e.code === 'ArrowDown') this.select((this.index + 1) % this.rows.length);
+      if (e.code === 'KeyW' || e.code === 'ArrowUp') this.step((this.index + this.rows.length - 1) % this.rows.length);
+      else if (e.code === 'KeyS' || e.code === 'ArrowDown') this.step((this.index + 1) % this.rows.length);
       else if ((e.code === 'KeyA' || e.code === 'ArrowLeft') && this.index === this.clauseRow) this.shift(-1);
       else if ((e.code === 'KeyD' || e.code === 'ArrowRight') && this.index === this.clauseRow) this.shift(1);
       else if (['Enter', 'NumpadEnter', 'KeyJ', 'Space'].includes(e.code) && !e.repeat) this.confirm();
@@ -90,6 +93,12 @@ export class CourseScene extends Phaser.Scene {
     this.paint();
   }
 
+  /** Moves the cursor, with the menu's step sound when it really moved (a pointer over the row it is on is not a step). */
+  private step(i: number): void {
+    if (i !== this.index) playCue(this, UI.move);
+    this.select(i);
+  }
+
   private confirm(): void {
     if (this.index === this.rows.length - 1) this.begin();
     else if (this.index === this.clauseRow) this.shift(1);
@@ -97,6 +106,7 @@ export class CourseScene extends Phaser.Scene {
   }
 
   private toggle(i: number): void {
+    playCue(this, UI.confirm);
     const id = OPEN_COURSES[i]!.id;
     if (this.picked.has(id)) this.picked.delete(id);
     else this.picked.add(id);
@@ -105,6 +115,7 @@ export class CourseScene extends Phaser.Scene {
 
   /** The next unlocked level in the direction `by`, wrapping round. */
   private shift(by: number): void {
+    playCue(this, UI.confirm);
     const n = this.unlocked + 1;
     this.level = (this.level + by + n) % n;
     this.select(this.clauseRow);
@@ -148,6 +159,7 @@ export class CourseScene extends Phaser.Scene {
     const picks = this.picks();
     if (this.starting || this.problem(picks) !== undefined) return;
     this.starting = true;
+    playCue(this, UI.confirm);
     const data: SemesterData = { courses: picks, ...(this.level > 0 ? { clause: this.level } : {}) };
     // Deferred so the confirming key is not also read by the first screen of the semester.
     window.setTimeout(() => this.scene.start('Semester', data), 0);

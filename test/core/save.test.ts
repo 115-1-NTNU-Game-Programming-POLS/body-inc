@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { checkSlotDef, decode, encode, SaveDefinitionError, SETTINGS, SLOTS, type SlotDef } from '../../src/core/index.ts';
+import { checkSlotDef, decode, encode, SaveDefinitionError, SETTINGS, SLOTS, VOLUMES, type SlotDef } from '../../src/core/index.ts';
 
 interface V3 {
   readonly name: string;
@@ -68,22 +68,42 @@ describe('save slots', () => {
   it('every shipped slot is well defined', () => {
     for (const slot of SLOTS as readonly SlotDef<unknown>[]) expect(() => checkSlotDef(slot)).not.toThrow();
     const flags = { halfDamage: false, neverEmpty: false, autoPerfect: false, toggleAttack: false, noShake: false, lessFlash: false };
-    expect(decode(SETTINGS, stored(2, { textScale: 1.25, gameSpeed: 0.8, ...flags })).kind).toBe('ok');
-    expect(decode(SETTINGS, stored(2, { textScale: 2, gameSpeed: 1, ...flags })).kind).toBe('invalid');
-    // A settings slot written before the assists existed comes forward with every assist off.
+    const now = { ...flags, captions: false, musicVolume: 1, sfxVolume: 1 };
+    expect(decode(SETTINGS, stored(3, { textScale: 1.25, gameSpeed: 0.8, ...now })).kind).toBe('ok');
+    expect(decode(SETTINGS, stored(3, { textScale: 2, gameSpeed: 1, ...now })).kind).toBe('invalid');
+    // A settings slot written before the assists existed comes forward with every assist off and the volumes at full.
     const old = decode(SETTINGS, stored(1, { textScale: 1.25, gameSpeed: 0.8 }));
     expect(old.kind).toBe('migrated');
-    expect(old.kind === 'migrated' && old.data).toEqual({ textScale: 1.25, gameSpeed: 0.8, ...flags });
+    expect(old.kind === 'migrated' && old.data).toEqual({ textScale: 1.25, gameSpeed: 0.8, ...now });
     expect(decode(SETTINGS, stored(1, { textScale: 2, gameSpeed: 1 })).kind).toBe('invalid');
   });
 
+  it('a version 2 settings slot comes forward with the captions off and both volumes at full, and keeps what it set', () => {
+    const v2 = { textScale: 1.25, gameSpeed: 0.7, halfDamage: true, neverEmpty: false, autoPerfect: false, toggleAttack: true, noShake: false, lessFlash: false };
+    const moved = decode(SETTINGS, stored(2, v2));
+    expect(moved.kind).toBe('migrated');
+    expect(moved.kind === 'migrated' && moved.data).toEqual({ ...v2, captions: false, musicVolume: 1, sfxVolume: 1 });
+    // A volume that is not one of the steps is refused, not rounded.
+    expect(decode(SETTINGS, stored(2, { ...v2, musicVolume: 0.3 })).kind).toBe('invalid');
+    expect(decode(SETTINGS, stored(3, { ...v2, captions: false, musicVolume: 1, sfxVolume: 0.6 })).kind).toBe('invalid');
+  });
+
   it('the settings slot of this version needs every assist flag, and each one a boolean', () => {
-    const base = { textScale: 1, gameSpeed: 1, halfDamage: false, neverEmpty: false, autoPerfect: false, toggleAttack: false, noShake: false, lessFlash: false };
-    expect(decode(SETTINGS, stored(2, base)).kind).toBe('ok');
-    for (const flag of ['halfDamage', 'neverEmpty', 'autoPerfect', 'toggleAttack', 'noShake', 'lessFlash'] as const) {
+    const base = {
+      textScale: 1, gameSpeed: 1, musicVolume: 1, sfxVolume: 1,
+      halfDamage: false, neverEmpty: false, autoPerfect: false, toggleAttack: false, noShake: false, lessFlash: false, captions: false,
+    };
+    expect(decode(SETTINGS, stored(3, base)).kind).toBe('ok');
+    for (const flag of ['halfDamage', 'neverEmpty', 'autoPerfect', 'toggleAttack', 'noShake', 'lessFlash', 'captions'] as const) {
       const { [flag]: _, ...without } = base;
-      expect(decode(SETTINGS, stored(2, without)).kind, `${flag} missing`).toBe('invalid');
-      for (const bad of [1, 'true', null]) expect(decode(SETTINGS, stored(2, { ...base, [flag]: bad })).kind, `${flag} = ${String(bad)}`).toBe('invalid');
+      expect(decode(SETTINGS, stored(3, without)).kind, `${flag} missing`).toBe('invalid');
+      for (const bad of [1, 'true', null]) expect(decode(SETTINGS, stored(3, { ...base, [flag]: bad })).kind, `${flag} = ${String(bad)}`).toBe('invalid');
+    }
+    for (const key of ['musicVolume', 'sfxVolume'] as const) {
+      const { [key]: _, ...without } = base;
+      expect(decode(SETTINGS, stored(3, without)).kind, `${key} missing`).toBe('invalid');
+      for (const bad of [0.1, 2, -1, '1', null]) expect(decode(SETTINGS, stored(3, { ...base, [key]: bad })).kind, `${key} = ${String(bad)}`).toBe('invalid');
+      for (const good of VOLUMES) expect(decode(SETTINGS, stored(3, { ...base, [key]: good })).kind, `${key} = ${good}`).toBe('ok');
     }
     // An old file holding a flag that is not a boolean is refused, not quietly turned off.
     expect(decode(SETTINGS, stored(1, { textScale: 1, gameSpeed: 1, halfDamage: 'yes' })).kind).toBe('invalid');

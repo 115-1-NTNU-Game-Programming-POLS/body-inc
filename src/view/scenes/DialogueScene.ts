@@ -1,9 +1,11 @@
 import Phaser from 'phaser';
+import { UI } from '../../app/audio.ts';
 import { SPEAKERS, str } from '../../app/content.ts';
 import { portraitKey } from '../../app/dialogue.ts';
 import { sharedKeys, type KeyboardInput } from '../../app/input.ts';
 import type { FixedStepLoop } from '../../app/loop.ts';
 import { selectDialogue, type ChapterContent, type ChapterState, type DialogueView, type GameEvent, type Settings } from '../../core/index.ts';
+import { playCue } from '../audio/installSound.ts';
 import { addText } from '../text/fonts.ts';
 import { DIALOGUE, MEMO, REPLY } from '../text/styles.ts';
 
@@ -79,8 +81,12 @@ export class DialogueScene extends Phaser.Scene {
       return;
     }
     const key = `${view.id}:${view.at}`;
-    if (key !== this.shown) this.show(view, key);
-    else if (view.cursor !== this.cursor) this.paint(view.cursor);
+    if (key !== this.shown) {
+      // The first node comes with the blip of dialogueOpened; every one after it is the player moving the conversation on.
+      const advancing = this.shown !== '';
+      this.show(view, key);
+      if (advancing) playCue(this, UI.advance);
+    } else if (view.cursor !== this.cursor) this.paint(view.cursor);
     this.marker?.setAlpha(Math.floor(time / BLINK_MS) % 2 === 0 ? 1 : 0.25);
   }
 

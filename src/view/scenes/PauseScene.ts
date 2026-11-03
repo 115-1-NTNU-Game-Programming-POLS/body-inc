@@ -1,8 +1,10 @@
 import Phaser from 'phaser';
+import { UI } from '../../app/audio.ts';
 import { str } from '../../app/content.ts';
-import { choicesOf, percent, stepSetting, toggleSetting, type ChoiceKey } from '../../app/pause.ts';
+import { choicesOf, cycleSetting, percent, stepSetting, toggleSetting, type ChoiceKey } from '../../app/pause.ts';
 import type { SaveStore } from '../../app/storage.ts';
-import { SETTINGS, type AssistFlag, type Settings } from '../../core/index.ts';
+import { ASSIST_FLAGS, SETTINGS, type AssistFlag, type Settings } from '../../core/index.ts';
+import { playCue } from '../audio/installSound.ts';
 import { addText } from '../text/fonts.ts';
 
 const INK = 0x0c2d5e;
@@ -18,12 +20,12 @@ type Row =
   | { readonly kind: 'flag'; readonly flag: AssistFlag; readonly label: string; readonly note: string };
 
 /** Spacing, text size and top of the rows at 100% text size; the scene stretches them with the text size so the rows do not overlap. */
-const LAYOUT = { main: { step: 56, size: 26, top: 96, heading: 36 }, assist: { step: 46, size: 24, top: 88, heading: 32 } } as const;
+const LAYOUT = { main: { step: 52, size: 26, top: 92, heading: 36 }, assist: { step: 42, size: 24, top: 84, heading: 32 } } as const;
 
 /**
- * The Esc menu over the paused room (design doc 5.7): resume, the handbook, the text size, the
- * "flexible hours" page of assists, and the way back to the title. A choice is saved as soon as it
- * changes, so a presenter can slow the game down in the middle of a run.
+ * The Esc menu over the paused room (design doc 5.7): resume, the handbook, the text size, the two
+ * volumes, the "flexible hours" page of assists, and the way back to the title. A choice is saved as
+ * soon as it changes, so a presenter can slow the game down in the middle of a run.
  */
 export class PauseScene extends Phaser.Scene {
   private page: Page = 'main';
@@ -54,7 +56,11 @@ export class PauseScene extends Phaser.Scene {
     for (const k of ['A', 'LEFT']) kb.on(`keydown-${k}`, press(() => this.change(-1)));
     for (const k of ['D', 'RIGHT']) kb.on(`keydown-${k}`, press(() => this.change(1)));
     for (const k of ['ENTER', 'J', 'E', 'SPACE']) kb.on(`keydown-${k}`, press(() => this.activate(this.cursor)));
-    kb.on('keydown-ESC', press(() => (this.page === 'assist' ? this.go('main', ASSIST_ROW) : this.close())));
+    kb.on('keydown-ESC', press(() => {
+      playCue(this, UI.cancel);
+      if (this.page === 'assist') this.go('main', ASSIST_ROW);
+      else this.close();
+    }));
   }
 
   private settings(): Settings {
@@ -67,14 +73,15 @@ export class PauseScene extends Phaser.Scene {
         { kind: 'action', label: 'pause.resume', run: () => this.close() },
         { kind: 'action', label: 'pause.handbook', run: () => this.openHandbook() },
         { kind: 'choice', key: 'textScale', label: 'pause.text_size' },
+        { kind: 'choice', key: 'musicVolume', label: 'pause.music' },
+        { kind: 'choice', key: 'sfxVolume', label: 'pause.sfx' },
         { kind: 'action', label: 'pause.assist_menu', run: () => this.go('assist', 0) },
         { kind: 'action', label: 'pause.title', run: () => this.leave() },
       ];
     }
     return [
       { kind: 'choice', key: 'gameSpeed', label: 'assist.speed', note: 'assist.speed.note' },
-      ...(['halfDamage', 'neverEmpty', 'autoPerfect', 'toggleAttack', 'noShake', 'lessFlash'] as const)
-        .map((flag): Row => ({ kind: 'flag', flag, label: `assist.${flag}`, note: `assist.${flag}.note` })),
+      ...ASSIST_FLAGS.map((flag): Row => ({ kind: 'flag', flag, label: `assist.${flag}`, note: `assist.${flag}.note` })),
       { kind: 'action', label: 'assist.back', run: () => this.go('main', ASSIST_ROW) },
     ];
   }
@@ -91,6 +98,7 @@ export class PauseScene extends Phaser.Scene {
   private select(to: number): void {
     const next = (to + this.rows.length) % this.rows.length;
     if (next === this.cursor) return;
+    playCue(this, UI.move);
     this.cursor = next;
     this.confirming = false;
     this.rebuild();
@@ -101,14 +109,19 @@ export class PauseScene extends Phaser.Scene {
     const row = this.rows[i];
     if (!row) return;
     this.cursor = i;
-    if (row.kind === 'action') row.run();
-    else this.change(1);
+    if (row.kind === 'action') {
+      playCue(this, row.label === 'assist.back' ? UI.cancel : UI.confirm);
+      row.run();
+    } else this.change(1, true);
   }
 
-  private change(by: 1 | -1): void {
+  /** The cue plays after the save, so a new effects volume is heard at the level it was just set to. */
+  private change(by: 1 | -1, pressed = false): void {
     const row = this.rows[this.cursor];
     if (!row || row.kind === 'action') return;
-    this.save(row.kind === 'choice' ? stepSetting(this.settings(), row.key, by) : toggleSetting(this.settings(), row.flag));
+    const choice = (key: ChoiceKey): Settings => (pressed ? cycleSetting(this.settings(), key) : stepSetting(this.settings(), key, by));
+    this.save(row.kind === 'choice' ? choice(row.key) : toggleSetting(this.settings(), row.flag));
+    playCue(this, UI.confirm);
   }
 
   private save(next: Settings): void {
@@ -151,7 +164,9 @@ export class PauseScene extends Phaser.Scene {
     const scale = settings.textScale;
     const lay = LAYOUT[this.page];
     const w = this.scale.width;
-    const left = (w - PANEL.w) / 2;
+    // The volume rows list five values, so at 125% text the panel grows with it or the last value runs off its edge.
+    const width = PANEL.w * scale;
+    const left = (w - width) / 2;
     const x = left + 40;
     // Depth -2 and -1: the dimmer under the panel, the panel under the text (the panel is sized last).
     this.add.rectangle(0, 0, w, this.scale.height, INK, 0.85).setOrigin(0, 0).setDepth(-2);
@@ -164,7 +179,7 @@ export class PauseScene extends Phaser.Scene {
     this.rows.forEach((row, i) => {
       const y = PANEL.top + lay.top * scale + i * step;
       const on = i === this.cursor;
-      const bar = this.add.rectangle(left + 16, y - 6, PANEL.w - 32, step - 6, HIGHLIGHT, on ? 1 : 0).setOrigin(0, 0);
+      const bar = this.add.rectangle(left + 16, y - 6, width - 32, step - 6, HIGHLIGHT, on ? 1 : 0).setOrigin(0, 0);
       bar.setInteractive({ useHandCursor: true });
       bar.on('pointerover', () => this.select(i));
       // A click is a press and a release on the same row: the attack button held from the room and let go over a row is not one.
@@ -180,7 +195,7 @@ export class PauseScene extends Phaser.Scene {
 
     let noteY = PANEL.top + lay.top * scale + this.rows.length * step + 4;
     const note = (key: string, color: string, weight: 400 | 700 = 400): void => {
-      const t = addText(this, x, noteY, str(key), { role: 'print', weight, size: 18 * scale, color, maxWidth: PANEL.w - 80 });
+      const t = addText(this, x, noteY, str(key), { role: 'print', weight, size: 18 * scale, color, maxWidth: width - 80 });
       noteY = t.y + t.height + 6 * scale;
       bottom = Math.max(bottom, t.y + t.height);
     };
@@ -192,7 +207,7 @@ export class PauseScene extends Phaser.Scene {
     if (this.confirming) note('pause.title.warning', '#a3201a', 700);
 
     // Behind everything above: the panel is sized from the text it holds, which is known only now.
-    this.add.rectangle(left, PANEL.top, PANEL.w, bottom + 24 - PANEL.top, PAPER).setOrigin(0, 0).setStrokeStyle(3, INK).setDepth(-1);
+    this.add.rectangle(left, PANEL.top, width, bottom + 24 - PANEL.top, PAPER).setOrigin(0, 0).setStrokeStyle(3, INK).setDepth(-1);
     addText(this, w - 24, this.scale.height - 16, str(this.page === 'main' ? 'pause.hint' : 'assist.hint'), {
       role: 'print', weight: 400, size: 18 * scale, color: '#e8edf5',
     }).setOrigin(1, 1);
@@ -210,4 +225,4 @@ export class PauseScene extends Phaser.Scene {
 }
 
 /** The row of the main page that opens the assists, where the cursor comes back to. */
-const ASSIST_ROW = 3;
+const ASSIST_ROW = 5;
