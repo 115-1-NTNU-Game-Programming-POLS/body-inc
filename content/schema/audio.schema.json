@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AudioFile",
+  "description": "Music tracks and sound cues (architecture section 4, design doc 13.6). A cue is a short recipe for the Web Audio API, so effects need no files; `content/feedback.json` says which event plays which cue. Cross-checks (cue references, track files) are in app/audio.ts and tools/check-audio.ts.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "music", "cues"],
+  "properties": {
+    "version": { "const": 1 },
+    "music": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tracks", "scenes", "chapters", "boss"],
+      "properties": {
+        "tracks": { "type": "object", "additionalProperties": { "$ref": "#/$defs/Track" } },
+        "scenes": { "description": "Scene key to track id, for the scenes that are not a chapter's rooms.", "type": "object", "additionalProperties": { "type": "string", "minLength": 1 } },
+        "chapters": { "description": "Chapter id to track id, for the rooms of that chapter.", "type": "object", "additionalProperties": { "type": "string", "minLength": 1 } },
+        "boss": { "description": "Track id while a boss is fighting, over the chapter's own.", "type": "string", "minLength": 1 }
+      }
+    },
+    "cues": { "type": "object", "additionalProperties": { "$ref": "#/$defs/Cue" } }
+  },
+  "$defs": {
+    "Track": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["file", "title", "artist", "sourceUrl"],
+      "properties": {
+        "file": { "description": "File name under public/assets/audio/music.", "type": "string", "pattern": "^[a-z0-9-]+\\.mp3$" },
+        "title": { "type": "string", "minLength": 1 },
+        "artist": { "type": "string", "minLength": 1 },
+        "sourceUrl": { "description": "Where the original was downloaded; tools/audio/build-music.ts reads the original's file name from it.", "type": "string", "pattern": "^https://" }
+      }
+    },
+    "Cue": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["voices"],
+      "properties": {
+        "voices": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/Voice" } },
+        "trimDb": { "description": "Level correction in dB, measured so every cue peaks alike (200 ms RMS); see docs/audio/cues.md.", "type": "number", "minimum": -40, "maximum": 40 },
+        "semitoneBy": { "description": "Name of an event field: the cue rises one semitone for each unit of it (the combo step of a stationery sound).", "type": "string", "minLength": 1 },
+        "caption": { "description": "Key into content/strings: the bracketed caption shown when captions are on.", "type": "string", "minLength": 1 },
+        "minGapMs": { "description": "The same cue is not started again within this many milliseconds. 30 when absent.", "type": "integer", "minimum": 0 }
+      }
+    },
+    "Voice": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "dur", "gain"],
+      "properties": {
+        "kind": { "enum": ["tone", "noise"] },
+        "wave": { "description": "Oscillator shape of a tone; sine when absent.", "enum": ["sine", "square", "triangle", "sawtooth"] },
+        "freq": { "description": "A tone's start frequency in Hz.", "type": "number", "exclusiveMinimum": 0 },
+        "to": { "description": "A tone's end frequency, reached by an exponential glide over its length.", "type": "number", "exclusiveMinimum": 0 },
+        "filter": { "description": "Filter of a noise; lowpass when absent.", "enum": ["lowpass", "highpass", "bandpass"] },
+        "cutoff": { "description": "A noise's filter frequency in Hz.", "type": "number", "exclusiveMinimum": 0 },
+        "cutoffTo": { "description": "The filter frequency a noise glides to.", "type": "number", "exclusiveMinimum": 0 },
+        "q": { "type": "number", "exclusiveMinimum": 0 },
+        "at": { "description": "Seconds after the cue starts; 0 when absent.", "type": "number", "minimum": 0 },
+        "dur": { "description": "Seconds the voice lasts.", "type": "number", "exclusiveMinimum": 0, "maximum": 3 },
+        "gain": { "description": "Peak level, 0 to 1.", "type": "number", "exclusiveMinimum": 0, "maximum": 1 }
+      }
+    }
+  }
+}

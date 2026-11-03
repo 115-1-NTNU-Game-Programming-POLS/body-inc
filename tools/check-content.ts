@@ -10,6 +10,7 @@
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { audioProblems, UI } from '../src/app/audio.ts';
 import { feedbackProblems, noteFields } from '../src/app/feedback.ts';
 import { handbookProblems } from '../src/app/handbook.ts';
 import { parseCsv } from '../src/core/dialogue/csv.ts';
@@ -27,6 +28,7 @@ const RULES: ReadonlyArray<readonly [RegExp, SchemaName]> = [
   [/^tags\.json$/, 'tags'],
   [/^enemies\.json$/, 'enemies'],
   [/^feedback\.json$/, 'feedback'],
+  [/^audio\.json$/, 'audio'],
   [/^params\.json$/, 'params'],
   [/^strings\/[a-z]{2}(-[A-Z]{2})?\.json$/, 'strings'],
   [/^cards\/schedule\.json$/, 'scheduleCards'],
@@ -172,6 +174,20 @@ export function checkContent(contentDir: string): string[] {
   if (feedback && enemyTable) {
     for (const [, s] of strings) {
       for (const p of feedbackProblems(feedback.value, s.value as ContentTypes['strings'], noteFields(enemyTable))) out.push(`${feedback.file}（對照 ${s.file}）：${p}`);
+    }
+  }
+
+  // Sounds are named by feedback.json and by scenes (UI); their recipes, captions and music are checked together.
+  const audio = get<'audio'>('audio.json');
+  if (audio && feedback && enemyTable) {
+    // By file name, so a chapter file with a schema break of its own is not reported again as a missing chapter.
+    const chapterIds = walk(root)
+      .map((p) => /(?:^|[\\/])chapters[\\/]([a-z][a-z0-9-]*)\.json$/.exec(p)?.[1])
+      .filter((id): id is string => id !== undefined);
+    for (const [, s] of strings) {
+      for (const p of audioProblems(audio.value, feedback.value, s.value as ContentTypes['strings'], noteFields(enemyTable), Object.values(UI), chapterIds)) {
+        out.push(`${audio.file}（對照 ${s.file}）：${p}`);
+      }
     }
   }
 

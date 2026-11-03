@@ -13,6 +13,7 @@
 | `docs/design-doc.md` | 遊戲設計文件（正本） |
 | `docs/art-direction.md` | 美術指南：渲染架構、色票、視覺語法、角色與環境規格、介面與特效、AI 使用規範、素材清單與交付批次 |
 | `docs/authoring/` | 給做房間與寫對話的組員：房間範本怎麼用、各物件類別怎麼填、章節怎麼串接、對話 CSV 的欄位、結算報告的句型庫 |
+| `docs/audio/` | 音效與音樂的 cue 表：每個聲音在哪裡響、三級預警與字幕、音量與響度校準、音樂的重建方式 |
 | `docs/specs/` | 設計文件的三份附錄：內容規格、玩家體驗流程與文案規格（兩者屬舊設計，部分可沿用）、衛教查證表（仍有效） |
 | `docs/site/` | 把設計文件與附錄轉成網頁閱讀版的腳本與模板 |
 | `sim/` | 數值模擬程式（Node.js），用來驗證數值是否傳達正確的衛教訊息；代幣與危機模型屬舊設計，需依設計文件第 9.6 節重新模擬 |
@@ -102,6 +103,18 @@ python docs/site/build.py
 ## 提案簡報
 
 `slides/proposal/deck.json` 記錄投影片順序，`slides/proposal/slides/*.html` 每張一個檔案，講稿寫在各檔的 `<aside>`。簡報採 Claude Slides 的投影片格式（固定 1920×1080 畫布、全部使用行內樣式），修改後需重新發布才會更新線上版本。投影片中的圖片以 `/_blob/<id>` 參照線上簡報的素材庫，離開線上簡報不會顯示；封面的標誌即 `assets/brand/badge-1024.png` 縮為 640px 後上傳的版本。
+
+## 音樂與音效
+
+遊戲的音效由程式在執行時合成，配方在 `content/audio.json`，沒有音效檔；每個聲音用在哪裡、字幕怎麼對應、響度怎麼校準，見 `docs/audio/cues.md`。音樂是下列七首 Kevin MacLeod 的作品，依 Creative Commons Attribution 4.0 授權使用（https://creativecommons.org/licenses/by/4.0/）。檔案只經過轉檔與響度正規化，沒有更動樂曲內容；逐首的出處記在 `docs/art/asset-license.csv`。
+
+- Lobby Time Kevin MacLeod (incompetech.com) Licensed under Creative Commons: By Attribution 4.0 https://creativecommons.org/licenses/by/4.0/
+- Comfortable Mystery Kevin MacLeod (incompetech.com) Licensed under Creative Commons: By Attribution 4.0 https://creativecommons.org/licenses/by/4.0/
+- Monkeys Spinning Monkeys Kevin MacLeod (incompetech.com) Licensed under Creative Commons: By Attribution 4.0 https://creativecommons.org/licenses/by/4.0/
+- Quirky Dog Kevin MacLeod (incompetech.com) Licensed under Creative Commons: By Attribution 4.0 https://creativecommons.org/licenses/by/4.0/
+- Run Amok Kevin MacLeod (incompetech.com) Licensed under Creative Commons: By Attribution 4.0 https://creativecommons.org/licenses/by/4.0/
+- Easy Lemon Kevin MacLeod (incompetech.com) Licensed under Creative Commons: By Attribution 4.0 https://creativecommons.org/licenses/by/4.0/
+- Local Forecast - Elevator Kevin MacLeod (incompetech.com) Licensed under Creative Commons: By Attribution 4.0 https://creativecommons.org/licenses/by/4.0/
 
 ## 組員
 

@@ -61,7 +61,8 @@
         },
         "bounce": { "type": "boolean" },
         "closeOut": { "type": "boolean" },
-        "note": { "description": "Key into content/strings; \"{field}\" is filled from the event.", "type": "string", "minLength": 1 }
+        "note": { "description": "Key into content/strings; \"{field}\" is filled from the event.", "type": "string", "minLength": 1 },
+        "sound": { "description": "A cue of content/audio.json; \"{field}\" is filled from the event, as in a note.", "type": "string", "minLength": 1 }
       }
     }
   }

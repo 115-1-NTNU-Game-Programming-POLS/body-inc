@@ -1,11 +1,13 @@
 import {
-  GAME_SPEEDS, NO_ASSISTS, selectTool, TEXT_SCALES, type Assists, type AssistFlag, type ChapterState, type Settings, type TickInput,
+  GAME_SPEEDS, NO_ASSISTS, selectTool, TEXT_SCALES, VOLUMES, type Assists, type AssistFlag, type ChapterState, type Settings, type TickInput,
 } from '../core/index.ts';
 
 /** The settings that pick one of a few values; the rest are on/off flags. */
-export type ChoiceKey = 'textScale' | 'gameSpeed';
+export type ChoiceKey = 'textScale' | 'gameSpeed' | 'musicVolume' | 'sfxVolume';
 
-const CHOICES: { readonly [K in ChoiceKey]: readonly Settings[K][] } = { textScale: TEXT_SCALES, gameSpeed: GAME_SPEEDS };
+const CHOICES: { readonly [K in ChoiceKey]: readonly Settings[K][] } = {
+  textScale: TEXT_SCALES, gameSpeed: GAME_SPEEDS, musicVolume: VOLUMES, sfxVolume: VOLUMES,
+};
 
 /** The choices of a setting, in menu order. */
 export const choicesOf = (key: ChoiceKey): readonly number[] => CHOICES[key];

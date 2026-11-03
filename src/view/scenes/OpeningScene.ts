@@ -1,9 +1,11 @@
 import Phaser from 'phaser';
-import { str } from '../../app/content.ts';
+import { musicFor } from '../../app/audio.ts';
+import { AUDIO, str } from '../../app/content.ts';
 import {
   CHAPTER_OPENS, cardText, EMPTY_TAGS, openingFor, playCards, startChapter,
   type ChapterContent, type DeckCard, type Settings, type TagState, type Tool,
 } from '../../core/index.ts';
+import { soundIn } from '../audio/installSound.ts';
 import { addText } from '../text/fonts.ts';
 import { CardTable } from '../ui/cardTable.ts';
 import { beginRun, NO_STORY, saveStory } from './run.ts';
@@ -54,6 +56,7 @@ export class OpeningScene extends Phaser.Scene {
     if (!ctx) throw new Error(`cards: chapter "${data.chapter}" is not bundled`);
     this.ctx = ctx;
     this.data_ = data;
+    soundIn(this)?.music(musicFor(AUDIO, { scene: this.scene.key }));
     const deck = ctx.deck;
     this.cards = !deck ? [] : data.mode === 'closing' ? deck.closing : openingFor(deck, data.tags ?? EMPTY_TAGS);
     this.picks = [];

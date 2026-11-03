@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import type { Manifest, ManifestEntry } from '../../app/assets.ts';
-import { FEEDBACK, str, STRINGS } from '../../app/content.ts';
+import { lowHeartTick, musicFor, UI } from '../../app/audio.ts';
+import { AUDIO, FEEDBACK, str, STRINGS } from '../../app/content.ts';
 import { releaseKeysOnClose } from '../../app/dialogue.ts';
 import { keepPage, titleKey } from '../../app/handbook.ts';
 import { assistsOf, mayOpenOverlay, panelOpen, speedOf, togglesAttack, withAssists } from '../../app/pause.ts';
@@ -10,7 +11,7 @@ import type { WallSession } from '../../app/wall.ts';
 import type { FixedStepLoop } from '../../app/loop.ts';
 import type { SaveStore } from '../../app/storage.ts';
 import {
-  carriedTags, CELL_COLS, listProps, selectEnemies, selectOperator, selectProjectiles, storyAtEnd, storyOf, TILE, visibleProps,
+  carriedTags, CELL_COLS, listProps, selectBoss, selectEnemies, selectOperator, selectProjectiles, storyAtEnd, storyOf, TILE, visibleProps,
   type ChapterContent, type ChapterState, type EnemyState, type GameEvent, type GameState, type PatrolResult, type ProgressData, type Settings, type TiledMapFile,
 } from '../../core/index.ts';
 import type { CardsData } from './OpeningScene.ts';
@@ -23,6 +24,7 @@ import { OperatorView } from '../actors/OperatorView.ts';
 import { Mechanisms } from '../actors/Mechanisms.ts';
 import { drawRoomObjects } from '../actors/RoomObjects.ts';
 import { CollisionOverlay } from '../debug/CollisionOverlay.ts';
+import { soundIn } from '../audio/installSound.ts';
 import { FeedbackPlayer, type ActorFx } from '../fx/FeedbackPlayer.ts';
 import { HazardView } from '../fx/HazardView.ts';
 import { makeFxTextures } from '../fx/textures.ts';
@@ -63,6 +65,8 @@ export class WorldScene extends Phaser.Scene {
   private patrolSession: PatrolSession | undefined;
   private board: EvidenceBoard | undefined;
   private wide = false;
+  /** The tick the clock of the last heart last sounded on, so a frame that shows the same tick twice sounds it once. */
+  private lastLowTick = -1;
 
   constructor() {
     super('World');
@@ -108,7 +112,8 @@ export class WorldScene extends Phaser.Scene {
     this.exam = new ExamLayer(this, this.entry('exam'));
     this.syncViews(chapter.game);
     this.overlay = new CollisionOverlay(this, chapter.game);
-    this.feedback = new FeedbackPlayer(this, FEEDBACK, STRINGS, {
+    this.lastLowTick = -1;
+    this.feedback = new FeedbackPlayer(this, FEEDBACK, AUDIO, STRINGS, {
       enemy: (id): ActorFx | undefined => this.bossViews.get(id) ?? this.enemyViews.get(id),
       operator: this.operator,
       note: (text, worldX, worldY) => this.game.events.emit('world-note', { text, worldX, worldY } satisfies WorldNote),
@@ -167,6 +172,14 @@ export class WorldScene extends Phaser.Scene {
       this.registry.set('arrival-note', undefined);
       this.note(arrival);
     }
+    this.playMusic();
+  }
+
+  /** The chapter's track, or the boss's while one is fighting; the speakers keep a track that is already playing. */
+  private playMusic(): void {
+    const { run, game } = this.loop.state;
+    const boss = selectBoss(game);
+    soundIn(this)?.music(musicFor(AUDIO, { chapter: run.chapter, boss: boss !== undefined && !boss.defeated }));
   }
 
   override update(time: number, delta: number): void {
@@ -179,7 +192,10 @@ export class WorldScene extends Phaser.Scene {
     // On the tick a room is left the state already holds the next room, which this scene has no
     // views for: handle the exit and draw nothing more of it.
     if (this.pending.some((e) => e.type === 'roomChanged' || e.type === 'returnedToCheckpoint' || e.type === 'chapterEnded')) {
-      for (const e of this.pending.splice(0)) this.react(e);
+      for (const e of this.pending.splice(0)) {
+        this.react(e);
+        this.feedback.sound(e);
+      }
       return;
     }
     const chapter = this.loop.state;
@@ -217,6 +233,12 @@ export class WorldScene extends Phaser.Scene {
       this.react(e);
       this.feedback.play(e, tick);
     }
+    // The ticking clock of the last heart (design doc 5.8) stands in for a heartbeat, which the design keeps off.
+    if (tick !== this.lastLowTick && lowHeartTick(cur.halves, tick)) {
+      this.lastLowTick = tick;
+      this.feedback.cue(UI.lowHeart);
+    }
+    this.playMusic();
   }
 
   /** What the chapter's own events ask of the screen: saving, dialogue, leaving the room. */

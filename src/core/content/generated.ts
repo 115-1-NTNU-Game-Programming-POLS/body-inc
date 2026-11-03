@@ -3,6 +3,212 @@
 import type { Schema } from './schema.ts';
 
 export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
+  "audio": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "AudioFile",
+    "description": "Music tracks and sound cues (architecture section 4, design doc 13.6). A cue is a short recipe for the Web Audio API, so effects need no files; `content/feedback.json` says which event plays which cue. Cross-checks (cue references, track files) are in app/audio.ts and tools/check-audio.ts.",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "version",
+      "music",
+      "cues"
+    ],
+    "properties": {
+      "version": {
+        "const": 1
+      },
+      "music": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "tracks",
+          "scenes",
+          "chapters",
+          "boss"
+        ],
+        "properties": {
+          "tracks": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/$defs/Track"
+            }
+          },
+          "scenes": {
+            "description": "Scene key to track id, for the scenes that are not a chapter's rooms.",
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "chapters": {
+            "description": "Chapter id to track id, for the rooms of that chapter.",
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "boss": {
+            "description": "Track id while a boss is fighting, over the chapter's own.",
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "cues": {
+        "type": "object",
+        "additionalProperties": {
+          "$ref": "#/$defs/Cue"
+        }
+      }
+    },
+    "$defs": {
+      "Track": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "file",
+          "title",
+          "artist",
+          "sourceUrl"
+        ],
+        "properties": {
+          "file": {
+            "description": "File name under public/assets/audio/music.",
+            "type": "string",
+            "pattern": "^[a-z0-9-]+\\.mp3$"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "artist": {
+            "type": "string",
+            "minLength": 1
+          },
+          "sourceUrl": {
+            "description": "Where the original was downloaded; tools/audio/build-music.ts reads the original's file name from it.",
+            "type": "string",
+            "pattern": "^https://"
+          }
+        }
+      },
+      "Cue": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "voices"
+        ],
+        "properties": {
+          "voices": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/$defs/Voice"
+            }
+          },
+          "trimDb": {
+            "description": "Level correction in dB, measured so every cue peaks alike (200 ms RMS); see docs/audio/cues.md.",
+            "type": "number",
+            "minimum": -40,
+            "maximum": 40
+          },
+          "semitoneBy": {
+            "description": "Name of an event field: the cue rises one semitone for each unit of it (the combo step of a stationery sound).",
+            "type": "string",
+            "minLength": 1
+          },
+          "caption": {
+            "description": "Key into content/strings: the bracketed caption shown when captions are on.",
+            "type": "string",
+            "minLength": 1
+          },
+          "minGapMs": {
+            "description": "The same cue is not started again within this many milliseconds. 30 when absent.",
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "Voice": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "dur",
+          "gain"
+        ],
+        "properties": {
+          "kind": {
+            "enum": [
+              "tone",
+              "noise"
+            ]
+          },
+          "wave": {
+            "description": "Oscillator shape of a tone; sine when absent.",
+            "enum": [
+              "sine",
+              "square",
+              "triangle",
+              "sawtooth"
+            ]
+          },
+          "freq": {
+            "description": "A tone's start frequency in Hz.",
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "to": {
+            "description": "A tone's end frequency, reached by an exponential glide over its length.",
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "filter": {
+            "description": "Filter of a noise; lowpass when absent.",
+            "enum": [
+              "lowpass",
+              "highpass",
+              "bandpass"
+            ]
+          },
+          "cutoff": {
+            "description": "A noise's filter frequency in Hz.",
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "cutoffTo": {
+            "description": "The filter frequency a noise glides to.",
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "q": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "at": {
+            "description": "Seconds after the cue starts; 0 when absent.",
+            "type": "number",
+            "minimum": 0
+          },
+          "dur": {
+            "description": "Seconds the voice lasts.",
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "maximum": 3
+          },
+          "gain": {
+            "description": "Peak level, 0 to 1.",
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "maximum": 1
+          }
+        }
+      }
+    }
+  },
   "boss": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "title": "BossFile",
@@ -1144,6 +1350,11 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
           },
           "note": {
             "description": "Key into content/strings; \"{field}\" is filled from the event.",
+            "type": "string",
+            "minLength": 1
+          },
+          "sound": {
+            "description": "A cue of content/audio.json; \"{field}\" is filled from the event, as in a note.",
             "type": "string",
             "minLength": 1
           }
@@ -3060,9 +3271,10 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
   }
 };
 
-export type SchemaName = "boss" | "chapter" | "deck" | "enemies" | "exam" | "feedback" | "handbook" | "params" | "report" | "rescue" | "scheduleCards" | "speakers" | "strings" | "tags";
+export type SchemaName = "audio" | "boss" | "chapter" | "deck" | "enemies" | "exam" | "feedback" | "handbook" | "params" | "report" | "rescue" | "scheduleCards" | "speakers" | "strings" | "tags";
 
 export interface ContentTypes {
+  readonly audio: AudioFile;
   readonly boss: BossFile;
   readonly chapter: ChapterFile;
   readonly deck: DeckFile;
@@ -3077,6 +3289,65 @@ export interface ContentTypes {
   readonly speakers: SpeakersFile;
   readonly strings: StringsFile;
   readonly tags: TagsFile;
+}
+
+/** Music tracks and sound cues (architecture section 4, design doc 13.6). A cue is a short recipe for the Web Audio API, so effects need no files; `content/feedback.json` says which event plays which cue. Cross-checks (cue references, track files) are in app/audio.ts and tools/check-audio.ts. */
+export interface AudioFile {
+  readonly version: 1;
+  readonly music: {
+    readonly tracks: Readonly<Record<string, Track>>;
+    /** Scene key to track id, for the scenes that are not a chapter's rooms. */
+    readonly scenes: Readonly<Record<string, string>>;
+    /** Chapter id to track id, for the rooms of that chapter. */
+    readonly chapters: Readonly<Record<string, string>>;
+    /** Track id while a boss is fighting, over the chapter's own. */
+    readonly boss: string;
+  };
+  readonly cues: Readonly<Record<string, Cue>>;
+}
+
+export interface Track {
+  /** File name under public/assets/audio/music. */
+  readonly file: string;
+  readonly title: string;
+  readonly artist: string;
+  /** Where the original was downloaded; tools/audio/build-music.ts reads the original's file name from it. */
+  readonly sourceUrl: string;
+}
+
+export interface Cue {
+  readonly voices: readonly Voice[];
+  /** Level correction in dB, measured so every cue peaks alike (200 ms RMS); see docs/audio/cues.md. */
+  readonly trimDb?: number;
+  /** Name of an event field: the cue rises one semitone for each unit of it (the combo step of a stationery sound). */
+  readonly semitoneBy?: string;
+  /** Key into content/strings: the bracketed caption shown when captions are on. */
+  readonly caption?: string;
+  /** The same cue is not started again within this many milliseconds. 30 when absent. */
+  readonly minGapMs?: number;
+}
+
+export interface Voice {
+  readonly kind: "tone" | "noise";
+  /** Oscillator shape of a tone; sine when absent. */
+  readonly wave?: "sine" | "square" | "triangle" | "sawtooth";
+  /** A tone's start frequency in Hz. */
+  readonly freq?: number;
+  /** A tone's end frequency, reached by an exponential glide over its length. */
+  readonly to?: number;
+  /** Filter of a noise; lowpass when absent. */
+  readonly filter?: "lowpass" | "highpass" | "bandpass";
+  /** A noise's filter frequency in Hz. */
+  readonly cutoff?: number;
+  /** The filter frequency a noise glides to. */
+  readonly cutoffTo?: number;
+  readonly q?: number;
+  /** Seconds after the cue starts; 0 when absent. */
+  readonly at?: number;
+  /** Seconds the voice lasts. */
+  readonly dur: number;
+  /** Peak level, 0 to 1. */
+  readonly gain: number;
 }
 
 /** One boss: budget, stages and move table (architecture section 4, content/bosses). Which fields a boss needs depends on its behaviour: caffeine uses stage2Budget to moves, toast uses song and workOrder. Rules the schema cannot state (the fields of each behaviour, telegraph lengths per tier, live windows no longer than the dodge i-frames, the summoned enemy existing) are checked in core/combat/bosses/boss.ts. */
@@ -3419,6 +3690,8 @@ export interface Feedback {
   readonly closeOut?: boolean;
   /** Key into content/strings; "{field}" is filled from the event. */
   readonly note?: string;
+  /** A cue of content/audio.json; "{field}" is filled from the event, as in a note. */
+  readonly sound?: string;
 }
 
 /** The employee handbook (design doc 3, 13.5): pages in the order the handbook screen lists them. Text lives in content/strings: the title is "handbook.<id>.title" and each body entry names one paragraph, so every sentence carries its own fact entry. */

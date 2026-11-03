@@ -5,6 +5,7 @@ import {
   selectInteractable, selectPie, selectTick, selectTool, stepAt, TICK_HZ, waitingCrates, workOrders,
   type BossSummary, type ChapterState, type GameEvent, type GameState,
 } from '../../core/index.ts';
+import type { WorldCaption } from '../../app/audio.ts';
 import { PARAMS, str, TAGS } from '../../app/content.ts';
 import { issueMessage, type SaveIssue } from '../../app/storage.ts';
 import { addText, updateText } from '../text/fonts.ts';
@@ -18,6 +19,9 @@ const HEART_COLOR = 0xf08a80;
 const EMPTY_COLOR = 0x3b4660;
 const OVERTIME_HEART = 0x8b909c;
 const NOTE_SECONDS = 2.5;
+/** Sound captions (art direction 8.3): bottom centre, at most three. */
+const CAPTION_Y = 640;
+const MAX_CAPTIONS = 3;
 /** Rejection gauge (art direction 8.3): a 200 x 16 ink pad in the one HUD red, ticked at 50%. */
 const GAUGE_X = 12;
 const GAUGE_Y = 44;
@@ -97,6 +101,8 @@ export class HudScene extends Phaser.Scene {
   private noticeBottom = 0;
   /** World notes still on screen, oldest first. */
   private readonly notes: Phaser.GameObjects.Text[] = [];
+  /** Captions still on screen, oldest first. */
+  private readonly captions: { readonly text: Phaser.GameObjects.Text; readonly arrow: Phaser.GameObjects.Graphics | undefined; until: number }[] = [];
 
   constructor() {
     super('Hud');
@@ -110,6 +116,7 @@ export class HudScene extends Phaser.Scene {
     this.shownTime = '';
     this.noticed.clear();
     this.notes.length = 0;
+    this.captions.length = 0;
     this.noticeBottom = this.scale.height - 12;
     // First, so every HUD element draws over it.
     this.haze = this.add.rectangle(0, 0, this.scale.width, this.scale.height, 0x10131c, 0.32).setOrigin(0, 0).setVisible(false);
@@ -135,7 +142,9 @@ export class HudScene extends Phaser.Scene {
     this.saveNotices((this.registry.get('save-issues') as readonly SaveIssue[] | undefined) ?? []);
     const onNote = (n: WorldNote) => this.note(n);
     const onIssues = (issues: readonly SaveIssue[]) => this.saveNotices(issues);
+    const onCaption = (c: WorldCaption) => this.caption(c);
     this.game.events.on('world-note', onNote);
+    this.game.events.on('world-caption', onCaption);
     this.game.events.on('save-issues', onIssues);
     // The evidence wall has no hearts, stamp pad or rule clock to show; it has its own controls and a note under the lit nodes.
     this.wallMode = this.registry.get('wall') !== undefined;
@@ -160,6 +169,7 @@ export class HudScene extends Phaser.Scene {
     if (!this.scene.isActive('Exam')) this.scene.launch('Exam');
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.game.events.off('world-note', onNote);
+      this.game.events.off('world-caption', onCaption);
       this.game.events.off('save-issues', onIssues);
       this.game.events.off('wall-note', onWallNote);
       this.scene.stop('Dialogue');
@@ -378,7 +388,51 @@ export class HudScene extends Phaser.Scene {
     updateText(p.residue, str('boss.residue').replace('{residue}', String(Math.round(caffeine.residue))));
   }
 
+  /**
+   * A bracketed caption of a sound (art direction 10), bottom centre with an arrow to where it came
+   * from. The same caption again only stays longer; a fourth pushes the oldest off.
+   */
+  private caption(c: WorldCaption): void {
+    const until = this.time.now + c.seconds * 1000;
+    const same = this.captions.find((x) => x.text.text === c.text && (x.arrow === undefined) === (c.angle === undefined));
+    if (same) {
+      same.until = Math.max(same.until, until);
+      same.arrow?.setRotation(c.angle ?? 0);
+      return;
+    }
+    const text = addText(this, 0, 0, c.text, { role: 'print', weight: 700, size: 22, color: '#e8edf5', backgroundColor: 'rgba(12, 45, 94, 0.9)', padding: { x: 8, y: 3 } }).setOrigin(0, 1);
+    const arrow = c.angle === undefined ? undefined : this.add.graphics().fillStyle(0xf2c94c).fillTriangle(9, 0, -6, -7, -6, 7).setRotation(c.angle);
+    this.captions.push({ text, arrow, until });
+    while (this.captions.length > MAX_CAPTIONS) this.dropCaption(0);
+    this.layoutCaptions();
+  }
+
+  private dropCaption(i: number): void {
+    const [gone] = this.captions.splice(i, 1);
+    gone?.text.destroy();
+    gone?.arrow?.destroy();
+  }
+
+  /** Newest at the bottom (y 640), the older ones above it. */
+  private layoutCaptions(): void {
+    let y = CAPTION_Y;
+    for (const c of [...this.captions].reverse()) {
+      const lead = c.arrow ? 28 : 0;
+      const x = (this.scale.width - (lead + c.text.displayWidth)) / 2;
+      c.text.setPosition(x + lead, y);
+      c.arrow?.setPosition(x + 12, y - c.text.displayHeight / 2);
+      y -= c.text.displayHeight + 6;
+    }
+  }
+
+  private expireCaptions(): void {
+    const before = this.captions.length;
+    for (let i = this.captions.length - 1; i >= 0; i--) if (this.captions[i]!.until <= this.time.now) this.dropCaption(i);
+    if (this.captions.length !== before) this.layoutCaptions();
+  }
+
   override update(time: number): void {
+    this.expireCaptions();
     const loop = this.registry.get('loop') as FixedStepLoop<ChapterState, GameEvent> | undefined;
     if (!loop) return;
     const game = loop.state.game;

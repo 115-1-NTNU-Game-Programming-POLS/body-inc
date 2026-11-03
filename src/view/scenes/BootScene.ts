@@ -9,6 +9,7 @@ import {
   DEFAULT_HOST, EMPTY_TAGS, listProps, PROGRESS, roomsOf, RUN, savedHost, SETTINGS, startChapter, STORY, type ChapterContent, type ProgressData, type TagState,
   type TiledMapFile,
 } from '../../core/index.ts';
+import { installSound } from '../audio/installSound.ts';
 import { bootCorpus } from '../text/corpus.ts';
 import { addSystemText, admitText, loadFonts, setHostName, type FontGateResult } from '../text/fonts.ts';
 
@@ -137,6 +138,7 @@ export class BootScene extends Phaser.Scene {
         return this.fail();
       }
       this.loadSaves();
+      if (!this.registry.has('sound')) installSound(this.game);
       this.registry.set('chapters', contexts);
       void this.admitHost().then(() => this.start(contexts));
     });

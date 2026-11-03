@@ -1,9 +1,11 @@
 import Phaser from 'phaser';
-import { str } from '../../app/content.ts';
+import { musicFor } from '../../app/audio.ts';
+import { AUDIO, str } from '../../app/content.ts';
 import { keepHost, NAME_EMPTY, NAME_PROBLEM } from '../../app/host.ts';
 import { sharedKeys } from '../../app/input.ts';
 import type { SaveStore } from '../../app/storage.ts';
 import { DEFAULT_HOST, HOST_MAX, readHostName, type ChapterContent, type NameRead, type ProgressData } from '../../core/index.ts';
+import { soundIn } from '../audio/installSound.ts';
 import { addText, admitText, setHostName, updateText } from '../text/fonts.ts';
 import { FONT } from '../text/styles.ts';
 import { startNewGame } from './run.ts';
@@ -39,6 +41,7 @@ export class NameScene extends Phaser.Scene {
     this.data_ = data;
     this.busy = false;
     this.leaving = false;
+    soundIn(this)?.music(musicFor(AUDIO, { scene: this.scene.key }));
     const w = this.scale.width;
     const progress = this.registry.get('progress') as ProgressData;
 

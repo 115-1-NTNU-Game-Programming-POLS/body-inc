@@ -45,7 +45,7 @@ const ALL_EVENTS: Record<GameEvent['type'], true> = {
 export const EVENT_TYPES = Object.keys(ALL_EVENTS) as GameEvent['type'][];
 
 /** Every key a note can produce: each "{field}" expands over the values core can put there. */
-function noteKeys(note: string, fields: Readonly<Record<string, readonly string[]>>): { keys: string[]; unknown: string[] } {
+export function noteKeys(note: string, fields: Readonly<Record<string, readonly string[]>>): { keys: string[]; unknown: string[] } {
   let keys = [note];
   const unknown: string[] = [];
   for (const [, field] of note.matchAll(/\{(\w+)\}/g)) {
@@ -103,8 +103,11 @@ export function noteFields(table: EnemyTable): NoteFields {
   };
 }
 
+/** A key with each "{field}" placeholder filled from the event. */
+export const fillKey = (pattern: string, event: GameEvent): string =>
+  pattern.replace(/\{(\w+)\}/g, (_, f: string) => String((event as unknown as Record<string, unknown>)[f] ?? ''));
+
 /** Fills "{field}" placeholders from the event; undefined when the string table lacks the key. */
 export function noteText(note: string, event: GameEvent, strings: StringTable): string | undefined {
-  const key = note.replace(/\{(\w+)\}/g, (_, f: string) => String((event as unknown as Record<string, unknown>)[f] ?? ''));
-  return strings.strings[key]?.text;
+  return strings.strings[fillKey(note, event)]?.text;
 }

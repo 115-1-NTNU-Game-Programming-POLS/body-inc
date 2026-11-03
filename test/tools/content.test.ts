@@ -140,6 +140,32 @@ describe('content check (build plan S4)', () => {
     edit(dir, 'strings/zh-TW.json', (j) => { delete j.strings['solution.guards']; });
     expect(checkContent(dir)).toEqual([expect.stringMatching(/note "solution\.guards" is not in content\/strings/)]);
   });
+
+  it('checks the sounds against the cues, the captions against the strings and the music against the chapters', () => {
+    const cue = contentCopy();
+    edit(cue, 'feedback.json', (j) => { j.events.swing.sound = 'no-such-cue'; });
+    expect(checkContent(cue)).toEqual([expect.stringMatching(/audio\.json.*sound "no-such-cue" is not a cue/), expect.stringMatching(/cue "swing" is played by no event and no scene/)]);
+
+    const caption = contentCopy();
+    edit(caption, 'strings/zh-TW.json', (j) => { delete j.strings['caption.parry']; });
+    expect(checkContent(caption)).toEqual([expect.stringMatching(/cue "parry": caption "caption\.parry" is not in content\/strings/)]);
+
+    const music = contentCopy();
+    edit(music, 'audio.json', (j) => { j.music.chapters.greybox = 'no-such-track'; });
+    expect(checkContent(music)).toEqual([expect.stringMatching(/music for "greybox" names track "no-such-track"/)]);
+
+    const chapter = contentCopy();
+    edit(chapter, 'audio.json', (j) => { j.music.chapters.ghost = 'brain'; });
+    expect(checkContent(chapter)).toEqual([expect.stringMatching(/music names chapter "ghost"/)]);
+  });
+
+  it('refuses an audio file that breaks its schema, with the same kind of message as any other', () => {
+    const dir = contentCopy();
+    edit(dir, 'audio.json', (j) => { j.cues.swing.voices[0].dur = 9; j.music.tracks.brain.file = 'Brain.wav'; });
+    const out = checkContent(dir);
+    expect(out.some((m) => /audio\.json cues\.swing\.voices\[0\]\.dur/.test(m))).toBe(true);
+    expect(out.some((m) => /audio\.json music\.tracks\.brain\.file：格式不符/.test(m))).toBe(true);
+  });
 });
 
 describe('schema validator', () => {

@@ -1,11 +1,13 @@
 import Phaser from 'phaser';
+import { musicFor, UI } from '../../app/audio.ts';
 import { tryResume } from '../../app/chapters.ts';
-import { str } from '../../app/content.ts';
+import { AUDIO, str } from '../../app/content.ts';
 import { sharedKeys } from '../../app/input.ts';
 import { DEMO_RUN } from '../../app/demo.ts';
 import { PRESENTER_KEY, presenterSettings, type Presenter } from '../../app/presenter.ts';
 import { resumeSemester } from '../../app/semester.ts';
 import type { ChapterContent, ChapterEntry, ChapterState, ProgressData, RunData, SemesterRun, Settings, StoryData } from '../../core/index.ts';
+import { playCue, soundIn } from '../audio/installSound.ts';
 import { addText } from '../text/fonts.ts';
 import type { NameData } from './NameScene.ts';
 import type { CardsData } from './OpeningScene.ts';
@@ -92,15 +94,18 @@ export class TitleScene extends Phaser.Scene {
       if (!item.enabled) return;
       item.text.setInteractive({ useHandCursor: true });
       item.text.on('pointerover', () => this.select(i));
-      item.text.on('pointerup', () => item.run());
+      item.text.on('pointerup', () => this.confirm(item));
     });
     this.select(0);
     addText(this, w / 2, this.scale.height - 56, str('title.hint'), { role: 'print', weight: 400, size: 18, color: DIM }).setOrigin(0.5);
+    // The music's credit (CC BY 4.0) is on the title, with the full list in the README.
+    addText(this, w / 2, this.scale.height - 28, str('title.music_credit'), { role: 'print', weight: 400, size: 16, color: DIM }).setOrigin(0.5);
+    soundIn(this)?.music(musicFor(AUDIO, { scene: this.scene.key }));
 
     const onKey = (e: KeyboardEvent) => {
       if (e.code === 'KeyW' || e.code === 'ArrowUp') this.move(-1);
       else if (e.code === 'KeyS' || e.code === 'ArrowDown') this.move(1);
-      else if (['Enter', 'NumpadEnter', 'KeyJ', 'Space'].includes(e.code) && !e.repeat) this.items[this.index]?.run();
+      else if (['Enter', 'NumpadEnter', 'KeyJ', 'Space'].includes(e.code) && !e.repeat) this.confirm(this.items[this.index]);
       // The presenter's way in; it is not listed. The demo is never saved, so it leaves the player's own semester alone.
       else if (e.code === 'F9' && !e.repeat) this.present();
     };
@@ -112,8 +117,17 @@ export class TitleScene extends Phaser.Scene {
   private move(step: number): void {
     for (let i = 1; i <= this.items.length; i++) {
       const next = (this.index + step * i + this.items.length * i) % this.items.length;
-      if (this.items[next]?.enabled) return this.select(next);
+      if (this.items[next]?.enabled) {
+        playCue(this, UI.move);
+        return this.select(next);
+      }
     }
+  }
+
+  private confirm(item: Item | undefined): void {
+    if (!item) return;
+    playCue(this, UI.confirm);
+    item.run();
   }
 
   private select(i: number): void {
