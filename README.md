@@ -4,19 +4,29 @@
 
 國立臺灣師範大學「遊戲程式設計」（115-1）第七組的期末專題。玩家扮演資工系大二生小晨身體裡的營運長，走進各器官的世界探索、解謎並以文具進行輕戰鬥，對抗名為「速效顧問集團」的壞習慣，讓小晨撐到期末考。每個器官世界的核心機制就是該器官的生理知識，以職場諷刺的笑點包裝衛教，目標玩家是大學生。遊戲以 Phaser 3 開發，地圖以 Tiled 編輯。
 
-2026-10-23 起，設計由管理模擬（拖曳血球代幣調度部門）轉為俯視角探索冒險，設計文件已改為第二版；`sim/`、`docs/specs/` 的內容與期中展示版屬於舊設計，哪些部分仍可沿用見設計文件第 17 節。遊戲本體的程式骨架已建立（見下方「遊戲程式」），架構見 `docs/architecture.md`、施工規劃見 `docs/build-plan.md`。期中提案用的展示版可以線上試玩：https://115-1-ntnu-game-programming-pols.github.io/body-inc-midterm-demo/ （原始碼在 [body-inc-midterm-demo](https://github.com/115-1-NTNU-Game-Programming-POLS/body-inc-midterm-demo)）。
+2026-10-23 起，設計由管理模擬（拖曳血球代幣調度部門）轉為俯視角探索冒險，設計文件已改為第二版；`sim/` 裡的代幣模型與 `docs/specs/` 的部分內容屬於舊設計，哪些部分仍可沿用見設計文件第 17 節。
+
+遊戲可以線上試玩：https://115-1-ntnu-game-programming-pols.github.io/body-inc/ ，每次合併到 `main` 並通過檢查後自動部署。目前從標題畫面的新遊戲開始，序章、大腦章、期中考與肝臟章依序銜接，另有十天的學期模式（含大腦與肝臟的巡視房間、證據牆與結算報告）、音樂與音效、字幕與輔助選項。房間與角色多半還是灰盒佔位美術。架構見 `docs/architecture.md`，施工規劃與進度紀錄見 `docs/build-plan.md`。
 
 ## 資料夾內容
 
 | 路徑 | 內容 |
 | --- | --- |
+| `src/` | 遊戲程式：規則層 `core/`、轉接層 `app/`、畫面層 `view/`（見下方「遊戲程式」） |
+| `content/` | 遊戲內容的 JSON（參數、標籤、敵人、Boss、章節、考試、卡牌組、音效配方、回饋對應）、`strings/` 的中文字串與 `dialogue/` 的對話 CSV，由 `content/schema/` 檢查 |
+| `public/assets/` | 遊戲載入的素材：地圖（`maps/<章節>/*.tmj`）、圖集、圖塊集、立繪、道具、字型子集、音樂，與登記它們的 `manifest.json` |
+| `tools/` | 檢查與產生腳本：`check-*.ts` 是 `npm run check` 的各項檢查，`maps/`、`art/`、`fonts/`、`content/`、`audio/`、`perf/` 是產生與量測工具 |
+| `test/` | 單元測試與重播測試，`fixtures/` 是必須讓檢查失敗的壞檔案 |
+| `art-src/` | 美術原稿：色盤、草稿，與 AI 生成素材的提示詞和挑選紀錄 |
 | `docs/design-doc.md` | 遊戲設計文件（正本） |
+| `docs/architecture.md`、`docs/build-plan.md` | 軟體架構與施工規劃，後者含依日期記下的進度 |
 | `docs/art-direction.md` | 美術指南：渲染架構、色票、視覺語法、角色與環境規格、介面與特效、AI 使用規範、素材清單與交付批次 |
+| `docs/art/`、`docs/perf/`、`docs/reviews/` | 素材授權登記表 `asset-license.csv`、冷啟動量測 `cold-start.md`、規則層數值審查 `rules-numbers.md` |
 | `docs/authoring/` | 給做房間與寫對話的組員：房間範本怎麼用、各物件類別怎麼填、章節怎麼串接、對話 CSV 的欄位、結算報告的句型庫 |
 | `docs/audio/` | 音效與音樂的 cue 表：每個聲音在哪裡響、三級預警與字幕、音量與響度校準、音樂的重建方式 |
 | `docs/specs/` | 設計文件的三份附錄：內容規格、玩家體驗流程與文案規格（兩者屬舊設計，部分可沿用）、衛教查證表（仍有效） |
 | `docs/site/` | 把設計文件與附錄轉成網頁閱讀版的腳本與模板 |
-| `sim/` | 數值模擬程式（Node.js），用來驗證數值是否傳達正確的衛教訊息；代幣與危機模型屬舊設計，需依設計文件第 9.6 節重新模擬 |
+| `sim/` | 數值模擬程式（Node.js），用來驗證數值是否傳達正確的衛教訊息；代幣與危機模型屬舊設計，需依設計文件第 9.6 節重新模擬，`sim/semester/` 的學期模擬則直接跑 `src/core` |
 | `slides/proposal/` | 期中提案簡報（10/19）的原始檔 |
 | `prototypes/feasibility/` | 可行性審查時的原型：因果追溯、p5.js 粒子與代幣拖曳、中文斷行測試 |
 | `assets/organs/` | 器官員工插圖（江兆耘以 AI 生成並挑選，見 `art-src/ai/log/organs-legacy.json`），去背後縮為 512px；檔名為「器官-狀態」，狀態有 base、normal、warning、quit（肌肉目前缺 base） |
@@ -30,7 +40,7 @@
 
 ```
 npm install
-npm run dev          # 開發伺服器，標題畫面選新遊戲或繼續；WASD 移動、J 或左鍵釘書機（按住連射）、空白或 K 閃身、R 或中鍵駁回印章、F 換文具（拿公文夾時按住攻擊鍵格擋）、E 或 Enter 互動、Tab 員工手冊、Esc 暫停選單（文字大小、彈性工時的輔助選項與遊戲速度 100／80／70%、回標題）、F1 顯示碰撞框
+npm run dev          # 開發伺服器，標題畫面選新遊戲或繼續；WASD 移動、J 或左鍵釘書機（按住連射）、空白或 K 閃身、R 或中鍵駁回印章、F 換文具（拿公文夾時按住攻擊鍵格擋）、E 或 Enter 互動、Tab 員工手冊、Esc 暫停選單（員工手冊、文字大小、音樂與音效音量、回標題，以及「彈性工時」頁的遊戲速度 100／80／70% 和七項輔助：受到傷害減半、幹勁不會歸零、閃身自動完美、攻擊改為切換式、關閉鏡頭震動、減少閃光、預警音效加字幕）、F1 顯示碰撞框
 npm run verify       # 型別檢查、測試、邊界與地圖檢查、素材與字型的 Python 檢查、建置，提交前必跑
 npm run check:art    # 只跑 CI 的 Python 檢查（素材授權、色盤、圖塊、manifest 標籤、字型）
 node tools/maps/make-greybox.ts         # 重新產生灰盒測試房間
@@ -41,12 +51,15 @@ node tools/maps/make-lock-rooms.ts      # 重新產生門鎖示範的灰盒大�
 node tools/maps/make-prologue.ts        # 重新產生灰盒序章（第一章範本：調度口、血糖、駁回印章、下班打卡）
 node tools/maps/make-brain.ts           # 重新產生灰盒大腦章（咖啡機時段鎖、公文夾教學、腺苷辦公區、手機精、咖啡因 Boss、就寢門）
 node tools/maps/make-liver.ts           # 重新產生灰盒肝臟章（產線、酒精桶、乙醛箱與紅霧、肝醣倉庫、急救）
+node tools/maps/make-midterm.ts         # 重新產生灰盒期中考章（大廳、考場、考後的走廊）
+node tools/maps/make-patrol.ts          # 重新產生大腦與肝臟的巡視房間（入口、兩間關卡房、核心房，由西向東）
+node tools/maps/make-wall.ts            # 重新產生證據牆（沒有門也沒有敵人，只有貼證據的格子和通往報告桌的路）
 node tools/maps/make-room-template.ts   # 重新產生給內容組複製的房間範本
 ```
 
 程式分成規則層 `src/core/`（純 TypeScript，可在 Node 執行，不得引用 Phaser 或瀏覽器）、轉接層 `src/app/` 與畫面層 `src/view/`，規則見 `docs/architecture.md`。違反分層的程式碼會讓 `npm run typecheck` 或 `npm run check` 失敗。合併到 `main` 時，GitHub Actions 會跑同一套檢查與美術檢查，通過後部署到 GitHub Pages。
 
-標題畫面的「學期模式（原型）」可以直接玩十天的學期：早晨規劃、事件、電梯選層、夜間結算，到期中與期末考結果為止。選層後的巡視還沒做成房間，評等由抽象的技術值抽出。每天早上會存檔，標題畫面的「繼續學期」從最後一個早晨接著玩。打完第一個學期（教學學期）之後，新學期會先進選課畫面，從開放的五張課程卡選 4 到 6 張，學分合計影響期中期末門檻與學期評價。發表用的示範存檔（教學學期第 4 天早上）在標題畫面按 F9 載入，同時開啟發表模式（文字 1.25 倍、選項標 A、B、C 方便台下舉手），回到標題畫面即還原。夜裡被送急診時，日結算後會接著顯示停業整頓通知或倒閉調查報告（公文版面，可翻頁，並解鎖對應的手冊頁）。開發版可用 `?seed=1&bbq=2,3,4` 指定種子與聚餐日，不必碰運氣就能玩到急診。規則層的入口是 `src/core/semester/interactive.ts` 的 `advanceDay`，它與 `sim/semester.ts` 的模擬走同一套 `playDay`。
+標題畫面的「學期模式（原型）」可以直接玩十天的學期：早晨規劃、事件、電梯選層、夜間結算，到期中與期末考結果為止。大腦與肝臟兩層的巡視在房間裡玩（房間由 `tools/maps/make-patrol.ts` 產生，放在 `public/assets/maps/patrol-brain/` 與 `patrol-liver/`），評等看房間裡的目標與受擊；其餘樓層還沒有房間，評等由抽象的技術值抽出。巡視中按 Esc 等於放棄，算巡視失敗，不會減負荷也拿不到福利卡；評等過的巡視讓人從福利卡挑一張，留到學期結束。結算報告前會先走一趟證據牆（`public/assets/maps/wall/`），打完一個及格的學期後另有年終檢討牆。每天早上會存檔，標題畫面的「繼續學期」從最後一個早晨接著玩。打完第一個學期（教學學期）之後，新學期會先進選課畫面，從開放的五張課程卡選 4 到 6 張，學分合計影響期中期末門檻與學期評價。發表用的示範存檔（教學學期第 4 天早上）在標題畫面按 F9 載入，同時開啟發表模式（文字 1.25 倍、選項標 A、B、C 方便台下舉手），回到標題畫面即還原。夜裡被送急診時，日結算後會接著顯示停業整頓通知或倒閉調查報告（公文版面，可翻頁，並解鎖對應的手冊頁）。開發版可用 `?seed=1&bbq=2,3,4` 指定種子與聚餐日，不必碰運氣就能玩到急診。規則層的入口是 `src/core/semester/interactive.ts` 的 `advanceDay`，它與 `sim/semester.ts` 的模擬走同一套 `playDay`。
 
 畫面上的文字一律用 `src/view/text/fonts.ts` 的 `addText` 建立，中文字串放在 `content/strings/zh-TW.json`。Boot 會等字型載入完遊戲可能用到的每個字才開始；開發版遇到字表外的字或字型還沒載完就建立文字，會直接報錯。要模擬網路慢的冷啟動，在網址加上 `?fontDelay=4000`。字型是自架的子集（`public/assets/fonts/`，由 `python tools/fonts/build_fonts.py` 產生，需要 `pip install fonttools brotli`），只收錄這些字；內容用了子集裡沒有的字時，`npm run check` 會報錯，重新產生字型即可。玩家取的宿主名字若有字表外的常用字，遊戲會在當下載入對應的小切片。冷啟動的量測方法與結果見 `docs/perf/cold-start.md`。
 

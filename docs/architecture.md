@@ -1,6 +1,6 @@
 # Body Inc. Software Architecture
 
-Status: proposal for team review, 2026-10-23. This document refines section 13 of the design doc (`docs/design-doc.md`) and the asset contract in section 13 of the art direction guide (`docs/art-direction.md`). Where they disagree on code structure, this document is the intended replacement once the team accepts it; the construction plan that implements it is `docs/build-plan.md`.
+Status: proposal for team review, 2026-10-23; section 8 was brought up to date with the code on 2026-11-03. This document refines section 13 of the design doc (`docs/design-doc.md`) and the asset contract in section 13 of the art direction guide (`docs/art-direction.md`). Where they disagree on code structure, this document is the intended replacement once the team accepts it; the construction plan that implements it is `docs/build-plan.md`.
 
 ## 1. Purpose and the one rule
 
@@ -108,35 +108,46 @@ Parameters move from `sim/params.js` to `content/params.json`. Core receives the
 
 ## 8. Source layout
 
+The tree below is the layout as built on 2026-11-03. The first version of this section was a sketch made before the code existed; it named scenes and folders (`Outer`, `Report`, `Elevator`, `adapters/`) that the build never created.
+
 ```
 src/
-  core/                    pure rules, runs in Node
-    rng.ts clock.ts
+  core/                    pure rules, runs in Node (no DOM, no Phaser)
+    game.ts                the fight state of one room: createGame, step, domain events
+    rng.ts clock.ts time.ts spirit.ts tools.ts hash.ts   seeded streams, hours and days, 60 Hz ticks, sleep debt to S, tools handed out, replay hash
     tags/                  dictionary loader, condition parser and evaluator, causal log
-    outer/                 cards, events, day settlement, sleep and caffeine formulas
-    semester/              floors, load, lights, perks, overtime clauses
-    exam/
-    combat/                frame data, health, stamp gauge, categories, enemies/, bosses/
-    collision/             boxes, circles, tile grid, per-axis movement resolution
-    rooms/                 Tiled JSON to room model, variant selection
-    report/                causal chain reconstruction
-    dialogue/              condition and effect evaluation
-    save/                  schema version, migrations
-    index.ts               createGame, step, selectors
-  app/
-    loop.ts commands.ts events.ts store.ts
-    adapters/              input.ts storage.ts assets.ts maps.ts
-  view/
-    scenes/                Boot Title Outer World Dialogue Exam Report Handbook Elevator Settlement Hud
-    actors/                sprite views per logical category
-    ui/                    paper-and-ink drawing (from the midterm draw.js)
-    fx/ audio/ text/       feedback presets, sound, CJK line breaking
-content/                   params, cards, events, enemies, stationery, bosses, perks, handbook, strings, feedback, dialogue/*.csv
-public/assets/             produced by tools/art, plus maps/<world>/*.tmj
-sim/                       balance runner and strategies, imports src/core (the old JS model stays until replaced)
-tools/                     art/ (Python), check-content.ts, check-maps.ts, check-boundaries.ts
-test/                      core unit tests, replay tests, fixtures that must fail
+    content/               schema subset, content loader, generated types
+    collision/             boxes, tile grid, per-axis movement resolution
+    combat/                frame data, operator, enemies, bosses/, hazards, folder, pie, perks, assists
+    rooms/                 Tiled JSON to room model, entering a room with its variant, locks, props, interaction, evidence wall slots
+    chapter/               rooms joined into a chapter: tags, checkpoints, dialogue, cards, rescue, exam panel, patrol
+    exam/                  exam fight and the scoring shared with the semester
+    outer/                 body formulas, caffeine, decks
+    semester/              floors, load, lights, courses, welfare cards, overtime clauses, patrols, the interactive day
+    liver/                 liver line and factory
+    report/                causal chain reconstruction, close-out report, evidence wall
+    dialogue/              CSV reader and line runner
+    host/ save/            host name; schema versions and migrations
+    index.ts               the public surface: selectors and types
+  app/                     adapters; DOM allowed, never imports the view
+    loop.ts input.ts storage.ts assets.ts                fixed-step driver, keyboard, localStorage, asset loading
+    content.ts chapters.ts decks.ts handbook.ts dialogue.ts   content tables read once at boot
+    session.ts semester.ts patrol.ts wall.ts demo.ts host.ts presenter.ts   what a run, a patrol or the wall needs
+    feedback.ts audio.ts sound.ts                        which sound and caption an event asks for; the Web Audio speakers
+    pause.ts comfort.ts                                  Esc menu settings and the assists
+  view/                    Phaser
+    scenes/                Boot Title Name Opening Courses Semester World Hud Dialogue Card Rescue Exam Handbook Pause
+    actors/ ui/ fx/ debug/ sprite and UI views, the feedback player, the collision overlay
+    audio/                 installs the speakers once and gives scenes playCue
+    text/                  fonts, line breaking, text styles
+content/                   JSON data checked by content/schema/, plus strings/, dialogue/*.csv, chapters/, bosses/, exams/, decks/
+public/assets/            maps/<chapter>/*.tmj, atlases, tilesets, portraits, props, fonts, audio/music
+sim/                       balance runners; sim/semester/*.ts imports src/core, the older JS model beside it does not
+tools/                     check-*.ts, and art/ fonts/ audio/ maps/ content/ perf/
+test/                      app, core, tools, view, sim, and fixtures that must fail
 ```
+
+Sound follows the same rule as everything else. `content/audio.json` holds the cues (recipes of tone and noise voices, no sound files) and the music tracks, and `content/feedback.json` names the cue each event plays. `src/app/audio.ts` decides what an event, a scene or a setting means for the speakers and the captions, and `src/app/sound.ts` plays it through one `AudioContext` that the app creates after the first gesture, because browsers refuse audio before one. Scenes only ask for a cue by id or for a track by place. Nothing in sound can change an outcome, so the rules never see volume, captions or music. The cue sheet is `docs/audio/cues.md`.
 
 `Boss` is no longer a scene: a boss arena is a World room whose spawn is a boss controller, so the boss reuses movement, hits, stamp, and feedback paths. `Exam` stays a scene because its presentation differs, but its scoring is `core/exam`, shared with the semester mode as the design doc requires (14.2). `Hud` is a separate overlay scene at scale 1 so UI is never frozen by hit-stop.
 
