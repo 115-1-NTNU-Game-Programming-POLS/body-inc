@@ -45,7 +45,8 @@ export const SETTINGS: SlotDef<Settings> = {
     },
   },
   defaults: () => ({ textScale: 1, gameSpeed: 1, ...ALL_OFF }),
-  migrations: { 1: (data) => ({ ...(data as object), ...ALL_OFF }) },
+  // The flags go first so a version 1 file that somehow holds one is judged by the schema, not overwritten.
+  migrations: { 1: (data) => ({ ...ALL_OFF, ...(data as object) }) },
 };
 
 /**

@@ -10,7 +10,7 @@ import type { WallSession } from '../../app/wall.ts';
 import type { FixedStepLoop } from '../../app/loop.ts';
 import type { SaveStore } from '../../app/storage.ts';
 import {
-  carriedTags, CELL_COLS, listProps, selectEnemies, selectOperator, selectProjectiles, storyAtEnd, storyOf, TILE, visibleProps,
+  carriedTags, CELL_COLS, listProps, selectEnemies, selectOperator, selectProjectiles, selectTool, storyAtEnd, storyOf, TILE, visibleProps,
   type ChapterContent, type ChapterState, type EnemyState, type GameEvent, type GameState, type PatrolResult, type ProgressData, type Settings, type TiledMapFile,
 } from '../../core/index.ts';
 import type { CardsData } from './OpeningScene.ts';
@@ -55,6 +55,8 @@ export class WorldScene extends Phaser.Scene {
   private readonly pending: GameEvent[] = [];
   /** True from the moment a room change is seen until the scene restarts; the rules stop meanwhile. */
   private leaving = false;
+  /** The handbook or the menu has been asked for and the scene has not paused yet; see `mayOpenOverlay`. */
+  private overlayOpen = false;
   /** Set while the investigation wall is the room: a report's wall, its drawing, and the way back to the semester. */
   private wallSession: WallSession | undefined;
   /** Set while a patrol of the semester is the run: its rooms are played here and the semester wakes with its result. */
@@ -137,6 +139,9 @@ export class WorldScene extends Phaser.Scene {
     // keyboard's own auto-repeat started.
     this.input_ = sharedKeys(this.registry, window);
     this.input_.clearPresses();
+    // The tracker outlives the scene: an attack toggled on in the last room, patrol or run must be started again.
+    this.input_.stopAttack();
+    this.overlayOpen = false;
     const offRelease = releaseKeysOnClose(this.loop, this.input_);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       off();
@@ -150,7 +155,10 @@ export class WorldScene extends Phaser.Scene {
     this.input.keyboard?.on('keydown-TAB', (e: KeyboardEvent) => this.openHandbook(e));
     // Keys pressed or still held in the handbook are not the room's: W held to turn a page must not walk.
     // Scene events outlive a restart, unlike keyboard listeners, so this one is removed by hand.
-    const onResume = () => this.input_.ignoreHeld();
+    const onResume = () => {
+      this.overlayOpen = false;
+      this.input_.ignoreHeld();
+    };
     this.events.on(Phaser.Scenes.Events.RESUME, onResume);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.events.off(Phaser.Scenes.Events.RESUME, onResume));
 
@@ -167,8 +175,10 @@ export class WorldScene extends Phaser.Scene {
     this.loop.speed = speedOf(settings);
     const assists = assistsOf(settings);
     const toggle = settings?.toggleAttack === true;
+    // The folder swings on a press and guards while held, so held-by-toggle would lock it into the guard: only the stapler toggles.
+    const toggling = () => toggle && !panelOpen(this.loop.state) && selectTool(this.loop.state.game).tool === 'stapler';
     // The assists are read afresh every frame, so a switch in the menu takes effect on the first tick after it closes.
-    const alpha = this.loop.advance(delta, () => withAssists(this.input_.sample(toggle && !panelOpen(this.loop.state)), assists));
+    const alpha = this.loop.advance(delta, () => withAssists(this.input_.sample(toggling()), assists));
     // On the tick a room is left the state already holds the next room, which this scene has no
     // views for: handle the exit and draw nothing more of it.
     if (this.pending.some((e) => e.type === 'roomChanged' || e.type === 'returnedToCheckpoint' || e.type === 'chapterEnded')) {
@@ -267,16 +277,27 @@ export class WorldScene extends Phaser.Scene {
    * conversation or a card keeps it shut: they take the keys the handbook would use.
    */
   private openHandbook(e: KeyboardEvent): void {
-    if (e.repeat || this.leaving || panelOpen(this.loop.state) || this.scene.isActive('Handbook') || this.scene.isActive('Pause')) return;
+    if (!this.mayOpenOverlay(e)) return;
+    this.overlayOpen = true;
     this.scene.pause();
     this.scene.launch('Handbook');
   }
 
   /** The Esc menu pauses the room like the handbook does, and is kept shut by the same panels. */
   private openPause(e: KeyboardEvent): void {
-    if (e.repeat || this.leaving || panelOpen(this.loop.state) || this.scene.isActive('Handbook') || this.scene.isActive('Pause')) return;
+    if (!this.mayOpenOverlay(e)) return;
+    this.overlayOpen = true;
     this.scene.pause();
     this.scene.launch('Pause');
+  }
+
+  /**
+   * Scene launches are queued, so `isActive` stays false until the next frame: Tab and Esc in one
+   * frame would open both and leave the room running under whichever closed first. `overlayOpen`
+   * closes that gap, and RESUME clears it.
+   */
+  private mayOpenOverlay(e: KeyboardEvent): boolean {
+    return !(e.repeat || this.leaving || this.overlayOpen || panelOpen(this.loop.state) || this.scene.isActive('Handbook') || this.scene.isActive('Pause'));
   }
 
   /**

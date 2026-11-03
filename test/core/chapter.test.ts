@@ -335,6 +335,24 @@ describe('talking', () => {
   });
 });
 
+describe('the half heart owed under the halved-damage assist', () => {
+  const owing = (s: ChapterState): ChapterState => ({ ...s, game: { ...s.game, operator: { ...s.game.operator, halfCarry: 1 as const } } });
+
+  it('rides through a door like the hearts do, and never appears from nothing', () => {
+    const through = walkTo(ctx, owing(startChapter(ctx)), 320, 366, changed).state;
+    expect(through.run.roomId).toBe(REST);
+    expect(through.game.operator.halfCarry).toBe(1);
+    expect(walkTo(ctx, startChapter(ctx), 320, 366, changed).state.game.operator).not.toHaveProperty('halfCarry');
+  });
+
+  it('is forgiven where the time clock gives the hearts back', () => {
+    const r = advanceBy(ctx, place(owing(startChapter(ctx, { room: REST, halves: 3 })), 128, 230), NONE);
+    expect(r.events).toContainEqual({ type: 'checkpointSaved', room: REST });
+    expect(r.state.game.operator.halves).toBe(r.state.game.operator.maxHalves);
+    expect(r.state.game.operator).not.toHaveProperty('halfCarry');
+  });
+});
+
 describe('checkpoints and forced leave', () => {
   const clock = (s: ChapterState) => place(s, 128, 230);
 

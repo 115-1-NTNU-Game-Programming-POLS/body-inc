@@ -1,5 +1,5 @@
-import type Phaser from 'phaser';
-import { flashLook, type HitAs } from '../../app/comfort.ts';
+import Phaser from 'phaser';
+import { flashLook, type HitAs, type Warning } from '../../app/comfort.ts';
 import { comfortIn } from './comfortIn.ts';
 
 const INK = 0x0c2d5e;
@@ -8,7 +8,8 @@ const OFFSETS: ReadonlyArray<readonly [number, number]> = [[-1, 0], [1, 0], [0, 
 
 /**
  * Draws a sprite's flash, or the form "reduce flashes" gives it (art direction 9.2). The caller
- * has placed the sprite for the frame; this may shift it a pixel and puts the outline behind it.
+ * has placed the sprite and chosen its frame for the frame; this may shift it a pixel and puts
+ * the outline behind it.
  */
 export class FlashPainter {
   private readonly sprite: Phaser.GameObjects.Sprite;
@@ -21,11 +22,12 @@ export class FlashPainter {
   }
 
   /** Returns whether the sprite was painted solid white; the caller restores its own tint otherwise. */
-  paint(hit: boolean, alert: boolean, tick: number): boolean {
-    const look = flashLook({ hit, alert }, this.hitAs, comfortIn(this.sprite.scene).lessFlash, tick);
+  paint(hit: boolean, warning: Warning, tick: number): boolean {
+    const look = flashLook({ hit, warning }, this.hitAs, comfortIn(this.sprite.scene).lessFlash, tick);
     if (look.white) this.sprite.setTintFill(0xffffff);
     if (look.shiftX !== 0) this.sprite.x += look.shiftX;
-    if (look.outline) this.show();
+    // Without WebGL there is no tint, so the copies would be plain sprites and the "outline" a fatter one.
+    if (look.outline && this.sprite.scene.sys.game.renderer.type === Phaser.WEBGL) this.show();
     else this.hide();
     return look.white;
   }

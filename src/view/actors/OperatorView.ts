@@ -96,13 +96,19 @@ export class OperatorView {
     }
 
     const invuln = a.kind !== 'dodge' && tick < cur.invulnUntil;
-    this.sprite.setAlpha(invulnAlpha(invuln, comfortIn(this.scene).lessFlash, tick));
-    if (!this.flasher.paint(tick < this.flashUntil, false, tick)) this.sprite.clearTint();
-    this.renderFolder(cur, a);
+    const lessFlash = comfortIn(this.scene).lessFlash;
+    const hitNow = tick < this.flashUntil;
+    this.sprite.setAlpha(invulnAlpha(invuln, lessFlash, tick, hitNow));
+    if (!this.flasher.paint(hitNow, 'none', tick)) this.sprite.clearTint();
+    this.renderFolder(cur, a, lessFlash);
   }
 
-  /** The guard as a 120 degree wedge, white while it parries and teal after; a swing as a short white slash. */
-  private renderFolder(cur: Readonly<OperatorState>, a: OperatorState['action']): void {
+  /**
+   * The guard as a 120 degree wedge, white while it parries and teal after; a swing as a short white
+   * slash. Swings chain every 10 ticks, which would be six white pulses a second, so with fewer
+   * flashes the slash is teal like the guard.
+   */
+  private renderFolder(cur: Readonly<OperatorState>, a: OperatorState['action'], lessFlash: boolean): void {
     const g = this.folderFx.clear().setDepth(this.sprite.depth + 2);
     if (a.kind === 'guard') {
       const half = (FOLDER.guardHalfAngleDeg * Math.PI) / 180;
@@ -112,7 +118,7 @@ export class OperatorView {
       g.fillPath();
     } else if (a.kind === 'swing' && a.frame >= FOLDER.hitFrame && a.frame < FOLDER.hitFrame + 3) {
       const b = swingBox(cur);
-      g.fillStyle(0xffffff, 0.5);
+      g.fillStyle(lessFlash ? 0x2a9d8f : 0xffffff, 0.5);
       g.fillEllipse((b.left + b.right) / 2, (b.top + b.bottom) / 2, b.right - b.left, b.bottom - b.top);
     }
   }

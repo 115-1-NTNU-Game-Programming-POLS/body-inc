@@ -30,6 +30,8 @@ export class PauseScene extends Phaser.Scene {
   private cursor = 0;
   /** The way back to the title costs the progress since the last time clock, so it asks twice. */
   private confirming = false;
+  /** The row a pointer press began on, -1 when none. */
+  private pressed = -1;
   private rows: readonly Row[] = [];
 
   constructor() {
@@ -76,6 +78,7 @@ export class PauseScene extends Phaser.Scene {
   private go(page: Page, cursor: number): void {
     this.page = page;
     this.cursor = cursor;
+    this.pressed = -1;
     this.confirming = false;
     this.rows = this.rowsFor(page);
     this.rebuild();
@@ -160,7 +163,13 @@ export class PauseScene extends Phaser.Scene {
       const bar = this.add.rectangle(left + 16, y - 6, PANEL.w - 32, step - 6, HIGHLIGHT, on ? 1 : 0).setOrigin(0, 0);
       bar.setInteractive({ useHandCursor: true });
       bar.on('pointerover', () => this.select(i));
-      bar.on('pointerup', () => this.activate(i));
+      // A click is a press and a release on the same row: the attack button held from the room and let go over a row is not one.
+      bar.on('pointerdown', () => { this.pressed = i; });
+      bar.on('pointerup', () => {
+        if (this.pressed !== i) return;
+        this.pressed = -1;
+        this.activate(i);
+      });
       const line = addText(this, x, y, this.label(row, on, settings), { role: 'print', weight: on ? 700 : 400, size: lay.size * scale, color: '#0c2d5e' });
       bottom = Math.max(bottom, line.y + line.height);
     });

@@ -1,3 +1,5 @@
+import type { OperatorState } from './operator.ts';
+
 /**
  * The "flexible hours" assists that change a fight (design doc 5.7). They are input to a tick, not
  * state, so the player can switch one on or off at any moment and a replayed input log carries them.
@@ -24,4 +26,10 @@ export function chip(halves: number, owed: 0 | 1, assists: Assists): { readonly 
   if (!assists.halfDamage) return { cost: halves, owed };
   const units = halves + owed;
   return { cost: Math.floor(units / 2), owed: (units % 2) as 0 | 1 };
+}
+
+/** The operator with `owed` recorded; at 0 the key is dropped, so a paid-off debt and a plain run are the same state. */
+export function owing(op: OperatorState, owed: 0 | 1): OperatorState {
+  const { halfCarry: _, ...rest } = op;
+  return owed === 0 ? rest : { ...rest, halfCarry: owed };
 }

@@ -1,4 +1,4 @@
-﻿import { readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { chapterContent, chapterLoop } from '../../src/app/chapters.ts';
 import { CHAPTERS } from '../../src/app/content.ts';

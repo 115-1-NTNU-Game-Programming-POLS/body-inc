@@ -76,4 +76,16 @@ describe('save slots', () => {
     expect(old.kind === 'migrated' && old.data).toEqual({ textScale: 1.25, gameSpeed: 0.8, ...flags });
     expect(decode(SETTINGS, stored(1, { textScale: 2, gameSpeed: 1 })).kind).toBe('invalid');
   });
+
+  it('the settings slot of this version needs every assist flag, and each one a boolean', () => {
+    const base = { textScale: 1, gameSpeed: 1, halfDamage: false, neverEmpty: false, autoPerfect: false, toggleAttack: false, noShake: false, lessFlash: false };
+    expect(decode(SETTINGS, stored(2, base)).kind).toBe('ok');
+    for (const flag of ['halfDamage', 'neverEmpty', 'autoPerfect', 'toggleAttack', 'noShake', 'lessFlash'] as const) {
+      const { [flag]: _, ...without } = base;
+      expect(decode(SETTINGS, stored(2, without)).kind, `${flag} missing`).toBe('invalid');
+      for (const bad of [1, 'true', null]) expect(decode(SETTINGS, stored(2, { ...base, [flag]: bad })).kind, `${flag} = ${String(bad)}`).toBe('invalid');
+    }
+    // An old file holding a flag that is not a boolean is refused, not quietly turned off.
+    expect(decode(SETTINGS, stored(1, { textScale: 1, gameSpeed: 1, halfDamage: 'yes' })).kind).toBe('invalid');
+  });
 });

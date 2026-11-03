@@ -1,4 +1,4 @@
-﻿import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { optionMark, presenterSettings } from '../../src/app/presenter.ts';
 import { decode, encode, SETTINGS } from '../../src/core/index.ts';
 
@@ -15,4 +15,3 @@ describe('the presentation mode (ux-spec 6.1)', () => {
     expect(decode(SETTINGS, encode(SETTINGS, shown)).kind).toBe('ok');
   });
 });
-

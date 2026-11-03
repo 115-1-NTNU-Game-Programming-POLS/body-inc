@@ -100,6 +100,18 @@ describe('the toggled attack assist (design doc 5.7)', () => {
     keys.dispose();
   });
 
+  it('can be stopped from outside, which a scene that starts does so an attack left on does not carry over', () => {
+    const { target, keys } = setup();
+    tap(target, 'KeyJ');
+    expect(keys.sample(true).attack).toBe(true);
+    keys.stopAttack();
+    expect(keys.sample(true).attack).toBe(false);
+    // The next press starts it again, not stops a toggle that is no longer on.
+    tap(target, 'KeyJ');
+    expect(keys.sample(true)).toMatchObject({ attack: true, attackPressed: true });
+    keys.dispose();
+  });
+
   it('leaves every other key as it was', () => {
     const { target, keys } = setup();
     tap(target, 'KeyJ');

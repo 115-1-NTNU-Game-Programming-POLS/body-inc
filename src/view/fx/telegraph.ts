@@ -1,10 +1,14 @@
 import type Phaser from 'phaser';
+import type { Warning } from '../../app/comfort.ts';
 
 /** Ticks of the tier-1 telegraph that show a white flash: 0.00-0.08 s and 0.25-0.33 s. */
 const FLASH_WINDOWS: ReadonlyArray<readonly [number, number]> = [[0, 5], [15, 20]];
 
 /** `tick` counts from 0 at the start of the telegraph. */
 export const tier1Flash = (tick: number): boolean => FLASH_WINDOWS.some(([a, b]) => tick >= a && tick < b);
+
+/** Where a tier-1 warning is on `tick` of its telegraph; `telegraphing` false means there is none. */
+export const warningAt = (telegraphing: boolean, tick: number): Warning => (!telegraphing ? 'none' : tier1Flash(tick) ? 'flash' : 'telegraph');
 
 /** Dashed ring, 8 on and 6 off in world pixels, turned by `phase` radians. */
 export function dashedCircle(g: Phaser.GameObjects.Graphics, cx: number, cy: number, r: number, color: number, phase = 0): void {

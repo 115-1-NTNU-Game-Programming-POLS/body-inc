@@ -134,6 +134,11 @@ export class KeyboardInput {
     this.queuedPick = n;
   }
 
+  /** Stops the toggled attack. A scene that starts calls it, so one left on in a patrol or a room does not carry into the next. */
+  stopAttack(): void {
+    this.attackOn = false;
+  }
+
   /**
    * Called once per rule tick; clears the presses it reports. With `toggleAttack` (design doc 5.7)
    * one press starts attacking and the next stops it: `attack` is the toggled state and the press

@@ -1,9 +1,10 @@
 import Phaser from 'phaser';
 import { tagKey, type ManifestEntry } from '../../app/assets.ts';
+import type { Warning } from '../../app/comfort.ts';
 import { selectExam, TICK_HZ, type EnemyState, type GameState } from '../../core/index.ts';
 import type { ActorFx } from '../fx/FeedbackPlayer.ts';
 import { FlashPainter } from '../fx/FlashPainter.ts';
-import { tier1Flash } from '../fx/telegraph.ts';
+import { warningAt } from '../fx/telegraph.ts';
 import { addText } from '../text/fonts.ts';
 
 /**
@@ -63,12 +64,12 @@ export class DrawnView implements ActorFx {
     this.flashUntil = now + ticks;
   }
 
-  protected place(prev: Readonly<EnemyState> | undefined, cur: Readonly<EnemyState>, alpha: number, tick: number, white = false): { x: number; y: number } {
+  protected place(prev: Readonly<EnemyState> | undefined, cur: Readonly<EnemyState>, alpha: number, tick: number, warning: Warning = 'none'): { x: number; y: number } {
     const p = prev ?? cur;
     const x = p.x + (cur.x - p.x) * alpha;
     const y = p.y + (cur.y - p.y) * alpha;
     this.sprite.setVisible(cur.phase !== 'closed').setPosition(Math.round(x), Math.round(y)).setDepth(y);
-    if (!this.flasher.paint(tick < this.flashUntil, white, tick)) this.sprite.clearTint();
+    if (!this.flasher.paint(tick < this.flashUntil, warning, tick)) this.sprite.clearTint();
     return { x, y };
   }
 
@@ -116,7 +117,7 @@ class PaperView extends DrawnView {
   }
 
   override render(prev: Readonly<EnemyState> | undefined, cur: Readonly<EnemyState>, alpha: number, tick: number): void {
-    const { x, y } = this.place(prev, cur, alpha, tick, this.windup > 0 && tier1Flash(this.windup - 1));
+    const { x, y } = this.place(prev, cur, alpha, tick, warningAt(this.windup > 0, this.windup - 1));
     const top = Math.round(y) - PAPER_SIZE.h;
     this.face.setVisible(this.sprite.visible).setPosition(Math.round(x), top + 6).setDepth(y + 0.1);
     this.bubble.setVisible(this.windup > 0).setPosition(Math.round(x), top - 2).setDepth(1e5);

@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { motionOf, tagKey, type ManifestEntry } from '../../app/assets.ts';
 import { isBound, REFORM_TICKS, TICK_HZ, type EnemyState } from '../../core/index.ts';
 import { FlashPainter } from '../fx/FlashPainter.ts';
-import { tier1Flash } from '../fx/telegraph.ts';
+import { warningAt } from '../fx/telegraph.ts';
 import { REFORM_STAGES } from '../fx/textures.ts';
 import { puppetSway } from './puppet.ts';
 
@@ -82,21 +82,22 @@ export class EnemyView {
     const bob = cur.category === 'reforming' ? Math.round(Math.sin((ms / 1600) * Math.PI * 2) * 2) : 0;
     this.sprite.setPosition(Math.round(x), Math.round(y) + bob + sway.dy).setAngle(sway.angle).setDepth(y).setFlipX(side && dir.x < 0);
 
-    if (!this.flasher.paint(tick < this.flashUntil, windup && tier1Flash(cur.phaseTicks), tick)) this.sprite.clearTint();
-
     let anim: string | undefined;
     // Hit-stop does not pause a windup or a strike (design doc 5.3), so its hurt pose must not hide the telegraph; only a pin does.
     if (cur.frozen > 0 && (isBound(cur) || (!windup && cur.phase !== 'strike'))) anim = this.pick(`hurt_${d}`, 'hurt_side', 'hurt_down');
     else if (windup) anim = this.pick(`windup_${d}`, 'windup_side', 'windup_down');
     else if (cur.phase === 'strike') anim = this.pick(`attack_${d}`, 'attack_side', 'attack_down');
     if (!anim) anim = this.pick(`walk_${d}`, 'walk_side', 'walk_down', 'float_down', 'idle_down');
-    if (!anim) return;
-    if (moving || cur.category === 'reforming') this.sprite.play(anim, true);
-    else {
-      this.sprite.anims.stop();
-      const first = this.sprite.scene.anims.get(anim)?.frames[0];
-      if (first) this.sprite.setFrame(first.textureFrame);
+    if (anim) {
+      if (moving || cur.category === 'reforming') this.sprite.play(anim, true);
+      else {
+        this.sprite.anims.stop();
+        const first = this.sprite.scene.anims.get(anim)?.frames[0];
+        if (first) this.sprite.setFrame(first.textureFrame);
+      }
     }
+    // After the pose, so the outline copies the frame that is drawn.
+    if (!this.flasher.paint(tick < this.flashUntil, warningAt(windup, cur.phaseTicks), tick)) this.sprite.clearTint();
   }
 
   /** Soft bounce for immune objects: no hit-stop, only a squash (art direction 9.2). */

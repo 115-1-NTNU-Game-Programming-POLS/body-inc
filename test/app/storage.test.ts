@@ -1,4 +1,4 @@
-﻿import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { corruptKey, issueMessage, SaveStore, type KeyValueStore } from '../../src/app/storage.ts';
 import { encode, SETTINGS } from '../../src/core/index.ts';
 import { STRINGS } from '../../src/app/content.ts';
@@ -139,4 +139,3 @@ describe('SaveStore', () => {
     expect(issueMessage({ kind: 'migrated', slot: 's', from: 1, to: 2 })).toBeUndefined();
   });
 });
-

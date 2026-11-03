@@ -1,4 +1,4 @@
-﻿import { readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
   chip, createGame, loadEnemyTable, NO_ASSISTS, NO_INPUT, SALESMAN, stateHash, step,
@@ -96,7 +96,12 @@ describe('what a hit costs under the halved-damage assist (design doc 5.7)', () 
     expect(hit).toBeGreaterThan(0);
     expect(r.events[hit]).toContainEqual({ type: 'freeze', frames: 4 });
     expect(r.state.operator.halves).toBe(12);
-    expect(run(duel(), hit + 1, () => withAssists({ halfDamage: true })).state.operator.action.kind).toBe('hurt');
+    const after = run(duel(), hit + 1, () => withAssists({ halfDamage: true })).state;
+    expect(after.operator.action.kind).toBe('hurt');
+    // The window is what stops the next strike from landing at once, so a free hit must open it as a paid one does.
+    const before = run(duel(), hit, () => withAssists({ halfDamage: true })).state;
+    expect(before.operator.invulnUntil).toBeLessThanOrEqual(before.tick);
+    expect(after.operator.invulnUntil).toBeGreaterThan(after.tick);
   });
 
   it('with the assist off the state carries no debt, so a plain run is unchanged', () => {
@@ -204,4 +209,3 @@ describe('the assists are input, so a replay carries them', () => {
     expect(losses(early)).toEqual([1]);
   });
 });
-
