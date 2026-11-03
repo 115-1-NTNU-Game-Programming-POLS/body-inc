@@ -1,5 +1,8 @@
 import Phaser from 'phaser';
 import { tagKey, type ManifestEntry } from '../../app/assets.ts';
+import { invulnAlpha } from '../../app/comfort.ts';
+import { comfortIn } from '../fx/comfortIn.ts';
+import { FlashPainter } from '../fx/FlashPainter.ts';
 import { DODGE, FOLDER, inDodgeIframes, parryOpen, STAMP_LAND, STAPLER, swingBox, type OperatorState } from '../../core/index.ts';
 
 /**
@@ -11,9 +14,6 @@ const STACK_ANCHORS: ReadonlyArray<readonly [number, number, number]> = [[12, -2
 
 /** Side frames are drawn facing right; left mirrors the side tag. */
 const DIR_TAG = { down: 'down', up: 'up', left: 'side', right: 'side' } as const;
-/** Invulnerability blink: alpha 0.5 and 1.0 alternate every 0.1 s (art direction 9.2). */
-const BLINK_TICKS = 6;
-
 /**
  * Picks the operator's pose from the snapshot (art direction 5.3). Dodge reuses walk frame 2
  * squashed to 0.85 with afterimages on the invincible frames; there is no dodge tag yet.
@@ -25,6 +25,7 @@ export class OperatorView {
   private readonly stacks: Phaser.GameObjects.Sprite[];
   /** The folder's swing and guard: no folder frames are in the atlas yet, so they are drawn as shapes. */
   private readonly folderFx: Phaser.GameObjects.Graphics;
+  private readonly flasher: FlashPainter;
   private flashUntil = 0;
   private lastFireTick = -1e9;
   private lastGhostTick = -1;
@@ -34,6 +35,7 @@ export class OperatorView {
     this.key = entry.key;
     this.sprite = scene.add.sprite(0, 0, entry.key, '0');
     this.sprite.setOrigin(entry.anchor[0] / entry.frame[0], entry.anchor[1] / entry.frame[1]);
+    this.flasher = new FlashPainter(this.sprite, 'outline');
     this.stacks = STACK_ANCHORS.map(() => scene.add.sprite(0, 0, mini.key, '0')
       .setOrigin(mini.anchor[0] / mini.frame[0], mini.anchor[1] / mini.frame[1]).setVisible(false));
     this.folderFx = scene.add.graphics();
@@ -94,9 +96,8 @@ export class OperatorView {
     }
 
     const invuln = a.kind !== 'dodge' && tick < cur.invulnUntil;
-    this.sprite.setAlpha(invuln && Math.floor(tick / BLINK_TICKS) % 2 === 0 ? 0.5 : 1);
-    if (tick < this.flashUntil) this.sprite.setTintFill(0xffffff);
-    else this.sprite.clearTint();
+    this.sprite.setAlpha(invulnAlpha(invuln, comfortIn(this.scene).lessFlash, tick));
+    if (!this.flasher.paint(tick < this.flashUntil, false, tick)) this.sprite.clearTint();
     this.renderFolder(cur, a);
   }
 

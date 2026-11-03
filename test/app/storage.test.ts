@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+﻿import { describe, expect, it } from 'vitest';
 import { corruptKey, issueMessage, SaveStore, type KeyValueStore } from '../../src/app/storage.ts';
 import { encode, SETTINGS } from '../../src/core/index.ts';
 import { STRINGS } from '../../src/app/content.ts';
@@ -21,6 +21,8 @@ class MemoryStore implements KeyValueStore {
 }
 
 const KEY = 'hbc.v1.settings';
+/** Large text and the slow speed, every assist off: what a version-1 save with those two choices becomes. */
+const SLOW = { ...SETTINGS.defaults(), textScale: 1.25, gameSpeed: 0.8 } as const;
 
 describe('SaveStore', () => {
   it('asks for a first write when the slot is empty, then reads it back', () => {
@@ -28,8 +30,8 @@ describe('SaveStore', () => {
     const saves = new SaveStore(mem);
     const first = saves.load(SETTINGS);
     expect(first).toEqual({ data: SETTINGS.defaults(), issues: [], needsWrite: true });
-    expect(saves.save(SETTINGS, { textScale: 1.25, gameSpeed: 0.8 })).toEqual([]);
-    expect(new SaveStore(mem).load(SETTINGS)).toEqual({ data: { textScale: 1.25, gameSpeed: 0.8 }, issues: [], needsWrite: false });
+    expect(saves.save(SETTINGS, SLOW)).toEqual([]);
+    expect(new SaveStore(mem).load(SETTINGS)).toEqual({ data: SLOW, issues: [], needsWrite: false });
   });
 
   it('reports a blocked or full storage instead of throwing', () => {
@@ -83,12 +85,12 @@ describe('SaveStore', () => {
 
   it('does not overwrite a slot it failed to read', () => {
     const mem = new MemoryStore();
-    mem.items.set(KEY, encode(SETTINGS, { textScale: 1.25, gameSpeed: 0.8 }));
+    mem.items.set(KEY, encode(SETTINGS, SLOW));
     mem.failReads = true;
     const saves = new SaveStore(mem);
     saves.load(SETTINGS);
     expect(saves.save(SETTINGS, SETTINGS.defaults())).toEqual([]);
-    expect(JSON.parse(mem.items.get(KEY)!).data).toEqual({ textScale: 1.25, gameSpeed: 0.8 });
+    expect(JSON.parse(mem.items.get(KEY)!).data).toEqual(SLOW);
   });
 
   it('recognises a full store by legacy code or from another realm', () => {
@@ -112,10 +114,18 @@ describe('SaveStore', () => {
 
   it('asks to write back a migrated slot', () => {
     const mem = new MemoryStore();
-    const v2 = { ...SETTINGS, version: 2, migrations: { 1: (d: unknown) => d } };
-    mem.items.set(KEY, encode(SETTINGS, { textScale: 1.25, gameSpeed: 1 }));
-    expect(new SaveStore(mem).load(v2)).toEqual({
-      data: { textScale: 1.25, gameSpeed: 1 }, issues: [{ kind: 'migrated', slot: 'settings', from: 1, to: 2 }], needsWrite: true,
+    const next = { ...SETTINGS, version: 3, migrations: { ...SETTINGS.migrations, 2: (d: unknown) => d } };
+    mem.items.set(KEY, encode(SETTINGS, SLOW));
+    expect(new SaveStore(mem).load(next)).toEqual({
+      data: SLOW, issues: [{ kind: 'migrated', slot: 'settings', from: 2, to: 3 }], needsWrite: true,
+    });
+  });
+
+  it('reads a settings slot from before the assists with every assist off', () => {
+    const mem = new MemoryStore();
+    mem.items.set(KEY, JSON.stringify({ schema: 1, data: { textScale: 1.25, gameSpeed: 0.8 } }));
+    expect(new SaveStore(mem).load(SETTINGS)).toEqual({
+      data: SLOW, issues: [{ kind: 'migrated', slot: 'settings', from: 1, to: 2 }], needsWrite: true,
     });
   });
 
@@ -129,3 +139,4 @@ describe('SaveStore', () => {
     expect(issueMessage({ kind: 'migrated', slot: 's', from: 1, to: 2 })).toBeUndefined();
   });
 });
+

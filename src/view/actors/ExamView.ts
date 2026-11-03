@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { tagKey, type ManifestEntry } from '../../app/assets.ts';
 import { selectExam, TICK_HZ, type EnemyState, type GameState } from '../../core/index.ts';
 import type { ActorFx } from '../fx/FeedbackPlayer.ts';
+import { FlashPainter } from '../fx/FlashPainter.ts';
 import { tier1Flash } from '../fx/telegraph.ts';
 import { addText } from '../text/fonts.ts';
 
@@ -49,10 +50,12 @@ function makeExamTextures(scene: Phaser.Scene): void {
 export class DrawnView implements ActorFx {
   readonly sprite: Phaser.GameObjects.Sprite;
   readonly effectLift: number;
+  private readonly flasher: FlashPainter;
   private flashUntil = 0;
 
   constructor(scene: Phaser.Scene, texture: string, lift: number) {
     this.sprite = scene.add.sprite(0, 0, texture).setOrigin(0.5, 1);
+    this.flasher = new FlashPainter(this.sprite, 'jitter');
     this.effectLift = lift;
   }
 
@@ -65,8 +68,7 @@ export class DrawnView implements ActorFx {
     const x = p.x + (cur.x - p.x) * alpha;
     const y = p.y + (cur.y - p.y) * alpha;
     this.sprite.setVisible(cur.phase !== 'closed').setPosition(Math.round(x), Math.round(y)).setDepth(y);
-    if (tick < this.flashUntil || white) this.sprite.setTintFill(0xffffff);
-    else this.sprite.clearTint();
+    if (!this.flasher.paint(tick < this.flashUntil, white, tick)) this.sprite.clearTint();
     return { x, y };
   }
 
@@ -91,6 +93,7 @@ export class DrawnView implements ActorFx {
   }
 
   destroy(): void {
+    this.flasher.destroy();
     this.sprite.destroy();
   }
 }

@@ -3,6 +3,7 @@ import type { Manifest, ManifestEntry } from '../../app/assets.ts';
 import { FEEDBACK, str, STRINGS } from '../../app/content.ts';
 import { releaseKeysOnClose } from '../../app/dialogue.ts';
 import { keepPage, titleKey } from '../../app/handbook.ts';
+import { assistsOf, panelOpen, speedOf, withAssists } from '../../app/pause.ts';
 import { sharedKeys, type KeyboardInput } from '../../app/input.ts';
 import type { PatrolSession } from '../../app/patrol.ts';
 import type { WallSession } from '../../app/wall.ts';
@@ -10,7 +11,7 @@ import type { FixedStepLoop } from '../../app/loop.ts';
 import type { SaveStore } from '../../app/storage.ts';
 import {
   carriedTags, CELL_COLS, listProps, selectEnemies, selectOperator, selectProjectiles, storyAtEnd, storyOf, TILE, visibleProps,
-  type ChapterContent, type ChapterState, type EnemyState, type GameEvent, type GameState, type PatrolResult, type ProgressData, type TiledMapFile,
+  type ChapterContent, type ChapterState, type EnemyState, type GameEvent, type GameState, type PatrolResult, type ProgressData, type Settings, type TiledMapFile,
 } from '../../core/index.ts';
 import type { CardsData } from './OpeningScene.ts';
 import { saveStory } from './run.ts';
@@ -128,6 +129,8 @@ export class WorldScene extends Phaser.Scene {
     this.patrolSession = this.registry.get('patrol') as PatrolSession | undefined;
     // Giving up is a failed patrol, not a way out of one that is going badly: it cuts no load and gives no card (design doc 8.4).
     if (this.patrolSession) this.input.keyboard?.on('keydown-ESC', () => this.finishPatrol({ failed: true }));
+    // Esc already means "leave" on the wall and in a patrol, so the menu belongs to the story rooms.
+    if (!this.wallSession && !this.patrolSession) this.input.keyboard?.on('keydown-ESC', (e: KeyboardEvent) => this.openPause(e));
 
     // One keyboard tracker for the whole run: a new one per room would not know which keys are
     // already down when the operator walks through a door, and would ignore them until the
@@ -160,7 +163,12 @@ export class WorldScene extends Phaser.Scene {
 
   override update(time: number, delta: number): void {
     if (this.leaving) return;
-    const alpha = this.loop.advance(delta, () => this.input_.sample());
+    const settings = this.registry.get('settings') as Settings | undefined;
+    this.loop.speed = speedOf(settings);
+    const assists = assistsOf(settings);
+    const toggle = settings?.toggleAttack === true;
+    // The assists are read afresh every frame, so a switch in the menu takes effect on the first tick after it closes.
+    const alpha = this.loop.advance(delta, () => withAssists(this.input_.sample(toggle && !panelOpen(this.loop.state)), assists));
     // On the tick a room is left the state already holds the next room, which this scene has no
     // views for: handle the exit and draw nothing more of it.
     if (this.pending.some((e) => e.type === 'roomChanged' || e.type === 'returnedToCheckpoint' || e.type === 'chapterEnded')) {
@@ -259,10 +267,16 @@ export class WorldScene extends Phaser.Scene {
    * conversation or a card keeps it shut: they take the keys the handbook would use.
    */
   private openHandbook(e: KeyboardEvent): void {
-    const s = this.loop.state;
-    if (e.repeat || this.leaving || s.dialogue || s.card || s.rescue || s.exam || this.scene.isActive('Handbook')) return;
+    if (e.repeat || this.leaving || panelOpen(this.loop.state) || this.scene.isActive('Handbook') || this.scene.isActive('Pause')) return;
     this.scene.pause();
     this.scene.launch('Handbook');
+  }
+
+  /** The Esc menu pauses the room like the handbook does, and is kept shut by the same panels. */
+  private openPause(e: KeyboardEvent): void {
+    if (e.repeat || this.leaving || panelOpen(this.loop.state) || this.scene.isActive('Handbook') || this.scene.isActive('Pause')) return;
+    this.scene.pause();
+    this.scene.launch('Pause');
   }
 
   /**

@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { tagKey, type ManifestEntry } from '../../app/assets.ts';
 import { bossMove, BOSS_HURT, TICK_HZ, type BossDef, type EnemyState } from '../../core/index.ts';
 import type { ActorFx } from '../fx/FeedbackPlayer.ts';
+import { FlashPainter } from '../fx/FlashPainter.ts';
 import { dashedCircle, tier1Flash } from '../fx/telegraph.ts';
 
 const RED = 0xc8372d;
@@ -28,6 +29,7 @@ export class BossView implements ActorFx {
   private readonly marks: Phaser.GameObjects.Graphics;
   private readonly bubble: Phaser.GameObjects.Image;
   private readonly minis: Phaser.GameObjects.Sprite[];
+  private readonly flasher: FlashPainter;
   private flashUntil = 0;
   private gone = false;
 
@@ -35,6 +37,7 @@ export class BossView implements ActorFx {
     this.scene = scene;
     this.entry = entry;
     this.sprite = scene.add.sprite(0, 0, entry.key, '0').setOrigin(entry.anchor[0] / entry.frame[0], entry.anchor[1] / entry.frame[1]);
+    this.flasher = new FlashPainter(this.sprite, 'jitter');
     this.marks = scene.add.graphics().setDepth(1e5);
     this.bubble = scene.add.image(0, 0, 'fx-alert-bubble').setOrigin(0.5, 1).setDepth(1e5).setVisible(false);
     this.minis = PILE.map(() => scene.add.sprite(0, 0, mini.key, '0')
@@ -50,6 +53,7 @@ export class BossView implements ActorFx {
   /** Budget at zero: he shrinks to 0.6 and slides out sideways (art direction 5.5). */
   closeOut(): void {
     this.gone = true;
+    this.flasher.hide();
     this.scene.tweens.killTweensOf(this.sprite);
     this.marks.clear();
     this.bubble.setVisible(false);
@@ -137,9 +141,10 @@ export class BossView implements ActorFx {
       m.setVisible(i < pinned).setPosition(x + dx, y + dy).setDepth(y + 1);
     });
 
-    if (tick < this.flashUntil || flash) this.sprite.setTintFill(0xffffff);
-    else if (b.stunned > 0) this.sprite.setTint(0x9aa0ab);
-    else this.sprite.clearTint();
+    if (!this.flasher.paint(tick < this.flashUntil, flash, tick)) {
+      if (b.stunned > 0) this.sprite.setTint(0x9aa0ab);
+      else this.sprite.clearTint();
+    }
   }
 
   /**
@@ -163,8 +168,7 @@ export class BossView implements ActorFx {
     } else if (telegraphing) this.pose('wave_down');
     else this.pose('idle_down', true);
     const flash = telegraphing && tier1Flash(b.move!.frame - 1);
-    if (tick < this.flashUntil || flash) this.sprite.setTintFill(0xffffff);
-    else this.sprite.clearTint();
+    if (!this.flasher.paint(tick < this.flashUntil, flash, tick)) this.sprite.clearTint();
   }
 }
 

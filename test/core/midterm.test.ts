@@ -169,6 +169,17 @@ describe('the exam fight', () => {
     expect(state.game.exam!.tallies[0]!.hits).toBe(events.filter((e) => e.type === 'examHit').length);
   });
 
+  it('the assists change nothing in the exam: a hit still costs no heart and leaves a quarter heart owed as it was', () => {
+    const s = seated();
+    const owing = { ...s, game: { ...s.game, operator: { ...s.game.operator, halfCarry: 1 as const } } };
+    const assisted: TickInput = { ...NONE, assists: { halfDamage: true, neverEmpty: true, autoPerfect: false } };
+    const { state, events } = run(owing, assisted, 20 * TICK_HZ);
+    expect(events.filter((e) => e.type === 'examHit').length).toBeGreaterThan(0);
+    expect(events.some((e) => e.type === 'heartLost')).toBe(false);
+    expect(state.game.operator.halves).toBe(s.game.operator.halves);
+    expect(state.game.operator.halfCarry).toBe(1);
+  });
+
   it('a question runs out of time with partial credit, and the next one opens after the gap', () => {
     const s = seated();
     const { state, events } = until(s, (_, ev) => ev.some((e) => e.type === 'examAnswered'));

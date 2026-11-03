@@ -158,6 +158,25 @@ describe('the factory room', () => {
     expect(run(back, NONE, MIST.intervalTicks - 1).state.game.operator.halves).toBe(halves);
   });
 
+  it('the fog takes the assists too: halved it costs half a heart every second time, and it never takes the last half heart', () => {
+    const s = at(FACTORY, 'acetaldehyde:1');
+    const [b] = spawned(s);
+    const beside = place(s, (b!.col + 0.5) * TILE, (b!.row + 1.6) * TILE);
+    const half: TickInput = { ...NONE, assists: { halfDamage: true, neverEmpty: false, autoPerfect: false } };
+    const first = run(beside, half, MIST.intervalTicks);
+    expect(first.events).toContainEqual({ type: 'heartLost', halves: 0, cause: 'acetaldehyde' });
+    expect(first.state.game.operator.halves).toBe(beside.game.operator.halves);
+    const second = run(first.state, half, MIST.intervalTicks);
+    expect(second.events).toContainEqual({ type: 'heartLost', halves: MIST.halves, cause: 'acetaldehyde' });
+    expect(second.state.game.operator.halves).toBe(beside.game.operator.halves - MIST.halves);
+    // On the last half heart the fog ends a run with a forced leave, unless the hearts never run out.
+    const last = { ...beside, game: { ...beside.game, operator: { ...beside.game.operator, halves: 1 } } };
+    expect(run(last, NONE, MIST.intervalTicks).events.map((e) => e.type)).toContain('forcedLeave');
+    const kept = run(last, { ...NONE, assists: { halfDamage: false, neverEmpty: true, autoPerfect: false } }, MIST.intervalTicks * 2);
+    expect(kept.events.map((e) => e.type)).not.toContain('forcedLeave');
+    expect(kept.state.game.operator.halves).toBe(1);
+  });
+
   it('the fog hurts round the crate where it is drawn, so a sliding crate carries its fog with it', () => {
     const s = at(FACTORY, 'acetaldehyde:1');
     const [b] = spawned(s);

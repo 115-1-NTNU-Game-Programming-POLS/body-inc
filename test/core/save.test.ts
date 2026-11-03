@@ -67,7 +67,13 @@ describe('save slots', () => {
 
   it('every shipped slot is well defined', () => {
     for (const slot of SLOTS as readonly SlotDef<unknown>[]) expect(() => checkSlotDef(slot)).not.toThrow();
-    expect(decode(SETTINGS, stored(1, { textScale: 1.25, gameSpeed: 0.8 })).kind).toBe('ok');
+    const flags = { halfDamage: false, neverEmpty: false, autoPerfect: false, toggleAttack: false, noShake: false, lessFlash: false };
+    expect(decode(SETTINGS, stored(2, { textScale: 1.25, gameSpeed: 0.8, ...flags })).kind).toBe('ok');
+    expect(decode(SETTINGS, stored(2, { textScale: 2, gameSpeed: 1, ...flags })).kind).toBe('invalid');
+    // A settings slot written before the assists existed comes forward with every assist off.
+    const old = decode(SETTINGS, stored(1, { textScale: 1.25, gameSpeed: 0.8 }));
+    expect(old.kind).toBe('migrated');
+    expect(old.kind === 'migrated' && old.data).toEqual({ textScale: 1.25, gameSpeed: 0.8, ...flags });
     expect(decode(SETTINGS, stored(1, { textScale: 2, gameSpeed: 1 })).kind).toBe('invalid');
   });
 });
