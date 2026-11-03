@@ -40,6 +40,10 @@ export class PauseScene extends Phaser.Scene {
 
   create(): void {
     this.go('main', 0);
+    // A press dragged off its row and released elsewhere must not stay standing for a later release over a row. Cleared after the dispatch, so the row's own release still sees it.
+    const forget = () => this.time.delayedCall(0, () => { this.pressed = -1; });
+    this.input.on('pointerup', forget);
+    this.input.on('pointerupoutside', forget);
     const kb = this.input.keyboard!;
     const press = (fn: () => void) => (e: KeyboardEvent) => {
       e.preventDefault();

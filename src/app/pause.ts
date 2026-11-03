@@ -1,5 +1,5 @@
 import {
-  GAME_SPEEDS, NO_ASSISTS, TEXT_SCALES, type Assists, type AssistFlag, type ChapterState, type Settings, type TickInput,
+  GAME_SPEEDS, NO_ASSISTS, selectTool, TEXT_SCALES, type Assists, type AssistFlag, type ChapterState, type Settings, type TickInput,
 } from '../core/index.ts';
 
 /** The settings that pick one of a few values; the rest are on/off flags. */
@@ -38,3 +38,23 @@ export function withAssists(input: TickInput, assists: Assists): TickInput {
 export function panelOpen(state: ChapterState): boolean {
   return Boolean(state.dialogue || state.card || state.rescue || state.exam);
 }
+
+/**
+ * Whether the attack key is a toggle this tick. The folder swings on a press and guards while held, so an attack
+ * held by the toggle would lock it into the guard: only the stapler toggles. A panel owns the keys.
+ */
+export const togglesAttack = (settings: Settings | undefined, state: ChapterState): boolean =>
+  settings?.toggleAttack === true && !panelOpen(state) && selectTool(state.game).tool === 'stapler';
+
+/** What stands between a key press and the handbook or the Esc menu opening. */
+export interface OverlayGate {
+  readonly repeat: boolean;
+  readonly leaving: boolean;
+  /** One was asked for in this frame and has not started yet: scene launches are queued, so it is not active. */
+  readonly asked: boolean;
+  readonly panel: boolean;
+  /** The handbook or the menu is already showing. */
+  readonly shown: boolean;
+}
+
+export const mayOpenOverlay = (gate: OverlayGate): boolean => !(gate.repeat || gate.leaving || gate.asked || gate.panel || gate.shown);

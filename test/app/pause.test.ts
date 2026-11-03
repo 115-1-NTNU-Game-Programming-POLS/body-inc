@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { chapterContent, chapterLoop } from '../../src/app/chapters.ts';
 import { CHAPTERS } from '../../src/app/content.ts';
-import { assistsOf, panelOpen, percent, speedOf, stepSetting, toggleSetting, withAssists } from '../../src/app/pause.ts';
+import { assistsOf, mayOpenOverlay, panelOpen, percent, speedOf, stepSetting, toggleSetting, togglesAttack, withAssists, type OverlayGate } from '../../src/app/pause.ts';
 import {
   ASSIST_FLAGS, decode, encode, GAME_SPEEDS, NO_ASSISTS, NO_INPUT, roomsOf, SETTINGS, startChapter, TEXT_SCALES, TICK_MS, type ChapterState, type Settings, type TiledMap,
 } from '../../src/core/index.ts';
@@ -83,6 +83,40 @@ describe('what keeps the Esc menu shut', () => {
   it('is open in a plain room and shut under each of the four panels', () => {
     expect(panelOpen(state)).toBe(false);
     for (const [key, panel] of Object.entries(open)) expect(panelOpen({ ...state, [key]: panel } as unknown as ChapterState)).toBe(true);
+  });
+
+  it('opens with nothing in the way, and each thing in the way keeps it shut on its own', () => {
+    const clear: OverlayGate = { repeat: false, leaving: false, asked: false, panel: false, shown: false };
+    expect(mayOpenOverlay(clear)).toBe(true);
+    // `asked` is the Tab and Esc in one frame: the first launch is queued, so the second key must not open another.
+    for (const key of ['repeat', 'leaving', 'asked', 'panel', 'shown'] as const) expect(mayOpenOverlay({ ...clear, [key]: true }), key).toBe(false);
+  });
+});
+
+describe('when the attack key toggles', () => {
+  const chapter = CHAPTERS.get('greybox')!;
+  const maps = new Map(roomsOf(chapter).map((p) => [p, JSON.parse(readFileSync(`public/assets/maps/${p}.tmj`, 'utf8')) as TiledMap]));
+  const state = startChapter(chapterContent(chapter, maps));
+  const on = toggleSetting(NORMAL, 'toggleAttack');
+  const withTool = (s: ChapterState, tool: 'stapler' | 'folder'): ChapterState => ({ ...s, game: { ...s.game, operator: { ...s.game.operator, tool } } });
+
+  it('does with the stapler in hand in a plain room, when the setting is on', () => {
+    expect(state.game.operator.tool).toBe('stapler');
+    expect(togglesAttack(on, state)).toBe(true);
+  });
+
+  it('does not with the setting off, or before any settings are loaded', () => {
+    expect(togglesAttack(NORMAL, state)).toBe(false);
+    expect(togglesAttack(undefined, state)).toBe(false);
+  });
+
+  it('does not with the folder in hand, which guards while held and would be locked into it', () => {
+    expect(togglesAttack(on, withTool(state, 'folder'))).toBe(false);
+    expect(togglesAttack(on, withTool(withTool(state, 'folder'), 'stapler'))).toBe(true);
+  });
+
+  it('does not under a panel, which owns the keys', () => {
+    for (const key of ['dialogue', 'card', 'rescue', 'exam']) expect(togglesAttack(on, { ...state, [key]: { id: 'x' } } as unknown as ChapterState), key).toBe(false);
   });
 });
 
