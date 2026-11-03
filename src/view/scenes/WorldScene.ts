@@ -3,14 +3,14 @@ import type { Manifest, ManifestEntry } from '../../app/assets.ts';
 import { FEEDBACK, str, STRINGS } from '../../app/content.ts';
 import { releaseKeysOnClose } from '../../app/dialogue.ts';
 import { keepPage, titleKey } from '../../app/handbook.ts';
-import { assistsOf, panelOpen, speedOf, withAssists } from '../../app/pause.ts';
+import { assistsOf, mayOpenOverlay, panelOpen, speedOf, togglesAttack, withAssists } from '../../app/pause.ts';
 import { sharedKeys, type KeyboardInput } from '../../app/input.ts';
 import type { PatrolSession } from '../../app/patrol.ts';
 import type { WallSession } from '../../app/wall.ts';
 import type { FixedStepLoop } from '../../app/loop.ts';
 import type { SaveStore } from '../../app/storage.ts';
 import {
-  carriedTags, CELL_COLS, listProps, selectEnemies, selectOperator, selectProjectiles, selectTool, storyAtEnd, storyOf, TILE, visibleProps,
+  carriedTags, CELL_COLS, listProps, selectEnemies, selectOperator, selectProjectiles, storyAtEnd, storyOf, TILE, visibleProps,
   type ChapterContent, type ChapterState, type EnemyState, type GameEvent, type GameState, type PatrolResult, type ProgressData, type Settings, type TiledMapFile,
 } from '../../core/index.ts';
 import type { CardsData } from './OpeningScene.ts';
@@ -174,11 +174,8 @@ export class WorldScene extends Phaser.Scene {
     const settings = this.registry.get('settings') as Settings | undefined;
     this.loop.speed = speedOf(settings);
     const assists = assistsOf(settings);
-    const toggle = settings?.toggleAttack === true;
-    // The folder swings on a press and guards while held, so held-by-toggle would lock it into the guard: only the stapler toggles.
-    const toggling = () => toggle && !panelOpen(this.loop.state) && selectTool(this.loop.state.game).tool === 'stapler';
     // The assists are read afresh every frame, so a switch in the menu takes effect on the first tick after it closes.
-    const alpha = this.loop.advance(delta, () => withAssists(this.input_.sample(toggling()), assists));
+    const alpha = this.loop.advance(delta, () => withAssists(this.input_.sample(togglesAttack(settings, this.loop.state)), assists));
     // On the tick a room is left the state already holds the next room, which this scene has no
     // views for: handle the exit and draw nothing more of it.
     if (this.pending.some((e) => e.type === 'roomChanged' || e.type === 'returnedToCheckpoint' || e.type === 'chapterEnded')) {
@@ -297,7 +294,13 @@ export class WorldScene extends Phaser.Scene {
    * closes that gap, and RESUME clears it.
    */
   private mayOpenOverlay(e: KeyboardEvent): boolean {
-    return !(e.repeat || this.leaving || this.overlayOpen || panelOpen(this.loop.state) || this.scene.isActive('Handbook') || this.scene.isActive('Pause'));
+    return mayOpenOverlay({
+      repeat: e.repeat,
+      leaving: this.leaving,
+      asked: this.overlayOpen,
+      panel: panelOpen(this.loop.state),
+      shown: this.scene.isActive('Handbook') || this.scene.isActive('Pause'),
+    });
   }
 
   /**
