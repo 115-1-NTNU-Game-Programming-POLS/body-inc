@@ -173,7 +173,8 @@ export type DomainEvent =
   /** A weapon landed on a cheers kid, who only backs off (design doc 7.7). */
   | { readonly type: 'backedOff'; readonly target: number; readonly enemy: string }
   | { readonly type: 'dodge' }
-  | { readonly type: 'perfectDodge'; readonly source: number }
+  /** `assisted` is set when only the automatic-perfect assist made the dodge perfect; it is absent otherwise, so a plain run is unchanged. */
+  | { readonly type: 'perfectDodge'; readonly source: number; readonly assisted?: true }
   | { readonly type: 'telegraph'; readonly source: number; readonly tier: 1 | 2 | 3; readonly move?: string }
   | { readonly type: 'hit'; readonly target: number; readonly enemy: string; readonly hpLeft: number }
   | { readonly type: 'caseClosed'; readonly target: number; readonly enemy: string }
@@ -1036,9 +1037,10 @@ export function step(state: GameState, pressed: TickInput): StepResult {
   const evade = (source: number): 'dodged' | 'ignored' | undefined => {
     const a = op.action;
     if (inDodgeIframes(a)) {
-      if ((a.frame <= DODGE.perfectLast || assists.autoPerfect) && !a.perfect) {
+      const timed = a.frame <= DODGE.perfectLast;
+      if ((timed || assists.autoPerfect) && !a.perfect) {
         op = { ...op, action: { ...a, perfect: true } };
-        events.push({ type: 'perfectDodge', source });
+        events.push(timed ? { type: 'perfectDodge', source } : { type: 'perfectDodge', source, assisted: true });
         op = charge(op, GAUGE.perfectDodge, state.p, events);
       }
       return 'dodged';
