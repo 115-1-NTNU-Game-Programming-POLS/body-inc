@@ -6,16 +6,23 @@ import type { EnemyState } from '../../core/index.ts';
  * frame per direction, and walking is shown by swaying the sprite around its anchor and lifting
  * it on each step. The pose is computed from time rather than tweened, because EnemyView sets the
  * position every frame and bounce() kills the sprite's tweens.
+ *
+ * The sway holds three angles instead of turning smoothly: a nearest-neighbour rotation of a few
+ * degrees breaks a 1 px outline and the face details differently on every frame, which shimmers
+ * while walking. Three held poses are three renderings an artist can check (art direction 5.4).
  */
 export const PUPPET_SWAY_DEG = 4;
 export const PUPPET_PERIOD_MS = 400;
 export const PUPPET_HOP_PX = 2;
+/** The sine must pass this fraction of its swing for the puppet to tilt; below it the puppet stands upright. */
+const TILT_ABOVE = 0.5;
 
 /** `ms` counts from the start of the walk, so a puppet always sets off upright. */
 export function puppetPose(ms: number): { angle: number; hop: number } {
   const s = Math.sin((ms / PUPPET_PERIOD_MS) * Math.PI * 2);
-  // Lifted at each end of the sway: one step per side.
-  return { angle: PUPPET_SWAY_DEG * s, hop: Math.round(Math.abs(s) * PUPPET_HOP_PX) };
+  const tilt = Math.abs(s) > TILT_ABOVE ? Math.sign(s) : 0;
+  // Lifted while tilted: one step per side.
+  return { angle: PUPPET_SWAY_DEG * tilt, hop: Math.abs(tilt) * PUPPET_HOP_PX };
 }
 
 export interface PuppetSway {
