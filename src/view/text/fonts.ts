@@ -73,14 +73,16 @@ export async function loadFonts(corpus: string, timeoutMs = 20000): Promise<Font
   }
   if (problems.length > 0) return { problems };
 
-  const loads = FACES.map(async ({ role, weight }) => {
+  // 冷啟動僅載入 400 權重之核心字型，其餘權重移至進入遊戲後動態載入
+  const bootFaces = FACES.filter(({ weight }) => weight === 400);
+  const loads = bootFaces.map(async ({ role, weight }) => {
     const font = cssFont(role, weight, 22);
     const faces = await document.fonts.load(font, corpus);
     if (faces.length === 0) problems.push(`${font}: no face matched`);
   });
   const timedOut = await Promise.race([Promise.all(loads).then(() => false), sleep(Math.max(0, deadline - Date.now())).then(() => true)]);
   if (timedOut) return { problems: [`fonts did not finish loading within ${timeoutMs / 1000} s`] };
-  for (const { role, weight } of FACES) {
+  for (const { role, weight } of bootFaces) {
     const missing = uncovered(FONT[role], weight, corpus);
     if (missing.length > 0) problems.push(`${FONT[role]} ${weight}: not loaded for ${missing.join('')}`);
   }

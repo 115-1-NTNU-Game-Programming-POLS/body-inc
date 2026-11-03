@@ -132,3 +132,36 @@ The 1,460 kB total is now within the budget of art direction 13.7, but only by a
 * `node tools/check-fonts.ts` (in `npm run check`) fails when the content uses a character a base subset does not declare. The fix is to rerun `python tools/fonts/build_fonts.py`.
 * `python tools/fonts/check_fonts.py` (in the CI art checks) opens every woff2 file the two stylesheets name and fails when a declared range promises a code point the file's `cmap` lacks, when two faces of one family and weight declare the same code point, or when a font file is named by no stylesheet. `tools/fonts/fixtures/rare-glyph.css` declares 龘 for a real base subset, and CI runs it with `--expect-missing` to prove the check can fail.
 * With `fonts.googleapis.com` and `fonts.gstatic.com` blocked (`--block "*fonts.googleapis.com*" --block "*fonts.gstatic.com*"`), the after build reaches the title in 0.76 s with all four faces loaded; the before build never shows the title.
+
+## 6. Issue #72 Cold Start Re-measurement & Budget Optimization
+
+Due to content expansion, cold start transfer exceeded the 1.5 MB budget (~1.86 MB). This section records the re-measurement and optimizations performed for Issue #72 to bring total transferred bytes back under budget.
+
+### Results (10 Mbps, Throttled)
+
+| Measure | Main (Before #72) | Final Optimized (#72) | Target Limit |
+| --- | --- | --- | --- |
+| **Time to title (median)** | 2.77 s | **2.59 s** | < 3.0 s |
+| **Time to prologue (median)** | - | **2.20 s** (2,196 ms) | < 8.0 s |
+| **Transferred by title** | 1,861.4 kB | **1,143.7 kB** | < 1,500 kB (1.5 MB) |
+| **Requests count** | 110 | **95** | - |
+| **Font woff2 files** | 4 requests | **2 requests** | - |
+
+### By Category (Final Optimized)
+
+| Category | Requests | Size | Notes |
+| --- | --- | --- | --- |
+| **Font woff2** | 2 | 483.6 kB | Restricted to Regular (400) weights |
+| **Font CSS** | 1 | 3.4 kB | `public/assets/fonts/fonts.css` |
+| **JavaScript** | 1 | 483.3 kB | Production JS bundle |
+| **Portraits** | 0 | 0.0 kB | Deferred to on-demand loading |
+| **Atlas PNG** | 21 | 86.8 kB | Scene & character atlases |
+| **Maps** | 39 | 51.7 kB | Room maps JSON |
+| **Atlas JSON** | 22 | 19.5 kB | Atlas descriptors |
+| **Tilesets** | 7 | 13.1 kB | Tileset images |
+| **HTML & Other** | 2 | 2.2 kB | `index.html` & manifest |
+
+### Key Optimization Measures
+1. **Portraits On-Demand**: Shifted dialogue portrait preloading out of `BootScene` into on-demand loading, saving ~221.7 kB during cold boot.
+2. **Font Weight Reduction**: Restricted cold boot font loading to 400-weight (Regular) faces for `Noto Sans TC` and `LXGW WenKai TC`. Bold (700) weights and preloads were removed from `index.html`, `styles.ts`, and `fonts.ts`, saving ~496 kB.
+3. **Automated Performance Regression Guard**: Added `tools/check-perf-budget.ts` to automatically enforce the 1.5 MB limit and test for budget overshoot violations.

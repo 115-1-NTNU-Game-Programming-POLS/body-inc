@@ -45,8 +45,8 @@ export class BootScene extends Phaser.Scene {
   }
 
   preload(): void {
-    // Fonts load in parallel with the assets; no scene that draws text starts before both finish.
-    this.fonts = loadFonts(bootCorpus(STRINGS, DIALOGUE_TEXT));
+    // 標題冷啟動僅載入 UI 與選單字集 (STRINGS)，對話字元延後載入
+    this.fonts = loadFonts(bootCorpus(STRINGS, []));
     this.load.on(Phaser.Loader.Events.FILE_LOAD_ERROR, (file: Phaser.Loader.File) => {
       this.failed.push(`failed to load ${file.url}`);
     });
@@ -100,8 +100,9 @@ export class BootScene extends Phaser.Scene {
       if (!meta) this.failed.push(`a map uses tileset ${name}, which tilesets.json does not list`);
       else this.load.image(name, meta.image);
     }
-    // A portrait the check missed stops Boot here with its file name, not on the first conversation.
-    for (const p of portraitsUsed(DIALOGUES, SPEAKERS)) this.load.image(p.key, p.url);
+    // 移除全量對話立繪 (portraits) 的預載，改為進入章節對話時再按需載入
+    // for (const p of portraitsUsed(DIALOGUES, SPEAKERS)) this.load.image(p.key, p.url);
+
     this.load.once(Phaser.Loader.Events.COMPLETE, () => this.ready(manifest, maps));
     this.load.start();
   }
