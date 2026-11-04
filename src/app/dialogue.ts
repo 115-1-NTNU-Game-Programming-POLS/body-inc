@@ -24,14 +24,19 @@ export interface PortraitFile {
 
 export const portraitKey = (speaker: string, expression: string): string => `portrait:${speaker}:${expression}`;
 
+export const portraitFile = (speaker: string, expression: string): PortraitFile => ({
+  key: portraitKey(speaker, expression),
+  url: `assets/portraits/portrait-${speaker}-${expression}.png`,
+});
+
 /** One file per speaker and expression the table uses, for the speakers that have portraits. */
 export function portraitsUsed(table: DialogueTable, speakers: Speakers): PortraitFile[] {
   const files = new Map<string, PortraitFile>();
   for (const d of table.values()) {
     for (const l of d.lines) {
       if (!speakers[l.speaker]?.portrait) continue;
-      const key = portraitKey(l.speaker, l.expression);
-      files.set(key, { key, url: `assets/portraits/portrait-${l.speaker}-${l.expression}.png` });
+      const file = portraitFile(l.speaker, l.expression);
+      files.set(file.key, file);
     }
   }
   return [...files.values()];

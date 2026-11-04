@@ -1,13 +1,15 @@
 import Phaser from 'phaser';
 import { musicFor, UI } from '../../app/audio.ts';
 import { tryResume } from '../../app/chapters.ts';
-import { AUDIO, str } from '../../app/content.ts';
+import { AUDIO, DIALOGUES, SPEAKERS, str } from '../../app/content.ts';
+import { portraitsUsed } from '../../app/dialogue.ts';
 import { sharedKeys } from '../../app/input.ts';
 import { DEMO_RUN } from '../../app/demo.ts';
 import { PRESENTER_KEY, presenterSettings, type Presenter } from '../../app/presenter.ts';
 import { resumeSemester } from '../../app/semester.ts';
 import type { ChapterContent, ChapterEntry, ChapterState, ProgressData, RunData, SemesterRun, Settings, StoryData } from '../../core/index.ts';
 import { playCue, soundIn } from '../audio/installSound.ts';
+import { loadPortraits } from '../portraits.ts';
 import { addText } from '../text/fonts.ts';
 import type { NameData } from './NameScene.ts';
 import type { CardsData } from './OpeningScene.ts';
@@ -49,6 +51,8 @@ export class TitleScene extends Phaser.Scene {
     if (performance.getEntriesByName('title-ready').length === 0) {
       this.game.events.once(Phaser.Core.Events.POST_RENDER, () => performance.mark('title-ready'));
     }
+    // Portraits are not in Boot; they load behind the title, long before the first conversation.
+    this.game.events.once(Phaser.Core.Events.POST_RENDER, () => void loadPortraits(this.textures, portraitsUsed(DIALOGUES, SPEAKERS)));
     const chapters = this.registry.get('chapters') as ReadonlyMap<string, ChapterContent>;
     // Kept current by the world scene on every punch; this is the same copy the save slot holds.
     const story = this.registry.get('story') as StoryData;
