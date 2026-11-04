@@ -34,6 +34,12 @@ export const tagKey = (key: string, tag: string): string => `${key}.${tag}`;
 /** public/assets/atlases/index.json, written by tools/art/make_placeholders.py: key -> path stem. */
 export type AtlasIndex = Readonly<Record<string, string>>;
 
+/**
+ * Scene atlases packed by tools/art/pack_atlases.py; props are drawn from their frames. Boot
+ * loads them by name, and tools/check-perf-budget.ts counts the same list.
+ */
+export const SCENE_ATLASES = ['atlas-brain', 'atlas-common', 'atlas-exam', 'atlas-liver'] as const;
+
 export function atlasUrls(index: AtlasIndex, key: string): { png: string; json: string } {
   const base = index[key];
   if (!base) throw new Error(`atlas index has no entry for "${key}"; rerun tools/art/make_placeholders.py`);

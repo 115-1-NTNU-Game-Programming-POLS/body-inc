@@ -7,7 +7,7 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && node tools/check-perf-budget.ts",
     "preview": "vite preview",
     "typecheck": "tsc -p tsconfig.core.json && tsc -p tsconfig.json",
     "test": "vitest run",

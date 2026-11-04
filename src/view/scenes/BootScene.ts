@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { atlasProblems, atlasUrls, type AsepriteJson, type AtlasIndex, type Manifest } from '../../app/assets.ts';
+import { atlasProblems, atlasUrls, SCENE_ATLASES, type AsepriteJson, type AtlasIndex, type Manifest } from '../../app/assets.ts';
 import { chapterContent, chapterLoop } from '../../app/chapters.ts';
 import { CHAPTERS, DIALOGUE_TEXT, PARAMS, STRINGS, TAGS } from '../../app/content.ts';
 import { chapterOfRoom, gaugeFromQuery, halvesFromQuery, roomFromQuery, semesterFromQuery, tagsFromQuery } from '../../app/session.ts';
@@ -14,8 +14,6 @@ import { addSystemText, admitText, loadFonts, setHostName, type FontGateResult }
 
 /** Phaser cache key of a room's Tiled map; the room path is folder/map as in the chapter file. */
 export const roomKey = (path: string): string => `room:${path}`;
-/** Scene atlases packed by tools/art/pack_atlases.py; props are drawn from their frames. */
-export const SCENE_ATLASES = ['atlas-brain', 'atlas-common', 'atlas-exam', 'atlas-liver'] as const;
 /**
  * Every room of every bundled chapter is loaded up front, so a broken map stops Boot with its name
  * and a door never waits on the network. Revisit when a chapter's rooms are heavy enough to matter.

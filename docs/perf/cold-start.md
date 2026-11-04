@@ -1,6 +1,6 @@
 # Cold start
 
-Sections 1 to 3 are the Phase 1 baseline of issue #15, with the game loading its fonts from Google Fonts. Sections 4 and 5 compare it with Phase 2, which self-hosts subset fonts.
+Sections 1 to 3 are the Phase 1 baseline of issue #15, with the game loading its fonts from Google Fonts. Sections 4 and 5 compare it with Phase 2, which self-hosts subset fonts. Section 6 is the re-measurement of issue #72 and holds the current baseline and budget.
 
 ## 1. Method
 
@@ -133,35 +133,36 @@ The 1,460 kB total is now within the budget of art direction 13.7, but only by a
 * `python tools/fonts/check_fonts.py` (in the CI art checks) opens every woff2 file the two stylesheets name and fails when a declared range promises a code point the file's `cmap` lacks, when two faces of one family and weight declare the same code point, or when a font file is named by no stylesheet. `tools/fonts/fixtures/rare-glyph.css` declares 龘 for a real base subset, and CI runs it with `--expect-missing` to prove the check can fail.
 * With `fonts.googleapis.com` and `fonts.gstatic.com` blocked (`--block "*fonts.googleapis.com*" --block "*fonts.gstatic.com*"`), the after build reaches the title in 0.76 s with all four faces loaded; the before build never shows the title.
 
-## 6. Issue #72 Cold Start Re-measurement & Budget Optimization
+## 6. Re-measurement and the budget (issue #72)
 
-Due to content expansion, cold start transfer exceeded the 1.5 MB budget (~1.86 MB). This section records the re-measurement and optimizations performed for Issue #72 to bring total transferred bytes back under budget.
+Content grew after section 5 was written, and by the time of issue #72 the title transferred 1,861.6 kB on `main` (`e0d57c1`), over the 1,460 kB recorded after issue #15. This section records a new baseline taken with the scripted method of section 4, the one change made to the cold path, and a revised budget with a check that enforces it. Both builds were produced on one machine in one session, and every setting has five runs except where stated. The script gained two figures in this round. "Settled" is the bytes that finished within three seconds after the `title-ready` mark, which catches a download that starts at the first frame of the title and so is missed by the bytes finished by the mark. `--prologue` presses Enter after the title (new game, confirm the host name) and reports the time of the first frame of the prologue room, set as the `prologue-ready` mark by `WorldScene`.
 
-### Results (10 Mbps, Throttled)
+### Results
 
-| Measure | Main (Before #72) | Final Optimized (#72) | Target Limit |
-| --- | --- | --- | --- |
-| **Time to title (median)** | 2.77 s | **2.59 s** | < 3.0 s |
-| **Time to prologue (median)** | - | **2.20 s** (2,196 ms) | < 8.0 s |
-| **Transferred by title** | 1,861.4 kB | **1,143.7 kB** | < 1,500 kB (1.5 MB) |
-| **Requests count** | 110 | **95** | - |
-| **Font woff2 files** | 4 requests | **2 requests** | - |
+| Measure at 10 Mbps, median of five | `main` | After |
+| --- | --- | --- |
+| Time to title | 2.72 s | 2.39 s |
+| Transferred by the title | 1,861.6 kB | 1,640.1 kB |
+| Requests by the title | 110 | 97 |
+| Transferred, settled | 1,861.6 kB | 1,861.8 kB |
+| Time to prologue (target 8 s) | not measured | 3.28 s |
 
-### By Category (Final Optimized)
+Raw values in milliseconds: `main` to title 2791, 3193, 2723, 2582, 2575; after to title 2389, 2403, 2368, 2388, 2446; after to prologue 3305, 3278, 3420, 3265, 3258. Unthrottled, the after build reaches the title in 0.59 s (583, 620, 585, 586, 640). With `fonts.googleapis.com` and `fonts.gstatic.com` blocked the title still appears, at 2.47 s (three runs). In `npm run dev`, `?fontDelay=4000` moves the title from 1.04 s to 4.96 s, so the gate still holds the title for the fonts. The prologue time is a floor: the keys are sent right after the title, where a person would read it first.
 
-| Category | Requests | Size | Notes |
-| --- | --- | --- | --- |
-| **Font woff2** | 2 | 483.6 kB | Restricted to Regular (400) weights |
-| **Font CSS** | 1 | 3.4 kB | `public/assets/fonts/fonts.css` |
-| **JavaScript** | 1 | 483.3 kB | Production JS bundle |
-| **Portraits** | 0 | 0.0 kB | Deferred to on-demand loading |
-| **Atlas PNG** | 21 | 86.8 kB | Scene & character atlases |
-| **Maps** | 39 | 51.7 kB | Room maps JSON |
-| **Atlas JSON** | 22 | 19.5 kB | Atlas descriptors |
-| **Tilesets** | 7 | 13.1 kB | Tileset images |
-| **HTML & Other** | 2 | 2.2 kB | `index.html` & manifest |
+The bytes by the title after the change, by category: font woff2 979.7 kB in 4 requests, JavaScript 483.8 kB, atlas PNG 86.8 kB in 21, maps 51.6 kB in 39, atlas JSON 19.5 kB in 22, tilesets 13.1 kB in 7, font CSS 3.4 kB, `manifest.json` 1.3 kB and `index.html` 0.9 kB. The four base font subsets hold the 1,115 characters of the boot corpus (906 at issue #15) and weigh 978.4 kB (955.5 KiB): Noto Sans TC 164.5 kB at 400 and 168.4 kB at 700, LXGW WenKai TC 318.4 kB at 400 and 327.1 kB at 700. The margin of about 40 kB that section 5 describes no longer exists.
 
-### Key Optimization Measures
-1. **Portraits On-Demand**: Shifted dialogue portrait preloading out of `BootScene` into on-demand loading, saving ~221.7 kB during cold boot.
-2. **Font Weight Reduction**: Restricted cold boot font loading to 400-weight (Regular) faces for `Noto Sans TC` and `LXGW WenKai TC`. Bold (700) weights and preloads were removed from `index.html`, `styles.ts`, and `fonts.ts`, saving ~496 kB.
-3. **Automated Performance Regression Guard**: Added `tools/check-perf-budget.ts` to automatically enforce the 1.5 MB limit and test for budget overshoot violations.
+### What changed on the cold path
+
+One thing moved: the 13 dialogue portraits, 221.7 kB, no longer load in `BootScene`. `TitleScene` starts loading them after its first frame, and `DialogueScene` loads a missing one itself and redraws when it arrives, so a conversation that starts early (a dev URL that skips the title) still shows its portrait. This lowers the bytes by the title by 221.7 kB and the time to title by about a third of a second, but it does not lower the total: the settled figure is the same as on `main`, because the portraits download right behind the title.
+
+Dropping the Bold faces from the cold path was tried and rejected. Weight 700 is used by the title itself and by the host name, course, dialogue name tag, exam and pause screens, so the browser fetches the two Bold files (496 kB) the moment the title draws. The bytes by the title then look 496 kB smaller, because the files are still in flight at the mark, and the saving is only that the mark is taken before they arrive. The settled figure shows this, and keeping the Bold faces in the font gate also keeps the guarantee of section 5 that no text is drawn in a fallback font. Removing a face changes how the game looks and was left to the maintainer, who kept both weights.
+
+### The budget
+
+Art direction 13.7 gave 1.5 MB for "Boot and the title (logo, fonts, `atlas-common`)". That list does not include the JavaScript bundle, about 480 kB and mostly Phaser, yet issues #15 and #72 compare the budget with everything the title transfers, which is the reading that left the title 140 kB over. The document does not record how 1.5 MB was derived. The measurements here give some context: at 10 Mbps the title took 2.13 s at 1,460 kB (section 5), 2.39 s at 1,640 kB and 2.72 s at 1,862 kB, so even `main` was inside the 3 s target and the byte budget is a margin for slower machines and the venue network, not a limit the target needs. The limit is therefore now 1,750 kB for everything that finishes before the title, bundle included, about 110 kB above today's 1,640 kB. It is a guard against drift rather than a derived constant, and art direction 13.7 says so.
+
+`tools/check-perf-budget.ts` enforces it and runs at the end of `npm run build`, so it is part of `npm run verify` and of the CI `verify` job. It adds up the files Boot loads from a production build in `dist/`, using the same lists as `BootScene`: the files `index.html` names, every face the font stylesheet declares, the manifest, the atlas index, the scene atlases (`SCENE_ATLASES` in `src/app/assets.ts`, shared with Boot), the atlas of every manifest entry, every room map of every chapter and the tileset images those maps use. Text files count as gzip and the rest as they are, with 350 bytes per request for headers. On the build measured above it gives 1,638.6 kB across 97 files, against 1,640.1 kB and 97 requests in the browser. A file the cold path needs and the build lacks is a failure, not zero bytes. `test/tools/perf-budget.test.ts` shows that it can fail: it builds a `dist/` from the real assets with a bundle of 400 kB, which passes, and with 900 kB, which fails, and it fails on a lowered limit and on a deleted font file.
+
+### Levers left
+
+If the title ever needs to move well under the limit, the largest one is splitting each base font subset into the characters the title draws and the rest, and loading the rest behind the title. By an estimate that was not measured, it would take the bytes by the title to roughly 760 kB, but the settled total would not change, and it needs changes to `tools/fonts/build_fonts.py`, the font gate and the title scene. Dropping the two Bold faces saves 496 kB for real and costs the bold look. The bundle cannot be split in a useful way, because Phaser is most of it.
