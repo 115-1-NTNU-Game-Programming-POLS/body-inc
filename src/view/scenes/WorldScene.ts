@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import type { Manifest, ManifestEntry } from '../../app/assets.ts';
+import { SCENE_ATLASES, type Manifest, type ManifestEntry } from '../../app/assets.ts';
 import { lowHeartBeat, musicFor, secondOf, UI } from '../../app/audio.ts';
 import { AUDIO, FEEDBACK, str, STRINGS } from '../../app/content.ts';
 import { releaseKeysOnClose } from '../../app/dialogue.ts';
@@ -28,7 +28,7 @@ import { soundIn } from '../audio/installSound.ts';
 import { FeedbackPlayer, type ActorFx } from '../fx/FeedbackPlayer.ts';
 import { HazardView } from '../fx/HazardView.ts';
 import { makeFxTextures } from '../fx/textures.ts';
-import { roomKey, SCENE_ATLASES } from './BootScene.ts';
+import { roomKey } from './BootScene.ts';
 
 export interface WorldNote {
   readonly text: string;
@@ -174,6 +174,10 @@ export class WorldScene extends Phaser.Scene {
       this.note(arrival);
     }
     this.playMusic();
+    // The cold start measurement (docs/perf/cold-start.md) also times the first frame of the prologue room.
+    if (this.loop.state.run.chapter === 'prologue' && performance.getEntriesByName('prologue-ready').length === 0) {
+      this.game.events.once(Phaser.Core.Events.POST_RENDER, () => performance.mark('prologue-ready'));
+    }
   }
 
   /** The chapter's track, or the boss's while one is fighting; the speakers keep a track that is already playing. */

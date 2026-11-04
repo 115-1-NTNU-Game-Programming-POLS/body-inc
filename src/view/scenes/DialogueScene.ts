@@ -1,11 +1,12 @@
 import Phaser from 'phaser';
 import { UI } from '../../app/audio.ts';
 import { SPEAKERS, str } from '../../app/content.ts';
-import { portraitKey } from '../../app/dialogue.ts';
+import { portraitFile } from '../../app/dialogue.ts';
 import { sharedKeys, type KeyboardInput } from '../../app/input.ts';
 import type { FixedStepLoop } from '../../app/loop.ts';
 import { selectDialogue, type ChapterContent, type ChapterState, type DialogueView, type GameEvent, type Settings } from '../../core/index.ts';
 import { playCue } from '../audio/installSound.ts';
+import { loadPortraits } from '../portraits.ts';
 import { addText } from '../text/fonts.ts';
 import { DIALOGUE, MEMO, REPLY } from '../text/styles.ts';
 
@@ -118,7 +119,7 @@ export class DialogueScene extends Phaser.Scene {
       const spoken = `${line.speaker}|${line.expression}|${line.text}`;
       const bounce = spoken !== this.spoken;
       this.spoken = spoken;
-      const portrait = speaker.portrait ? this.portrait(line.speaker, line.expression, memo ? MEMO_PORTRAIT_BOTTOM : BOX.y + PORTRAIT.hidden) : undefined;
+      const portrait = speaker.portrait ? this.portrait(line.speaker, line.expression, memo ? MEMO_PORTRAIT_BOTTOM : BOX.y + PORTRAIT.hidden, key) : undefined;
       if (portrait && bounce) {
         this.tweens.add({ targets: portrait, scaleY: portrait.scaleY * 1.03, duration: BOUNCE_MS, yoyo: true, ease: 'Sine.easeOut' });
       }
@@ -136,8 +137,20 @@ export class DialogueScene extends Phaser.Scene {
     this.paint(view.cursor);
   }
 
-  private portrait(speaker: string, expression: string, bottom: number): Phaser.GameObjects.Image {
-    const image = this.put(this.add.image(PORTRAIT.x, bottom, portraitKey(speaker, expression)).setOrigin(0, 1));
+  /**
+   * Portraits load behind the title (TitleScene), so one is missing only when a conversation starts
+   * before they arrive, as with a dev URL that skips the title. The line is drawn without it and
+   * redrawn once the file is in, unless the conversation has moved on.
+   */
+  private portrait(speaker: string, expression: string, bottom: number, shown: string): Phaser.GameObjects.Image | undefined {
+    const file = portraitFile(speaker, expression);
+    if (!this.textures.exists(file.key)) {
+      void loadPortraits(this.textures, [file]).then(() => {
+        if (this.shown === shown && this.textures.exists(file.key)) this.shown = '';
+      });
+      return undefined;
+    }
+    const image = this.put(this.add.image(PORTRAIT.x, bottom, file.key).setOrigin(0, 1));
     return image.setScale(PORTRAIT.height / image.height);
   }
 

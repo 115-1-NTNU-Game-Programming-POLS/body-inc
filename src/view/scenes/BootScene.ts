@@ -1,8 +1,7 @@
 import Phaser from 'phaser';
-import { atlasProblems, atlasUrls, type AsepriteJson, type AtlasIndex, type Manifest } from '../../app/assets.ts';
+import { atlasProblems, atlasUrls, SCENE_ATLASES, type AsepriteJson, type AtlasIndex, type Manifest } from '../../app/assets.ts';
 import { chapterContent, chapterLoop } from '../../app/chapters.ts';
-import { CHAPTERS, DIALOGUES, DIALOGUE_TEXT, PARAMS, SPEAKERS, STRINGS, TAGS } from '../../app/content.ts';
-import { portraitsUsed } from '../../app/dialogue.ts';
+import { CHAPTERS, DIALOGUE_TEXT, PARAMS, STRINGS, TAGS } from '../../app/content.ts';
 import { chapterOfRoom, gaugeFromQuery, halvesFromQuery, roomFromQuery, semesterFromQuery, tagsFromQuery } from '../../app/session.ts';
 import { browserStore, SaveStore, type SaveIssue } from '../../app/storage.ts';
 import {
@@ -15,8 +14,6 @@ import { addSystemText, admitText, loadFonts, setHostName, type FontGateResult }
 
 /** Phaser cache key of a room's Tiled map; the room path is folder/map as in the chapter file. */
 export const roomKey = (path: string): string => `room:${path}`;
-/** Scene atlases packed by tools/art/pack_atlases.py; props are drawn from their frames. */
-export const SCENE_ATLASES = ['atlas-brain', 'atlas-common', 'atlas-exam', 'atlas-liver'] as const;
 /**
  * Every room of every bundled chapter is loaded up front, so a broken map stops Boot with its name
  * and a door never waits on the network. Revisit when a chapter's rooms are heavy enough to matter.
@@ -100,8 +97,6 @@ export class BootScene extends Phaser.Scene {
       if (!meta) this.failed.push(`a map uses tileset ${name}, which tilesets.json does not list`);
       else this.load.image(name, meta.image);
     }
-    // A portrait the check missed stops Boot here with its file name, not on the first conversation.
-    for (const p of portraitsUsed(DIALOGUES, SPEAKERS)) this.load.image(p.key, p.url);
     this.load.once(Phaser.Loader.Events.COMPLETE, () => this.ready(manifest, maps));
     this.load.start();
   }
