@@ -90,16 +90,22 @@ export function leverAt(room: RoomModel, box: Box): RoomObject | undefined {
  * meets the body grown by INTERACT_REACH, and the lowest id when two are equally near; a pickup
  * already taken is not there. One definition for the rule and for the HUD prompt, so the prompt
  * never promises what the key will not do.
+ *
+ * A time clock comes last: its box is wide, so its centre can be nearer than a pickup or NPC the
+ * player is facing, and stepping onto it punches anyway. While the body stands on it the key
+ * leaves it alone, since the touch has already punched it.
  */
 export function reachableObject(
   room: RoomModel, body: Box, feet: { readonly x: number; readonly y: number }, taken: readonly number[],
 ): RoomObject | undefined {
   const reach = grown(body, INTERACT_REACH);
-  let best: { o: RoomObject; d: number } | undefined;
+  let best: { o: RoomObject; d: number; clock: boolean } | undefined;
   for (const { o, box } of indexOf(room).reached) {
     if (!overlaps(reach, box) || (o.kind === 'Pickup' && taken.includes(o.id))) continue;
+    const clock = o.kind === 'Trigger';
+    if (clock && overlaps(body, box)) continue;
     const d = Math.hypot((box.left + box.right) / 2 - feet.x, (box.top + box.bottom) / 2 - feet.y);
-    if (!best || d < best.d) best = { o, d };
+    if (!best || (best.clock && !clock) || (best.clock === clock && d < best.d)) best = { o, d, clock };
   }
   return best?.o;
 }

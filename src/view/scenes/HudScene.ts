@@ -472,12 +472,13 @@ export class HudScene extends Phaser.Scene {
     }
     this.renderGlucose(glucoseOf(loop.state.run.tags));
     this.renderBoss(game, time);
+    // The status line anchors to the clock only while the clock shows, so the clock goes first.
+    this.renderClock(game);
     this.renderStatus(loop.state);
     const exam = selectExam(game);
     const stampable = exam?.state.part === 'run' && game.operator.action.kind === 'free' && !game.interactRest && stepAt(exam.state, game.operator) !== undefined;
     this.prompt.setVisible(loop.state.dialogue === null && loop.state.card === null && !loop.state.rescue && !loop.state.exam
       && (selectInteractable(game) !== undefined || stampable));
-    this.renderClock(game);
   }
 
   /**
