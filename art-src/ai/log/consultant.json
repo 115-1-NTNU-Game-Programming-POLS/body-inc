@@ -18,15 +18,17 @@
  "source_name": "ChatGPT 下載的 webp / png",
  "post": {
   "select": true,
-  "outline": "江兆耘手修",
-  "quantize": "對回 body-inc-pixel.gpl（西裝與領帶色、徽章金 FFC83D、髮色 2F2019 / 4A3428 / 6B4A3A、合約夾 FCC551 / 8A8F98 等）；整格縮小到 5/6 倍（最近鄰）以對齊西裝範本身高 38 像素",
+  "outline": "江兆耘手修時混用 #182448 與 #0C2D5E，之後由 Isaries 統一改為規範的 #0C2D5E，並補上頭部兩側與背面肩膀的描邊缺口",
+  "quantize": "對回 body-inc-pixel.gpl（西裝與領帶色、徽章金 FFC83D、髮色 2F2019 / 4A3428 / 6B4A3A、合約夾 FCC551 / 8A8F98 等）；整格縮小到 5/6 倍（最近鄰）以對齊西裝範本身高 38 像素；之後由 Isaries 把合約夾側邊的員工黃 FCC551 改為淺灰 C9CCD1，夾子的石灰 8A8F98（打不動專用）也改為 C9CCD1 並加寬為 2 像素，全圖 14 色",
   "remove-text": "n/a",
-  "pixel-cleanup": "江兆耘手修",
+  "pixel-cleanup": "江兆耘手修；之後由 Isaries 依美術指南第 4 節把正面合約夾移到畫面左側、在畫面右側的胸口補 5 × 6 加墨藍描邊的閃電徽章，背面徽章改為同規格，正面補 2 像素的嘴，刪除頭頂、臉頰、側臉與鞋子上的雜點",
   "style-board-check": "待審"
  },
  "hours": {
-  "cleanup_minutes": null,
-  "note": "作者填寫清理三格的實際分鐘數"
+  "cleanup_minutes": 7,
+  "generation_minutes": null,
+  "hand_estimate_minutes": 40,
+  "note": "清理三格合計約 7 分鐘（作者自述）；生圖時間未記錄；手繪同一張為預估值，未實測；維護者補正未計時"
  },
  "status": "hand-finished",
  "processed": {
@@ -34,6 +36,6 @@
    "public/assets/atlases/consultant.png",
    "public/assets/atlases/consultant.json"
   ],
-  "png_colors": 16
+  "png_colors": 14
  }
 }

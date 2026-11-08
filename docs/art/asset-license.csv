@@ -30,5 +30,5 @@ public/assets/atlases/suit-base.png,顧問西裝範本圖集（9 格）,江兆�
 public/assets/atlases/suit-base.json,顧問西裝範本圖集資料,江兆耘,,team-original,,none,,,,江兆耘,2026-11-08,
 public/assets/atlases/flyer.png,傳單紙怪圖集（3 格）,江兆耘,,team-original,,ai-generated,ChatGPT（gpt-image，產生姿勢底稿）,art-src/ai/log/flyer.json,AI 參考圖去背、縮回原生像素格、對回色票後由江兆耘清理（重畫臉、整理傳單色塊、重畫閃電徽章）；之後由 Isaries 依美術指南把描邊改為 #0C2D5E、徽章改為 5 × 6 加墨藍描邊、頭上色塊改為便利貼黃（徽章金只用在炭灰底上）、受擊格兩眼改為同大、刪除脫離的線段與雜點,江兆耘,2026-11-08,
 public/assets/atlases/flyer.json,傳單紙怪圖集資料,江兆耘,,team-original,,none,,,,江兆耘,2026-11-08,
-public/assets/atlases/consultant.png,序章速效顧問圖集（3 格）,江兆耘,,team-original,,ai-generated,ChatGPT（gpt-image，產生姿勢底稿）,art-src/ai/log/consultant.json,AI 參考圖去背、縮回原生像素格並縮小到 5/6 倍（對齊西裝範本身高）、對回色票後由江兆耘清理；之後由 Isaries 依美術指南把描邊改為 #0C2D5E、補頭部與肩膀的描邊缺口、正面把合約夾移到左胸並在右胸補 5 × 6 加墨藍描邊的閃電徽章、背面徽章改為同規格、正面補嘴、合約夾側邊的員工黃改為灰、刪除雜點,江兆耘,2026-11-08,
+public/assets/atlases/consultant.png,序章速效顧問圖集（3 格）,江兆耘,,team-original,,ai-generated,ChatGPT（gpt-image，產生姿勢底稿）,art-src/ai/log/consultant.json,AI 參考圖去背、縮回原生像素格並縮小到 5/6 倍（對齊西裝範本身高）、對回色票後由江兆耘清理；之後由 Isaries 依美術指南把描邊改為 #0C2D5E、補頭部與肩膀的描邊缺口、正面把合約夾移到畫面左側並在畫面右側的胸口補 5 × 6 加墨藍描邊的閃電徽章、背面徽章改為同規格、正面補嘴、合約夾側邊的員工黃與夾子的石灰改為淺灰、刪除雜點,江兆耘,2026-11-08,
 public/assets/atlases/consultant.json,序章速效顧問圖集資料,江兆耘,,team-original,,none,,,,江兆耘,2026-11-08,
