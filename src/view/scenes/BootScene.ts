@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { atlasProblems, atlasUrls, SCENE_ATLASES, type AsepriteJson, type AtlasIndex, type Manifest } from '../../app/assets.ts';
 import { chapterContent, chapterLoop } from '../../app/chapters.ts';
-import { CHAPTERS, DIALOGUE_TEXT, PARAMS, STRINGS, TAGS } from '../../app/content.ts';
+import { CHAPTERS, DIALOGUE_TEXT, PARAMS, str, STRINGS, TAGS } from '../../app/content.ts';
 import { chapterOfRoom, gaugeFromQuery, halvesFromQuery, roomFromQuery, semesterFromQuery, tagsFromQuery } from '../../app/session.ts';
 import { browserStore, SaveStore, type SaveIssue } from '../../app/storage.ts';
 import {
@@ -25,6 +25,18 @@ interface TilesetMeta {
 }
 
 /**
+ * Phaser retries a file only on a network error, not on an HTTP error such as a passing 503 from
+ * Pages, and one failed file used to end the boot (#80). A failed load restarts Boot instead;
+ * files already in the cache are skipped, so only the missing ones are fetched again.
+ */
+const BOOT_RETRIES = 2;
+const RETRY_DELAY_MS = 1000;
+
+interface BootData {
+  readonly attempt?: number;
+}
+
+/**
  * Loads the manifest first, then every atlas it implies, the rooms of the chapters and the
  * tilesets they use, and validates them. Any failure ends on a readable problem list instead of
  * a blank canvas. A dev URL with ?room= goes straight into that room; otherwise the title opens.
@@ -36,17 +48,29 @@ export class BootScene extends Phaser.Scene {
   private tags: TagState = EMPTY_TAGS;
   private gauge: number | undefined;
   private halves: number | undefined;
+  private attempt = 0;
+  private loadFailed = false;
+  private readonly onLoadError = (file: Phaser.Loader.File) => {
+    this.loadFailed = true;
+    this.failed.push(`failed to load ${String(file.url)}`);
+  };
 
   constructor() {
     super('Boot');
   }
 
+  /** A restart reuses this scene object, so what the last attempt found is cleared here. */
+  init(data: BootData): void {
+    this.attempt = data.attempt ?? 0;
+    this.failed.length = 0;
+    this.loadFailed = false;
+  }
+
   preload(): void {
     // Fonts load in parallel with the assets; no scene that draws text starts before both finish.
     this.fonts = loadFonts(bootCorpus(STRINGS, DIALOGUE_TEXT));
-    this.load.on(Phaser.Loader.Events.FILE_LOAD_ERROR, (file: Phaser.Loader.File) => {
-      this.failed.push(`failed to load ${file.url}`);
-    });
+    this.load.off(Phaser.Loader.Events.FILE_LOAD_ERROR, this.onLoadError);
+    this.load.on(Phaser.Loader.Events.FILE_LOAD_ERROR, this.onLoadError);
     const query = import.meta.env.DEV ? window.location.search : '';
     try {
       this.devRoom = roomFromQuery(query);
@@ -189,7 +213,16 @@ export class BootScene extends Phaser.Scene {
   }
 
   private fail(): void {
+    if (this.loadFailed && this.attempt < BOOT_RETRIES) {
+      const attempt = this.attempt + 1;
+      console.warn(`boot: ${this.failed.join('; ')}; retry ${attempt} of ${BOOT_RETRIES}`);
+      this.time.delayedCall(RETRY_DELAY_MS * attempt, () => this.scene.restart({ attempt } satisfies BootData));
+      return;
+    }
     const lines = this.failed.length ? this.failed : ['a required boot file did not load'];
-    addSystemText(this, 16, 16, ['Boot problems:', ...lines].join('\n'), '#ffb4a8');
+    // A file that still fails is most likely the network, which a reload can fix; a broken file is not.
+    const advice = this.loadFailed ? [str('boot.load_failed'), ''] : [];
+    addSystemText(this, 16, 16, [...advice, 'Boot problems:', ...lines].join('\n'), '#ffb4a8');
+    if (this.loadFailed) this.input.keyboard?.once('keydown-R', () => window.location.reload());
   }
 }
