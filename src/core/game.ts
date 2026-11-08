@@ -617,7 +617,10 @@ function damage(e: EnemyState, amount: number, freeze: number, events: DomainEve
   return { ...e, hp, frozen: e.boss ? 0 : Math.max(e.frozen, freeze) };
 }
 
+const triggerOf = (o: RoomObject): DomainEvent => ({ type: 'triggerEntered', object: o.id, trigger: String(o.props['event']), eventId: String(o.props['eventId']) });
+
 function interactionOf(o: RoomObject): DomainEvent {
+  if (o.kind === 'Trigger') return triggerOf(o);
   return o.kind === 'NPC'
     ? { type: 'talk', object: o.id, npc: String(o.props['npcId']), dialogueId: String(o.props['dialogueId']) }
     : { type: 'bedUse', object: o.id, bedType: String(o.props['bedType']) };
@@ -829,9 +832,11 @@ export function step(state: GameState, pressed: TickInput): StepResult {
       roomEvents.push(doorsOpenNow.includes(o.id)
         ? { type: 'doorEntered', object: o.id, door: o.name, socket: String(o.props['socket']) }
         : { type: 'doorLocked', object: o.id, lock: String(o.props['lock']) });
-    } else roomEvents.push({ type: 'triggerEntered', object: o.id, trigger: String(o.props['event']), eventId: String(o.props['eventId']) });
+    } else roomEvents.push(triggerOf(o));
   }
-  if (used && used.kind !== 'Switch' && used.kind !== 'Pickup') roomEvents.push(interactionOf(used));
+  // A time clock stepped onto and keyed on the same tick is punched once.
+  const stepped = (id: number) => roomEvents.some((e) => e.type === 'triggerEntered' && e.object === id);
+  if (used && used.kind !== 'Switch' && used.kind !== 'Pickup' && !stepped(used.id)) roomEvents.push(interactionOf(used));
   events.push(...roomEvents);
 
   // Ids only ever grow, and every loop below runs in id order, so results never depend on

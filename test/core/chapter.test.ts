@@ -411,6 +411,7 @@ describe('the half heart owed under the halved-damage assist', () => {
 
 describe('checkpoints and forced leave', () => {
   const clock = (s: ChapterState) => place(s, 128, 230);
+  const PRESS: TickInput = { move: { x: 0, y: 0 }, interactPressed: true };
 
   it('the time clock saves where it is, restores the hearts, and can be punched again', () => {
     let s = startChapter(ctx, { room: REST, halves: 3 });
@@ -421,6 +422,19 @@ describe('checkpoints and forced leave', () => {
     s = place(r.state, 130, 300);
     const later = advanceBy(ctx, { ...place(s, 140, 240), game: { ...s.game, touching: [], operator: { ...s.game.operator, x: 140, y: 240 } } }, NONE);
     expect(later.state.run.checkpoint).toMatchObject({ x: 140, y: 240 });
+  });
+
+  it('the interact key next to the time clock punches it too, and the prompt offers it (#82)', () => {
+    // Beside the clock's box (x 96 to 160), not on it: stepping alone does nothing here.
+    const beside = place(startChapter(ctx, { room: REST, halves: 3 }), 180, 230);
+    expect(types(advanceBy(ctx, beside, NONE).events)).not.toContain('checkpointSaved');
+    expect(selectInteractable(beside.game)).toEqual({ object: 4, kind: 'Trigger' });
+    const r = advanceBy(ctx, beside, PRESS);
+    expect(r.events).toContainEqual({ type: 'checkpointSaved', room: REST });
+    expect(r.state.run.checkpoint).toMatchObject({ roomId: REST, x: 180, y: 230 });
+    expect(r.state.game.operator.halves).toBe(r.state.game.operator.maxHalves);
+    // Stepping on and pressing on the same tick punches once.
+    expect(types(advanceBy(ctx, clock(startChapter(ctx, { room: REST })), PRESS).events).filter((t) => t === 'checkpointSaved')).toHaveLength(1);
   });
 
   it('a forced leave goes back to the checkpoint: its room, place, tags and clock, with hearts full and fired kept', () => {
