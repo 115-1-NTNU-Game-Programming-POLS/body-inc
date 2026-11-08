@@ -17,6 +17,7 @@
 | 7 | `python tools/art/pack_atlases.py` | `public/assets/atlases/` 的場景圖集與介面圖示圖集 |
 | 8 | `python tools/art/review_sheets.py`、`preview_rooms.py` | `art-src/ai/review/` 的審查圖與範例房間 |
 | 9 | `python tools/art/import_ai_batch.py --sheets-only` | `art-src/ai/raw/_contact/` 的原圖縮圖總表 |
+| 10 | `python tools/art/make_stopgaps.py`，再重跑第 3 步 | `public/assets/atlases/stopgap/` 的暫代圖集：手繪圖還沒交的角色，由第 4、5 步的頭像、AI 概念圖與程式草稿轉成（美術指南 15.4 節，待修清單 #96）；重跑第 3 步讓索引指向它們 |
 
 第 4 至 9 步的中間產物（`art-src/ai/processed/`、`art-src/ai/review/`、`art-src/ai/raw/_contact/`）雖可重建，仍提交進 Git，讓沒有跑過管線的組員也能直接檢視。
 

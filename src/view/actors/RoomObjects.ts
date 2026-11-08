@@ -88,7 +88,13 @@ function timeClock(scene: Phaser.Scene, o: RoomObject): void {
 }
 
 function npc(scene: Phaser.Scene, o: RoomObject, manifest: Manifest): void {
-  const entry = manifest.entries.find((e) => e.key === String(o.props['npcId']));
+  const id = String(o.props['npcId']);
+  const entry = manifest.entries.find((e) => e.key === id);
+  // The three sobering-myth stalls share one night-market stall frame (art direction 9.1).
+  if (!entry && id.startsWith('stall-') && scene.textures.exists('atlas-common')) {
+    scene.add.image(o.x, o.y, 'atlas-common', 'prop-stall-frame').setOrigin(0.5, 1).setDepth(o.y);
+    return;
+  }
   if (!entry) {
     scene.add.graphics().setDepth(o.y).fillStyle(INK).fillRect(o.x - 9, o.y - 25, 18, 25).fillStyle(PAPER).fillRect(o.x - 7, o.y - 23, 14, 8);
     return;
