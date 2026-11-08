@@ -26,3 +26,5 @@ public/assets/audio/music/easy-lemon.mp3,Easy Lemon,Kevin MacLeod,https://incomp
 public/assets/audio/music/local-forecast-elevator.mp3,Local Forecast - Elevator,Kevin MacLeod,https://incompetech.com/music/royalty-free/mp3-royaltyfree/Local%20Forecast%20-%20Elevator.mp3,CC-BY-4.0,https://creativecommons.org/licenses/by/4.0/,none,,,轉為 MP3 並正規化至 -18 LUFS（tools/audio/build-music.ts），為符合 1.5 MB 上限降為單聲道 56 kbps，未更動旋律與編曲,黃晨瑋,2026-11-03,Local Forecast - Elevator Kevin MacLeod (incompetech.com) Licensed under Creative Commons: By Attribution 4.0 https://creativecommons.org/licenses/by/4.0/
 public/assets/atlases/operator.png,營運長圖集（23 格）,江兆耘,,team-original,,ai-generated,ChatGPT（gpt-image，產生姿勢底稿）,art-src/ai/log/operator.json,AI 參考圖去背、縮回原生像素格、對回 16 色後由江兆耘手修；走路格以腳本衍生；側面走路以最近鄰放大 4/3 倍,江兆耘,2026-11-08,
 public/assets/atlases/operator.json,營運長圖集資料,江兆耘,,team-original,,none,,,,江兆耘,2026-11-08,
+public/assets/atlases/flyer.png,傳單紙怪圖集（3 格）,江兆耘,,team-original,,ai-generated,ChatGPT（gpt-image，產生姿勢底稿）,art-src/ai/log/flyer.json,AI 參考圖去背、縮回原生像素格、對回色票後由江兆耘清理（重畫臉、整理傳單色塊、重畫閃電徽章）,江兆耘,2026-11-08,
+public/assets/atlases/flyer.json,傳單紙怪圖集資料,江兆耘,,team-original,,none,,,,江兆耘,2026-11-08,
