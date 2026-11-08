@@ -1,0 +1,37 @@
+{
+ "id": "operator",
+ "title": "營運長 23 格像素圖集（姿勢底稿由 AI 產生，江兆耘手修）",
+ "batch": "operator-poses",
+ "tool": "ChatGPT (gpt-image)",
+ "model": "不在憑證中",
+ "date": "2026-11-07",
+ "template": "operator-pose-sheet-v1",
+ "prompt": [
+  "共通開頭：The attached images are my pixel-art game character. Keep the character EXACTLY as attached: head and face identical (same plain dot eyes, no eyebrows, no expression change), same colors, same thick navy outline, same crisp pixel style, same head size.",
+  "共通指定：Generate exactly ONE image: a horizontal sprite sheet with N poses of the SAME character in a single row, same size, feet on the same baseline.",
+  "共通禁止：No weapon, no stationery, no motion lines, no impact marks, no sparkles, no sweat drops, no effects, no text. Plain solid pure white background, no floor, no shadow.",
+  "姿勢：walk 跨步 A/B（正面、側面、背面）、attack 後拉與前推（正面、側面、背面）、hurt 往後仰（三個方向）、stamp 雙手舉高與壓下（正面）",
+  "各姿勢的完整提示詞原文請作者貼於此處（僅此欄為摘要）"
+ ],
+ "references": "江兆耘手繪正面 walk_down（立繪上傳已於 2026-10-23 取得同意）",
+ "candidates": null,
+ "selected": "各方向、各動作各選 1 張生成圖（原圖未入庫）",
+ "source_name": "ChatGPT 下載的 webp / png",
+ "post": {
+  "select": true,
+  "outline": "江兆耘手修",
+  "quantize": "對回 body-inc-pixel.gpl 的 16 色",
+  "remove-text": "n/a",
+  "pixel-cleanup": "江兆耘手修",
+  "style-board-check": "待審"
+ },
+ "hours": null,
+ "status": "hand-finished",
+ "processed": {
+  "outputs": [
+   "public/assets/atlases/operator.png",
+   "public/assets/atlases/operator.json"
+  ],
+  "png_colors": 16
+ }
+}
