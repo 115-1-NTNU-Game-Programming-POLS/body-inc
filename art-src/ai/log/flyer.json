@@ -18,15 +18,17 @@
  "source_name": "ChatGPT 下載的 webp / png",
  "post": {
   "select": true,
-  "outline": "江兆耘手修",
-  "quantize": "對回 body-inc-pixel.gpl（西裝與領帶色、徽章金 FFC83D、傳單色塊 FCC551 / 3D4A66 / 8A8F98 等 13 色）",
+  "outline": "江兆耘手修時使用 #182448，之後由 Isaries 統一改為規範的 #0C2D5E",
+  "quantize": "對回 body-inc-pixel.gpl（西裝與領帶色、徽章金 FFC83D、傳單色塊 FFC83D / FCC551 / 3D4A66 / 8A8F98 等 13 色）；之後由 Isaries 把頭上色塊改為便利貼黃 FFF1A8，徽章金只留在炭灰底的徽章上，全圖剩 12 色",
   "remove-text": "n/a",
   "pixel-cleanup": "江兆耘手修",
   "style-board-check": "待審"
  },
  "hours": {
   "cleanup_minutes": 6.5,
-  "note": "三格合計約 6.5 分鐘（作者自述，從頭到尾）；手繪同一張預估每張約 15 分鐘"
+  "generation_minutes": null,
+  "hand_estimate_minutes": 45,
+  "note": "清理三格合計約 6.5 分鐘（作者自述，從頭到尾）；生圖時間未記錄；手繪同一張為預估值（每張約 15 分鐘），未實測；維護者補正未計時"
  },
  "status": "hand-finished",
  "processed": {
@@ -34,6 +36,6 @@
    "public/assets/atlases/flyer.png",
    "public/assets/atlases/flyer.json"
   ],
-  "png_colors": 13
+  "png_colors": 12
  }
 }
