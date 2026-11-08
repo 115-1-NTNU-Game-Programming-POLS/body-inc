@@ -574,6 +574,42 @@
      "height": 64,
      "rotation": 0,
      "visible": true
+    },
+    {
+     "id": 50,
+     "name": "nap-sofa",
+     "type": "",
+     "gid": 51,
+     "x": 96,
+     "y": 320,
+     "width": 64,
+     "height": 48,
+     "rotation": 0,
+     "visible": true
+    },
+    {
+     "id": 51,
+     "name": "office-desk",
+     "type": "",
+     "gid": 50,
+     "x": 416,
+     "y": 336,
+     "width": 64,
+     "height": 48,
+     "rotation": 0,
+     "visible": true
+    },
+    {
+     "id": 52,
+     "name": "office-desk",
+     "type": "",
+     "gid": 50,
+     "x": 512,
+     "y": 336,
+     "width": 64,
+     "height": 48,
+     "rotation": 0,
+     "visible": true
     }
    ]
   },
@@ -852,10 +888,10 @@
   },
   {
    "firstgid": 49,
-   "name": "props-brain",
+   "name": "props",
    "tilewidth": 64,
    "tileheight": 64,
-   "tilecount": 1,
+   "tilecount": 3,
    "columns": 0,
    "margin": 0,
    "spacing": 0,
@@ -870,6 +906,18 @@
      "image": "../../props/prop-clock-vent.png",
      "imagewidth": 64,
      "imageheight": 64
+    },
+    {
+     "id": 1,
+     "image": "../../props/prop-office-desk.png",
+     "imagewidth": 64,
+     "imageheight": 48
+    },
+    {
+     "id": 2,
+     "image": "../../props/prop-nap-sofa.png",
+     "imagewidth": 64,
+     "imageheight": 48
     }
    ]
   }

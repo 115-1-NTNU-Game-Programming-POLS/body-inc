@@ -79,6 +79,49 @@ export function shell(world: string, seed = 7, cols = W): Shell {
   return { sheet, floor, walls, gid, set, tileset, tilecount: tsj.tilecount };
 }
 
+/** A decoration prop: one of public/assets/props by file name without .png, its bottom-left corner in pixels. */
+export interface Prop {
+  readonly name: string;
+  readonly x: number;
+  readonly bottom: number;
+}
+
+/**
+ * The "props" layer of art direction 7.3 and the image-collection tileset it draws from, placed
+ * after the struct sheet. Props are decoration only: they neither collide nor take part in play,
+ * so a room places them along walls and in corners, clear of the paths and the objects.
+ * Object ids start at `firstId`; keep them clear of the room's own objects.
+ */
+export function propsLayer(s: Shell, layerId: number, firstId: number, props: readonly Prop[]): { layer: object; tileset: object } {
+  const kit = propKit(s, props.map((p) => p.name));
+  return { layer: objectGroup(layerId, 'props', props.map((p, i) => kit.place(firstId + i, p))), tileset: kit.tileset };
+}
+
+/** The props tileset for `names`, and tile objects drawing from it; for rooms that also put props in variant groups. */
+export function propKit(s: Shell, names: readonly string[]): { tileset: object; place: (id: number, p: Prop) => object } {
+  const unique = [...new Set(names)];
+  const size = new Map(unique.map((n) => {
+    const png = readFileSync(join(ROOT, 'public', 'assets', 'props', `${n}.png`));
+    return [n, { w: png.readUInt32BE(16), h: png.readUInt32BE(20) }] as const;
+  }));
+  const firstgid = s.tilecount + 1;
+  const sizes = [...size.values()];
+  const tileset = {
+    firstgid, name: 'props', tilewidth: Math.max(...sizes.map((v) => v.w)), tileheight: Math.max(...sizes.map((v) => v.h)),
+    tilecount: unique.length, columns: 0, margin: 0, spacing: 0, grid: { orientation: 'orthogonal', width: 1, height: 1 },
+    tiles: unique.map((n, id) => ({ id, image: `../../props/${n}.png`, imagewidth: size.get(n)!.w, imageheight: size.get(n)!.h })),
+  };
+  const place = (id: number, p: Prop) => {
+    const dim = size.get(p.name);
+    if (!dim) throw new Error(`prop ${p.name} is not in this room's props tileset`);
+    return { id, name: p.name.replace(/^prop-/, ''), type: '', gid: firstgid + unique.indexOf(p.name), x: p.x, y: p.bottom, width: dim.w, height: dim.h, rotation: 0, visible: true };
+  };
+  return { tileset, place };
+}
+
+export const objectGroup = (id: number, name: string, objects: readonly object[]) =>
+  ({ id, name, type: 'objectgroup', x: 0, y: 0, opacity: 1, visible: true, draworder: 'topdown', objects });
+
 export const tileLayer = (id: number, name: string, data: number[], cols = W) => ({
   id, name, type: 'tilelayer', x: 0, y: 0, width: cols, height: H, opacity: 1, visible: true, data,
 });

@@ -21,9 +21,21 @@
  *
  *   node tools/maps/make-brain.ts
  */
-import { shell, tileLayer, W, writeRoom } from './room-kit.ts';
+import { objectGroup, propKit, propsLayer, shell, tileLayer, W, writeRoom, type Prop } from './room-kit.ts';
 
 const T = 32;
+/** Decoration ids start here, clear of the objects' own ids. */
+const PROP_ID = 50;
+/** On the north wall face, as a wall prop hangs (art direction 7.3). */
+const onWall = (name: string, col: number): Prop => ({ name, x: col * T, bottom: 3 * T });
+/** Standing on the floor with its back to the north wall. */
+const byWall = (name: string, col: number): Prop => ({ name, x: col * T, bottom: 4 * T });
+const at = (name: string, x: number, bottom: number): Prop => ({ name, x, bottom });
+/** The extra layer and tileset of a room dressed with `props` only at the top level. */
+const dressed = (s: Shell, props: readonly Prop[]) => {
+  const d = propsLayer(s, 4, PROP_ID, props);
+  return { layers: [d.layer], tilesets: [d.tileset] };
+};
 const str = (name: string, propertytype: string | undefined, value: string) =>
   ({ name, type: 'string', ...(propertytype ? { propertytype } : {}), value });
 const rect = (id: number, name: string, type: string, x: number, y: number, width: number, height: number, properties: object[] = []) =>
@@ -120,7 +132,13 @@ const room = (
     door(3, 'N', 'clock', '08:00-10:00'),
     door(4, 'W', 'clock', '17:00-19:00'),
     timeClock(5, 15, 8),
-  ]));
+  ], dressed(s, [
+    byWall('prop-floor-guide', 2),
+    byWall('prop-elevator', 5),
+    // The punch clock and tea station flank the time clock's mat, so the healing spot reads as one place.
+    at('prop-punch-clock', 14 * T, 10 * T),
+    at('prop-tea-station', 17 * T, 10 * T),
+  ])));
 }
 
 // The 08:00 machine, and behind it the caffeine page (design doc 7.4: reachable only between 08:00 and 10:00).
@@ -133,7 +151,12 @@ const room = (
     pickup(3, 'coffee', '', 224, 192),
     pickup(4, 'handbook', 'caffeine', 416, 192),
     trigger(5, 'machine-note', 'dialogue', 'brain.coffee.am', 8, 5, 4, 4),
-  ]));
+  ], dressed(s, [
+    // The machine itself, open in its window (art direction 7.4: screen green, steaming).
+    at('prop-coffee-machine-on', 9.5 * T, 4 * T),
+    byWall('prop-office-desk', 2),
+    byWall('prop-office-desk', 16),
+  ])));
 }
 
 // The 17:00 machine: the corridor can be passed on this cup too, at the price of the sleep door.
@@ -145,7 +168,12 @@ const room = (
     door(2, 'E'),
     pickup(3, 'coffee', '', 288, 192),
     trigger(4, 'machine-note', 'dialogue', 'brain.coffee.pm', 6, 4, 4, 6),
-  ]));
+  ], dressed(s, [
+    at('prop-coffee-machine-on', 7.5 * T, 4 * T),
+    // No tea station: it marks where hearts come back, and this room has no time clock.
+    byWall('prop-office-desk', 2),
+    onWall('prop-wall-board-frame', 13),
+  ])));
 }
 
 // General affairs: the folder. No enemies, so it cannot be taken without being read.
@@ -158,7 +186,11 @@ const room = (
     door(2, 'W'),
     door(3, 'E'),
     npc(4, 'clerk', 'brain.clerk', 320, 200),
-  ]));
+  ], dressed(s, [
+    // The clerk stands in front of the desk, so the way to the clerk stays open from below.
+    at('prop-office-desk', 9 * T, 6 * T),
+    ...[2, 3, 4, 15, 16, 17].map((col) => byWall('prop-evidence-cabinet', col)),
+  ])));
 }
 
 // The folder's tutorial (design doc 7.4): a flyer throws sheets and the energy-drink salesman throws cans, both to parry.
@@ -175,7 +207,10 @@ const room = (
     spawn(5, 'energy_seller', 480, 288, '!seller_closed'),
     trigger(6, 'sign', 'dialogue', 'brain.tutorial.sign', 2, 3, 1, 8),
     pickup(7, 'handbook', 'energy_drinks', 576, 224),
-  ]));
+  ], dressed(s, [
+    onWall('prop-wall-board-frame', 5),
+    onWall('prop-wall-board-frame', 13),
+  ])));
 }
 
 // 2F open-plan office: clock vents, their adenosine and the nap sofa. The vent props are the corridor's.
@@ -183,13 +218,10 @@ const room = (
   const s = shell('brain', 51);
   south(s);
   north(s, true);
-  const PROPS_GID = s.tilecount + 1;
-  const VENT = 64;
-  const vent = (id: number, col: number) =>
-    ({ id, name: 'clock-vent', type: '', gid: PROPS_GID, x: col * T, y: 3 * T, width: VENT, height: VENT, rotation: 0, visible: true });
+  const kit = propKit(s, ['prop-clock-vent', 'prop-office-desk', 'prop-nap-sofa']);
+  const vent = (id: number, col: number) => kit.place(id, onWall('prop-clock-vent', col));
   const adenosine = (id: number, col: number) => spawn(id, 'adenosine', (col + 1) * T, 4 * T + 16);
-  const group = (id: number, name: string, objects: object[]) =>
-    ({ id, name, type: 'objectgroup', x: 0, y: 0, opacity: 1, visible: true, draworder: 'topdown', objects });
+  const group = objectGroup;
   writeRoom('brain/open-office.tmj', room(s, 'brain', 'combat', 90, [
     start(320, 320),
     door(2, 'S'),
@@ -202,7 +234,13 @@ const room = (
   ], {
     tutorialFor: 'adenosine',
     layers: [
-      group(4, 'props', [vent(10, 4), vent(11, 14)]),
+      group(4, 'props', [
+        vent(10, 4), vent(11, 14),
+        // The sofa is drawn over the nap bed's placeholder mattress, on the same two tiles.
+        kit.place(PROP_ID, at('prop-nap-sofa', 3 * T, 10 * T)),
+        kit.place(PROP_ID + 1, at('prop-office-desk', 13 * T, 10.5 * T)),
+        kit.place(PROP_ID + 2, at('prop-office-desk', 16 * T, 10.5 * T)),
+      ]),
       {
         id: 5, name: 'variant:sleep_debt_2', type: 'group', class: 'Variant', x: 0, y: 0, opacity: 1, visible: true,
         properties: [{ name: 'when', type: 'string', value: 'sleep_debt>=2' }],
@@ -212,11 +250,7 @@ const room = (
         ],
       },
     ],
-    tilesets: [{
-      firstgid: PROPS_GID, name: 'props-brain', tilewidth: VENT, tileheight: VENT, tilecount: 1, columns: 0, margin: 0, spacing: 0,
-      grid: { orientation: 'orthogonal', width: 1, height: 1 },
-      tiles: [{ id: 0, image: '../../props/prop-clock-vent.png', imagewidth: VENT, imageheight: VENT }],
-    }],
+    tilesets: [kit.tileset],
   }));
 }
 
@@ -247,7 +281,14 @@ const room = (
     pickup(12, 'memory', '', 400, 176),
     pickup(13, 'memory', '', 432, 304),
     pickup(14, 'memory', '', 560, 112),
-  ]));
+  ], dressed(s, [
+    // The pair (art direction: tea station on the punch clock's right) ends at the north door's
+    // left edge, col 9, so the way up to the arena stays clear.
+    at('prop-punch-clock', 6 * T, 4 * T),
+    byWall('prop-tea-station', 7),
+    onWall('prop-wall-board-frame', 4),
+    onWall('prop-wall-board-frame', 12),
+  ])));
 }
 
 // 4F conference room: the caffeine boss. His case closing opens the renewal talk, which sets caffeine_settled.
@@ -261,7 +302,7 @@ const room = (
     door(3, 'N', 'resource', 'caffeine_settled'),
     spawn(4, 'caffeine', 320, 168, '!caffeine_settled'),
     trigger(5, 'greeting', 'dialogue', 'brain.caffeine.intro', 1, 9, 18, 1, '!caffeine_settled'),
-  ], { storyOnly: true }));
+  ], { storyOnly: true, ...dressed(s, [onWall('prop-wall-board-frame', 3), onWall('prop-wall-board-frame', 15)]) }));
 }
 
 // The roof: the sleep door needs the caffeine residue below 50, and ends the chapter by filing the memory files.
@@ -274,5 +315,8 @@ const room = (
     rect(3, 'bedtime', 'Bed', 14 * T, 8 * T, 2 * T, 2 * T, [str('bedType', 'BedType', 'sleep'), str('requires', undefined, 'caffeine<50')]),
     npc(4, 'brain', 'brain.rooftop.door', 320, 200),
     pickup(5, 'handbook', 'sleep_debt', 480, 160),
-  ]));
+  ], dressed(s, [
+    // The brain's one landmark (art direction 7.4), hung over the middle of the top floor.
+    onWall('prop-neuron-chandelier', 9),
+  ])));
 }

@@ -13,7 +13,7 @@
  *
  *   node tools/maps/make-prologue.ts
  */
-import { shell, tileLayer, W, writeRoom } from './room-kit.ts';
+import { propsLayer, shell, tileLayer, W, writeRoom, type Prop } from './room-kit.ts';
 
 const str = (name: string, propertytype: string | undefined, value: string) =>
   ({ name, type: 'string', ...(propertytype ? { propertytype } : {}), value });
@@ -66,10 +66,15 @@ function socket(s: Shell, side: 'N' | 'S' | 'E' | 'W', open: boolean): void {
   }
 }
 
-const room = (s: Shell, organ: string, role: string, est: number, objects: { id: number }[]) => ({
+/** Decoration ids start here, clear of the objects' own ids. */
+const PROP_ID = 50;
+
+const room = (s: Shell, organ: string, role: string, est: number, objects: { id: number }[], props: readonly Prop[] = []) => {
+  const deco = props.length > 0 ? propsLayer(s, 4, PROP_ID, props) : undefined;
+  return {
   type: 'map', version: '1.10', tiledversion: '1.11.0', orientation: 'orthogonal', renderorder: 'right-down',
-  infinite: false, width: W, height: 12, tilewidth: 32, tileheight: 32, nextlayerid: 4,
-  nextobjectid: Math.max(...objects.map((o) => o.id)) + 1, class: 'Room',
+  infinite: false, width: W, height: 12, tilewidth: 32, tileheight: 32, nextlayerid: deco ? 5 : 4,
+  nextobjectid: Math.max(...objects.map((o) => o.id), ...(deco ? [PROP_ID + props.length - 1] : [])) + 1, class: 'Room',
   properties: [
     { name: 'organ', type: 'string', value: organ },
     { name: 'role', type: 'string', value: role },
@@ -78,10 +83,19 @@ const room = (s: Shell, organ: string, role: string, est: number, objects: { id:
   layers: [
     tileLayer(1, 'floor', s.floor),
     tileLayer(2, 'walls', s.walls),
+    ...(deco ? [deco.layer] : []),
     { id: 3, name: 'objects', type: 'objectgroup', x: 0, y: 0, opacity: 1, visible: true, draworder: 'topdown', objects },
   ],
-  tilesets: [s.tileset],
-});
+  tilesets: [s.tileset, ...(deco ? [deco.tileset] : [])],
+  };
+};
+
+const T = 32;
+/** On the north wall face, as a wall prop hangs (art direction 7.3). */
+const onWall = (name: string, col: number): Prop => ({ name, x: col * T, bottom: 3 * T });
+/** Standing on the floor with its back to the north wall. */
+const byWall = (name: string, col: number): Prop => ({ name, x: col * T, bottom: 4 * T });
+const at = (name: string, x: number, bottom: number): Prop => ({ name, x, bottom });
 
 {
   const s = shell('lobby', 31);
@@ -94,6 +108,12 @@ const room = (s: Shell, organ: string, role: string, est: number, objects: { id:
     npc(5, 'liver', 'prologue.liver.welcome', 448, 192),
     // Across the way out, so the alarm sounds after the lobby, whatever order it was done in.
     trigger(6, 'alarm', 'dialogue', 'prologue.alarm', 16 * 32, 3 * 32, 32, 8 * 32),
+  ], [
+    // The floor guide is the lobby's landmark; the punch clock stands behind its floor mat, the tea station beside it (design doc 5.6).
+    byWall('prop-floor-guide', 2),
+    at('prop-punch-clock', 9.5 * T, 4 * T),
+    byWall('prop-tea-station', 12),
+    byWall('prop-elevator', 15),
   ]));
 }
 
@@ -107,6 +127,11 @@ const room = (s: Shell, organ: string, role: string, est: number, objects: { id:
     door(3, 'E'),
     spawn(4, 'flyer', 448, 160),
     spawn(5, 'flyer', 480, 288),
+  ], [
+    // Blue steel racks of the glycogen warehouse (art direction 7.4) along the north wall, the floor left to the fight.
+    ...[2, 3, 4, 15, 16, 17].map((col) => byWall('prop-steel-shelf', col)),
+    onWall('prop-wall-board-frame', 5),
+    onWall('prop-wall-board-frame', 13),
   ]));
 }
 
@@ -131,6 +156,10 @@ const room = (s: Shell, organ: string, role: string, est: number, objects: { id:
     crate(9, 14, 7),
     rect(10, 'belt-east', 'Conveyor', (W - 2) * 32, 4 * 32, 32, 7 * 32, dir('N')),
     rect(11, 'belt-south', 'Conveyor', 32, 10 * 32, (W - 3) * 32, 32, dir('E')),
+  ], [
+    // Belts run along three walls, so only the north wall face is free to dress.
+    onWall('prop-wall-board-frame', 5),
+    onWall('prop-wall-board-frame', 13),
   ]));
 }
 
@@ -145,6 +174,12 @@ const room = (s: Shell, organ: string, role: string, est: number, objects: { id:
     door(3, 'E', 'resource', 'trial_contract'),
     npc(4, 'brain', 'prologue.chairman.stamp', 320, 144),
     spawn(5, 'dummy', 160, 224, 4),
+  ], [
+    // Nothing between the chairman and the operator, whose reach is short (#82).
+    onWall('prop-wall-board-frame', 4),
+    onWall('prop-wall-board-frame', 14),
+    byWall('prop-office-desk', 1),
+    byWall('prop-office-desk', 16),
   ]));
 }
 
@@ -156,5 +191,12 @@ const room = (s: Shell, organ: string, role: string, est: number, objects: { id:
     door(2, 'W'),
     trigger(3, 'night', 'dialogue', 'prologue.night', 6 * 32, 3 * 32, 32, 8 * 32),
     trigger(4, 'clock-out', 'end', '', 15 * 32, 3 * 32, 3 * 32, 8 * 32),
+  ], [
+    // 2 a.m.: empty desks, the vending machine's light, the cleaning cart, and the exit sign over the way out (#82).
+    byWall('prop-office-desk', 2),
+    byWall('prop-office-desk', 8),
+    byWall('prop-night-vending', 12),
+    at('prop-night-cleaning-cart', 12 * T, 11 * T),
+    at('prop-night-exit-sign', 16 * T, 2.5 * T),
   ]));
 }

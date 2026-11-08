@@ -9,8 +9,8 @@
  "height": 12,
  "tilewidth": 32,
  "tileheight": 32,
- "nextlayerid": 4,
- "nextobjectid": 12,
+ "nextlayerid": 5,
+ "nextobjectid": 52,
  "class": "Room",
  "properties": [
   {
@@ -537,6 +537,42 @@
    ]
   },
   {
+   "id": 4,
+   "name": "props",
+   "type": "objectgroup",
+   "x": 0,
+   "y": 0,
+   "opacity": 1,
+   "visible": true,
+   "draworder": "topdown",
+   "objects": [
+    {
+     "id": 50,
+     "name": "wall-board-frame",
+     "type": "",
+     "gid": 49,
+     "x": 160,
+     "y": 96,
+     "width": 64,
+     "height": 64,
+     "rotation": 0,
+     "visible": true
+    },
+    {
+     "id": 51,
+     "name": "wall-board-frame",
+     "type": "",
+     "gid": 49,
+     "x": 416,
+     "y": 96,
+     "width": 64,
+     "height": 64,
+     "rotation": 0,
+     "visible": true
+    }
+   ]
+  },
+  {
    "id": 3,
    "name": "objects",
    "type": "objectgroup",
@@ -788,6 +824,29 @@
    "spacing": 2,
    "columns": 8,
    "tilecount": 48
+  },
+  {
+   "firstgid": 49,
+   "name": "props",
+   "tilewidth": 64,
+   "tileheight": 64,
+   "tilecount": 1,
+   "columns": 0,
+   "margin": 0,
+   "spacing": 0,
+   "grid": {
+    "orientation": "orthogonal",
+    "width": 1,
+    "height": 1
+   },
+   "tiles": [
+    {
+     "id": 0,
+     "image": "../../props/prop-wall-board-frame.png",
+     "imagewidth": 64,
+     "imageheight": 64
+    }
+   ]
   }
  ]
 }

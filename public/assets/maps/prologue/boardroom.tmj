@@ -9,8 +9,8 @@
  "height": 12,
  "tilewidth": 32,
  "tileheight": 32,
- "nextlayerid": 4,
- "nextobjectid": 6,
+ "nextlayerid": 5,
+ "nextobjectid": 54,
  "class": "Room",
  "properties": [
   {
@@ -537,6 +537,66 @@
    ]
   },
   {
+   "id": 4,
+   "name": "props",
+   "type": "objectgroup",
+   "x": 0,
+   "y": 0,
+   "opacity": 1,
+   "visible": true,
+   "draworder": "topdown",
+   "objects": [
+    {
+     "id": 50,
+     "name": "wall-board-frame",
+     "type": "",
+     "gid": 49,
+     "x": 128,
+     "y": 96,
+     "width": 64,
+     "height": 64,
+     "rotation": 0,
+     "visible": true
+    },
+    {
+     "id": 51,
+     "name": "wall-board-frame",
+     "type": "",
+     "gid": 49,
+     "x": 448,
+     "y": 96,
+     "width": 64,
+     "height": 64,
+     "rotation": 0,
+     "visible": true
+    },
+    {
+     "id": 52,
+     "name": "office-desk",
+     "type": "",
+     "gid": 50,
+     "x": 32,
+     "y": 128,
+     "width": 64,
+     "height": 48,
+     "rotation": 0,
+     "visible": true
+    },
+    {
+     "id": 53,
+     "name": "office-desk",
+     "type": "",
+     "gid": 50,
+     "x": 512,
+     "y": 128,
+     "width": 64,
+     "height": 48,
+     "rotation": 0,
+     "visible": true
+    }
+   ]
+  },
+  {
    "id": 3,
    "name": "objects",
    "type": "objectgroup",
@@ -672,6 +732,35 @@
    "spacing": 2,
    "columns": 8,
    "tilecount": 48
+  },
+  {
+   "firstgid": 49,
+   "name": "props",
+   "tilewidth": 64,
+   "tileheight": 64,
+   "tilecount": 2,
+   "columns": 0,
+   "margin": 0,
+   "spacing": 0,
+   "grid": {
+    "orientation": "orthogonal",
+    "width": 1,
+    "height": 1
+   },
+   "tiles": [
+    {
+     "id": 0,
+     "image": "../../props/prop-wall-board-frame.png",
+     "imagewidth": 64,
+     "imageheight": 64
+    },
+    {
+     "id": 1,
+     "image": "../../props/prop-office-desk.png",
+     "imagewidth": 64,
+     "imageheight": 48
+    }
+   ]
   }
  ]
 }
