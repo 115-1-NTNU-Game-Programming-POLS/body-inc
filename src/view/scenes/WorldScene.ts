@@ -10,6 +10,7 @@ import type { PatrolSession } from '../../app/patrol.ts';
 import type { WallSession } from '../../app/wall.ts';
 import type { FixedStepLoop } from '../../app/loop.ts';
 import type { SaveStore } from '../../app/storage.ts';
+import { WallContact } from '../../app/wallContact.ts';
 import {
   carriedTags, CELL_COLS, listProps, selectBoss, selectEnemies, selectOperator, selectProjectiles, storyAtEnd, storyOf, TILE, visibleProps,
   type ChapterContent, type ChapterState, type EnemyState, type GameEvent, type GameState, type PatrolResult, type ProgressData, type Settings, type TiledMapFile,
@@ -55,6 +56,8 @@ export class WorldScene extends Phaser.Scene {
   private readonly bossViews = new Map<number, BossView>();
   private readonly staples = new Map<number, Phaser.GameObjects.Image>();
   private readonly pending: GameEvent[] = [];
+  /** Which wall bumps begin a touch, so a wall sounds once and not on every tick it is pressed. */
+  private walls = new WallContact();
   /** True from the moment a room change is seen until the scene restarts; the rules stop meanwhile. */
   private leaving = false;
   /** The handbook or the menu has been asked for and the scene has not paused yet; see `mayOpenOverlay`. */
@@ -82,6 +85,7 @@ export class WorldScene extends Phaser.Scene {
     this.bossViews.clear();
     this.staples.clear();
     this.pending.length = 0;
+    this.walls = new WallContact();
     this.leaving = false;
 
     const chapter = this.loop.state;
@@ -197,9 +201,10 @@ export class WorldScene extends Phaser.Scene {
     // On the tick a room is left the state already holds the next room, which this scene has no
     // views for: handle the exit and draw nothing more of it.
     if (this.pending.some((e) => e.type === 'roomChanged' || e.type === 'returnedToCheckpoint' || e.type === 'chapterEnded')) {
+      const bumps = this.walls.starts(this.pending, this.loop.state.game.tick);
       for (const e of this.pending.splice(0)) {
         this.react(e);
-        this.feedback.sound(e);
+        if (e.type !== 'bumpWall' || bumps.has(e)) this.feedback.sound(e);
       }
       return;
     }
@@ -233,10 +238,11 @@ export class WorldScene extends Phaser.Scene {
     this.mechanisms.render(state);
     this.renderStaples(prevState, alpha);
     this.overlay.render(state);
+    const bumps = this.walls.starts(this.pending, tick);
     for (const e of this.pending.splice(0)) {
       if (e.type === 'stampLanded') this.stampRing(e.x, e.y, e.radius);
       this.react(e);
-      this.feedback.play(e, tick);
+      if (e.type !== 'bumpWall' || bumps.has(e)) this.feedback.play(e, tick);
     }
     // The ticking clock of the last heart (design doc 5.8) stands in for a heartbeat, which the design keeps off.
     if (lowHeartBeat(cur.halves, this.lastSecond, tick)) this.feedback.cue(UI.lowHeart);
