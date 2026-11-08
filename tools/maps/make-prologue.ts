@@ -130,7 +130,8 @@ const at = (name: string, x: number, bottom: number): Prop => ({ name, x, bottom
   ], [
     // Blue steel racks of the glycogen warehouse (art direction 7.4) along the north wall, the floor left to the fight.
     ...[2, 3, 4, 15, 16, 17].map((col) => byWall('prop-steel-shelf', col)),
-    onWall('prop-wall-board-frame', 9),
+    onWall('prop-wall-board-frame', 5),
+    onWall('prop-wall-board-frame', 13),
   ]));
 }
 
@@ -178,7 +179,7 @@ const at = (name: string, x: number, bottom: number): Prop => ({ name, x, bottom
     onWall('prop-wall-board-frame', 4),
     onWall('prop-wall-board-frame', 14),
     byWall('prop-office-desk', 1),
-    byWall('prop-tea-station', 16),
+    byWall('prop-office-desk', 16),
   ]));
 }
 

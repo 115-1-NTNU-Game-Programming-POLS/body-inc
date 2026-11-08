@@ -560,13 +560,13 @@
     },
     {
      "id": 51,
-     "name": "tea-station",
+     "name": "office-desk",
      "type": "",
      "gid": 50,
      "x": 64,
      "y": 128,
      "width": 64,
-     "height": 64,
+     "height": 48,
      "rotation": 0,
      "visible": true
     },
@@ -710,9 +710,9 @@
     },
     {
      "id": 1,
-     "image": "../../props/prop-tea-station.png",
+     "image": "../../props/prop-office-desk.png",
      "imagewidth": 64,
-     "imageheight": 64
+     "imageheight": 48
     },
     {
      "id": 2,

@@ -10,7 +10,7 @@
  "tilewidth": 32,
  "tileheight": 32,
  "nextlayerid": 5,
- "nextobjectid": 57,
+ "nextobjectid": 58,
  "class": "Room",
  "properties": [
   {
@@ -623,7 +623,19 @@
      "name": "wall-board-frame",
      "type": "",
      "gid": 50,
-     "x": 288,
+     "x": 160,
+     "y": 96,
+     "width": 64,
+     "height": 64,
+     "rotation": 0,
+     "visible": true
+    },
+    {
+     "id": 57,
+     "name": "wall-board-frame",
+     "type": "",
+     "gid": 50,
+     "x": 416,
      "y": 96,
      "width": 64,
      "height": 64,

@@ -112,9 +112,9 @@ export function propKit(s: Shell, names: readonly string[]): { tileset: object; 
     tiles: unique.map((n, id) => ({ id, image: `../../props/${n}.png`, imagewidth: size.get(n)!.w, imageheight: size.get(n)!.h })),
   };
   const place = (id: number, p: Prop) => {
-    const s = size.get(p.name);
-    if (!s) throw new Error(`prop ${p.name} is not in this room's props tileset`);
-    return { id, name: p.name.replace(/^prop-/, ''), type: '', gid: firstgid + unique.indexOf(p.name), x: p.x, y: p.bottom, width: s.w, height: s.h, rotation: 0, visible: true };
+    const dim = size.get(p.name);
+    if (!dim) throw new Error(`prop ${p.name} is not in this room's props tileset`);
+    return { id, name: p.name.replace(/^prop-/, ''), type: '', gid: firstgid + unique.indexOf(p.name), x: p.x, y: p.bottom, width: dim.w, height: dim.h, rotation: 0, visible: true };
   };
   return { tileset, place };
 }

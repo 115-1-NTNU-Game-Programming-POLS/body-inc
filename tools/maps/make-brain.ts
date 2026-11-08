@@ -135,9 +135,9 @@ const room = (
   ], dressed(s, [
     byWall('prop-floor-guide', 2),
     byWall('prop-elevator', 5),
-    byWall('prop-tea-station', 12),
-    // Beside the time clock's mat, clear of the way to the east door.
-    at('prop-punch-clock', 17 * T, 10 * T),
+    // The punch clock and tea station flank the time clock's mat, so the healing spot reads as one place.
+    at('prop-punch-clock', 14 * T, 10 * T),
+    at('prop-tea-station', 17 * T, 10 * T),
   ])));
 }
 
@@ -170,7 +170,8 @@ const room = (
     trigger(4, 'machine-note', 'dialogue', 'brain.coffee.pm', 6, 4, 4, 6),
   ], dressed(s, [
     at('prop-coffee-machine-on', 7.5 * T, 4 * T),
-    byWall('prop-tea-station', 2),
+    // No tea station: it marks where hearts come back, and this room has no time clock.
+    byWall('prop-office-desk', 2),
     onWall('prop-wall-board-frame', 13),
   ])));
 }
@@ -281,8 +282,10 @@ const room = (
     pickup(13, 'memory', '', 432, 304),
     pickup(14, 'memory', '', 560, 112),
   ], dressed(s, [
-    // Behind the time clock's mat, as in the lobby.
-    at('prop-punch-clock', 7.5 * T, 4 * T),
+    // The pair (art direction: tea station on the punch clock's right) ends at the north door's
+    // left edge, col 9, so the way up to the arena stays clear.
+    at('prop-punch-clock', 6 * T, 4 * T),
+    byWall('prop-tea-station', 7),
     onWall('prop-wall-board-frame', 4),
     onWall('prop-wall-board-frame', 12),
   ])));
