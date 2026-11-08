@@ -1,0 +1,37 @@
+{
+ "id": "suit-base",
+ "title": "顧問西裝範本 9 格像素圖集（身體格為 AI 底稿，江兆耘手修；徽章手繪）",
+ "batch": "suit-base-poses",
+ "tool": "ChatGPT (gpt-image)",
+ "model": "不在憑證中",
+ "date": "2026-11-08",
+ "template": "suit-base-pose-sheet-v1",
+ "prompt": [
+  "共通開頭：The attached images are my pixel-art game enemy (front, side and back views): a chibi corporate-consultant template. Keep this character EXACTLY as attached: same plain round bald head, charcoal suit, burgundy necktie, small gold lightning-bolt badge with navy outline on the chest, same thick 1-pixel navy outline, same flat colors, same crisp square pixels, same size and proportions.",
+  "共通指定：Generate exactly ONE image: a horizontal sprite sheet with N poses of the SAME character in a single row, same size, feet on the same baseline.",
+  "共通禁止：No weapon, no stationery, no motion lines, no impact marks, no sparkles, no sweat drops, no effects, no text. Plain solid pure white background, no floor, no shadow.",
+  "姿勢：站姿（正面、側面、背面，背面有閃電徽章）、起手與出招（正面、側面）、受擊兼驚訝（正面、側面，圓眼加 O 嘴）",
+  "各姿勢的完整提示詞原文請作者貼於此處（僅此欄為摘要）"
+ ],
+ "references": "作者先以 AI 產出三向站姿參考，修好後作為後續起手、出招、受擊的造型輸入",
+ "candidates": null,
+ "selected": "各姿勢各選 1 張生成圖（原圖未入庫）",
+ "source_name": "ChatGPT 下載的 webp / png",
+ "post": {
+  "select": true,
+  "outline": "江兆耘手修",
+  "quantize": "對回 body-inc-pixel.gpl（西裝 3B3F4A / 2C2F38、領帶 9B2335 / 6E1A27、徽章 FFC83D、描邊 0C2D5E 等 11 色）",
+  "remove-text": "n/a",
+  "pixel-cleanup": "江兆耘手修",
+  "style-board-check": "待審"
+ },
+ "hours": null,
+ "status": "hand-finished",
+ "processed": {
+  "outputs": [
+   "public/assets/atlases/suit-base.png",
+   "public/assets/atlases/suit-base.json"
+  ],
+  "png_colors": 11
+ }
+}
