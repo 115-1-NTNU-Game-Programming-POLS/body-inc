@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { tagKey, type Manifest } from '../../app/assets.ts';
-import { objectBox, type EnteredRoom, type RoomObject } from '../../core/index.ts';
+import { objectBox, TILE, type EnteredRoom, type RoomObject } from '../../core/index.ts';
 
 const INK = 0x0c2d5e;
 const PAPER = 0xf4efe4;
@@ -9,8 +9,8 @@ const GREY = 0xd9d6cf;
 
 /**
  * Placeholder pictures for the objects a room can hold that the player meets by walking up to
- * them: beds, the time clock, a patrol's elevator, NPCs. Doors are part of the wall tiles, and other triggers are
- * invisible by design. Real art replaces these through the manifest like everything else, so an
+ * them: beds, the time clock, a patrol's elevator, the way out of a chapter, NPCs. Doors are part of
+ * the wall tiles, and other triggers are invisible by design. Real art replaces these through the manifest like everything else, so an
  * NPC whose id is a manifest key already shows that sprite.
  */
 export function drawRoomObjects(scene: Phaser.Scene, room: EnteredRoom, manifest: Manifest): void {
@@ -19,7 +19,28 @@ export function drawRoomObjects(scene: Phaser.Scene, room: EnteredRoom, manifest
     else if (o.kind === 'Pen') pen(scene, o);
     else if (o.kind === 'Trigger' && o.props['event'] === 'checkpoint') timeClock(scene, o);
     else if (o.kind === 'Trigger' && o.props['eventId'] === 'elevator') elevator(scene, o);
+    else if (o.kind === 'Trigger' && o.props['event'] === 'end') exit(scene, o, room.grid.cols * TILE);
     else if (o.kind === 'NPC') npc(scene, o, manifest);
+  }
+}
+
+/**
+ * Where a chapter ends by walking (clocking out, going home): a pale strip with arrows toward the
+ * nearer side wall. Left invisible, the last room looked empty and nothing said where to go (#82).
+ */
+function exit(scene: Phaser.Scene, o: RoomObject, roomWidth: number): void {
+  const b = objectBox(o);
+  const cx = (b.left + b.right) / 2;
+  const dir = cx < roomWidth / 2 ? -1 : 1;
+  const g = scene.add.graphics().setDepth(b.top);
+  g.fillStyle(PAPER, 0.25).fillRect(b.left, b.top, b.right - b.left, b.bottom - b.top);
+  g.lineStyle(2, INK, 0.5).strokeRect(b.left + 1, b.top + 1, b.right - b.left - 2, b.bottom - b.top - 2);
+  g.fillStyle(INK, 0.7);
+  for (let y = b.top + TILE; y + TILE / 2 <= b.bottom; y += 2 * TILE) {
+    for (const dx of [-10, 6]) {
+      const x = cx + dx * dir;
+      g.fillTriangle(x + 8 * dir, y, x, y - 8, x, y + 8);
+    }
   }
 }
 
