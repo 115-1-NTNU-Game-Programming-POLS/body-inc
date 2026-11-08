@@ -89,7 +89,11 @@ export class BootScene extends Phaser.Scene {
     this.load.json('atlas-index', 'assets/atlases/index.json');
     this.load.json('tilesets', 'assets/tilesets/tilesets.json');
     for (const path of ALL_ROOMS) this.load.tilemapTiledJSON(roomKey(path), `assets/maps/${path}.tmj`);
-    for (const key of SCENE_ATLASES) this.load.atlas(key, `assets/atlases/${key}.png`, `assets/atlases/${key}.json`);
+    // An atlas's JSON half is kept inside its texture, not in the JSON cache, so the loader's own
+    // cache check would fetch it again on a retry; a texture already made is skipped here instead.
+    for (const key of SCENE_ATLASES) {
+      if (!this.textures.exists(key)) this.load.atlas(key, `assets/atlases/${key}.png`, `assets/atlases/${key}.json`);
+    }
   }
 
   create(): void {
