@@ -1,10 +1,13 @@
 """List colors outside the pixel palette in world pixel art (art-direction 12.5). Exit 1 if any.
 
-Covers props, the world atlases and the tilesets; portraits, illustrations and paper-ink
-icons are linear-filtered art and may carry in-between colors (12.4 step 3).
+Covers props, the world atlases, the tilesets and every character atlas the game loads (read from
+the atlas index, so a finished atlas replacing a placeholder is checked from the PR that swaps it
+in); portraits, illustrations and paper-ink icons are linear-filtered art and may carry in-between
+colors (12.4 step 3).
 
     python tools/art/check_palette.py
 """
+import json
 import sys
 from pathlib import Path
 
@@ -22,7 +25,9 @@ TARGETS = ["props/*.png", "atlases/atlas-common.png", "atlases/atlas-brain.png",
 def main():
     allowed = {tuple(c) for c in pixel_palette()}
     bad_files = 0
-    files = sorted({p for t in TARGETS for p in PUB.glob(t)})
+    index = json.loads((PUB / "atlases" / "index.json").read_text(encoding="utf-8"))
+    characters = {PUB.parent / f"{base}.png" for base in index.values()}
+    files = sorted({p for t in TARGETS for p in PUB.glob(t)} | characters)
     for p in files:
         a = np.asarray(Image.open(p).convert("RGBA"))
         rgb = a[a[..., 3] > 0][:, :3]
