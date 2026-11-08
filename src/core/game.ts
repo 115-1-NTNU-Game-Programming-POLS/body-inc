@@ -776,7 +776,8 @@ export function step(state: GameState, pressed: TickInput): StepResult {
   }
 
   // A running belt under the feet carries the operator along. Walking against it is slower; a fast
-  // belt (4 tiles/s) outruns an operator slowed below that, by held fire or clinging stacks.
+  // belt (4 tiles/s) outruns an operator slowed below that, by held fire, a raised folder or the liver
+  // chapter's dizziness. Clinging stacks alone cannot: two leave 4.05 tiles/s, and the third forces a nap.
   const underfoot = beltAt(room, tileAt(op.x, op.y - 1), state.switches);
   if (underfoot) {
     const d = directionOf(underfoot);

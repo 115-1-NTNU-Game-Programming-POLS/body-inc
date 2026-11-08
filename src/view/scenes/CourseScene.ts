@@ -6,6 +6,7 @@ import { burdenOf, CLAUSE_CREDIT_CAP, clauseProblem, creditsOf, MAX_CLAUSE, OPEN
 import { playCue, soundIn } from '../audio/installSound.ts';
 import { addText, updateText } from '../text/fonts.ts';
 import type { SemesterData } from './SemesterScene.ts';
+import { primary } from '../ui/primary.ts';
 
 const PAPER = '#f4efe4';
 const INK = '#0c2d5e';
@@ -56,7 +57,7 @@ export class CourseScene extends Phaser.Scene {
       this.rows.push({ name, note });
       name.setInteractive({ useHandCursor: true });
       name.on('pointerover', () => this.step(i));
-      name.on('pointerup', () => this.toggle(i));
+      name.on('pointerup', primary(() => this.toggle(i)));
     });
     const clauseY = ROW_Y + this.clauseRow * ROW_H;
     const clause = addText(this, w / 2 - 330, clauseY, '', { role: 'print', weight: 700, size: 28, color: PAPER, padding: { x: 14, y: 4 } });
@@ -64,14 +65,14 @@ export class CourseScene extends Phaser.Scene {
     this.rows.push({ name: clause, note: clauseText });
     clause.setInteractive({ useHandCursor: true });
     clause.on('pointerover', () => this.step(this.clauseRow));
-    clause.on('pointerup', () => this.shift(1));
+    clause.on('pointerup', primary(() => this.shift(1)));
 
     const startY = ROW_Y + (this.clauseRow + 1) * ROW_H + 8;
     const start = addText(this, w / 2 - 330, startY, str('course.pick.start'), { role: 'print', weight: 700, size: 28, color: PAPER, padding: { x: 14, y: 4 } });
     this.rows.push({ name: start, note: undefined });
     start.setInteractive({ useHandCursor: true });
     start.on('pointerover', () => this.step(this.rows.length - 1));
-    start.on('pointerup', () => this.begin());
+    start.on('pointerup', primary(() => this.begin()));
     this.summary = addText(this, w / 2 - 330, startY + 56, '', { role: 'print', weight: 400, size: 20, color: PAPER, maxWidth: 660 });
     addText(this, w / 2, this.scale.height - 40, str('course.pick.hint'), { role: 'print', weight: 400, size: 18, color: DIM }).setOrigin(0.5, 1);
 

@@ -4,6 +4,7 @@ import { sharedKeys, type KeyboardInput } from '../../app/input.ts';
 import type { FixedStepLoop } from '../../app/loop.ts';
 import { offered, rescueComplete, rescueOf, type ChapterContent, type ChapterState, type GameEvent, type RescueState, type Settings } from '../../core/index.ts';
 import { addText } from '../text/fonts.ts';
+import { primary } from '../ui/primary.ts';
 
 const INK = 0x0c2d5e;
 const PAPER = 0xfbfaf6;
@@ -96,7 +97,7 @@ export class RescueScene extends Phaser.Scene {
         const number = addText(this, PANEL.padding + 14, y + PANEL.row / 2, String(i + 1), { role: 'print', weight: 700, size: 15, color: '#fbfaf6' }).setOrigin(0.5);
         const h = Math.max(PANEL.row, row.displayHeight + 16);
         const zone = this.add.zone(PANEL.padding, y, inner, h).setOrigin(0, 0).setInteractive({ useHandCursor: true });
-        zone.on('pointerdown', () => this.keys.queuePick(i + 1));
+        zone.on('pointerdown', primary(() => this.keys.queuePick(i + 1)));
         rows.push({ y, h, on });
         items.push(row, number, zone);
         y += h + 6;
@@ -117,7 +118,7 @@ export class RescueScene extends Phaser.Scene {
     // Mouse0 is ignored while the panel is open, so a finished panel needs its own click to close.
     if (done) {
       const zone = this.add.zone(0, 0, PANEL.w, h).setOrigin(0, 0).setInteractive({ useHandCursor: true });
-      zone.on('pointerdown', () => this.keys.queuePick(1));
+      zone.on('pointerdown', primary(() => this.keys.queuePick(1)));
       items.push(zone);
     }
     this.layer.add(this.add.container(left, top, [g, ...items]));

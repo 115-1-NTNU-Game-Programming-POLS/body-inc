@@ -15,6 +15,7 @@ import type { NameData } from './NameScene.ts';
 import type { CardsData } from './OpeningScene.ts';
 import type { SemesterData } from './SemesterScene.ts';
 import { beginRun } from './run.ts';
+import { primary } from '../ui/primary.ts';
 
 const PAPER = '#f4efe4';
 const INK = '#0c2d5e';
@@ -98,7 +99,7 @@ export class TitleScene extends Phaser.Scene {
       if (!item.enabled) return;
       item.text.setInteractive({ useHandCursor: true });
       item.text.on('pointerover', () => this.select(i));
-      item.text.on('pointerup', () => this.confirm(item));
+      item.text.on('pointerup', primary(() => this.confirm(item)));
     });
     this.select(0);
     addText(this, w / 2, this.scale.height - 56, str('title.hint'), { role: 'print', weight: 400, size: 18, color: DIM }).setOrigin(0.5);

@@ -116,9 +116,10 @@ describe('keyboard input adapter', () => {
     target.dispatchEvent(middle);
     expect(middle.defaultPrevented).toBe(true);
     expect(input.sample()).toMatchObject({ stampPressed: true });
-    const right = Object.assign(new Event('mousedown', { cancelable: true }), { button: 2 });
-    target.dispatchEvent(right);
-    expect(right.defaultPrevented).toBe(false);
+    // The right button is bound too now (partner); the back button (3) is not, so the browser keeps it.
+    const back = Object.assign(new Event('mousedown', { cancelable: true }), { button: 3 });
+    target.dispatchEvent(back);
+    expect(back.defaultPrevented).toBe(false);
   });
 
   it('the left mouse button attacks; losing focus releases everything', () => {

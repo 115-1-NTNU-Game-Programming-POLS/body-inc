@@ -6,6 +6,7 @@ import type { SaveStore } from '../../app/storage.ts';
 import { ASSIST_FLAGS, SETTINGS, type AssistFlag, type Settings } from '../../core/index.ts';
 import { playCue } from '../audio/installSound.ts';
 import { addText } from '../text/fonts.ts';
+import { primary } from '../ui/primary.ts';
 
 const INK = 0x0c2d5e;
 const PAPER = 0xf4efe4;
@@ -183,12 +184,12 @@ export class PauseScene extends Phaser.Scene {
       bar.setInteractive({ useHandCursor: true });
       bar.on('pointerover', () => this.select(i));
       // A click is a press and a release on the same row: the attack button held from the room and let go over a row is not one.
-      bar.on('pointerdown', () => { this.pressed = i; });
-      bar.on('pointerup', () => {
+      bar.on('pointerdown', primary(() => { this.pressed = i; }));
+      bar.on('pointerup', primary(() => {
         if (this.pressed !== i) return;
         this.pressed = -1;
         this.activate(i);
-      });
+      }));
       const line = addText(this, x, y, this.label(row, on, settings), { role: 'print', weight: on ? 700 : 400, size: lay.size * scale, color: '#0c2d5e' });
       bottom = Math.max(bottom, line.y + line.height);
     });

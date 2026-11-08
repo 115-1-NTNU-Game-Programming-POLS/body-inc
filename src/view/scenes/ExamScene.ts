@@ -4,6 +4,7 @@ import { sharedKeys, type KeyboardInput } from '../../app/input.ts';
 import type { FixedStepLoop } from '../../app/loop.ts';
 import type { ChapterState, ExamForecast, ExamPanel, ExamResult, GameEvent, Settings } from '../../core/index.ts';
 import { addText } from '../text/fonts.ts';
+import { primary } from '../ui/primary.ts';
 
 const INK = 0x0c2d5e;
 const PAPER = 0xfbfaf6;
@@ -77,7 +78,7 @@ export class ExamScene extends Phaser.Scene {
     g.fillStyle(INK, 0.2).fillRoundedRect(6, 6, PANEL.w, h, 12);
     g.fillStyle(PAPER).fillRoundedRect(0, 0, PANEL.w, h, 12).lineStyle(2, INK, 1).strokeRoundedRect(1, 1, PANEL.w - 2, h - 2, 12);
     const zone = this.add.zone(0, 0, PANEL.w, h).setOrigin(0, 0).setInteractive({ useHandCursor: true });
-    zone.on('pointerdown', () => this.keys.queuePick(1));
+    zone.on('pointerdown', primary(() => this.keys.queuePick(1)));
     this.layer.add(this.add.rectangle(0, 0, this.scale.width, this.scale.height, INK, 0.72).setOrigin(0, 0));
     this.layer.add(this.add.container(left, top, [g, ...items, zone]));
   }
