@@ -28,3 +28,5 @@ public/assets/atlases/operator.png,營運長圖集（23 格）,江兆耘,,team-o
 public/assets/atlases/operator.json,營運長圖集資料,江兆耘,,team-original,,none,,,,江兆耘,2026-11-08,
 public/assets/atlases/suit-base.png,顧問西裝範本圖集（9 格）,江兆耘,,team-original,,ai-generated,ChatGPT（gpt-image，產生身體姿勢底稿；徽章不用 AI）,art-src/ai/log/suit-base.json,AI 參考圖去背、縮回原生像素格、對回色票後由江兆耘手修（美術指南 15.3 節分支 C）；之後由 Isaries 依 4 節重畫 5 × 6 加墨藍描邊的閃電徽章,江兆耘,2026-11-08,
 public/assets/atlases/suit-base.json,顧問西裝範本圖集資料,江兆耘,,team-original,,none,,,,江兆耘,2026-11-08,
+public/assets/atlases/flyer.png,傳單紙怪圖集（3 格）,江兆耘,,team-original,,ai-generated,ChatGPT（gpt-image，產生姿勢底稿）,art-src/ai/log/flyer.json,AI 參考圖去背、縮回原生像素格、對回色票後由江兆耘清理（重畫臉、整理傳單色塊、重畫閃電徽章）；之後由 Isaries 依美術指南把描邊改為 #0C2D5E、徽章改為 5 × 6 加墨藍描邊、頭上色塊改為便利貼黃（徽章金只用在炭灰底上）、受擊格兩眼改為同大、刪除脫離的線段與雜點,江兆耘,2026-11-08,
+public/assets/atlases/flyer.json,傳單紙怪圖集資料,江兆耘,,team-original,,none,,,,江兆耘,2026-11-08,
