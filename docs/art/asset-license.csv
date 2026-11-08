@@ -32,3 +32,4 @@ public/assets/atlases/flyer.png,傳單紙怪圖集（3 格）,江兆耘,,team-or
 public/assets/atlases/flyer.json,傳單紙怪圖集資料,江兆耘,,team-original,,none,,,,江兆耘,2026-11-08,
 public/assets/atlases/consultant.png,序章速效顧問圖集（3 格）,江兆耘,,team-original,,ai-generated,ChatGPT（gpt-image，產生姿勢底稿）,art-src/ai/log/consultant.json,AI 參考圖去背、縮回原生像素格並縮小到 5/6 倍（對齊西裝範本身高）、對回色票後由江兆耘清理；之後由 Isaries 依美術指南把描邊改為 #0C2D5E、補頭部與肩膀的描邊缺口、正面把合約夾移到畫面左側並在畫面右側的胸口補 5 × 6 加墨藍描邊的閃電徽章、背面徽章改為同規格、正面補嘴、合約夾側邊的員工黃與夾子的石灰改為淺灰、刪除雜點,江兆耘,2026-11-08,
 public/assets/atlases/consultant.json,序章速效顧問圖集資料,江兆耘,,team-original,,none,,,,江兆耘,2026-11-08,
+public/assets/atlases/stopgap/*,暫代圖集（程式由既有圖轉成，待手修，見 #96）,Isaries（程式轉換）；來源為江兆耘的器官立繪與 AI 頭像、AI 概念圖、黃晨瑋的程式草稿道具,,team-original,,ai-generated,Google Gemini 或 ChatGPT gpt-image（來源圖各自的生成紀錄）,art-src/ai/log/stopgap-atlases.json,tools/art/make_stopgaps.py 縮成像素格、對回色票並換掉保留色；推銷員與乾杯小弟為西裝範本換頭；顧問集團成員補 5 × 6 閃電徽章,Isaries,2026-11-08,

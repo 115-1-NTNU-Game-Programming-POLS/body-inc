@@ -1,0 +1,28 @@
+{
+ "id": "stopgap-atlases",
+ "title": "暫代圖集（程式由既有圖轉成，待手修）",
+ "batch": "stopgap",
+ "tool": "tools/art/make_stopgaps.py（來源圖的生成工具見各自紀錄）",
+ "date": "2026-11-08",
+ "sources": {
+  "energy-seller": "art-src/ai/raw/concepts/concept-energy-seller.jpg 的頭，換到 suit-base 9 格；生成紀錄 art-src/ai/log/concept-energy-seller.json",
+  "cheers": "art-src/ai/raw/concepts/concept-cheers.png 的頭，換到 suit-base 9 格；生成紀錄 art-src/ai/log/concept-cheers.json",
+  "caffeine": "public/assets/portraits/portrait-caffeine-pitch.png；生成紀錄 art-src/ai/log/portrait-caffeine-pitch.json",
+  "toast-boss": "public/assets/portraits/portrait-toast-boss-pitch.png；生成紀錄 art-src/ai/log/portrait-toast-boss-pitch.json",
+  "brain": "public/assets/portraits/portrait-brain-base.png（江兆耘的器官立繪）",
+  "liver": "public/assets/portraits/portrait-liver-base.png（江兆耘的器官立繪）",
+  "adenosine": "public/assets/portraits/portrait-adenosine-base.png；生成紀錄 art-src/ai/log/portrait-adenosine-base.json",
+  "adenosine-mini": "同 adenosine",
+  "exam": "public/assets/portraits/portrait-exam-stern.png 與 portrait-exam-approve.png 的臉部",
+  "alcohol-barrel": "public/assets/props/prop-alcohol-barrel.png；生成紀錄 art-src/ai/log/prop-alcohol-barrel.json",
+  "glucose-box": "art-src/drafts/props/box-glucose-pushable.png（程式草稿）"
+ },
+ "post": {
+  "pixelize": "tools/art/postprocess.py 的 pixelize：框內縮小、硬邊透明、對回 body-inc-pixel.gpl、1 像素墨藍內描邊",
+  "reserved-colours": "營運長青綠、正紅與徽章金換成最近的允許色；徽章金只留在程式蓋上的徽章",
+  "badge": "顧問集團成員蓋 5 × 6 閃電徽章，四鄰全為墨藍",
+  "style-board-check": "待審（#96）"
+ },
+ "status": "stopgap",
+ "issue": "#96"
+}

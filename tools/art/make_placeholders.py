@@ -121,10 +121,12 @@ def build(entry):
 
 
 def check(manifest):
-    """Compare real exports in atlases/ with the manifest tags."""
+    """Compare real exports in atlases/ and the stopgaps in atlases/stopgap/ with the manifest tags."""
     missing = []
     for e in manifest["entries"]:
         real = ROOT / "public" / "assets" / "atlases" / f"{e['key']}.json"
+        if not real.exists():
+            real = STOPGAP_DIR / f"{e['key']}.json"
         if not real.exists():
             continue
         have = {t["name"] for t in json.loads(real.read_text(encoding="utf-8-sig"))["meta"]["frameTags"]}
@@ -154,13 +156,20 @@ def main():
 
 
 REAL_DIR = ROOT / "public" / "assets" / "atlases"
+STOPGAP_DIR = REAL_DIR / "stopgap"
 
 
 def expected_index(manifest):
     """The game cannot list public/ at runtime, so it reads which atlas to load per key from
-    atlases/index.json. A real export in atlases/<key>.json wins over its placeholder."""
-    return {e["key"]: (f"assets/atlases/{e['key']}" if (REAL_DIR / f"{e['key']}.json").exists()
-                       else f"assets/atlases/placeholder/{e['key']}") for e in manifest["entries"]}
+    atlases/index.json. A real export in atlases/<key>.json wins over a code-built stopgap in
+    atlases/stopgap/ (tools/art/make_stopgaps.py), which wins over the placeholder."""
+    def pick(key):
+        if (REAL_DIR / f"{key}.json").exists():
+            return f"assets/atlases/{key}"
+        if (STOPGAP_DIR / f"{key}.json").exists():
+            return f"assets/atlases/stopgap/{key}"
+        return f"assets/atlases/placeholder/{key}"
+    return {e["key"]: pick(e["key"]) for e in manifest["entries"]}
 
 
 def index_problems(manifest):
@@ -179,8 +188,9 @@ def write_index(manifest):
     index = expected_index(manifest)
     real_dir = REAL_DIR
     (real_dir / "index.json").write_text(json.dumps(index, indent=1) + "\n", encoding="utf-8")
-    real = sum(1 for v in index.values() if "placeholder" not in v)
-    print(f"atlas index: {real} real, {len(index) - real} placeholder -> {real_dir / 'index.json'}")
+    stop = sum(1 for v in index.values() if "/stopgap/" in v)
+    held = sum(1 for v in index.values() if "/placeholder/" in v)
+    print(f"atlas index: {len(index) - stop - held} real, {stop} stopgap, {held} placeholder -> {real_dir / 'index.json'}")
 
 
 if __name__ == "__main__":
