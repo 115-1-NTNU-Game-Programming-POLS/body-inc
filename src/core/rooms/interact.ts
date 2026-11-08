@@ -14,11 +14,13 @@ export type SocketName = 'N' | 'E' | 'S' | 'W';
 /**
  * Doors and triggers fire when the operator steps onto them; NPCs, beds, pickups and toggle
  * switches wait for the interact key (design doc 5.2: E also picks things up). A hold switch is a
- * pressure plate, pressed by standing on it.
+ * pressure plate, pressed by standing on it. A time clock answers both: it looks like an object,
+ * so the interact key is the first thing a player tries on it (#82).
  */
 const TOUCHED = new Set(['Door', 'Trigger']);
 const reached = (o: RoomObject): boolean =>
-  o.kind === 'NPC' || o.kind === 'Bed' || o.kind === 'Pickup' || (o.kind === 'Switch' && o.props['mode'] === 'toggle');
+  o.kind === 'NPC' || o.kind === 'Bed' || o.kind === 'Pickup' || (o.kind === 'Switch' && o.props['mode'] === 'toggle')
+  || (o.kind === 'Trigger' && o.props['event'] === 'checkpoint');
 
 export function objectBox(o: RoomObject): Box {
   const left = o.width > 0 ? o.x : o.x - POINT_SIZE / 2;
@@ -84,20 +86,26 @@ export function leverAt(room: RoomModel, box: Box): RoomObject | undefined {
 }
 
 /**
- * The talk, bed, pickup or switch object the interact key would use: the nearest one whose box
+ * The talk, bed, pickup, switch or time clock object the interact key would use: the nearest one whose box
  * meets the body grown by INTERACT_REACH, and the lowest id when two are equally near; a pickup
  * already taken is not there. One definition for the rule and for the HUD prompt, so the prompt
  * never promises what the key will not do.
+ *
+ * A time clock comes last: its box is wide, so its centre can be nearer than a pickup or NPC the
+ * player is facing, and stepping onto it punches anyway. While the body stands on it the key
+ * leaves it alone, since the touch has already punched it.
  */
 export function reachableObject(
   room: RoomModel, body: Box, feet: { readonly x: number; readonly y: number }, taken: readonly number[],
 ): RoomObject | undefined {
   const reach = grown(body, INTERACT_REACH);
-  let best: { o: RoomObject; d: number } | undefined;
+  let best: { o: RoomObject; d: number; clock: boolean } | undefined;
   for (const { o, box } of indexOf(room).reached) {
     if (!overlaps(reach, box) || (o.kind === 'Pickup' && taken.includes(o.id))) continue;
+    const clock = o.kind === 'Trigger';
+    if (clock && overlaps(body, box)) continue;
     const d = Math.hypot((box.left + box.right) / 2 - feet.x, (box.top + box.bottom) / 2 - feet.y);
-    if (!best || d < best.d) best = { o, d };
+    if (!best || (best.clock && !clock) || (best.clock === clock && d < best.d)) best = { o, d, clock };
   }
   return best?.o;
 }

@@ -51,6 +51,7 @@
     "hud.interact": { "text": "按 E／Enter 互動", "fact": "" },
     "hud.rule_time": { "text": "規則時間 {seconds} 秒　章內時鐘 {clock}", "fact": "" },
     "boot.load_failed": { "text": "遊戲檔案沒有載入完成，可能是網路不穩。按 R 重新整理頁面。", "fact": "" },
+    "hud.clock": { "text": "章內時鐘 {clock}", "fact": "" },
     "hud.glucose": { "text": "血糖 {value}", "fact": "" },
     "title.name": { "text": "人體股份有限公司", "fact": "" },
     "title.new": { "text": "新遊戲", "fact": "" },

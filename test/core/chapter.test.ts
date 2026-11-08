@@ -4,7 +4,7 @@ import { BOSSES, DECKS, DIALOGUES, ENEMIES, PARAMS, TAGS } from '../../src/app/c
 import { tagsFromQuery } from '../../src/app/session.ts';
 import { bodyOverlapsSolid } from '../../src/core/collision/grid.ts';
 import {
-  advance, amount, ChapterError, LOCK_TICKS, decode, encode, EMPTY_TAGS, NAP, OPERATOR_BODY, parseRoom, readContent, resumeChapter, roomsOf, selectInteractable,
+  advance, amount, ChapterError, LOCK_TICKS, decode, encode, EMPTY_TAGS, NAP, OPERATOR_BODY, parseRoom, reachableObject, readContent, resumeChapter, roomsOf, selectInteractable,
   startChapter, startClock, stateHash, stepChapter, storyOf, STORY, TALK_REST_TICKS, tileOf, touchedObjects, wholeMinutes,
   type ChapterContent, type ChapterState, type GameEvent, type TickInput, type TiledMap,
 } from '../../src/core/index.ts';
@@ -411,6 +411,7 @@ describe('the half heart owed under the halved-damage assist', () => {
 
 describe('checkpoints and forced leave', () => {
   const clock = (s: ChapterState) => place(s, 128, 230);
+  const PRESS: TickInput = { move: { x: 0, y: 0 }, interactPressed: true };
 
   it('the time clock saves where it is, restores the hearts, and can be punched again', () => {
     let s = startChapter(ctx, { room: REST, halves: 3 });
@@ -421,6 +422,32 @@ describe('checkpoints and forced leave', () => {
     s = place(r.state, 130, 300);
     const later = advanceBy(ctx, { ...place(s, 140, 240), game: { ...s.game, touching: [], operator: { ...s.game.operator, x: 140, y: 240 } } }, NONE);
     expect(later.state.run.checkpoint).toMatchObject({ x: 140, y: 240 });
+  });
+
+  it('the interact key next to the time clock punches it too, and the prompt offers it (#82)', () => {
+    // Beside the clock's box (x 96 to 160), not on it: stepping alone does nothing here.
+    const beside = place(startChapter(ctx, { room: REST, halves: 3 }), 180, 230);
+    expect(types(advanceBy(ctx, beside, NONE).events)).not.toContain('checkpointSaved');
+    expect(selectInteractable(beside.game)).toEqual({ object: 4, kind: 'Trigger' });
+    const r = advanceBy(ctx, beside, PRESS);
+    expect(r.events).toContainEqual({ type: 'checkpointSaved', room: REST });
+    expect(r.state.run.checkpoint).toMatchObject({ roomId: REST, x: 180, y: 230 });
+    expect(r.state.game.operator.halves).toBe(r.state.game.operator.maxHalves);
+    // Stepping on and pressing on the same tick punches once.
+    expect(types(advanceBy(ctx, clock(startChapter(ctx, { room: REST })), PRESS).events).filter((t) => t === 'checkpointSaved')).toHaveLength(1);
+  });
+
+  it('the interact key prefers a pickup beside the time clock, and leaves the clock alone while standing on it', () => {
+    // The wide clock's centre (145, 240) is nearer the feet than the pickup's (210, 200).
+    const timeClock = { id: 3, type: 'Trigger', x: 120, y: 200, width: 50, height: 80, properties: [p('event', 'checkpoint')] };
+    const pickup = { id: 4, type: 'Pickup', x: 210, y: 200, properties: [p('itemType', 'handbook'), p('itemId', 'caffeine')] };
+    const room = labRoom('lab/clock', [timeClock, pickup]);
+    const feet = { x: 180, y: 240 };
+    const beside = { left: 172, right: 188, top: 220, bottom: 240 };
+    expect(reachableObject(room, beside, feet, [])?.id).toBe(4);
+    expect(reachableObject(room, beside, feet, [4])?.id).toBe(3);
+    const onIt = { left: 150, right: 166, top: 220, bottom: 240 };
+    expect(reachableObject(room, onIt, { x: 158, y: 240 }, [4])).toBeUndefined();
   });
 
   it('a forced leave goes back to the checkpoint: its room, place, tags and clock, with hearts full and fired kept', () => {

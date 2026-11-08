@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import type { FixedStepLoop } from '../../app/loop.ts';
 import {
   acetaldehydeCrates, BASE_HALVES, debtOfSpirit, GLUCOSE as METER, glucoseOf, isDizzy, MINUTES_PER_DAY, questionOf, selectBoss, selectClock, selectExam, selectFactory, selectGauge, selectHearts,
-  selectInteractable, selectPie, selectTick, selectTool, stepAt, TICK_HZ, waitingCrates, workOrders,
+  selectDoorLocks, selectInteractable, selectPie, selectTick, selectTool, stepAt, TICK_HZ, waitingCrates, workOrders,
   type BossSummary, type ChapterState, type GameEvent, type GameState,
 } from '../../core/index.ts';
 import type { WorldCaption } from '../../app/audio.ts';
@@ -92,6 +92,8 @@ export class HudScene extends Phaser.Scene {
   private shownHearts = '';
   private shownGauge = '';
   private shownTime = '';
+  /** False where there is no chapter clock to show at all: the evidence wall and a patrol. */
+  private clockAllowed = true;
   private status!: Phaser.GameObjects.Text;
   /** Dims the room while the operator is dizzy (design doc 7.7: the screen darkens). */
   private haze!: Phaser.GameObjects.Rectangle;
@@ -114,6 +116,7 @@ export class HudScene extends Phaser.Scene {
     this.shownHearts = '';
     this.shownGauge = '';
     this.shownTime = '';
+    this.clockAllowed = true;
     this.noticed.clear();
     this.notes.length = 0;
     this.captions.length = 0;
@@ -154,6 +157,7 @@ export class HudScene extends Phaser.Scene {
     this.wallNote = undefined;
     const onWallNote = (m: WallNoteMessage) => this.showWallNote(m.text);
     if (this.wallMode) {
+      this.clockAllowed = false;
       this.clock.setVisible(false);
       updateText(this.controls, str('semester.wall.controls'));
       // The board fills the top of the screen, so the controls go below the room instead of over the nodes.
@@ -162,6 +166,7 @@ export class HudScene extends Phaser.Scene {
     }
     // A patrol runs no chapter clock (design doc 8.5), so there is none to show; the controls say how to give up instead.
     if (this.registry.get('patrol') !== undefined) {
+      this.clockAllowed = false;
       this.clock.setVisible(false);
       updateText(this.controls, str('semester.patrol.controls'));
     }
@@ -251,7 +256,8 @@ export class HudScene extends Phaser.Scene {
 
   /** Lowest edge of what the HUD draws along the top of the screen. */
   private hudBottom(): number {
-    const edges = [this.clock, this.status, this.glucoseLabel].filter((t) => t.visible).map((t) => t.getBounds().bottom);
+    // On the evidence wall the controls sit at the bottom of the screen instead.
+    const edges = [...(this.wallMode ? [] : [this.controls]), this.clock, this.status, this.glucoseLabel].filter((t) => t.visible).map((t) => t.getBounds().bottom);
     if (this.plate) edges.push(PLATE.y + PLATE.h + 4);
     return Math.max(GAUGE_Y + GAUGE_H + 4, ...edges) + 4;
   }
@@ -466,20 +472,32 @@ export class HudScene extends Phaser.Scene {
     }
     this.renderGlucose(glucoseOf(loop.state.run.tags));
     this.renderBoss(game, time);
+    // The status line anchors to the clock only while the clock shows, so the clock goes first.
+    this.renderClock(game);
     this.renderStatus(loop.state);
     const exam = selectExam(game);
     const stampable = exam?.state.part === 'run' && game.operator.action.kind === 'free' && !game.interactRest && stepAt(exam.state, game.operator) !== undefined;
     this.prompt.setVisible(loop.state.dialogue === null && loop.state.card === null && !loop.state.rescue && !loop.state.exam
       && (selectInteractable(game) !== undefined || stampable));
-    const seconds = (selectTick(game) / TICK_HZ).toFixed(1);
-    const clock = selectClock(game);
-    const minute = clock.minute % MINUTES_PER_DAY;
+  }
+
+  /**
+   * Scripted lines name times of day the chapter clock cannot match, since it only moves forward
+   * (#82). Outside development the clock shows only in a room with a clock-locked door, where the
+   * player needs it, and the rule seconds never show.
+   */
+  private renderClock(game: GameState): void {
+    const dev = import.meta.env.DEV;
+    const visible = this.clockAllowed && (dev || selectDoorLocks(game).some((l) => l.lock === 'clock'));
+    this.clock.setVisible(visible);
+    if (!visible) return;
+    const seconds = dev ? (selectTick(game) / TICK_HZ).toFixed(1) : '';
+    const minute = selectClock(game).minute % MINUTES_PER_DAY;
     const hhmm = `${String(Math.floor(minute / 60)).padStart(2, '0')}:${String(minute % 60).padStart(2, '0')}`;
     const shown = `${seconds} ${hhmm}`;
-    if (shown !== this.shownTime) {
-      this.shownTime = shown;
-      updateText(this.clock, str('hud.rule_time').replace('{seconds}', seconds).replace('{clock}', hhmm));
-    }
+    if (shown === this.shownTime) return;
+    this.shownTime = shown;
+    updateText(this.clock, dev ? str('hud.rule_time').replace('{seconds}', seconds).replace('{clock}', hhmm) : str('hud.clock').replace('{clock}', hhmm));
   }
 
   /** Under the clock: why hearts are suspended, the tool in hand once there is a second to swap to, the factory's crate counts in a factory room, and the dizzy warning (design doc 7.7). */
@@ -509,7 +527,8 @@ export class HudScene extends Phaser.Scene {
     if (dizzy) lines.push(str('hud.dizzy'));
     this.haze.setVisible(dizzy);
     const text = lines.join('\n');
-    this.status.setY(this.clock.y + this.clock.displayHeight + 2);
+    const above = this.clock.visible ? this.clock : this.controls;
+    this.status.setY(above.y + above.displayHeight + 2);
     if (text === this.shownStatus) return;
     this.shownStatus = text;
     this.status.setVisible(text !== '');
