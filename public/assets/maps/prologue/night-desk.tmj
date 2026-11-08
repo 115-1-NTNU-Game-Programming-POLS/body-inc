@@ -9,8 +9,8 @@
  "height": 12,
  "tilewidth": 32,
  "tileheight": 32,
- "nextlayerid": 4,
- "nextobjectid": 5,
+ "nextlayerid": 5,
+ "nextobjectid": 55,
  "class": "Room",
  "properties": [
   {
@@ -537,6 +537,78 @@
    ]
   },
   {
+   "id": 4,
+   "name": "props",
+   "type": "objectgroup",
+   "x": 0,
+   "y": 0,
+   "opacity": 1,
+   "visible": true,
+   "draworder": "topdown",
+   "objects": [
+    {
+     "id": 50,
+     "name": "office-desk",
+     "type": "",
+     "gid": 49,
+     "x": 64,
+     "y": 128,
+     "width": 64,
+     "height": 48,
+     "rotation": 0,
+     "visible": true
+    },
+    {
+     "id": 51,
+     "name": "office-desk",
+     "type": "",
+     "gid": 49,
+     "x": 256,
+     "y": 128,
+     "width": 64,
+     "height": 48,
+     "rotation": 0,
+     "visible": true
+    },
+    {
+     "id": 52,
+     "name": "night-vending",
+     "type": "",
+     "gid": 50,
+     "x": 384,
+     "y": 128,
+     "width": 32,
+     "height": 64,
+     "rotation": 0,
+     "visible": true
+    },
+    {
+     "id": 53,
+     "name": "night-cleaning-cart",
+     "type": "",
+     "gid": 51,
+     "x": 384,
+     "y": 352,
+     "width": 32,
+     "height": 32,
+     "rotation": 0,
+     "visible": true
+    },
+    {
+     "id": 54,
+     "name": "night-exit-sign",
+     "type": "",
+     "gid": 52,
+     "x": 512,
+     "y": 80,
+     "width": 32,
+     "height": 16,
+     "rotation": 0,
+     "visible": true
+    }
+   ]
+  },
+  {
    "id": 3,
    "name": "objects",
    "type": "objectgroup",
@@ -637,6 +709,47 @@
    "spacing": 2,
    "columns": 8,
    "tilecount": 48
+  },
+  {
+   "firstgid": 49,
+   "name": "props",
+   "tilewidth": 64,
+   "tileheight": 64,
+   "tilecount": 4,
+   "columns": 0,
+   "margin": 0,
+   "spacing": 0,
+   "grid": {
+    "orientation": "orthogonal",
+    "width": 1,
+    "height": 1
+   },
+   "tiles": [
+    {
+     "id": 0,
+     "image": "../../props/prop-office-desk.png",
+     "imagewidth": 64,
+     "imageheight": 48
+    },
+    {
+     "id": 1,
+     "image": "../../props/prop-night-vending.png",
+     "imagewidth": 32,
+     "imageheight": 64
+    },
+    {
+     "id": 2,
+     "image": "../../props/prop-night-cleaning-cart.png",
+     "imagewidth": 32,
+     "imageheight": 32
+    },
+    {
+     "id": 3,
+     "image": "../../props/prop-night-exit-sign.png",
+     "imagewidth": 32,
+     "imageheight": 16
+    }
+   ]
   }
  ]
 }

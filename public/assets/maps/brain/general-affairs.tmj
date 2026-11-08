@@ -537,6 +537,102 @@
    ]
   },
   {
+   "id": 4,
+   "name": "props",
+   "type": "objectgroup",
+   "x": 0,
+   "y": 0,
+   "opacity": 1,
+   "visible": true,
+   "draworder": "topdown",
+   "objects": [
+    {
+     "id": 50,
+     "name": "office-desk",
+     "type": "",
+     "gid": 49,
+     "x": 288,
+     "y": 192,
+     "width": 64,
+     "height": 48,
+     "rotation": 0,
+     "visible": true
+    },
+    {
+     "id": 51,
+     "name": "evidence-cabinet",
+     "type": "",
+     "gid": 50,
+     "x": 64,
+     "y": 128,
+     "width": 32,
+     "height": 64,
+     "rotation": 0,
+     "visible": true
+    },
+    {
+     "id": 52,
+     "name": "evidence-cabinet",
+     "type": "",
+     "gid": 50,
+     "x": 96,
+     "y": 128,
+     "width": 32,
+     "height": 64,
+     "rotation": 0,
+     "visible": true
+    },
+    {
+     "id": 53,
+     "name": "evidence-cabinet",
+     "type": "",
+     "gid": 50,
+     "x": 128,
+     "y": 128,
+     "width": 32,
+     "height": 64,
+     "rotation": 0,
+     "visible": true
+    },
+    {
+     "id": 54,
+     "name": "evidence-cabinet",
+     "type": "",
+     "gid": 50,
+     "x": 480,
+     "y": 128,
+     "width": 32,
+     "height": 64,
+     "rotation": 0,
+     "visible": true
+    },
+    {
+     "id": 55,
+     "name": "evidence-cabinet",
+     "type": "",
+     "gid": 50,
+     "x": 512,
+     "y": 128,
+     "width": 32,
+     "height": 64,
+     "rotation": 0,
+     "visible": true
+    },
+    {
+     "id": 56,
+     "name": "evidence-cabinet",
+     "type": "",
+     "gid": 50,
+     "x": 544,
+     "y": 128,
+     "width": 32,
+     "height": 64,
+     "rotation": 0,
+     "visible": true
+    }
+   ]
+  },
+  {
    "id": 3,
    "name": "objects",
    "type": "objectgroup",
@@ -637,6 +733,35 @@
    "spacing": 2,
    "columns": 8,
    "tilecount": 48
+  },
+  {
+   "firstgid": 49,
+   "name": "props",
+   "tilewidth": 64,
+   "tileheight": 64,
+   "tilecount": 2,
+   "columns": 0,
+   "margin": 0,
+   "spacing": 0,
+   "grid": {
+    "orientation": "orthogonal",
+    "width": 1,
+    "height": 1
+   },
+   "tiles": [
+    {
+     "id": 0,
+     "image": "../../props/prop-office-desk.png",
+     "imagewidth": 64,
+     "imageheight": 48
+    },
+    {
+     "id": 1,
+     "image": "../../props/prop-evidence-cabinet.png",
+     "imagewidth": 32,
+     "imageheight": 64
+    }
+   ]
   }
  ]
 }
