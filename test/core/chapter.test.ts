@@ -118,6 +118,33 @@ describe('walking through doors', () => {
     expect(types(advanceBy(ctx, state, NONE, 30).events)).toEqual([]);
   });
 
+  it('a knockback toward the door just come through does not take the operator back (#79)', () => {
+    const c = pair([]);
+    const there = walkTo(c, startChapter(c), 320, 400, changed).state;
+    expect(there.run.roomId).toBe('lab/b');
+    // The arrival spot is 2 px from the door and a knockback is a whole tile.
+    const hurt = { kind: 'hurt', frame: 0, dir: { x: 0, y: -1 } } as const;
+    const knocked = { ...there, game: { ...there.game, operator: { ...there.game.operator, action: hurt } } };
+    const r = advanceBy(c, knocked, NONE, 40);
+    expect(types(r.events)).not.toContain('doorEntered');
+    expect(r.state.run.roomId).toBe('lab/b');
+    expect(r.state.game.operator.action.kind).toBe('free');
+    // A deliberate step afterwards still goes through.
+    expect(walkTo(c, r.state, 320, 10, changed).state.run.roomId).toBe('lab/a');
+  });
+
+  it('standing still on arrival in the brain tutorial room, hits do not send the operator back (#79)', () => {
+    const brainChapter = readContent('chapter', JSON.parse(readFileSync('content/chapters/brain.json', 'utf8')));
+    const brain: ChapterContent = { ...ctx, chapter: brainChapter, rooms: new Map(roomsOf(brainChapter).map((r) => [r, load(r)])), deck: DECKS.get('brain')! };
+    const office = place(startChapter(brain, { room: 'brain/general-affairs' }), 590, 240);
+    const there = walkTo(brain, office, 640, 240, changed).state;
+    expect(there.run.roomId).toBe('brain/tutorial');
+    const r = advanceBy(brain, there, NONE, 600);
+    expect(types(r.events)).toContain('heartLost');
+    expect(types(r.events)).not.toContain('doorEntered');
+    expect(r.state.run.roomId).toBe('brain/tutorial');
+  });
+
   it('the way back leads to where you came from', () => {
     const there = walkTo(ctx, startChapter(ctx), 320, 366, changed).state;
     const back = walkTo(ctx, there, 320, 10, changed).state;
