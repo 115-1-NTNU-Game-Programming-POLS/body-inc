@@ -14,6 +14,7 @@ export { doorOpen, inWindow, keyOf, keysFor, mayOpen, openByState, parseClockWin
 export * from './chapter/chapter.ts';
 export * from './chapter/patrol.ts';
 export { eventCard, type CardState } from './chapter/cards.ts';
+export { TALK_REST_TICKS } from './chapter/talk.ts';
 export * from './chapter/playable.ts';
 export type { EffectEvent, EffectSource } from './chapter/effects.ts';
 export * from './outer/deck.ts';
