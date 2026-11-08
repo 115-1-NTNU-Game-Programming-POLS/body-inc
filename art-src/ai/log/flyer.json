@@ -1,0 +1,41 @@
+{
+ "id": "flyer",
+ "title": "傳單紙怪 3 格像素圖集（姿勢底稿由 AI 產生，江兆耘清理）",
+ "batch": "flyer-poses",
+ "tool": "ChatGPT (gpt-image)",
+ "model": "不在憑證中",
+ "date": "2026-11-08",
+ "template": "flyer-pose-sheet-v1",
+ "prompt": [
+  "共通開頭：The attached image is my pixel-art game enemy (a chibi corporate-consultant template), shown ONLY as a reference for the pixel style, thick 1-pixel navy outline, crisp square pixels, and the exact suit colors. Do NOT copy the character.",
+  "角色：a small chibi flyer monster; head is an advertising flyer folded in half like a tent (no letters, no red, no teal, no lightning on the paper); small charcoal-suit body, burgundy necktie, small gold lightning-bolt badge with navy outline on the chest; about 28 pixels tall in a 32x32 frame.",
+  "姿勢：站姿、ATTACK（一手舉過頭、拋傳單前的起手）、HURT 兼驚訝（圓眼加 O 嘴、傳單頭微皺）；正面、並排、同大小、腳在同一水平線。",
+  "各姿勢的完整提示詞原文請作者貼於此處（僅此欄為摘要）"
+ ],
+ "references": "江兆耘的西裝範本站姿（僅作畫風、配色與像素粗細參考，非複製角色）",
+ "candidates": null,
+ "selected": "站姿、出手、受擊各選 1 張生成圖（原圖未入庫）",
+ "source_name": "ChatGPT 下載的 webp / png",
+ "post": {
+  "select": true,
+  "outline": "江兆耘手修時使用 #182448，之後由 Isaries 統一改為規範的 #0C2D5E",
+  "quantize": "對回 body-inc-pixel.gpl（西裝與領帶色、徽章金 FFC83D、傳單色塊 FFC83D / FCC551 / 3D4A66 / 8A8F98 等 13 色）；之後由 Isaries 把頭上色塊改為便利貼黃 FFF1A8，徽章金只留在炭灰底的徽章上，全圖剩 12 色",
+  "remove-text": "n/a",
+  "pixel-cleanup": "江兆耘手修",
+  "style-board-check": "待審"
+ },
+ "hours": {
+  "cleanup_minutes": 6.5,
+  "generation_minutes": null,
+  "hand_estimate_minutes": 45,
+  "note": "清理三格合計約 6.5 分鐘（作者自述，從頭到尾）；生圖時間未記錄；手繪同一張為預估值（每張約 15 分鐘），未實測；維護者補正未計時"
+ },
+ "status": "hand-finished",
+ "processed": {
+  "outputs": [
+   "public/assets/atlases/flyer.png",
+   "public/assets/atlases/flyer.json"
+  ],
+  "png_colors": 12
+ }
+}
