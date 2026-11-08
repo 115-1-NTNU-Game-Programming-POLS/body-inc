@@ -5,7 +5,7 @@ import { tagsFromQuery } from '../../src/app/session.ts';
 import { bodyOverlapsSolid } from '../../src/core/collision/grid.ts';
 import {
   advance, amount, ChapterError, LOCK_TICKS, decode, encode, EMPTY_TAGS, NAP, OPERATOR_BODY, parseRoom, readContent, resumeChapter, roomsOf, selectInteractable,
-  startChapter, startClock, stateHash, stepChapter, storyOf, STORY, tileOf, touchedObjects, wholeMinutes,
+  startChapter, startClock, stateHash, stepChapter, storyOf, STORY, TALK_REST_TICKS, tileOf, touchedObjects, wholeMinutes,
   type ChapterContent, type ChapterState, type GameEvent, type TickInput, type TiledMap,
 } from '../../src/core/index.ts';
 
@@ -354,6 +354,35 @@ describe('talking', () => {
     const r = advanceBy(ctx, s, { move: { x: 0, y: 0 }, interactPressed: true });
     expect(r.events).toContainEqual({ type: 'talk', object: 7, npc: 'liver', dialogueId: 'greybox.liver.hello' });
     expect(r.events).toContainEqual({ type: 'dialogueOpened', dialogueId: 'greybox.liver.hello' });
+  });
+
+  it('pressing through to the end does not open the conversation again, but a later press does (#81)', () => {
+    const TALK = { move: { x: 0, y: 0 }, interactPressed: true };
+    // Presses 20 ticks (a third of a second) apart, the pace of someone pressing through text.
+    const press = (s: ChapterState) => {
+      let r = advanceBy(ctx, s, TALK);
+      const events = [...r.events];
+      for (let i = 1; i < 20; i++) {
+        r = advanceBy(ctx, r.state, NONE);
+        events.push(...r.events);
+      }
+      return { state: r.state, events };
+    };
+    let r = press(place(startChapter(ctx, { room: REST }), 320, 240));
+    expect(types(r.events)).toContain('dialogueOpened');
+    for (let i = 0; i < 50 && !types(r.events).includes('dialogueClosed'); i++) r = press(r.state);
+    expect(types(r.events)).toContain('dialogueClosed');
+    expect(selectInteractable(r.state.game)).toBeUndefined();
+
+    // Two more presses at the same pace: each one inside the rest starts it over, so neither talks.
+    const once = press(r.state);
+    const again = press(once.state);
+    expect(types([...once.events, ...again.events])).not.toContain('talk');
+    expect(again.state.dialogue).toBeNull();
+    // Once the rest is over the NPC talks as before, and the prompt is back.
+    const rested = advanceBy(ctx, again.state, NONE, TALK_REST_TICKS).state;
+    expect(selectInteractable(rested.game)).toEqual({ object: 7, kind: 'NPC' });
+    expect(types(advanceBy(ctx, rested, TALK).events)).toContain('talk');
   });
 
   it('is silent when the key is not pressed or the NPC is too far', () => {

@@ -104,6 +104,12 @@ export interface GameState {
   /** Set until the general affairs office hands over the folder (design doc 7.4): the swap key does nothing. */
   readonly folderLocked?: true;
   /**
+   * Ticks left in which the interact key does nothing. A closing conversation sets it: Enter both
+   * advances a line and talks, so a quick press after the last line would reopen it (#81). A press
+   * inside the rest starts it over, so it ends only after TALK_REST_TICKS without one.
+   */
+  readonly interactRest?: number;
+  /**
    * How far clinging enemies can see the operator, when the caffeine cloak cuts it below
    * CLING.senseRangePx (design doc 7.4); 0 means they cannot see the operator at all. The chapter
    * sets it every tick from the caffeine tag, since the room knows no tags.
@@ -711,6 +717,20 @@ function ontoDoor(room: EnteredRoom, from: Vec, to: Vec): boolean {
   return doorsAt(to).some((id) => !before.includes(id));
 }
 
+/**
+ * The interact rest after a conversation closes (0.5 s). Someone pressing through text keeps
+ * pressing at a steady pace, so each press inside the rest starts it over; one who means to talk
+ * again stops for longer than this first.
+ */
+export const TALK_REST_TICKS = 30;
+
+function restTick(s: GameState, pressed: boolean): GameState {
+  if (!s.interactRest) return s;
+  if (pressed) return { ...s, interactRest: TALK_REST_TICKS };
+  const { interactRest, ...rest } = s;
+  return interactRest > 1 ? { ...rest, interactRest: interactRest - 1 } : rest;
+}
+
 export function step(state: GameState, pressed: TickInput): StepResult {
   const now = state.tick;
   const events: DomainEvent[] = [];
@@ -718,6 +738,7 @@ export function step(state: GameState, pressed: TickInput): StepResult {
     ...pressed,
     ...(state.stampLocked && pressed.stampPressed ? { stampPressed: false } : {}),
     ...(state.folderLocked && pressed.swapPressed ? { swapPressed: false } : {}),
+    ...(state.interactRest && pressed.interactPressed ? { interactPressed: false } : {}),
   };
 
   if (state.freeze > 0) {
@@ -1245,7 +1266,7 @@ export function step(state: GameState, pressed: TickInput): StepResult {
   // The hit above has already knocked back and frozen the fight; the assist only keeps the last half heart.
   if (assists.neverEmpty && op.halves < 1) op = { ...op, halves: 1 };
 
-  let next: GameState = {
+  let next: GameState = restTick({
     ...state, tick: now + 1, rng, clock, operator: op, enemies: byId(), projectiles: flying,
     shots: settled.size === 0 ? movedShots : movedShots.map((sh) => (settled.has(waveKey(sh) ?? '') ? { ...sh, spent: true } : sh)),
     zones: [...zones.values()].sort((a, b) => a.id - b.id), nextId, freeze,
@@ -1256,7 +1277,7 @@ export function step(state: GameState, pressed: TickInput): StepResult {
     ...(factory ? { factory } : {}),
     ...(bind ? { bind } : {}),
     ...(boostUntil !== undefined ? { boostUntil } : {}),
-  };
+  }, pressed.interactPressed === true);
   // The exam reads what this tick did (hits, answered cases, a stack failure) and moves its own clock.
   if (examining && next.exam && next.examDef) {
     const r = stepExam(next.examDef, {
@@ -1327,7 +1348,7 @@ export function selectPie(s: GameState): { readonly phase: 'ready' | 'up' | 'coo
 }
 /** The NPC, bed, pickup or toggle switch the interact key would use right now, for the HUD prompt; same rule as the key. */
 export function selectInteractable(s: GameState): { readonly object: number; readonly kind: string } | undefined {
-  if (s.operator.action.kind !== 'free') return undefined;
+  if (s.operator.action.kind !== 'free' || s.interactRest) return undefined;
   const o = reachableObject(s.room, boxAt(OPERATOR_BODY, s.operator.x, s.operator.y), s.operator, s.taken);
   return o ? { object: o.id, kind: o.kind } : undefined;
 }

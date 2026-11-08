@@ -4,7 +4,7 @@ import {
   arrivalEffects, chosenLine, leaveNode, LOCK_TICKS, moveCursor, nodeLine, openDialogue, pickReply, type DialogueState,
 } from '../dialogue/runner.ts';
 import type { Effect } from '../dialogue/lines.ts';
-import type { GameState } from '../game.ts';
+import { TALK_REST_TICKS, type GameState } from '../game.ts';
 import { holds } from '../tags/store.ts';
 import type { ChapterContent, ChapterEvent, ChapterState, Run } from './chapter.ts';
 import { applyEffects, type EffectSource } from './effects.ts';
@@ -53,6 +53,7 @@ export function withTools(a: Applied): Applied {
 export const confirmPressed = (input: TickInput): boolean =>
   input.interactPressed === true || input.attackPressed === true || input.dodgePressed === true;
 
+
 export interface Opened extends Applied {
   readonly dialogue: DialogueState;
 }
@@ -99,7 +100,7 @@ export function stepTalk(ctx: ChapterContent, state: ChapterState, input: TickIn
   const next = leaveNode(ctx.dialogues, at, (c) => holds(run.tags, ctx.dict, c));
   if (!next) {
     events.push({ type: 'dialogueClosed', dialogueId: at.id });
-    return { state: { ...state, run, game, dialogue: null }, events };
+    return { state: { ...state, run, game: { ...game, interactRest: TALK_REST_TICKS }, dialogue: null }, events };
   }
   const b = applyToRun(ctx, run, game, arrivalEffects(ctx.dialogues, next), { kind: 'event', key: `dialogue.${next.id}.${nodeLine(ctx.dialogues, next).order}` });
   events.push(...b.events);

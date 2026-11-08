@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { BOSSES, DIALOGUES, ENEMIES, PARAMS, TAGS } from '../../src/app/content.ts';
 import {
   answeredCards, bedAfter, decode, EMPTY_TAGS, encode, GLUCOSE, glucoseOf, loadDialogueTable, openingFor, OuterError, parseRoom, playCards,
-  PUSH, readDeck, resumeChapter, selectPort, setAmount, setFlag, STAMP, startChapter, stepChapter, stepGlucose, STORY, storyAtEnd, TOOLS, toolsAtStart,
+  PUSH, readDeck, resumeChapter, selectPort, setAmount, setFlag, STAMP, startChapter, stepChapter, stepGlucose, STORY, storyAtEnd, TALK_REST_TICKS, TOOLS, toolsAtStart,
   record, type ChapterContent, type ChapterFile, type ChapterState, type Checkpoint, type DialogueTable, type GameEvent, type TagState, type TickInput, type TiledMap,
 } from '../../src/core/index.ts';
 
@@ -180,7 +180,7 @@ describe('the dispatch port', () => {
     // The NPC lost nothing: once the port's line is closed it can be talked to.
     const closed = run(c, run(c, both.state, NONE, 20).state, { move: { x: 0, y: 0 }, interactPressed: true }).state;
     expect(closed.dialogue).toBeNull();
-    const again = run(c, run(c, closed, NONE, 2).state, { move: { x: 0, y: 0 }, interactPressed: true }).state;
+    const again = run(c, run(c, closed, NONE, TALK_REST_TICKS).state, { move: { x: 0, y: 0 }, interactPressed: true }).state;
     expect(again.dialogue?.id).toBe('lab.hello');
   });
 
