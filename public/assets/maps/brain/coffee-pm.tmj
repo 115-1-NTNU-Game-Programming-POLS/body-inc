@@ -537,6 +537,54 @@
    ]
   },
   {
+   "id": 4,
+   "name": "props",
+   "type": "objectgroup",
+   "x": 0,
+   "y": 0,
+   "opacity": 1,
+   "visible": true,
+   "draworder": "topdown",
+   "objects": [
+    {
+     "id": 50,
+     "name": "coffee-machine-on",
+     "type": "",
+     "gid": 49,
+     "x": 240,
+     "y": 128,
+     "width": 32,
+     "height": 64,
+     "rotation": 0,
+     "visible": true
+    },
+    {
+     "id": 51,
+     "name": "office-desk",
+     "type": "",
+     "gid": 50,
+     "x": 64,
+     "y": 128,
+     "width": 64,
+     "height": 48,
+     "rotation": 0,
+     "visible": true
+    },
+    {
+     "id": 52,
+     "name": "wall-board-frame",
+     "type": "",
+     "gid": 51,
+     "x": 416,
+     "y": 96,
+     "width": 64,
+     "height": 64,
+     "rotation": 0,
+     "visible": true
+    }
+   ]
+  },
+  {
    "id": 3,
    "name": "objects",
    "type": "objectgroup",
@@ -638,6 +686,41 @@
    "spacing": 2,
    "columns": 8,
    "tilecount": 48
+  },
+  {
+   "firstgid": 49,
+   "name": "props",
+   "tilewidth": 64,
+   "tileheight": 64,
+   "tilecount": 3,
+   "columns": 0,
+   "margin": 0,
+   "spacing": 0,
+   "grid": {
+    "orientation": "orthogonal",
+    "width": 1,
+    "height": 1
+   },
+   "tiles": [
+    {
+     "id": 0,
+     "image": "../../props/prop-coffee-machine-on.png",
+     "imagewidth": 32,
+     "imageheight": 64
+    },
+    {
+     "id": 1,
+     "image": "../../props/prop-office-desk.png",
+     "imagewidth": 64,
+     "imageheight": 48
+    },
+    {
+     "id": 2,
+     "image": "../../props/prop-wall-board-frame.png",
+     "imagewidth": 64,
+     "imageheight": 64
+    }
+   ]
   }
  ]
 }

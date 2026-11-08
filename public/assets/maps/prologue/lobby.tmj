@@ -9,8 +9,8 @@
  "height": 12,
  "tilewidth": 32,
  "tileheight": 32,
- "nextlayerid": 4,
- "nextobjectid": 7,
+ "nextlayerid": 5,
+ "nextobjectid": 54,
  "class": "Room",
  "properties": [
   {
@@ -537,6 +537,66 @@
    ]
   },
   {
+   "id": 4,
+   "name": "props",
+   "type": "objectgroup",
+   "x": 0,
+   "y": 0,
+   "opacity": 1,
+   "visible": true,
+   "draworder": "topdown",
+   "objects": [
+    {
+     "id": 50,
+     "name": "floor-guide",
+     "type": "",
+     "gid": 49,
+     "x": 64,
+     "y": 128,
+     "width": 32,
+     "height": 64,
+     "rotation": 0,
+     "visible": true
+    },
+    {
+     "id": 51,
+     "name": "punch-clock",
+     "type": "",
+     "gid": 50,
+     "x": 304,
+     "y": 128,
+     "width": 32,
+     "height": 64,
+     "rotation": 0,
+     "visible": true
+    },
+    {
+     "id": 52,
+     "name": "tea-station",
+     "type": "",
+     "gid": 51,
+     "x": 384,
+     "y": 128,
+     "width": 64,
+     "height": 64,
+     "rotation": 0,
+     "visible": true
+    },
+    {
+     "id": 53,
+     "name": "elevator",
+     "type": "",
+     "gid": 52,
+     "x": 480,
+     "y": 128,
+     "width": 64,
+     "height": 96,
+     "rotation": 0,
+     "visible": true
+    }
+   ]
+  },
+  {
    "id": 3,
    "name": "objects",
    "type": "objectgroup",
@@ -685,6 +745,47 @@
    "spacing": 2,
    "columns": 8,
    "tilecount": 48
+  },
+  {
+   "firstgid": 49,
+   "name": "props",
+   "tilewidth": 64,
+   "tileheight": 96,
+   "tilecount": 4,
+   "columns": 0,
+   "margin": 0,
+   "spacing": 0,
+   "grid": {
+    "orientation": "orthogonal",
+    "width": 1,
+    "height": 1
+   },
+   "tiles": [
+    {
+     "id": 0,
+     "image": "../../props/prop-floor-guide.png",
+     "imagewidth": 32,
+     "imageheight": 64
+    },
+    {
+     "id": 1,
+     "image": "../../props/prop-punch-clock.png",
+     "imagewidth": 32,
+     "imageheight": 64
+    },
+    {
+     "id": 2,
+     "image": "../../props/prop-tea-station.png",
+     "imagewidth": 64,
+     "imageheight": 64
+    },
+    {
+     "id": 3,
+     "image": "../../props/prop-elevator.png",
+     "imagewidth": 64,
+     "imageheight": 96
+    }
+   ]
   }
  ]
 }
