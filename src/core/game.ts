@@ -105,7 +105,8 @@ export interface GameState {
   readonly folderLocked?: true;
   /**
    * Ticks left in which the interact key does nothing. A closing conversation sets it: Enter both
-   * advances a line and talks, so a quick press after the last line would reopen it (#81).
+   * advances a line and talks, so a quick press after the last line would reopen it (#81). A press
+   * inside the rest starts it over, so it ends only after TALK_REST_TICKS without one.
    */
   readonly interactRest?: number;
   /**
@@ -716,8 +717,16 @@ function ontoDoor(room: EnteredRoom, from: Vec, to: Vec): boolean {
   return doorsAt(to).some((id) => !before.includes(id));
 }
 
-function restTick(s: GameState): GameState {
+/**
+ * The interact rest after a conversation closes (0.5 s). Someone pressing through text keeps
+ * pressing at a steady pace, so each press inside the rest starts it over; one who means to talk
+ * again stops for longer than this first.
+ */
+export const TALK_REST_TICKS = 30;
+
+function restTick(s: GameState, pressed: boolean): GameState {
   if (!s.interactRest) return s;
+  if (pressed) return { ...s, interactRest: TALK_REST_TICKS };
   const { interactRest, ...rest } = s;
   return interactRest > 1 ? { ...rest, interactRest: interactRest - 1 } : rest;
 }
@@ -1268,7 +1277,7 @@ export function step(state: GameState, pressed: TickInput): StepResult {
     ...(factory ? { factory } : {}),
     ...(bind ? { bind } : {}),
     ...(boostUntil !== undefined ? { boostUntil } : {}),
-  });
+  }, pressed.interactPressed === true);
   // The exam reads what this tick did (hits, answered cases, a stack failure) and moves its own clock.
   if (examining && next.exam && next.examDef) {
     const r = stepExam(next.examDef, {

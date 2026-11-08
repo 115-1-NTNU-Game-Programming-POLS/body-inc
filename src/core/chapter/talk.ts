@@ -4,7 +4,7 @@ import {
   arrivalEffects, chosenLine, leaveNode, LOCK_TICKS, moveCursor, nodeLine, openDialogue, pickReply, type DialogueState,
 } from '../dialogue/runner.ts';
 import type { Effect } from '../dialogue/lines.ts';
-import type { GameState } from '../game.ts';
+import { TALK_REST_TICKS, type GameState } from '../game.ts';
 import { holds } from '../tags/store.ts';
 import type { ChapterContent, ChapterEvent, ChapterState, Run } from './chapter.ts';
 import { applyEffects, type EffectSource } from './effects.ts';
@@ -53,11 +53,6 @@ export function withTools(a: Applied): Applied {
 export const confirmPressed = (input: TickInput): boolean =>
   input.interactPressed === true || input.attackPressed === true || input.dodgePressed === true;
 
-/**
- * Ticks after a conversation closes in which the interact key does nothing (0.5 s). A player
- * pressing through text presses faster than this; one who means to talk again waits longer.
- */
-export const TALK_REST_TICKS = 30;
 
 export interface Opened extends Applied {
   readonly dialogue: DialogueState;

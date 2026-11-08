@@ -374,8 +374,10 @@ describe('talking', () => {
     expect(types(r.events)).toContain('dialogueClosed');
     expect(selectInteractable(r.state.game)).toBeUndefined();
 
-    const again = press(r.state);
-    expect(types(again.events)).not.toContain('talk');
+    // Two more presses at the same pace: each one inside the rest starts it over, so neither talks.
+    const once = press(r.state);
+    const again = press(once.state);
+    expect(types([...once.events, ...again.events])).not.toContain('talk');
     expect(again.state.dialogue).toBeNull();
     // Once the rest is over the NPC talks as before, and the prompt is back.
     const rested = advanceBy(ctx, again.state, NONE, TALK_REST_TICKS).state;
