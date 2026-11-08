@@ -700,6 +700,17 @@ const pensOf = (objects: readonly RoomObject[]): readonly Box[] => {
   return boxes;
 };
 
+/**
+ * Whether moving from `from` to `to` brings the operator onto a door it was not on. The arrival
+ * spot sits at the edge of a door's touch margin and a knockback is a tile, so a hit on arrival
+ * would otherwise carry the operator back through the door just entered (#79).
+ */
+function ontoDoor(room: EnteredRoom, from: Vec, to: Vec): boolean {
+  const doorsAt = (p: Vec) => touchedObjects(room, boxAt(OPERATOR_BODY, p.x, p.y)).filter((o) => o.kind === 'Door').map((o) => o.id);
+  const before = doorsAt(from);
+  return doorsAt(to).some((id) => !before.includes(id));
+}
+
 export function step(state: GameState, pressed: TickInput): StepResult {
   const now = state.tick;
   const events: DomainEvent[] = [];
@@ -722,6 +733,9 @@ export function step(state: GameState, pressed: TickInput): StepResult {
   let boostUntil = state.boostUntil;
   const s = stepOperator(grid, state.operator, input, now, boostUntil !== undefined && now < boostUntil ? PARRY_BOOST.factor : 1);
   let op = s.op;
+  // A door is passed by walking into it, never by being knocked into it: the knockback step is dropped instead.
+  const knocked = state.operator.action.kind === 'hurt' && state.operator.action.frame < HURT.knockbackTicks;
+  if (knocked && ontoDoor(room, state.operator, op)) op = { ...op, x: state.operator.x, y: state.operator.y };
   if (s.blockedX) events.push({ type: 'bumpWall', axis: 'x' });
   if (s.blockedY) events.push({ type: 'bumpWall', axis: 'y' });
   if (s.dodged) events.push({ type: 'dodge' });
