@@ -210,6 +210,7 @@ function problemMessage(p: RoomProblem): string {
     case 'mixer-blocked': return `物件 #${a['other']}（${a['kind']}）壓在攪拌機的投料口上；門、NPC、床、道具、觸發區上停不了箱子，調度口會先把食物收走，壓力板會壓住被收進去的箱子，請移到投料口外`;
     case 'mixer-multiple': return '一個房間只能有一台攪拌機（Mixer）；遊戲只會運轉第一台';
     case 'mixer-outlet': return `攪拌機的出口（outlet 那一側正中間的外面一格，第 ${a['col']} 欄、第 ${a['row']} 列）是牆或在地圖外，小包裹出不來；請改 outlet 的方向或移動攪拌機`;
+    case 'bed-seconds': return '午睡床（bedType nap）設了 sleepSeconds；只有就寢床（sleep）有睡眠進度條，這個數字不會被讀到';
     case 'port-parcel': return '調度口的 accepts 是 parcel（只收小包裹），但房間裡沒有攪拌機（Mixer）做小包裹，永遠收不滿';
     case 'slot-count': return `證據牆的${slotCell(String(a['cell']))}要剛好 ${a['want']} 個槽（EvidenceSlot），order 從 1 排到 ${a['want']}，目前有 ${a['have']} 個`;
     case 'slot-duplicate': return `證據牆的${slotCell(String(a['cell']))}已經有 order ${a['order']} 的槽 #${a['other']}；同一格內每個 order 只能用一次`;

@@ -157,6 +157,8 @@ export type RoomProblemCode =
   | 'mixer-outlet'
   /** A Port that takes only parcels in a room with no Mixer to make them. */
   | 'port-parcel'
+  /** A nap bed with `sleepSeconds` set: only a sleep bed has a sleep bar, so the number is never read. */
+  | 'bed-seconds'
   /** A wall room whose track or board has not exactly the slots the game fills (see core/rooms/slots.ts). */
   | 'slot-count'
   /** Two EvidenceSlots with the same track, day and order. */
@@ -437,6 +439,9 @@ export function readRoom(id: string, map: TiledMap, dict: TagDictionary): ReadRe
     if (sure < need) problems.push({ code: 'port-need', object: p.id, args: { need, boxes: sure } });
   }
   if (mixers.length > 1) problems.push({ code: 'mixer-multiple', object: mixers[1]!.id });
+  for (const b of objects.filter((o) => o.kind === 'Bed' && o.props['bedType'] === 'nap' && Number(o.props['sleepSeconds']) > 0)) {
+    problems.push({ code: 'bed-seconds', object: b.id });
+  }
   const grid = { cols: map.width, rows: map.height, solid };
   for (const m of mixers) {
     if (m.variant !== undefined) problems.push({ code: 'mixer-variant', object: m.id });

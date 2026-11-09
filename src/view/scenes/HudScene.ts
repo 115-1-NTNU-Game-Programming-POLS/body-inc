@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import type { FixedStepLoop } from '../../app/loop.ts';
 import {
   acetaldehydeCrates, BASE_HALVES, debtOfSpirit, GLUCOSE as METER, glucoseOf, isDizzy, MINUTES_PER_DAY, questionOf, selectBoss, selectClock, selectExam, selectFactory, selectGauge, selectHearts,
-  selectDoorLocks, selectInteractable, selectPie, selectTick, selectTool, stepAt, TICK_HZ, waitingCrates, workOrders,
+  selectDoorLocks, selectInteractable, selectPie, selectSleep, selectTick, selectTool, stepAt, TICK_HZ, waitingCrates, workOrders,
   type BossSummary, type ChapterState, type GameEvent, type GameState,
 } from '../../core/index.ts';
 import type { WorldCaption } from '../../app/audio.ts';
@@ -38,6 +38,9 @@ const CURVE = { x: 708, y: 24, w: 160, h: 32, samples: 160, everyMs: 250 } as co
 const PAPER = 0xf4efe4;
 /** Glucose meter, beside the stamp pad on the same row. Not in art direction 8.3, which predates the prologue rules. */
 const GLUCOSE = { x: GAUGE_X + GAUGE_W + 20, w: 160 } as const;
+/** The sleep bar (design doc 7.5: at the bottom of the screen), under the sound captions. */
+const SLEEP = { w: 480, h: 14, bottom: 22 } as const;
+const SLEEP_FILL = 0x4a6fa5;
 
 /**
  * While an exam is sat: the question, its number in the segment and the seconds left, what is
@@ -86,6 +89,9 @@ export class HudScene extends Phaser.Scene {
   private glucose!: Phaser.GameObjects.Graphics;
   private glucoseLabel!: Phaser.GameObjects.Text;
   private shownGlucose = '';
+  private sleepBar!: Phaser.GameObjects.Graphics;
+  private sleepLabel!: Phaser.GameObjects.Text;
+  private shownSleep = '';
   private plate: Plate | undefined;
   private wallMode = false;
   private wallNote: Phaser.GameObjects.Text | undefined;
@@ -139,6 +145,11 @@ export class HudScene extends Phaser.Scene {
     });
     this.status = addText(this, 12, 0, '', { role: 'print', weight: 700, size: 16, color: '#f2c94c', ...plate }).setVisible(false);
     this.shownStatus = '';
+    this.sleepBar = this.add.graphics();
+    this.shownSleep = '';
+    this.sleepLabel = addText(this, this.scale.width / 2, this.scale.height - SLEEP.bottom - SLEEP.h - 8, '', {
+      role: 'print', weight: 700, size: 16, color: '#e8edf5', ...plate,
+    }).setOrigin(0.5, 1).setVisible(false);
     this.prompt = addText(this, this.scale.width / 2, this.scale.height - 72, str('hud.interact'), {
       role: 'print', weight: 700, size: 20, color: '#e8edf5', ...plate,
     }).setOrigin(0.5, 1).setVisible(false);
@@ -317,6 +328,24 @@ export class HudScene extends Phaser.Scene {
     updateText(this.glucoseLabel, str('hud.glucose').replace('{value}', key));
   }
 
+  /** The sleep bar while a bed's sleep is under way in this room, and whether the operator has to lie down again. */
+  private renderSleep(game: GameState): void {
+    const sleep = selectSleep(game);
+    const pct = sleep ? Math.floor(sleep.share * 100) : 0;
+    const key = sleep ? `${pct}/${sleep.awake}` : '';
+    if (key === this.shownSleep) return;
+    this.shownSleep = key;
+    const g = this.sleepBar.clear();
+    this.sleepLabel.setVisible(sleep !== undefined);
+    if (!sleep) return;
+    const x = (this.scale.width - SLEEP.w) / 2;
+    const y = this.scale.height - SLEEP.bottom - SLEEP.h;
+    g.fillStyle(INK, 0.82).fillRect(x - 2, y - 2, SLEEP.w + 4, SLEEP.h + 4);
+    g.fillStyle(PAPER, sleep.awake ? 0.5 : 1).fillRect(x, y, SLEEP.w, SLEEP.h);
+    g.fillStyle(SLEEP_FILL).fillRect(x, y, Math.round(SLEEP.w * sleep.share), SLEEP.h);
+    updateText(this.sleepLabel, str(sleep.awake ? 'hud.sleep.awake' : 'hud.sleep').replace('{value}', String(pct)));
+  }
+
   /** Nameplate of the room's boss; made on first sight, since the Hud can start before World. */
   private renderBoss(state: GameState, time: number): void {
     const boss = selectBoss(state);
@@ -471,6 +500,7 @@ export class HudScene extends Phaser.Scene {
       else this.drawGauge(value, max, lit);
     }
     this.renderGlucose(glucoseOf(loop.state.run.tags));
+    this.renderSleep(game);
     this.renderBoss(game, time);
     // The status line anchors to the clock only while the clock shows, so the clock goes first.
     this.renderClock(game);
@@ -525,7 +555,9 @@ export class HudScene extends Phaser.Scene {
     lines.push(...examLines(state.game));
     const dizzy = glucoseOf(state.run.tags) !== undefined && isDizzy(state.run.tags);
     if (dizzy) lines.push(str('hud.dizzy'));
-    this.haze.setVisible(dizzy);
+    // Lights out while the operator sleeps (design doc 7.5, 熄燈), as dark as the dizzy haze.
+    const sleep = selectSleep(state.game);
+    this.haze.setVisible(dizzy || (sleep !== undefined && !sleep.awake));
     const text = lines.join('\n');
     const above = this.clock.visible ? this.clock : this.controls;
     this.status.setY(above.y + above.displayHeight + 2);

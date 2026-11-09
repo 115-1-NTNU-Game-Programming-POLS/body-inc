@@ -77,6 +77,7 @@
 | `gulp` | Boss 喝飲料 | `bossDrink` |
 | `stage` | Boss 換階段或換回合的三個音 | `bossStage`, `bossRound` |
 | `powerdown` | 斷電 | `powerCut` |
+| `alarm` | 鬧鐘：高低交替的四聲方波短嗶，胃的攪拌機在睡眠中響起的警報 | `sleepInterrupted` |
 | `dizzy.true` | 暈眩：下行的搖晃音 | `dizzyChanged`，`dizzy` 為真 |
 | `dizzy.false` | 恢復：上行雙音 | `dizzyChanged`，`dizzy` 為假 |
 | `disco` | 迪斯可罐頭 | `canDisco` |

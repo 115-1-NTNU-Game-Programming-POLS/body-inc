@@ -2,5 +2,7 @@
   "version": 1,
   "id": "stomach",
   "start": "stomach/mixer-lab",
-  "links": []
+  "links": [
+    { "a": "stomach/mixer-lab#door-e", "b": "stomach/night-lab#door-w" }
+  ]
 }

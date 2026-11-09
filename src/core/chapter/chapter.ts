@@ -21,6 +21,7 @@ import { portOf, tileOf } from '../rooms/boxes.ts';
 import { enterRoom } from '../rooms/entry.ts';
 import { arrivalPoint } from '../rooms/interact.ts';
 import { openByState } from '../rooms/locks.ts';
+import { lieDown } from '../rooms/sleep.ts';
 import type { RoomModel } from '../rooms/tiled.ts';
 import type { BoxPlace, Checkpoint, StoryData } from '../save/slots.ts';
 import { caffeineSleepCoef } from '../semester/semester.ts';
@@ -109,6 +110,8 @@ export type ChapterEvent =
   | { readonly type: 'handbookUnlocked'; readonly id: string }
   | { readonly type: 'bedRefused'; readonly object: number; readonly bedType: string }
   | { readonly type: 'napped'; readonly minutes: number }
+  /** The operator lay down on a bed with a sleep bar (core/rooms/sleep.ts); `slept` and `need` are ticks, so a resumed bar shows where it stands. */
+  | { readonly type: 'fellAsleep'; readonly object: number; readonly slept: number; readonly need: number }
   /** A memory file was left on the floor because the hands are full (design doc 7.4). */
   | { readonly type: 'handsFull' }
   | { readonly type: 'checkpointSaved'; readonly room: string }
@@ -457,7 +460,13 @@ function onBed(ctx: ChapterContent, run: Run, game: GameState, e: Extract<Domain
   const refused: Applied = { run, game, events: [{ type: 'bedRefused', object: o.id, bedType: e.bedType }] };
   const requires = o.conditions['requires'];
   if (requires && !holds(run.tags, ctx.dict, requires)) return refused;
-  if (e.bedType === 'sleep') return { run: fileMemories(ctx, run, game), game, events: [{ type: 'chapterEnded' }] };
+  if (e.bedType === 'sleep') {
+    // A bed with a sleep bar ends the chapter once the bar is full (core/rooms/sleep.ts), not at once.
+    const seconds = Number(o.props['sleepSeconds'] ?? 0);
+    if (seconds <= 0) return { run: fileMemories(ctx, run, game), game, events: [{ type: 'chapterEnded' }] };
+    const sleep = lieDown(game.sleep, o.id, seconds);
+    return { run, game: { ...game, sleep }, events: [{ type: 'fellAsleep', object: o.id, slept: sleep.slept, need: sleep.need }] };
+  }
   // The nap sofa is once per chapter (design doc 7.4); here that is once per bed object.
   const key = `${run.roomId}#${o.id}`;
   if (run.fired.includes(key)) return refused;
@@ -788,6 +797,10 @@ function stepRoom(ctx: ChapterContent, state: ChapterState, input: TickInput): C
         extra.push(...a.events);
         break;
       }
+      case 'sleptThrough':
+        run = fileMemories(ctx, run, game);
+        extra.push({ type: 'chapterEnded' });
+        break;
       default:
         break;
     }

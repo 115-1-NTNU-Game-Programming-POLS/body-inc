@@ -1,4 +1,4 @@
-import { REFUSAL, type EnemyTable, type FeedbackFile, type GameEvent, type StringsFile } from '../core/index.ts';
+import { REFUSAL, WAKE_CAUSES, type EnemyTable, type FeedbackFile, type GameEvent, type StringsFile } from '../core/index.ts';
 import { OBJECT_CLASSES } from '../core/rooms/classes.ts';
 
 /** The values of an enum member, from the class definition, so a new value needs its note. */
@@ -33,6 +33,7 @@ const ALL_EVENTS: Record<GameEvent['type'], true> = {
   gaugeFull: true, stampRaised: true, stampLanded: true, stampVoid: true, clung: true, forcedNap: true,
   bossStage: true, bossDrink: true, bossSummon: true, powerCut: true, proposalRejected: true, bossDefeated: true, bossBreath: true, bossRound: true, bossConceded: true,
   doorEntered: true, doorLocked: true, switchChanged: true, boxMoved: true, boxDelivered: true, portFilled: true, crateTaken: true, mixerFed: true, mixerJammed: true, parcelOut: true, pickedUp: true,
+  fellAsleep: true, sleepInterrupted: true, sleptThrough: true,
   triggerEntered: true, talk: true, bedUse: true,
   roomChanged: true, dialogueOpened: true, dialogueClosed: true, handbookUnlocked: true, bedRefused: true, napped: true, handsFull: true,
   checkpointSaved: true, clockAdvanced: true, cardOpened: true, cardChosen: true, toolGranted: true, glucoseRefilled: true, dizzyChanged: true,
@@ -93,6 +94,7 @@ export function noteFields(table: EnemyTable): NoteFields {
     stampVoid: { solution: solutions((c) => c !== 'defeatable') },
     bossStage: { stage: ['2', '3'] },
     bedRefused: { bedType: [...BED_TYPES] },
+    sleepInterrupted: { cause: [...WAKE_CAUSES] },
     doorLocked: { lock: [...LOCKS] },
     pickedUp: { itemType: [...NOTED_ITEMS] },
     dizzyChanged: { dizzy: ['true', 'false'] },

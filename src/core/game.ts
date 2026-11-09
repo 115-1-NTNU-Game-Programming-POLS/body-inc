@@ -25,6 +25,7 @@ import {
 } from './rooms/boxes.ts';
 import { boxTypeOf, EMPTY_MIXER, PORTION_SECONDS, stepMixer, type MixerEvent, type MixerState, type Portion } from './stomach/mixer.ts';
 import type { EnteredRoom } from './rooms/entry.ts';
+import { asleep, stepSleep, type SleepEvent, type SleepState } from './rooms/sleep.ts';
 import { leverAt, objectBox, platesUnder, reachableObject, touchedObjects } from './rooms/interact.ts';
 import { doorOpen } from './rooms/locks.ts';
 import {
@@ -124,6 +125,8 @@ export interface GameState {
   readonly factory?: FactoryState;
   /** Only in a room with the stomach's mixer (core/stomach/mixer.ts): what it is digesting. */
   readonly mixer?: MixerState;
+  /** The sleep bar of a bed that takes time to sleep in (core/rooms/sleep.ts), from the first lying down on it in this visit. */
+  readonly sleep?: SleepState;
   /** The exam being sat in this room, from the forecast's close on (core/exam/fight.ts). */
   readonly exam?: ExamState;
   /** Its definition, kept in state like the bosses' so a replay needs nothing else. */
@@ -232,6 +235,7 @@ export type DomainEvent =
   /** The second line took in an acetaldehyde crate; the chapter takes it off the `acetaldehyde` tag. */
   | { readonly type: 'crateTaken'; readonly object: number; readonly line: number }
   | MixerEvent
+  | SleepEvent
   | { readonly type: 'triggerEntered'; readonly object: number; readonly trigger: string; readonly eventId: string }
   /** The operator took an item; what it does beyond leaving the room (and opening a key lock) is the chapter's. */
   | { readonly type: 'pickedUp'; readonly object: number; readonly itemType: string; readonly itemId: string }
@@ -519,7 +523,9 @@ function aimFrom(op: OperatorState, origin: Vec, enemies: readonly EnemyState[])
  * starts its fight over, and what it summoned leaves with the attempt unless it clings on; a
  * clinging one is no longer the boss's, so it does not count toward the next attempt's summons.
  */
-function forcedLeave(state: GameState): GameState {
+function forcedLeave(woke: GameState): GameState {
+  // The operator is back at the start, out of bed: the sleep bar of the visit starts over.
+  const { sleep: _, ...state } = woke;
   const start = playerStart(state.room);
   const enemies = state.enemies.filter((e) => e.summoner === undefined || e.phase === 'attached').map((e) => {
     if (e.phase === 'attached') {
@@ -754,7 +760,8 @@ function restTick(s: GameState, pressed: boolean): GameState {
 export function step(state: GameState, pressed: TickInput): StepResult {
   const now = state.tick;
   const events: DomainEvent[] = [];
-  const input: TickInput = {
+  // Asleep, the operator does nothing: only something that wakes them gives the keys back.
+  const input: TickInput = asleep(state.sleep) ? { move: { x: 0, y: 0 }, ...(pressed.assists ? { assists: pressed.assists } : {}) } : {
     ...pressed,
     ...(state.stampLocked && pressed.stampPressed ? { stampPressed: false } : {}),
     ...(state.folderLocked && pressed.swapPressed ? { swapPressed: false } : {}),
@@ -1288,6 +1295,12 @@ export function step(state: GameState, pressed: TickInput): StepResult {
   op = withStacks(op, enemies.values(), carried);
   // The hit above has already knocked back and frozen the fight; the assist only keeps the last half heart.
   if (assists.neverEmpty && op.halves < 1) op = { ...op, halves: 1 };
+  let sleep = state.sleep;
+  if (sleep) {
+    const r = stepSleep(sleep, (moved.mixer?.batches.length ?? 0) > 0, events.some((e) => e.type === 'heartLost'));
+    sleep = r.sleep;
+    events.push(...r.events);
+  }
 
   let next: GameState = restTick({
     ...state, tick: now + 1, rng, clock, operator: op, enemies: byId(), projectiles: flying,
@@ -1299,6 +1312,7 @@ export function step(state: GameState, pressed: TickInput): StepResult {
     ...(pie ? { pie } : {}),
     ...(factory ? { factory } : {}),
     ...(moved.mixer ? { mixer: moved.mixer } : {}),
+    ...(sleep ? { sleep } : {}),
     ...(bind ? { bind } : {}),
     ...(boostUntil !== undefined ? { boostUntil } : {}),
   }, pressed.interactPressed === true);
@@ -1372,7 +1386,7 @@ export function selectPie(s: GameState): { readonly phase: 'ready' | 'up' | 'coo
 }
 /** The NPC, bed, pickup or toggle switch the interact key would use right now, for the HUD prompt; same rule as the key. */
 export function selectInteractable(s: GameState): { readonly object: number; readonly kind: string } | undefined {
-  if (s.operator.action.kind !== 'free' || s.interactRest) return undefined;
+  if (s.operator.action.kind !== 'free' || s.interactRest || asleep(s.sleep)) return undefined;
   const o = reachableObject(s.room, boxAt(OPERATOR_BODY, s.operator.x, s.operator.y), s.operator, s.taken);
   return o ? { object: o.id, kind: o.kind } : undefined;
 }
@@ -1426,6 +1440,11 @@ export function selectMixer(s: GameState): {
     mixer: m, capacity: Number(m.props['capacity']), outlet: mixerOutlet(s.room),
     batches: s.mixer.batches.map((b) => ({ box: b.box, portion: b.portion, done: 1 - b.left / (PORTION_SECONDS[b.portion] * TICK_HZ) })),
   };
+}
+/** The sleep bar for the HUD: the share slept, and whether the operator is up and has to lie down again. */
+export function selectSleep(s: GameState): { readonly bed: number; readonly share: number; readonly awake: boolean; readonly wakes: number } | undefined {
+  const z = s.sleep;
+  return z ? { bed: z.bed, share: z.slept / z.need, awake: z.awake, wakes: z.wakes } : undefined;
 }
 /** Every conveyor and whether it runs now, by the rule the step uses. */
 export function selectConveyors(s: GameState): readonly { readonly object: number; readonly direction: string; readonly speed: string; readonly running: boolean }[] {

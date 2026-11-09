@@ -156,6 +156,7 @@ describe('feedback table', () => {
       'doorLocked: note "door.locked.{lock}" uses unknown placeholder "{lock}"',
       'pickedUp: note "pickup.{itemType}" uses unknown placeholder "{itemType}"',
       'bedRefused: note "bed.refused.{bedType}" uses unknown placeholder "{bedType}"',
+      'sleepInterrupted: note "sleep.woke.{cause}" uses unknown placeholder "{cause}"',
       'dizzyChanged: note "dizzy.{dizzy}" uses unknown placeholder "{dizzy}"',
       'examAnswered: note "exam.answered.{how}" uses unknown placeholder "{how}"',
       'proofStamped: note "exam.stamp.{ok}" uses unknown placeholder "{ok}"',
