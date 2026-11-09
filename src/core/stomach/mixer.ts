@@ -1,6 +1,6 @@
 import { TICK_HZ } from '../time.ts';
 import {
-  canEnter, hopperTiles, mixerOf, mixerOutlet, nearest, onConveyor, onHopper, onPort, PARCEL, portOf, type BoxState, type Occupants, type Tile,
+  canEnter, coldStoreAt, hopperTiles, mixerOf, mixerOutlet, nearest, onConveyor, onHopper, onPort, PARCEL, portOf, type BoxState, type Occupants, type Tile,
 } from '../rooms/boxes.ts';
 import type { RoomModel } from '../rooms/tiled.ts';
 
@@ -90,8 +90,10 @@ export function stepMixer(room: RoomModel, state: MixerState, boxes: readonly Bo
   let batches = state.batches.map((b) => (b.left > 0 ? { ...b, left: b.left - 1 } : b));
   const port = portOf(room);
   // A thrown box lands nowhere that would take it straight back: not on the hopper, not on a port,
-  // and not on a belt, running or not, which could carry it in again.
-  const free = (t: Tile) => canEnter(room, all, t, occupants) && !onHopper(room, t) && !(port && onPort(port, t)) && !onConveyor(room, t);
+  // not on a belt, running or not, which could carry it in again, and not on a cold store, which
+  // would chill it without the push that makes that the player's choice.
+  const free = (t: Tile) => canEnter(room, all, t, occupants) && !onHopper(room, t) && !(port && onPort(port, t)) && !onConveyor(room, t)
+    && coldStoreAt(room, t) === undefined;
 
   const outlet = mixerOutlet(room);
   for (const b of batches.filter((x) => x.left === 0)) {

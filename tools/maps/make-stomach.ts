@@ -5,8 +5,9 @@
  * the small intestine's timed gate (a port that takes parcels only, shut for 20 seconds and then
  * open for 8), and a belt loop along the walls so no box can be pushed into a dead corner. With the
  * gate shut, a third parcel has to wait inside the mixer, so feeding more then jams it. night-lab is for the sleep bar of core/rooms/sleep.ts: a bed that
- * takes 30 seconds to sleep in beside a mixer, so a box fed in just before bed sounds its alarm.
- * It has no belt loop: a box pushed into a corner stays there, but the bed needs no box.
+ * takes 30 seconds to sleep in beside a mixer, so a box fed in just before bed sounds its alarm,
+ * and a cold store, where a food box pushed in is chilled until tomorrow instead (the late-night
+ * puzzle). It has no belt loop: a box pushed into a corner stays there, but the bed needs no box.
  * Open them with ?room=stomach/mixer-lab and ?room=stomach/night-lab. The chapter's real rooms
  * (esophagus lift, warehouse, cold store, intestine corridor, night dock) come in later steps.
  *
@@ -72,7 +73,7 @@ writeRoom('stomach/mixer-lab.tmj', {
 
 writeRoom('stomach/night-lab.tmj', {
   type: 'map', version: '1.10', tiledversion: '1.11.0', orientation: 'orthogonal', renderorder: 'right-down',
-  infinite: false, width: W, height: 12, tilewidth: T, tileheight: T, nextlayerid: 4, nextobjectid: 10, class: 'Room',
+  infinite: false, width: W, height: 12, tilewidth: T, tileheight: T, nextlayerid: 4, nextobjectid: 11, class: 'Room',
   properties: [
     { name: 'organ', type: 'string', value: 'stomach' },
     { name: 'role', type: 'string', value: 'puzzle' },
@@ -94,6 +95,7 @@ writeRoom('stomach/night-lab.tmj', {
         rect(7, 'gate', 'Port', 15, 6, 2, 1, [int('need', 2), str('accepts', 'PortAccepts', 'parcel')]),
         rect(8, 'bedtime', 'Bed', 15, 8, 2, 2, [str('bedType', 'BedType', 'sleep'), int('sleepSeconds', 30)]),
         rect(9, 'door-w', 'Door', 0, 6, 1, 2, [str('socket', 'Socket', 'W')]),
+        rect(10, 'cold', 'ColdStore', 6, 9, 3, 2, []),
       ],
     },
   ],

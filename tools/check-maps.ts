@@ -211,6 +211,9 @@ function problemMessage(p: RoomProblem): string {
     case 'mixer-multiple': return '一個房間只能有一台攪拌機（Mixer）；遊戲只會運轉第一台';
     case 'mixer-outlet': return `攪拌機的出口（outlet 那一側正中間的外面一格，第 ${a['col']} 欄、第 ${a['row']} 列）是牆或在地圖外，小包裹出不來；請改 outlet 的方向或移動攪拌機`;
     case 'port-timing': return '調度口的 openSeconds 與 closedSeconds 只填了一個；限時閘門兩個都要大於 0（先關 closedSeconds 秒、再開 openSeconds 秒，一直循環），兩個都是 0 則是一直開著的調度口';
+    case 'cold-shape': return '冷藏庫（ColdStore）必須畫成矩形，蓋住收食物箱的格子（以格子中心為準）；點或太小的矩形不知道佔哪些格子';
+    case 'cold-wall': return '冷藏庫（ColdStore）蓋住的格子全是牆，箱子停不上去；要畫在地板上';
+    case 'cold-blocked': return `物件 #${a['other']}（${a['kind']}）和冷藏庫重疊；門、NPC、床、道具、觸發區上停不了箱子，壓力板、調度口、攪拌機和輸送帶會和冷藏庫搶同一個箱子，請移到冷藏庫外`;
     case 'bed-seconds': return '午睡床（bedType nap）設了 sleepSeconds；只有就寢床（sleep）有睡眠進度條，這個數字不會被讀到';
     case 'port-parcel': return '調度口的 accepts 是 parcel（只收小包裹），但房間裡沒有攪拌機（Mixer）做小包裹，永遠收不滿';
     case 'slot-count': return `證據牆的${slotCell(String(a['cell']))}要剛好 ${a['want']} 個槽（EvidenceSlot），order 從 1 排到 ${a['want']}，目前有 ${a['have']} 個`;

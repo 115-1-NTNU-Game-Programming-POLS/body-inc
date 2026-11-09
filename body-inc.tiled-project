@@ -609,6 +609,17 @@
     },
     {
       "id": 31,
+      "name": "ColdStore",
+      "type": "class",
+      "useAs": [
+        "object"
+      ],
+      "color": "#ff3080c0",
+      "drawFill": true,
+      "members": []
+    },
+    {
+      "id": 32,
       "name": "Line",
       "type": "class",
       "useAs": [
@@ -626,7 +637,7 @@
       ]
     },
     {
-      "id": 32,
+      "id": 33,
       "name": "EvidenceSlot",
       "type": "class",
       "useAs": [
@@ -654,7 +665,7 @@
       ]
     },
     {
-      "id": 33,
+      "id": 34,
       "name": "Hazard",
       "type": "class",
       "useAs": [
@@ -677,7 +688,7 @@
       ]
     },
     {
-      "id": 34,
+      "id": 35,
       "name": "Pickup",
       "type": "class",
       "useAs": [
@@ -705,7 +716,7 @@
       ]
     },
     {
-      "id": 35,
+      "id": 36,
       "name": "Pen",
       "type": "class",
       "useAs": [
@@ -716,7 +727,7 @@
       "members": []
     },
     {
-      "id": 36,
+      "id": 37,
       "name": "Bed",
       "type": "class",
       "useAs": [

@@ -124,6 +124,13 @@ export const OBJECT_CLASSES: Readonly<Record<string, ClassSpec>> = {
     outlet: enumOf('Socket', SOCKETS, 'S'),
   },
   /**
+   * The stomach's cold store (design doc 7.5, the late-night puzzle), not in design doc 13.3's table:
+   * a food box that comes to rest on its rectangle is chilled until tomorrow, gone from the chapter
+   * for good like a delivered box but counted by no port, so the mixer never runs on it tonight.
+   * Other boxes rest on it like on floor.
+   */
+  ColdStore: {},
+  /**
    * The liver factory's lines (design doc 7.7), not in design doc 13.3's table: `receiving` is the
    * dock where alcohol crates wait (a rectangle, solid like a counter), `outlet` the point where the
    * first line puts out acetaldehyde crates, and `intake` the second line's rectangle, which takes
