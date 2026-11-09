@@ -17,12 +17,17 @@ const FADE_MS = 400;
  */
 export class FogView {
   private readonly image: Phaser.GameObjects.Image;
-  private shown = false;
+  private shown: boolean;
 
-  constructor(scene: Phaser.Scene) {
+  /**
+   * `foggy` is the state the room is entered in: a door rebuilds the scene, and fading the fog in
+   * again there would show the new room clear for a moment, since the camera's own fade is shorter.
+   */
+  constructor(scene: Phaser.Scene, foggy: boolean) {
     if (!scene.textures.exists(KEY)) paint(scene);
+    this.shown = foggy;
     // Over the actors and the room's labels, which the fog hides too; the HUD is its own scene above it.
-    this.image = scene.add.image(0, 0, KEY).setDepth(2e4).setAlpha(0).setVisible(false);
+    this.image = scene.add.image(0, 0, KEY).setDepth(2e4).setAlpha(foggy ? 1 : 0).setVisible(foggy);
   }
 
   render(scene: Phaser.Scene, foggy: boolean, x: number, y: number): void {

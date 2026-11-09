@@ -919,7 +919,7 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
             "type": "string"
           },
           "throws": {
-            "description": "What a flyer throws instead of a folded sheet. A drink costs no heart and a dodge refuses it, while the folder's guard still sends it back. A can adds caffeine to the residual and starts the palpitation (design doc 7.4); tea leaves the operator in the sugar fatigue fog for 45 seconds (design doc 7.5). Flyer archetype only.",
+            "description": "What a flyer throws instead of a folded sheet. A drink costs no heart and a dodge refuses it, while the folder's guard still catches it, and a parry sends it back. A can adds caffeine to the residual and starts the palpitation (design doc 7.4); tea leaves the operator in the sugar fatigue fog for 45 seconds (design doc 7.5). Flyer archetype only.",
             "enum": [
               "can",
               "tea"
@@ -3573,7 +3573,7 @@ export interface Enemy {
   readonly clings?: boolean;
   /** Id of the file in content/bosses that runs this enemy; its budget replaces performance and its moves replace an archetype. */
   readonly boss?: string;
-  /** What a flyer throws instead of a folded sheet. A drink costs no heart and a dodge refuses it, while the folder's guard still sends it back. A can adds caffeine to the residual and starts the palpitation (design doc 7.4); tea leaves the operator in the sugar fatigue fog for 45 seconds (design doc 7.5). Flyer archetype only. */
+  /** What a flyer throws instead of a folded sheet. A drink costs no heart and a dodge refuses it, while the folder's guard still catches it, and a parry sends it back. A can adds caffeine to the residual and starts the palpitation (design doc 7.4); tea leaves the operator in the sugar fatigue fog for 45 seconds (design doc 7.5). Flyer archetype only. */
   readonly throws?: "can" | "tea";
 }
 

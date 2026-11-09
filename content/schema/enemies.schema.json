@@ -30,7 +30,7 @@
         "performance": { "description": "Hits to close the case, or for the cheers kid the refusals; defeatable enemies only.", "type": "integer", "minimum": 1 },
         "clings": { "description": "Drifts toward the operator and clings on contact, one slow stack each (design doc 5.5); reforming enemies only.", "type": "boolean" },
         "boss": { "description": "Id of the file in content/bosses that runs this enemy; its budget replaces performance and its moves replace an archetype.", "type": "string" },
-        "throws": { "description": "What a flyer throws instead of a folded sheet. A drink costs no heart and a dodge refuses it, while the folder's guard still sends it back. A can adds caffeine to the residual and starts the palpitation (design doc 7.4); tea leaves the operator in the sugar fatigue fog for 45 seconds (design doc 7.5). Flyer archetype only.", "enum": ["can", "tea"] }
+        "throws": { "description": "What a flyer throws instead of a folded sheet. A drink costs no heart and a dodge refuses it, while the folder's guard still catches it, and a parry sends it back. A can adds caffeine to the residual and starts the palpitation (design doc 7.4); tea leaves the operator in the sugar fatigue fog for 45 seconds (design doc 7.5). Flyer archetype only.", "enum": ["can", "tea"] }
       }
     }
   }

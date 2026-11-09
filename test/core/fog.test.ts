@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { BOSSES, DIALOGUES, ENEMIES, PARAMS, TAGS } from '../../src/app/content.ts';
+import { readFileSync } from 'node:fs';
 import {
-  createGame, MOVE, NO_INPUT, parseRoom, startChapter, step, stepChapter, SUGAR_FOG, TICK_HZ,
+  amount, createGame, loadEnemyTable, MOVE, NO_INPUT, parseRoom, selectFatigue, startChapter, step, stepChapter, SUGAR_FOG, TICK_HZ,
   type ChapterContent, type ChapterState, type DomainEvent, type EnteredRoom, type GameEvent, type GameState, type TickInput, type TiledMap,
 } from '../../src/core/index.ts';
 import type { Shot } from '../../src/core/combat/hazards.ts';
@@ -88,6 +89,32 @@ describe('the sugar salesman\'s tea', () => {
     expect(again.state.operator.fatigue).toBe(SUGAR_FOG.ticks);
   });
 
+  it('flies on past an operator still invincible from a hit, and is drunk once that ends', () => {
+    const g = bare();
+    const guarded = withShot({ ...g, operator: { ...g.operator, invulnUntil: g.tick + 30 } }, tea(START.x, START.y, { vx: 0, ticksLeft: 100 }));
+    const first = run(guarded, 1);
+    expect(ofType(first, 'teaTaken')).toEqual([]);
+    expect(first.state.shots.find((s) => s.id === 900)).toMatchObject({ spent: false });
+    const later = run(guarded, 40);
+    expect(firstTick(later, 'teaTaken')).toBe(30);
+    expect(ofType(later, 'teaTaken')).toHaveLength(1);
+  });
+
+  it('is the only drink that brings the fog: a can does not', () => {
+    const r = run(withShot(bare(), tea(START.x, START.y, { kind: 'can', drink: 'can' })), 1);
+    expect(ofType(r, 'canTaken')).toHaveLength(1);
+    expect(r.state.operator.fatigue).toBeUndefined();
+  });
+
+  it('shows on the HUD in whole seconds, rounded up', () => {
+    const at = (fatigue?: number) => selectFatigue(bare(fatigue));
+    expect(at()).toBeUndefined();
+    expect(at(SUGAR_FOG.ticks)).toBe(45);
+    expect(at(TICK_HZ + 1)).toBe(2);
+    expect(at(TICK_HZ)).toBe(1);
+    expect(at(1)).toBe(1);
+  });
+
   it('slows the operator by 15%, under the shared cap of design doc 5.1, and only while it lasts', () => {
     const right = () => ({ ...NO_INPUT, move: { x: 1, y: 0 } });
     const top = (g: GameState) => run(g, 20, right).state.operator.vx;
@@ -131,6 +158,9 @@ describe('the sugar salesman\'s tea', () => {
   });
 
   it('is a defeatable flyer\'s, with the numbers design doc 7.5 fixes', () => {
+    const raw = JSON.parse(readFileSync('content/enemies.json', 'utf8'));
+    raw.enemies.find((e: { id: string }) => e.id === 'salesman').throws = 'tea';
+    expect(() => loadEnemyTable(raw)).toThrow(/only a flyer throws/);
     expect(ENEMIES.enemies.get('sugar_seller')).toMatchObject({ category: 'defeatable', archetype: 'flyer', throws: 'tea' });
     expect(SUGAR_FOG.ticks).toBe(45 * TICK_HZ);
     expect(SUGAR_FOG.slow).toBe(0.15);
@@ -182,11 +212,16 @@ describe('the fog across rooms', () => {
   it('goes through a door with the operator, still counting down', () => {
     const c = chapter([]);
     const foggy = patch(startChapter(c), { x: 320, y: 340, vx: 0, vy: 0, fatigue: 1000 });
-    const away = until(c, foggy, { move: { x: 0, y: 1 } }, 'roomChanged');
+    let away = foggy;
+    let ticks = 0;
+    while (away.run.roomId === 'lab/a' && ticks < 300) {
+      away = stepChapter(c, away, { move: { x: 0, y: 1 } }).state;
+      ticks++;
+    }
     expect(away.run.roomId).toBe('lab/b');
+    // Every tick before the door counted, the door tick too, and none was lost or added on the way through.
     const left = away.game.operator.fatigue!;
-    expect(left).toBeGreaterThan(900);
-    expect(left).toBeLessThan(1000);
+    expect(left).toBe(1000 - ticks);
     expect(runChapter(c, away, 10).state.game.operator.fatigue).toBe(left - 10);
     // One that ran out on the way leaves nothing behind.
     const thin = until(c, patch(startChapter(c), { x: 320, y: 340, vx: 0, vy: 0, fatigue: 1 }), { move: { x: 0, y: 1 } }, 'roomChanged');
@@ -201,10 +236,27 @@ describe('the fog across rooms', () => {
     expect(left.state.game.operator.fatigue).toBeUndefined();
     const clock = { id: 9, type: 'Trigger', x: 32, y: 96, width: 32, height: 32, properties: [p('event', 'checkpoint')] };
     const cc = chapter([clock]);
+    // Punching in restores the hearts but not the operator's head: the fog stays.
+    const punchedFoggy = until(cc, patch(startChapter(cc), { x: 48, y: 120, vx: 0, vy: 0, fatigue: 1000 }), NONE, 'checkpointSaved');
+    expect(punchedFoggy.game.operator.fatigue).toBeGreaterThan(900);
     const punched = until(cc, patch(startChapter(cc), { x: 48, y: 120, vx: 0, vy: 0 }), NONE, 'checkpointSaved');
     const back = runChapter(cc, patch(punched, { fatigue: 1000, halves: 0 }), 1);
     expect(types(back.events)).toContain('returnedToCheckpoint');
     expect(back.state.game.operator.fatigue).toBeUndefined();
+  });
+
+  it('adds no caffeine and starts no heartbeat, unlike the can', () => {
+    const c = chapter([]);
+    const s = startChapter(c);
+    const before = amount(s.run.tags, TAGS, 'caffeine');
+    const r = runChapter(c, { ...s, game: withShot(s.game, tea(s.game.operator.x, s.game.operator.y)) }, 1);
+    expect(types(r.events)).toContain('teaTaken');
+    expect(types(r.events)).not.toContain('palpitation');
+    expect(amount(r.state.run.tags, TAGS, 'caffeine')).toBe(before);
+    // The same shot as a can does both, so the check above can fail.
+    const can = runChapter(c, { ...s, game: withShot(s.game, tea(s.game.operator.x, s.game.operator.y, { kind: 'can', drink: 'can' })) }, 1);
+    expect(types(can.events)).toContain('palpitation');
+    expect(amount(can.state.run.tags, TAGS, 'caffeine')).toBeGreaterThan(before);
   });
 
   it('wakes a sleeper, like anything else that lands on them', () => {

@@ -115,7 +115,7 @@ export class WorldScene extends Phaser.Scene {
     };
     this.operator = new OperatorView(this, this.entry('operator'), this.entry('adenosine-mini'));
     this.hazards = new HazardView(this);
-    this.fog = new FogView(this);
+    this.fog = new FogView(this, chapter.game.operator.fatigue !== undefined);
     this.exam = new ExamLayer(this, this.entry('exam'));
     this.syncViews(chapter.game);
     this.overlay = new CollisionOverlay(this, chapter.game);

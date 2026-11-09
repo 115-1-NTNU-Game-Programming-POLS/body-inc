@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import type { FixedStepLoop } from '../../app/loop.ts';
 import {
   acetaldehydeCrates, BASE_HALVES, debtOfSpirit, GLUCOSE as METER, glucoseOf, isDizzy, MINUTES_PER_DAY, questionOf, selectBoss, selectClock, selectExam, selectFactory, selectGauge, selectHearts,
-  selectDoorLocks, selectInteractable, selectOperator, selectPie, selectSleep, selectTick, selectTool, stepAt, TICK_HZ, waitingCrates, workOrders,
+  selectDoorLocks, selectFatigue, selectInteractable, selectPie, selectSleep, selectTick, selectTool, stepAt, TICK_HZ, waitingCrates, workOrders,
   type BossSummary, type ChapterState, type GameEvent, type GameState,
 } from '../../core/index.ts';
 import type { WorldCaption } from '../../app/audio.ts';
@@ -557,8 +557,8 @@ export class HudScene extends Phaser.Scene {
     const dizzy = glucoseOf(state.run.tags) !== undefined && isDizzy(state.run.tags);
     if (dizzy) lines.push(str('hud.dizzy'));
     // Design doc 7.5 has the fog's icon name it 全糖倦怠, so the dimmed view is not read as a bug.
-    const { fatigue } = selectOperator(state.game);
-    if (fatigue !== undefined) lines.push(str('hud.fatigue').replace('{seconds}', String(Math.ceil(fatigue / TICK_HZ))));
+    const fatigue = selectFatigue(state.game);
+    if (fatigue !== undefined) lines.push(str('hud.fatigue').replace('{seconds}', String(fatigue)));
     // Lights out while the operator sleeps (design doc 7.5, 熄燈), as dark as the dizzy haze.
     const sleep = selectSleep(state.game);
     this.haze.setVisible(dizzy || (sleep !== undefined && !sleep.awake));

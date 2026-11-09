@@ -1426,6 +1426,9 @@ export const selectExam = (s: GameState): { readonly state: ExamState; readonly 
   (s.exam && s.examDef ? { state: s.exam, def: s.examDef } : undefined);
 
 export const selectOperator = (s: GameState): Readonly<OperatorState> => s.operator;
+/** Whole seconds left in the sugar fatigue fog, rounded up so the HUD never shows 0 while it still slows; undefined without it. */
+export const selectFatigue = (s: GameState): number | undefined =>
+  (s.operator.fatigue === undefined ? undefined : Math.ceil(s.operator.fatigue / TICK_HZ));
 export const selectEnemies = (s: GameState): readonly Readonly<EnemyState>[] => s.enemies;
 export const selectProjectiles = (s: GameState): readonly Readonly<Projectile>[] => s.projectiles;
 export const selectShots = (s: GameState): readonly Readonly<Shot>[] => s.shots;
