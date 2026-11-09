@@ -37,8 +37,9 @@ export class Mechanisms {
     if (port) {
       const o = byId.get(port.object)!;
       const b = objectBox(o);
-      const label = addText(scene, (b.left + b.right) / 2, b.top - 4, '', { role: 'print', weight: 700, size: 14, color: '#0c2d5e', backgroundColor: '#f4efe4', padding: { x: 4, y: 1 } })
-        .setOrigin(0.5, 1).setDepth(1e4);
+      // Right-aligned to the port, so a long countdown grows away from what lies east of it, such as a wall belt.
+      const label = addText(scene, b.right, b.top - 4, '', { role: 'print', weight: 700, size: 14, color: '#0c2d5e', backgroundColor: '#f4efe4', padding: { x: 4, y: 1 } })
+        .setOrigin(1, 1).setDepth(1e4);
       this.port = { g: scene.add.graphics().setDepth(1), label, o };
     }
     const factory = selectFactory(state);

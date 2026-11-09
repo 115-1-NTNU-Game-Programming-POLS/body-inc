@@ -84,11 +84,65 @@ describe('the timed gate', () => {
 
   it('holds a belt of boxes at its edge while shut, and lets them through once open', () => {
     const c = chapter([port(undefined, 2), belt, crate(3, 13), crate(4, 12)]);
-    const shut = run(c, startChapter(c), CLOSED * TICK_HZ);
+    const early = run(c, startChapter(c), CLOSED * TICK_HZ - 20);
+    expect(early.state.game.boxes.map((b) => [b.id, b.col])).toEqual([[3, 14], [4, 13]]);
+    // A slide onto the gate starts only when it will end on the first open tick, so no box rests on the shutter.
+    const shut = run(c, early.state, 20);
     expect(types(shut.events)).not.toContain('boxDelivered');
-    expect(shut.state.game.boxes.map((b) => [b.id, b.col])).toEqual([[3, 14], [4, 13]]);
+    expect(shut.state.game.boxes.find((b) => b.id === 3)).toMatchObject({ col: 15, left: 1 });
     const open = run(c, shut.state, OPEN * TICK_HZ);
     expect(open.events.filter((e) => e.type === 'boxDelivered').map((e) => (e as { object: number }).object)).toEqual([3, 4]);
+  });
+
+  it('refuses a slide that would end after it shuts, so a late box waits on the belt for the next opening', () => {
+    const c = chapter([port(), belt, crate(3, 14)]);
+    // The fast belt takes 15 ticks a tile; ten ticks before the gate shuts, a slide would end too late.
+    const late = { ...startChapter(c), game: { ...startChapter(c).game, tick: (CLOSED + OPEN) * TICK_HZ - 10 } };
+    const r = run(c, late, CLOSED * TICK_HZ - 30);
+    expect(types(r.events)).not.toContain('boxDelivered');
+    expect(r.state.game.boxes.map((b) => [b.id, b.col, b.left])).toEqual([[3, 14, 0]]);
+    // It starts in time to land on the next opening's first tick.
+    const next = (2 * CLOSED + OPEN) * TICK_HZ;
+    expect(run(c, r.state, next - r.state.game.tick).events).not.toContainEqual(expect.objectContaining({ type: 'boxDelivered' }));
+    expect(run(c, r.state, next - r.state.game.tick + 1).events).toContainEqual({ type: 'boxDelivered', object: 3, port: PORT_ID, count: 1, need: 1 });
+  });
+
+  it('owns only the tiles whose centre it covers: drawn off the grid, a shut gate does not block the tile beside it', () => {
+    const off = { ...port(), x: 15 * 32 - 4 };
+    const c = chapter([off, belt, crate(3, 13)]);
+    const r = run(c, startChapter(c), 40);
+    expect(r.state.game.boxes.map((b) => [b.id, b.col])).toEqual([[3, 14]]);
+  });
+
+  it('announces opening even when a hit-stop covers the tick it opens on', () => {
+    const c = chapter([port(), crate(3, 4, 2)]);
+    const s0 = startChapter(c);
+    const frozen = { ...s0, game: { ...s0.game, tick: CLOSED * TICK_HZ - 2, freeze: 5 } };
+    expect(run(c, frozen, 5).events).toContainEqual({ type: 'portOpened', object: PORT_ID });
+  });
+
+  it('cannot be pushed onto while shut, and can once open', () => {
+    const c = chapter([port(), crate(3, 14)]);
+    const s0 = startChapter(c);
+    const at = { ...s0, game: { ...s0.game, operator: { ...s0.game.operator, x: 13 * 32 + 8, y: 6 * 32 + 28 } } };
+    const right: TickInput = { move: { x: 1, y: 0 } };
+    const shut = run(c, at, 60, right);
+    expect(shut.state.game.boxes.map((b) => [b.id, b.col])).toEqual([[3, 14]]);
+    const open = run(c, shut.state, CLOSED * TICK_HZ, right);
+    expect(open.events).toContainEqual({ type: 'boxDelivered', object: 3, port: PORT_ID, count: 1, need: 1 });
+  });
+
+  it('keeps a parcel inside the mixer while the gate on its outlet is shut', () => {
+    const mixer = { id: 20, type: 'Mixer', x: 10 * 32, y: 6 * 32, width: 64, height: 32, properties: [p('outlet', 'E')] };
+    const gate = { id: PORT_ID, type: 'Port', x: 12 * 32, y: 6 * 32, width: 32, height: 32, properties: [p('need', 1), p('accepts', 'parcel'), p('openSeconds', 2), p('closedSeconds', 20)] };
+    const food = { id: 3, type: 'Box', x: 4 * 32 + 16, y: 2 * 32 + 16, properties: [p('boxType', 'food'), p('portion', 'small')] };
+    const c = chapter([mixer, gate, food]);
+    const s = run(c, drop(startChapter(c), 3, 10), 1).state;
+    const waiting = run(c, s, 20 * TICK_HZ - 2);
+    expect(types(waiting.events)).not.toContain('parcelOut');
+    const out = run(c, waiting.state, 2);
+    expect(out.events).toContainEqual({ type: 'parcelOut', object: 3, mixer: 20, col: 12, row: 6 });
+    expect(types(run(c, out.state, 1).events)).toContain('boxDelivered');
   });
 
   it('stays open and quiet once full', () => {

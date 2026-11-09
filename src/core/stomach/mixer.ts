@@ -95,9 +95,11 @@ export function stepMixer(room: RoomModel, state: MixerState, boxes: readonly Bo
 
   const outlet = mixerOutlet(room);
   for (const b of batches.filter((x) => x.left === 0)) {
-    // A parcel port by the outlet is allowed to take the parcel: that is what the gate is for.
-    const t = outlet && nearest(room, outlet, (x) => canEnter(room, all, x, occupants) && !onHopper(room, x));
-    // With no free tile the parcel waits inside, and the mixer stays that full until one frees up.
+    // A parcel comes out on the outlet tile and nowhere else. While that tile is taken (the parcel
+    // before it not yet carried off, a box, a body, a shut gate) it waits inside and keeps its place
+    // in the capacity, so a line that backs up into the mixer can jam it: eating too fast only causes
+    // a queue (design doc 7.5). A parcel port on the outlet tile may take it: that is what a gate is for.
+    const t = outlet && canEnter(room, all, outlet, occupants) ? outlet : undefined;
     if (!t) break;
     all.push({ ...resting(b.box, t), boxType: PARCEL });
     batches = batches.filter((x) => x.box !== b.box);

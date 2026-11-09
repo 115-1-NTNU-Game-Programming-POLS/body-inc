@@ -94,7 +94,7 @@ export const OBJECT_CLASSES: Readonly<Record<string, ClassSpec>> = {
   },
   /**
    * Where boxes are delivered, such as the prologue's blood glucose dispatch (design doc 7.3): a
-   * box that comes to rest on it is taken in for good. Once it holds `need` boxes it counts as a
+   * box that comes to rest on it while it is open (see `openSeconds`) is taken in for good. Once it holds `need` boxes it counts as a
    * switch that is on, for the door or conveyor it targets, and opens its conversation once. Not
    * in design doc 13.3's table either. One per room.
    */

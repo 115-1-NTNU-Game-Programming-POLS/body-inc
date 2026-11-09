@@ -88,11 +88,27 @@ describe('digesting', () => {
     s = run(c, drop(drop(s, 5, 10, 6), 4, 11, 6), 1).state;
     expect(selectMixer(s.game)!.batches.map((b) => b.box)).toEqual([3, 4, 5]);
     const r = run(c, s, portionTicks('small'));
-    expect(r.events.filter((e) => e.type === 'parcelOut').map((e) => (e as { object: number }).object)).toEqual([4, 5]);
-    // The second parcel takes the nearest free tile to the outlet, which the first already holds.
-    expect(tiles(r.state)).toEqual([[4, 12, 6], [5, 12, 5]]);
-    const rest = run(c, r.state, portionTicks('large') - portionTicks('small') - 1);
+    // Only the outlet tile takes a parcel: the second waits inside, done, until the first is moved off.
+    expect(r.events.filter((e) => e.type === 'parcelOut').map((e) => (e as { object: number }).object)).toEqual([4]);
+    expect(tiles(r.state)).toEqual([[4, 12, 6]]);
+    expect(selectMixer(r.state.game)!.batches.map((b) => [b.box, b.done === 1])).toEqual([[3, false], [5, true]]);
+    const freed = run(c, drop(r.state, 4, 14, 6), 1);
+    expect(freed.events).toContainEqual({ type: 'parcelOut', object: 5, mixer: MIXER_ID, col: 12, row: 6 });
+    const rest = run(c, drop(freed.state, 5, 14, 8), portionTicks('large') - portionTicks('small') - 1);
     expect(types(rest.events)).toContain('parcelOut');
+  });
+
+  it('keeps a parcel that cannot get out in its capacity, so a backed-up line jams the mixer', () => {
+    const c = chapter([mixer(), food(3, 4, 4, 'small'), food(4, 5, 4, 'small'), food(5, 6, 4, 'small'), food(6, 7, 4, 'small'), crate(7, 8, 4)]);
+    // A crate parked on the outlet tile: nothing can come out.
+    let s = drop(startChapter(c), 7, 12, 6);
+    for (const id of [3, 4, 5]) s = run(c, drop(s, id, 10, 6), 1).state;
+    s = run(c, s, portionTicks('small')).state;
+    expect(selectMixer(s.game)!.batches.map((b) => b.done)).toEqual([1, 1, 1]);
+    const r = run(c, drop(s, 6, 10, 6), 1);
+    expect(r.events).toContainEqual({ type: 'mixerJammed', mixer: MIXER_ID, boxes: 4 });
+    // What was done comes back as food too: a jam undoes the digesting.
+    for (const b of selectBoxes(r.state.game).filter((x) => x.object !== 7)) expect(b.boxType).toBe('food');
   });
 
   it('leaves other boxes and parcels on the hopper alone', () => {
