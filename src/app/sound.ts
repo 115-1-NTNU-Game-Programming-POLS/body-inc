@@ -35,7 +35,9 @@ function envelope(ctx: SynthContext, voice: Voice, t0: number, scale: number): G
   const g = ctx.createGain();
   const peak = Math.max(FLOOR * 2, voice.gain * scale);
   g.gain.setValueAtTime(FLOOR, t0);
-  g.gain.exponentialRampToValueAtTime(peak, t0 + Math.min(ATTACK, voice.dur / 2));
+  // A slow attack is a straight ramp: an exponential one would stay silent most of the way and then jump.
+  if (voice.attack !== undefined) g.gain.linearRampToValueAtTime(peak, t0 + Math.min(voice.attack, voice.dur / 2));
+  else g.gain.exponentialRampToValueAtTime(peak, t0 + Math.min(ATTACK, voice.dur / 2));
   g.gain.exponentialRampToValueAtTime(FLOOR, t0 + voice.dur);
   return g;
 }

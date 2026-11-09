@@ -58,6 +58,7 @@
         "cutoffTo": { "description": "The filter frequency a noise glides to.", "type": "number", "exclusiveMinimum": 0 },
         "q": { "type": "number", "exclusiveMinimum": 0 },
         "at": { "description": "Seconds after the cue starts; 0 when absent.", "type": "number", "minimum": 0 },
+        "attack": { "description": "Seconds the voice takes to swell to its peak, in a straight line; a 6 ms click when absent. A whoosh wants a slow one, or it starts like a knock.", "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
         "dur": { "description": "Seconds the voice lasts.", "type": "number", "exclusiveMinimum": 0, "maximum": 3 },
         "gain": { "description": "Peak level, 0 to 1.", "type": "number", "exclusiveMinimum": 0, "maximum": 1 }
       }

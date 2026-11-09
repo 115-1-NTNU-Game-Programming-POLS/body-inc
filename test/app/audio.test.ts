@@ -208,6 +208,8 @@ describe('what the check refuses', () => {
     expect(problems(withCue('move', { voices: [{ kind: 'tone', dur: 0.1, gain: 0.1 }] })).join('\n')).toMatch(/a tone needs freq/);
     expect(problems(withCue('move', { voices: [{ kind: 'noise', dur: 0.1, gain: 0.1 }] })).join('\n')).toMatch(/a noise needs cutoff/);
     expect(problems(withCue('move', { voices: [tone(0.1, 2.9, 0.2)] })).join('\n')).toMatch(/ends after 3 s/);
+    expect(problems(withCue('move', { voices: [{ ...tone(0.1), attack: 0.06 }] })).join('\n')).toMatch(/attack 0.06 s is over half of dur 0.1 s/);
+    expect(problems(withCue('move', { voices: [{ ...tone(0.1), attack: 0.05 }] }))).toEqual([]);
   });
 
   it('music naming a track that is not there, a chapter that is not a file, and a track nobody plays', () => {

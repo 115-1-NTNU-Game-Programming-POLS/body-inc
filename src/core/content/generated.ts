@@ -193,6 +193,12 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
             "type": "number",
             "minimum": 0
           },
+          "attack": {
+            "description": "Seconds the voice takes to swell to its peak, in a straight line; a 6 ms click when absent. A whoosh wants a slow one, or it starts like a knock.",
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "maximum": 1
+          },
           "dur": {
             "description": "Seconds the voice lasts.",
             "type": "number",
@@ -3344,6 +3350,8 @@ export interface Voice {
   readonly q?: number;
   /** Seconds after the cue starts; 0 when absent. */
   readonly at?: number;
+  /** Seconds the voice takes to swell to its peak, in a straight line; a 6 ms click when absent. A whoosh wants a slow one, or it starts like a knock. */
+  readonly attack?: number;
   /** Seconds the voice lasts. */
   readonly dur: number;
   /** Peak level, 0 to 1. */

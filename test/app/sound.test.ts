@@ -14,6 +14,10 @@ class Param {
     this.calls.push({ op: 'ramp', v, t });
     return this;
   }
+  linearRampToValueAtTime(v: number, t: number): this {
+    this.calls.push({ op: 'line', v, t });
+    return this;
+  }
   /** The highest value any call set or ramped to. */
   get peak(): number {
     return Math.max(...this.calls.map((c) => c.v));
@@ -197,6 +201,22 @@ describe('synthesizing a cue', () => {
     expect(g.gain.peak).toBeCloseTo(0.15, 10);
     expect(g.gain.calls.at(-1)!.v).toBeLessThan(0.001);
     expect(g.gain.calls.every((c) => c.v > 0)).toBe(true);
+  });
+
+  it('swells a voice with an attack in a straight line over that time, and clicks in 6 ms without one', () => {
+    const ctx = new FakeContext();
+    const cue = { voices: [
+      { kind: 'noise', cutoff: 800, attack: 0.05, dur: 0.2, gain: 0.5 },
+      { kind: 'noise', cutoff: 800, dur: 0.2, gain: 0.5 },
+      // An attack longer than half the voice stops at half, so the voice still has time to fall away.
+      { kind: 'noise', cutoff: 800, attack: 0.5, dur: 0.2, gain: 0.5 },
+    ] } as const;
+    synthesize(ctx as unknown as SoundContext, new Node() as unknown as AudioNode, cue, whiteNoise(ctx as unknown as SoundContext), 1);
+    const [slow, click, capped] = ctx.gains.map((g) => g.gain.calls);
+    expect(slow![1]).toEqual({ op: 'line', v: 0.5, t: 1.05 });
+    expect(click![1]!.op).toBe('ramp');
+    expect(click![1]!.t).toBeCloseTo(1.006, 10);
+    expect(capped![1]).toEqual({ op: 'line', v: 0.5, t: 1.1 });
   });
 });
 

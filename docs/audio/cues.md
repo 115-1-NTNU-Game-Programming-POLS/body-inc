@@ -28,19 +28,22 @@
 
 | cue | 聽感 | 由哪些事件觸發 |
 | --- | --- | --- |
-| `staple` | 釘書機：短促的喀擦 | `fire` |
-| `swing` | 公文夾揮出的風聲，隨連擊每步升一個半音 | `swing` |
+| `staple` | 釘書機：一聲短的金屬喀，緊接較悶的擦（紙被壓穿），底下墊一點低音 | `fire` |
+| `swing` | 公文夾揮出的風聲：漸強的氣流由低往高掃，比閃身短；隨連擊每步升一個半音 | `swing` |
 | `swap` | 換文具的兩個上行短音 | `toolSwapped` |
 | `guard` | 舉起公文夾的悶響 | `guardRaised` |
 | `parry` | 退件：啪的一聲加清脆的雙音，有字幕 | `parry` |
 | `blocked` | 擋下攻擊的鈍響 | `blocked` |
 | `refuse` | 婉拒：明亮的兩個音，是獎勵感的聲音，有字幕 | `refused` |
 | `clink` | 烤吐司或杯子碰撞的清脆聲 | `toasted` |
-| `dodge` | 閃身的氣流掃過 | `dodge` |
+| `dodge` | 閃身的氣流掃過：漸強再淡出，由高往低掠過，沒有撞擊感 | `dodge` |
 | `perfect` | 完美閃身的三個上行高音 | `perfectDodge` |
 | `hit` | 釘書針擊中 | `hit` |
 | `closed` | 結案：低沉的蓋章加雙音 | `caseClosed` |
 | `poof` | 散開的氣音 | `dispersed`, `bossSummon` |
+| `reform` | 重組：倒過來的散開聲，輕輕漸強的氣音，中間冒出幾顆往上滑的泡泡聲 | `reformed` |
+| `respawn` | 重生：一聲紙張的沙，接兩個不高的上行音，比換文具低 | `respawned` |
+| `bump` | 撞牆：一聲輕的悶響，只在剛碰到牆時響一次 | `bumpWall` |
 | `boing` | 彈開 | `immuneBounce`, `backedOff` |
 | `nope` | 不行：兩個下行短音 | `stampVoid`, `handsFull` |
 | `heart` | 受擊的低音：失去一顆心，或在考試裡被打中 | `heartLost`, `examHit` |
@@ -84,9 +87,49 @@
 
 救援、暈眩與考試作答的 cue 以結果命名（`rescue.step`、`dizzy.true`、`exam.time` 等），`content/feedback.json` 用 `{outcome}`、`{dizzy}`、`{how}` 這樣的佔位符依事件的結果選聲音，所以做對和做錯聽起來不同。`rescue.early` 與 `exam.time`、`exam.stacks` 目前共用 `nope` 的配方，`rescue.myth` 共用 `bad`，`dizzy.false` 共用 `pick`；它們各有自己的 id，是為了日後單獨改，不是疏漏。考試結算（`examResult`）不論分數都播 `done`，因為事件本身只帶總分，沒有及格與否，而結算畫面已經顯示分數；要讓不同分數聽起來不同，需要規則層先把及格與否放進事件。蓋章命中 Boss 的提案時會同時發出 `stampLanded` 與 `proposalRejected`，聲音與字幕只由 `stampLanded` 負責，否則同一下蓋章會出現兩行相同的字幕。
 
-目前沒有聲音的事件共 21 個：`bumpWall`、`refusalSaid`、`reformed`、`respawned`、`freeze`、`proposalRejected`、`boxMoved`、`triggerEntered`、`roomChanged`、`dialogueClosed`、`clockAdvanced`、`glucoseRefilled`、`rescueOpened`、`examStarted`、`examQuestion`、`examFinished`、`examForecast`、`examClosed`、`outerRequested`、`returnedToCheckpoint`、`chapterEnded`。其中換房間、記帳和面板開關這類事件由跟著發生的另一個事件負責聲音（進門有 `doorEntered`），其餘是尚未決定要不要配聲音；要補的話在 `content/feedback.json` 加 `sound` 欄位即可，內容檢查會確認 cue 存在。
+目前沒有聲音的事件共 18 個：`refusalSaid`、`freeze`、`proposalRejected`、`boxMoved`、`triggerEntered`、`roomChanged`、`dialogueClosed`、`clockAdvanced`、`glucoseRefilled`、`rescueOpened`、`examStarted`、`examQuestion`、`examFinished`、`examForecast`、`examClosed`、`outerRequested`、`returnedToCheckpoint`、`chapterEnded`。其中換房間、記帳和面板開關這類事件由跟著發生的另一個事件負責聲音（進門有 `doorEntered`），戰鬥相關的幾個已在 #73 決定（見下方「戰鬥音效驗收」），其餘是尚未決定要不要配聲音；要補的話在 `content/feedback.json` 加 `sound` 欄位即可，內容檢查會確認 cue 存在。
 
 與 issue #13 的差異：該 issue 假設音效是檔案，所以要求的欄位是檔案、長度、來源和負責人。音效改成合成配方之後沒有檔案可列，來源一律是 `content/audio.json` 的配方；音樂的檔案、大小與來源在上方的表和 `docs/art/asset-license.csv`。負責人欄沒有填：設計文件第 15 節把打擊與文具的聲音交給楊成宇，`staple`、`swing`、`hit`、`parry`、`stampDown` 等是否採用要由他確認。
+
+
+## 戰鬥音效驗收（#73）
+
+設計文件第 15 節把打擊與文具的聲音交給楊成宇。2026-11-09 由楊成宇戴耳機在 `npm run dev` 裡玩序章、大腦章與咖啡因 Boss（`?room=greybox/caffeine-arena&gauge=100`）逐一聽過，結果如下。
+
+| 聲音 | 決定 | 說明 |
+| --- | --- | --- |
+| 釘書機（`staple`） | 改 | 舊版太尖、不像釘書機：骨幹是方波（電子嗶聲的音色），能量有三分之二在 2 kHz 以上。改成金屬喀加紙張擦的兩段，2 kHz 以上的能量降到約 37%。套用修正後 RMS 約 -22.3 dBFS，已在目標的 0.5 dB 內，峰值剛好在上限之下；舊版因峰值上限停在 -23.4 dBFS。 |
+| 揮公文夾（`swing`） | 改 | 舊版沒有風聲感：主體是一個往下掉的低音，聽起來是撞擊。拿掉低音，改成 50 毫秒漸強的帶通氣流，由 600 Hz 掃到 1800 Hz；連擊升半音照舊。 |
+| 換文具（`swap`） | 保留 | |
+| 舉公文夾（`guard`） | 保留 | |
+| 退件（`parry`） | 保留 | 有字幕，與 `stampDown`、`ready` 和三級預警的配方都沒有改，彼此仍然不同。 |
+| 擋下（`blocked`） | 保留 | |
+| 命中（`hit`） | 保留 | |
+| 結案（`closed`） | 保留 | |
+| 彈開（`boing`） | 保留 | 符合設計文件 5.5 的軟彈開。 |
+| 閃身（`dodge`） | 改 | 舊版像衝刺撞到牆：聲音一開始就是最大聲，長度只有約 40 毫秒。改成 80 毫秒漸強、240 毫秒長的氣流，由 2000 Hz 往 500 Hz 掠過，再墊一層低通氣流。方向和 `swing` 相反，所以閃開與揮出聽得出差別。 |
+| 完美閃身（`perfect`） | 保留 | |
+| 扣血（`heart`） | 保留 | |
+| 舉印章（`stampUp`） | 保留 | |
+| 蓋章（`stampDown`） | 保留 | 設計文件 13.6 說駁回印章沿用期中版的蓋章聲，沒有改。 |
+| 量表充滿（`ready`） | 保留 | |
+
+漸強需要一個新的配方欄位：聲音的 `attack`（秒），以直線升到峰值；沒寫時照舊是 6 毫秒的起音。原本的起音固定 6 毫秒，任何聲音一開始都是最大聲，所以氣流聲聽起來都像敲擊。只有 `swing`、`dodge` 和新的 `reform` 用到它，其他配方沒有變。
+
+改過或新增的六個 cue（`staple`、`swing`、`dodge`、`reform`、`respawn`、`bump`）都用校準頁重新量過，`trimDb` 是校準頁算出的值。校準頁同時算出 `exam.solved` 的修正是 8.5，與原本檔案裡的 2.5 不同。2.5 是新增時照抄同配方的 `choose`，但 `choose` 屬選單類（目標 -28 dBFS），`exam.solved` 屬一般效果（-22 dBFS），兩者差 6 dB，因此一併改為 8.5。
+
+### 沒有聲音的戰鬥事件
+
+| 事件 | 決定 | 理由 |
+| --- | --- | --- |
+| `bumpWall` | 配 `bump`，每次碰到只響一次 | 碰到牆有回饋比較紮實。規則層在營運長頂著牆的每一幀都會送出 `bumpWall`，所以由畫面層的 `WallContact`（`src/app/wallContact.ts`）只讓剛碰到的那一下出聲：x、y 兩個方向分開算，沿著牆滑進牆角時第二面牆也會響；離開牆一幀之後再碰才算新的一次。 |
+| `reformed` | 配 `reform` | 腺苷打散 6 秒後重組（設計文件 5.5），往往發生在營運長已經轉身之後；聽得到「又聚回來了」，才學得到「硬打會無限重組」。一間房同時重組的腺苷不多，不會變成噪音。依楊成宇的意見加了泡泡聲。 |
+| `respawned` | 配 `respawn` | 可結案的敵人在原本的出生點重新出現。楊成宇試玩時，重生都發生在畫面內看得到的地方，所以聲音不會讓人摸不著頭緒，反而提醒玩家「又有人來上班了」。音高比換文具（`swap`）低，也不是一級預警那種單一高音，不會和兩者混淆。 |
+| `freeze` | 不配 | 命中停頓總是和命中（`hit`）、結案、蓋章或受擊同一幀發生，那些已經有聲音。 |
+| `refusalSaid` | 不配 | 和婉拒（`refused`，播 `refuse`）同一幀發生，台詞已經用文字顯示。 |
+| `proposalRejected` | 不配 | 和 `stampLanded` 同一幀，`stampDown` 已經響了；兩個聲音疊在一起只會更吵。 |
+| `boxMoved` | 不配 | 每移動一格觸發一次；輸送帶上有好幾個箱子時，每秒會響好幾次。推箱的手感之後可以由謎題的負責人另外考慮，例如只在 `by` 為 `push` 時配聲音。 |
+| `triggerEntered` | 不配 | 觸發區是看不見的劇情開關，配聲音會讓玩家發現它的位置；觸發之後打開的對話或事件自己有聲音。 |
 
 ## 預警與字幕
 
@@ -127,6 +170,6 @@
 
 設定檔有「音樂音量」和「音效音量」兩個獨立的選項，各五檔（0%、25%、50%、75%、100%），0% 是關。A／D 一檔一檔調，到頭會繞回另一端；Enter 或點擊從 100% 繞回時跳過 0%、回到 25%，避免按一下就靜音。實際的增益是設定值的平方，所以 50% 聽起來像一半。音樂的增益是 0.5 乘設定值的平方，因為音樂檔在 -18 LUFS，音效校準後比它響。音效匯流排最後有一個限幅器（門檻 -2 dB），同時響起的多個 cue 不會破音。同一個 cue 在 `minGapMs`（預設 30 毫秒）內不會重新開始，避免連發的聲音疊成噪音。
 
-每個 cue 的 `trimDb` 是校準值。校準頁是 `tools/audio/calibrate.html`：以 `npm run dev` 啟動後開 `/tools/audio/calibrate.html`，它用 `OfflineAudioContext` 以遊戲同一套合成程式把每個 cue 離線算一遍（不套 `trimDb`），量整個 cue 的 RMS（超過 200 毫秒的取最響的 200 毫秒），再算出讓它到達所屬類別目標所需的修正，並印出可貼回 `content/audio.json` 的 JSON。類別與目標如下：一般效果 -22 dBFS、預警 -17 dBFS、選單 -28 dBFS、時鐘滴答 -26 dBFS。修正值以 0.5 dB 為單位捨去，並受峰值上限限制（一般 -3 dBFS，預警 -2 dBFS），所以幾個峰值很高、RMS 很低的 cue 到不了目標：`staple`（-23.4）、`clink`（-22.7）、`telegraph.1`（-17.8）、`telegraph.2`（-22.0）和 `telegraph.3`（-20.6），括號內是套用修正後的 RMS。其餘 cue 都在目標的 0.5 dB 內。改了配方或新增 cue 之後要重跑校準。
+每個 cue 的 `trimDb` 是校準值。校準頁是 `tools/audio/calibrate.html`：以 `npm run dev` 啟動後開 `/tools/audio/calibrate.html`，它用 `OfflineAudioContext` 以遊戲同一套合成程式把每個 cue 離線算一遍（不套 `trimDb`），量整個 cue 的 RMS（超過 200 毫秒的取最響的 200 毫秒），再算出讓它到達所屬類別目標所需的修正，並印出可貼回 `content/audio.json` 的 JSON。類別與目標如下：一般效果 -22 dBFS、預警 -17 dBFS、選單 -28 dBFS、時鐘滴答 -26 dBFS。修正值以 0.5 dB 為單位捨去，並受峰值上限限制（一般 -3 dBFS，預警 -2 dBFS），所以幾個峰值很高、RMS 很低的 cue 到不了目標：`clink`（-22.7）、`telegraph.1`（-17.8）、`telegraph.2`（-22.0）和 `telegraph.3`（-20.6），括號內是套用修正後的 RMS。其餘 cue 都在目標的 0.5 dB 內。改了配方或新增 cue 之後要重跑校準。
 
 驗證過的事：在無頭 Chrome 裡，手勢之前沒有任何聲音，第一個按鍵之後音訊環境解鎖、音樂開始；`stampDown` 經過匯流排時量到峰值 0.36，音效音量 0% 時為 0，改回 100% 後恢復；音樂音量 0% 時播放器音量為 0；一顆心時的 `tick` 每秒一次。滴答以「這一幀跨過了新的一秒」判斷，不看 tick 是不是 60 的倍數：一幀可能跑兩個以上的規則 tick，用倍數判斷時，30 fps 且從奇數 tick 開始的畫面會一次都不響。`test/app/audio.test.ts` 用真的 `FixedStepLoop` 在 20 到 144 fps、不同起始 tick 下驗證。
