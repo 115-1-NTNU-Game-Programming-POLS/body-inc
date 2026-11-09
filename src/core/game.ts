@@ -20,9 +20,10 @@ import { advance, startClock, type RuleClock } from './clock.ts';
 import { sitting, startExam, stepExam, type ExamDef, type ExamKind, type ExamState, type ExamTally, type ExamTick } from './exam/fight.ts';
 import { seedStreams, type RngStreams } from './rng.ts';
 import {
-  advanceSlide, beltAt, boxAhead, boxPixel, canEnter, CONVEYOR_TICKS, conveyorRunning, conveyorsOf, directionOf, filledPorts, nearest, onPort,
-  portOf, PUSH, pushDirection, settleBoxes, startSlide, tileAt, tileBox, withBoxes, type BoxState, type Occupants, type Tile,
+  advanceSlide, beltAt, boxAhead, boxPixel, canEnter, CONVEYOR_TICKS, conveyorRunning, conveyorsOf, directionOf, filledPorts, mixerOf, mixerOutlet,
+  nearest, onPort, portOf, portTakes, PUSH, pushDirection, settleBoxes, startSlide, tileAt, tileBox, withBoxes, type BoxState, type Occupants, type Tile,
 } from './rooms/boxes.ts';
+import { boxTypeOf, EMPTY_MIXER, PORTION_SECONDS, stepMixer, type MixerEvent, type MixerState, type Portion } from './stomach/mixer.ts';
 import type { EnteredRoom } from './rooms/entry.ts';
 import { leverAt, objectBox, platesUnder, reachableObject, touchedObjects } from './rooms/interact.ts';
 import { doorOpen } from './rooms/locks.ts';
@@ -121,6 +122,8 @@ export interface GameState {
   readonly pie?: PieState;
   /** Only in a liver factory room (core/liver/factory.ts). */
   readonly factory?: FactoryState;
+  /** Only in a room with the stomach's mixer (core/stomach/mixer.ts): what it is digesting. */
+  readonly mixer?: MixerState;
   /** The exam being sat in this room, from the forecast's close on (core/exam/fight.ts). */
   readonly exam?: ExamState;
   /** Its definition, kept in state like the bosses' so a replay needs nothing else. */
@@ -220,14 +223,15 @@ export type DomainEvent =
   | { readonly type: 'doorLocked'; readonly object: number; readonly lock: string }
   /** A switch went on or off; `by` says what moved it. Only toggle switches stay on after the operator leaves. */
   | { readonly type: 'switchChanged'; readonly object: number; readonly on: boolean; readonly mode: string; readonly by: 'interact' | 'staple' | 'step' | 'box' }
-  /** A box started sliding to this tile, pushed by the operator or carried by a conveyor. */
-  | { readonly type: 'boxMoved'; readonly object: number; readonly col: number; readonly row: number; readonly by: 'push' | 'conveyor' }
+  /** A box started sliding to this tile, pushed by the operator or carried by a conveyor, or the mixer set it down there. */
+  | { readonly type: 'boxMoved'; readonly object: number; readonly col: number; readonly row: number; readonly by: 'push' | 'conveyor' | 'mixer' }
   /** A box came to rest on a Port, which took it; `count` is how many the port holds now. */
   | { readonly type: 'boxDelivered'; readonly object: number; readonly port: number; readonly count: number; readonly need: number }
   /** A Port took its last needed box: it now counts as a switch that is on, for good. */
   | { readonly type: 'portFilled'; readonly object: number }
   /** The second line took in an acetaldehyde crate; the chapter takes it off the `acetaldehyde` tag. */
   | { readonly type: 'crateTaken'; readonly object: number; readonly line: number }
+  | MixerEvent
   | { readonly type: 'triggerEntered'; readonly object: number; readonly trigger: string; readonly eventId: string }
   /** The operator took an item; what it does beyond leaving the room (and opening a key lock) is the chapter's. */
   | { readonly type: 'pickedUp'; readonly object: number; readonly itemType: string; readonly itemId: string }
@@ -485,6 +489,7 @@ export function createGame(room: EnteredRoom, seed: number, table: EnemyTable, o
     ...(options.folderLocked ? { folderLocked: true as const } : {}),
     ...(options.pie ? { pie: PIE_READY } : {}),
     ...(factory ? { factory } : {}),
+    ...(mixerOf(room) ? { mixer: EMPTY_MIXER } : {}),
     ...(options.perks ? { perks: options.perks } : {}),
   };
 }
@@ -555,6 +560,8 @@ function forcedLeave(state: GameState): GameState {
     boxes,
     push: null,
     ...(state.factory ? { factory: { ...state.factory, serial: crates.serial, mist: 0 } } : {}),
+    // What it held went home with the other boxes above, since settleBoxes rebuilds every box not delivered.
+    ...(state.mixer ? { mixer: EMPTY_MIXER } : {}),
   };
 }
 
@@ -633,7 +640,7 @@ function interactionOf(o: RoomObject): DomainEvent {
  * The array is kept when nothing moves, so the solid grid built from it stays cached.
  */
 function moveBoxes(state: GameState, op: OperatorState, input: TickInput): MovedBoxes {
-  if (state.boxes.length === 0) return { boxes: state.boxes, push: null, events: [], delivered: state.delivered };
+  if (state.boxes.length === 0 && !state.mixer?.batches.length) return { boxes: state.boxes, push: null, events: [], delivered: state.delivered, mixer: state.mixer };
   const room = state.room;
   const events: DomainEvent[] = [];
   const occupants = occupantsOf(op, state.enemies);
@@ -645,7 +652,7 @@ function moveBoxes(state: GameState, op: OperatorState, input: TickInput): Moved
   let delivered = state.delivered;
   if (port) {
     const need = Number(port.props['need']);
-    for (const b of boxes.filter((x) => x.left === 0 && !isSpawnedCrate(x) && onPort(port, x))) {
+    for (const b of boxes.filter((x) => x.left === 0 && !isSpawnedCrate(x) && onPort(port, x) && portTakes(port, boxTypeOf(room, x)))) {
       boxes = boxes.filter((x) => x.id !== b.id);
       delivered = ascending([...delivered, b.id]);
       events.push({ type: 'boxDelivered', object: b.id, port: port.id, count: delivered.length, need });
@@ -660,7 +667,16 @@ function moveBoxes(state: GameState, op: OperatorState, input: TickInput): Moved
       events.push({ type: 'crateTaken', object: b.id, line: intake.id });
     }
   }
-  const out = (push: PushState | null): MovedBoxes => ({ boxes, push, events, delivered });
+  // The mixer works after the port and before the belts and the push: a parcel it puts out may be
+  // carried or pushed on the same tick, and only a port takes it in a tick later.
+  let mixer = state.mixer;
+  if (mixer) {
+    const m = stepMixer(room, mixer, boxes, occupants);
+    mixer = m.mixer;
+    boxes = m.boxes;
+    events.push(...m.events);
+  }
+  const out = (push: PushState | null): MovedBoxes => ({ boxes, push, events, delivered, mixer });
 
   for (const b of [...boxes]) {
     if (b.left > 0) continue;
@@ -696,6 +712,7 @@ interface MovedBoxes {
   readonly push: PushState | null;
   readonly events: DomainEvent[];
   readonly delivered: readonly number[];
+  readonly mixer: MixerState | undefined;
 }
 
 const penCache = new WeakMap<readonly RoomObject[], readonly Box[]>();
@@ -1281,6 +1298,7 @@ export function step(state: GameState, pressed: TickInput): StepResult {
     touching: onNow.map((o) => o.id), carried, switches, doorsOpen: doorsOpenNow, taken, boxes, push, delivered: moved.delivered,
     ...(pie ? { pie } : {}),
     ...(factory ? { factory } : {}),
+    ...(moved.mixer ? { mixer: moved.mixer } : {}),
     ...(bind ? { bind } : {}),
     ...(boostUntil !== undefined ? { boostUntil } : {}),
   }, pressed.interactPressed === true);
@@ -1396,6 +1414,18 @@ export function selectFactory(s: GameState): {
 export function selectPort(s: GameState): { readonly object: number; readonly count: number; readonly need: number } | undefined {
   const port = portOf(s.room);
   return port ? { object: port.id, count: s.delivered.length, need: Number(port.props['need']) } : undefined;
+}
+/** The room's mixer for drawing it: what it digests, each with the share done, and where parcels come out. */
+export function selectMixer(s: GameState): {
+  readonly mixer: RoomObject; readonly capacity: number; readonly outlet: Tile | undefined;
+  readonly batches: readonly { readonly box: number; readonly portion: Portion; readonly done: number }[];
+} | undefined {
+  const m = mixerOf(s.room);
+  if (!m || !s.mixer) return undefined;
+  return {
+    mixer: m, capacity: Number(m.props['capacity']), outlet: mixerOutlet(s.room),
+    batches: s.mixer.batches.map((b) => ({ box: b.box, portion: b.portion, done: 1 - b.left / (PORTION_SECONDS[b.portion] * TICK_HZ) })),
+  };
 }
 /** Every conveyor and whether it runs now, by the rule the step uses. */
 export function selectConveyors(s: GameState): readonly { readonly object: number; readonly direction: string; readonly speed: string; readonly running: boolean }[] {

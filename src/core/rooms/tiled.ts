@@ -4,7 +4,7 @@ import { ConditionError, type Condition, type ConditionProblem } from '../tags/c
 import { compileCondition, type TagDictionary } from '../tags/dictionary.ts';
 import { TILE } from '../time.ts';
 import { OBJECT_CLASSES, ROOM_CLASS, VARIANT_PREFIX, type ClassSpec, type RefKind, type Scalar } from './classes.ts';
-import { conveyorTiles, KEEP_CLEAR, tileBox, tileOf } from './boxes.ts';
+import { conveyorTiles, KEEP_CLEAR, mixerOutlet, tileBox, tileOf } from './boxes.ts';
 import { canMeet } from './entry.ts';
 import { objectBox } from './interact.ts';
 import { keyOf, keysFor, parseClockWindow, SWITCH_KINDS, switchesFor } from './locks.ts';
@@ -143,6 +143,20 @@ export type RoomProblemCode =
   | 'dock-blocked'
   /** A Box drawn with boxType acetaldehyde: those crates come only out of the first line. */
   | 'box-acetaldehyde'
+  /** A Mixer drawn as a point, or too small to hold any tile's centre. */
+  | 'mixer-shape'
+  /** A Mixer with a wall tile; its outlet and throws are reckoned from the whole rectangle, so every tile must be floor. */
+  | 'mixer-wall'
+  /** A Mixer in a variant layer: a parcel port and its door are judged as if the mixer were always there. */
+  | 'mixer-variant'
+  /** A door, NPC, bed, pickup, trigger, port or switch over the hopper, where no box can rest or a port would take food first. */
+  | 'mixer-blocked'
+  /** More than one Mixer in a room; the game runs the first only. */
+  | 'mixer-multiple'
+  /** A Mixer whose outlet tile is a wall or off the map, so its parcels would come out somewhere else. */
+  | 'mixer-outlet'
+  /** A Port that takes only parcels in a room with no Mixer to make them. */
+  | 'port-parcel'
   /** A wall room whose track or board has not exactly the slots the game fills (see core/rooms/slots.ts). */
   | 'slot-count'
   /** Two EvidenceSlots with the same track, day and order. */
@@ -412,10 +426,30 @@ export function readRoom(id: string, map: TiledMap, dict: TagDictionary): ReadRe
   const together = (a: RoomObject, b: RoomObject) => canMeet(variants, a, b);
   const ports = objects.filter((o) => o.kind === 'Port').sort((a, b) => a.id - b.id);
   if (ports.length > 1) problems.push({ code: 'port-multiple', object: ports[1]!.id });
-  const sure = boxes.filter((b) => b.variant === undefined && String(b.props['when']).trim() === '').length;
+  const sureBoxes = boxes.filter((b) => b.variant === undefined && String(b.props['when']).trim() === '');
+  const mixers = objects.filter((o) => o.kind === 'Mixer').sort((a, b) => a.id - b.id);
   for (const p of ports) {
     const need = Number(p.props['need']);
+    // A parcel port can only ever hold what the mixer makes, and the mixer only takes food.
+    const parcels = p.props['accepts'] === 'parcel';
+    if (parcels && mixers.length === 0) problems.push({ code: 'port-parcel', object: p.id });
+    const sure = parcels ? sureBoxes.filter((b) => b.props['boxType'] === 'food').length : sureBoxes.length;
     if (sure < need) problems.push({ code: 'port-need', object: p.id, args: { need, boxes: sure } });
+  }
+  if (mixers.length > 1) problems.push({ code: 'mixer-multiple', object: mixers[1]!.id });
+  const grid = { cols: map.width, rows: map.height, solid };
+  for (const m of mixers) {
+    if (m.variant !== undefined) problems.push({ code: 'mixer-variant', object: m.id });
+    const tiles = m.width > 0 && m.height > 0 ? conveyorTiles(m) : [];
+    if (tiles.length === 0) { problems.push({ code: 'mixer-shape', object: m.id }); continue; }
+    // Every hopper tile must be floor: the outlet and where a jam throws boxes are reckoned from the whole rectangle.
+    if (tiles.some((t) => isSolid(grid, t.col, t.row))) problems.push({ code: 'mixer-wall', object: m.id });
+    const out = mixerOutlet({ objects: [m] });
+    if (out && isSolid(grid, out.col, out.row)) problems.push({ code: 'mixer-outlet', object: m.id, args: { col: out.col, row: out.row } });
+    // A box can never come to rest under a door or the like, a port would take food first, and a plate there would hold a box the mixer takes.
+    const hopper = tiles.map(tileBox);
+    const over = objects.find((x) => (KEEP_CLEAR.has(x.kind) || x.kind === 'Port' || x.kind === 'Switch') && hopper.some((h) => overlaps(h, objectBox(x))));
+    if (over) problems.push({ code: 'mixer-blocked', object: m.id, args: { other: over.id, kind: over.kind } });
   }
   for (const [i, b] of boxes.entries()) {
     if (b.props['boxType'] === 'acetaldehyde') problems.push({ code: 'box-acetaldehyde', object: b.id });
@@ -424,7 +458,7 @@ export function readRoom(id: string, map: TiledMap, dict: TagDictionary): ReadRe
     if (isSolid({ cols: map.width, rows: map.height, solid }, t.col, t.row)) problems.push({ code: 'box-wall', object: b.id, args: { col: t.col, row: t.row } });
     const twin = boxes.slice(0, i).find((x) => { const u = tileOf(x); return u.col === t.col && u.row === t.row && together(b, x); });
     if (twin) problems.push({ code: 'box-stack', object: b.id, args: { other: twin.id } });
-    const blocked = objects.find((x) => (KEEP_CLEAR.has(x.kind) || x.kind === 'Port') && overlaps(tb, objectBox(x)) && together(b, x));
+    const blocked = objects.find((x) => (KEEP_CLEAR.has(x.kind) || x.kind === 'Port' || x.kind === 'Mixer') && overlaps(tb, objectBox(x)) && together(b, x));
     if (blocked) problems.push({ code: 'box-blocked', object: b.id, args: { other: blocked.id, kind: blocked.kind } });
   }
 
@@ -466,7 +500,7 @@ function lineProblems(objects: readonly RoomObject[], cols: number, rows: number
   const onDock = (t: { col: number; row: number }) => dock.some((d) => d.col === t.col && d.row === t.row);
   for (const o of objects) {
     const covered = o.kind === 'Line' ? (o.props['stage'] === 'intake' && o.width > 0 && o.height > 0 ? conveyorTiles(o) : [])
-      : o.kind === 'Port' || o.kind === 'Conveyor' ? (o.width > 0 && o.height > 0 ? conveyorTiles(o) : [])
+      : o.kind === 'Port' || o.kind === 'Conveyor' || o.kind === 'Mixer' ? (o.width > 0 && o.height > 0 ? conveyorTiles(o) : [])
         : DOCK_CLEAR.has(o.kind) ? dock.filter((d) => overlaps(tileBox(d), objectBox(o))) : [];
     if (covered.some(onDock)) problems.push({ code: 'dock-blocked', object: o.id, args: { kind: o.kind } });
   }

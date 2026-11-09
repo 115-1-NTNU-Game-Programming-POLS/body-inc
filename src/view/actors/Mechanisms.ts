@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import {
-  conveyorTiles, directionOf, dockTiles, isSpawnedCrate, MIST, objectBox, outletTile, selectBoxes, selectConveyors, selectDoorLocks, selectFactory, selectPickups,
-  selectPort, selectSwitches, TILE, type BoxState, type GameState, type RoomObject,
+  conveyorTiles, directionOf, dockTiles, hopperTiles, isSpawnedCrate, MIST, objectBox, outletTile, PARCEL, selectBoxes, selectConveyors, selectDoorLocks, selectFactory,
+  selectMixer, selectPickups, selectPort, selectSwitches, TILE, type BoxState, type GameState, type RoomObject,
 } from '../../core/index.ts';
 import { addText, updateText } from '../text/fonts.ts';
 
@@ -19,7 +19,9 @@ export class Mechanisms {
   private readonly levers = new Map<number, { g: Phaser.GameObjects.Graphics; o: RoomObject; on?: boolean }>();
   private readonly plates = new Map<number, Phaser.GameObjects.Graphics>();
   private readonly items = new Map<number, Phaser.GameObjects.Graphics>();
-  private readonly boxes = new Map<number, Phaser.GameObjects.Graphics>();
+  /** A food box keeps its id when the mixer turns it into a parcel, so the type drawn is kept to redraw it then. */
+  private readonly boxes = new Map<number, { g: Phaser.GameObjects.Graphics; type: string }>();
+  private mixer: { gauge: Phaser.GameObjects.Graphics; o: RoomObject; drawn?: string } | undefined;
   private readonly belts = new Map<number, { g: Phaser.GameObjects.Graphics; o: RoomObject; drawn?: string }>();
   private port: { g: Phaser.GameObjects.Graphics; label: Phaser.GameObjects.Text; o: RoomObject; drawn?: string } | undefined;
   private factory: { dock: Phaser.GameObjects.Graphics; fog: Phaser.GameObjects.Graphics; dockDrawn?: number; fogDrawn?: readonly BoxState[] } | undefined;
@@ -48,6 +50,13 @@ export class Mechanisms {
       const dock = dockTiles(state.room);
       const bottom = Math.max(...dock.map((t) => (t.row + 1) * TILE));
       this.factory = { dock: scene.add.graphics().setDepth(bottom), fog: scene.add.graphics().setDepth(2) };
+    }
+    const mix = selectMixer(state);
+    if (mix) {
+      const floor = scene.add.graphics().setDepth(1);
+      drawHopper(floor, hopperTiles(state.room));
+      if (mix.outlet) drawOutlet(floor, mix.outlet.col, mix.outlet.row);
+      this.mixer = { gauge: scene.add.graphics().setDepth(1e4), o: mix.mixer };
     }
     for (const p of selectPickups(state)) {
       const o = byId.get(p.object)!;
@@ -86,23 +95,27 @@ export class Mechanisms {
     const here = new Set<number>();
     for (const b of selectBoxes(state)) {
       here.add(b.object);
-      let g = this.boxes.get(b.object);
-      if (!g) {
-        g = this.scene.add.graphics();
-        drawBox(g, b.boxType);
-        this.boxes.set(b.object, g);
+      let v = this.boxes.get(b.object);
+      if (!v) {
+        v = { g: this.scene.add.graphics(), type: '' };
+        this.boxes.set(b.object, v);
       }
-      g.setPosition(b.x, b.y).setDepth(b.y + TILE);
+      if (v.type !== b.boxType) {
+        v.type = b.boxType;
+        drawBox(v.g.clear(), b.boxType);
+      }
+      v.g.setPosition(b.x, b.y).setDepth(b.y + TILE);
     }
     this.renderFactory(state);
+    this.renderMixer(state);
     // A box the port took in leaves the room's state; its picture goes with it.
-    for (const [id, g] of this.boxes) {
-      if (here.has(id)) g.setVisible(true);
+    for (const [id, v] of this.boxes) {
+      if (here.has(id)) v.g.setVisible(true);
       else if (id < 0) {
         // A spawned crate taken in does not come back under the same id on this visit.
-        g.destroy();
+        v.g.destroy();
         this.boxes.delete(id);
-      } else g.setVisible(false);
+      } else v.g.setVisible(false);
     }
     const port = selectPort(state);
     if (port && this.port) {
@@ -123,6 +136,31 @@ export class Mechanisms {
       v.drawn = key;
       v.g.clear();
       drawBelt(v.g, v.o, c.running, phase);
+    }
+  }
+
+  /**
+   * One slot per box the mixer can hold, above the hopper: an empty slot is an outline, a full one
+   * fills from the left as the box is digested. Redrawn in sixteenths, so not on every tick.
+   */
+  private renderMixer(state: GameState): void {
+    const m = selectMixer(state);
+    const v = this.mixer;
+    if (!m || !v) return;
+    const steps = m.batches.map((b) => Math.floor(b.done * 16));
+    const key = `${m.capacity}|${steps.join(',')}`;
+    if (v.drawn === key) return;
+    v.drawn = key;
+    const b = objectBox(v.o);
+    const w = 10;
+    const gap = 3;
+    const left = (b.left + b.right) / 2 - (m.capacity * w + (m.capacity - 1) * gap) / 2;
+    const g = v.gauge.clear();
+    for (let i = 0; i < m.capacity; i++) {
+      const x = left + i * (w + gap);
+      g.fillStyle(PAPER, 0.9).fillRect(x, b.top - 12, w, 8);
+      if (i < steps.length) g.fillStyle(BLUE).fillRect(x, b.top - 12, (w * steps[i]!) / 16, 8);
+      g.lineStyle(1.5, INK, 1).strokeRect(x, b.top - 12, w, 8);
     }
   }
 
@@ -185,9 +223,29 @@ function drawPort(g: Phaser.GameObjects.Graphics, o: RoomObject, full: boolean):
   for (let d = 8; d < w + h; d += 8) g.lineBetween(b.left + Math.max(0, d - h), b.top + Math.min(d, h), b.left + Math.min(d, w), b.top + Math.max(0, d - w));
 }
 
-/** A crate on its tile, drawn from the tile's top-left; the type only changes the label colour. */
+/** The mixer's hopper: a steel drum mouth over each tile, with the blades showing. */
+function drawHopper(g: Phaser.GameObjects.Graphics, tiles: readonly { col: number; row: number }[]): void {
+  for (const t of tiles) {
+    const x = t.col * TILE;
+    const y = t.row * TILE;
+    g.fillStyle(0x7d8594).fillRect(x, y, TILE, TILE).lineStyle(1, INK, 0.8).strokeRect(x + 0.5, y + 0.5, TILE - 1, TILE - 1);
+    g.fillStyle(0x3d4352).fillCircle(x + TILE / 2, y + TILE / 2, 12).lineStyle(2, INK, 1).strokeCircle(x + TILE / 2, y + TILE / 2, 12);
+    g.lineStyle(2, GREY, 1).lineBetween(x + 8, y + 16, x + 24, y + 16).lineBetween(x + 16, y + 8, x + 16, y + 24);
+  }
+}
+
+/**
+ * A crate on its tile, drawn from the tile's top-left; the type only changes the label colour. A
+ * parcel, what the mixer puts out, is a small paper bundle tied with string instead.
+ */
 function drawBox(g: Phaser.GameObjects.Graphics, boxType: string): void {
-  const label = boxType === 'glucose' ? 0xe8c96a : boxType === 'acetaldehyde' ? 0xa0306a : boxType === 'food' ? 0xc8372d : PAPER;
+  if (boxType === PARCEL) {
+    g.fillStyle(INK, 0.25).fillEllipse(16, 28, 20, 5);
+    g.fillStyle(PAPER).fillRect(8, 13, 16, 14).lineStyle(1.5, INK, 1).strokeRect(8, 13, 16, 14);
+    g.lineStyle(1, 0xb58a55, 1).lineBetween(16, 13, 16, 27).lineBetween(8, 20, 24, 20);
+    return;
+  }
+  const label = boxType === 'glucose' ? 0xe8c96a : boxType === 'acetaldehyde' ? 0xa0306a : boxType === 'food' ? 0xe8955a : PAPER;
   g.fillStyle(INK, 0.25).fillEllipse(16, 29, 28, 6);
   g.fillStyle(0xb58a55).fillRect(3, 6, 26, 23).lineStyle(1.5, INK, 1).strokeRect(3, 6, 26, 23);
   g.lineBetween(3, 12, 29, 12);

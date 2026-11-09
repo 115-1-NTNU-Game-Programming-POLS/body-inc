@@ -56,9 +56,9 @@
 | `yawn` | 下行的哈欠 | `forcedLeave`, `bedUse`, `forcedNap`, `napped` |
 | `door` | 進門 | `doorEntered` |
 | `locked` | 門鎖住的兩聲 | `doorLocked` |
-| `pick` | 撿起東西的上行音 | `canTaken`, `pickedUp` |
+| `pick` | 撿起東西的上行音 | `canTaken`, `pickedUp`, `parcelOut` |
 | `click` | 開關 | `switchChanged` |
-| `thunk` | 箱子或貨物落位 | `boxDelivered`, `portFilled`, `crateTaken` |
+| `thunk` | 箱子或貨物落位 | `boxDelivered`, `portFilled`, `crateTaken`, `mixerFed` |
 | `punch` | 打卡 | `checkpointSaved` |
 | `unlock` | 解鎖：四個上行音 | `handbookUnlocked`, `toolGranted`, `bonusShown` |
 | `card` | 翻開卡牌 | `cardOpened` |
@@ -70,7 +70,7 @@
 | `exam.time` | 時間到：兩個下行短音 | `examAnswered`，`how` 為 `time` |
 | `exam.stacks` | 腺苷黏滿，本題失敗：兩個下行短音 | `examAnswered`，`how` 為 `stacks` |
 | `done` | 完成：四個上行音 | `rescueDone`, `examResult`, `bossDefeated`, `bossConceded` |
-| `bad` | 失敗：三個下行音 | `bedRefused` |
+| `bad` | 失敗：三個下行音 | `bedRefused`, `mixerJammed` |
 | `proof.true` | 證明為真的蓋章加上行雙音 | `proofStamped`（`ok` 為真） |
 | `proof.false` | 證明為假的蓋章加下行雙音 | `proofStamped`（`ok` 為假） |
 | `blip` | 對話的短嗶 | `talk`, `dialogueOpened`；對話逐句前進時由對話畫面播放（見下方介面音效） |

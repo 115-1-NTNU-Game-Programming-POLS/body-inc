@@ -8,6 +8,7 @@ import prologueChapter from '../../content/chapters/prologue.json';
 import wallChapter from '../../content/chapters/wall.json';
 import patrolBrainChapter from '../../content/chapters/patrol-brain.json';
 import patrolLiverChapter from '../../content/chapters/patrol-liver.json';
+import stomachChapter from '../../content/chapters/stomach.json';
 import audioJson from '../../content/audio.json';
 import enemiesJson from '../../content/enemies.json';
 import feedbackJson from '../../content/feedback.json';
@@ -71,7 +72,7 @@ if (speakerIssues.length > 0) throw new Error(`content/dialogue:\n  ${speakerIss
  * chapter's `next`. A chapter left out here is never loaded, so its rooms never reach the game
  * even though the map check passes them.
  */
-export const CHAPTER_FILES: readonly unknown[] = [prologueChapter, brainChapter, greyboxChapter, midtermChapter, liverChapter, wallChapter, patrolBrainChapter, patrolLiverChapter];
+export const CHAPTER_FILES: readonly unknown[] = [prologueChapter, brainChapter, greyboxChapter, midtermChapter, liverChapter, wallChapter, patrolBrainChapter, patrolLiverChapter, stomachChapter];
 /** The rescue sequences rooms open with a `rescue` Trigger; check-content words the problems this load throws on. */
 export const RESCUES: RescueTable = loadRescues(readContent('rescue', rescueJson), TAGS);
 export const CHAPTERS: ReadonlyMap<string, ChapterFile> = new Map(CHAPTER_FILES.map((f) => {

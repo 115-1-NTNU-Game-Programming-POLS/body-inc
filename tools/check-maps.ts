@@ -179,6 +179,8 @@ function problemMessage(p: RoomProblem): string {
     case 'box-stack': return `箱子和箱子 #${a['other']} 放在同一格；一格只能放一個箱子`;
     case 'box-blocked': return a['kind'] === 'Port'
       ? `箱子一開始就壓在調度口 #${a['other']} 上；箱子要推進調度口才算數，請放在調度口外`
+      : a['kind'] === 'Mixer'
+      ? `箱子一開始就壓在攪拌機 #${a['other']} 的投料口上，一進房就會被收進去；請放在投料口外`
       : `箱子壓在物件 #${a['other']}（${a['kind']}）上；箱子不能放在門、NPC、床、道具或觸發區上，也推不進這些格子`;
     case 'conveyor-shape': return '輸送帶必須畫成矩形，蓋住它佔的格子；點不知道佔哪些格子';
     case 'switch-missing': return 'lock 是 switch，但房間裡沒有任何開關（Switch）的 target 指向這扇門，門永遠打不開';
@@ -194,7 +196,7 @@ function problemMessage(p: RoomProblem): string {
     case 'port-shape': return '調度口（Port）必須畫成矩形，蓋住收箱子的格子（以格子中心為準）；點或太小的矩形不知道佔哪些格子';
     case 'port-wall': return '調度口（Port）蓋住的格子全是牆，箱子停不上去，永遠收不滿；要畫在地板上';
     case 'port-multiple': return '一個房間只能有一個調度口（Port）；遊戲只會收進第一個';
-    case 'port-need': return `調度口要收 ${a['need']} 個箱子，但房間裡一定在場的箱子（objects 圖層、when 留空）只有 ${a['boxes']} 個，永遠收不滿`;
+    case 'port-need': return `調度口要收 ${a['need']} 個箱子，但房間裡一定在場的箱子（objects 圖層、when 留空；只收小包裹的調度口只算食物箱）只有 ${a['boxes']} 個，永遠收不滿`;
     case 'line-variant': return '產線（Line）不能放在變體圖層；酒精與乙醛記在整章的狀態上，工廠不能隨狀態出現或消失';
     case 'line-shape': return '收貨區（receiving）與第二產線（intake）必須畫成矩形，蓋住它佔的格子（以格子中心為準）';
     case 'line-wall': return '產線畫在牆上：收貨區與第二產線至少要有一格地板，出貨口（outlet）要放在地板上、不能在收貨區裡';
@@ -202,6 +204,13 @@ function problemMessage(p: RoomProblem): string {
     case 'line-missing': return `房間有產線（Line），但缺少 stage 為 ${a['stage']} 的那一個；工廠房間要有收貨區（receiving）、出貨口（outlet）與第二產線（intake）各一`;
     case 'dock-blocked': return `${a['kind']} 壓在收貨區上；收貨區的格子在遊戲中永遠是實心的，第二產線與調度口收不到箱子，其他物件會卡在櫃檯裡，請移到收貨區外`;
     case 'box-acetaldehyde': return '乙醛箱只由第一產線產生，不能直接放在地圖上；boxType 請改用其他種類';
+    case 'mixer-shape': return '攪拌機（Mixer）必須畫成矩形，蓋住投料口的格子（以格子中心為準）；點或太小的矩形不知道佔哪些格子';
+    case 'mixer-wall': return '攪拌機（Mixer）蓋住的格子有牆；投料口每一格都要是地板，出口與卡住時吐箱子的位置是照整個矩形算的';
+    case 'mixer-variant': return '攪拌機（Mixer）不能放在變體圖層；只收小包裹的調度口與它打開的門，都是照攪拌機一定在場來檢查的';
+    case 'mixer-blocked': return `物件 #${a['other']}（${a['kind']}）壓在攪拌機的投料口上；門、NPC、床、道具、觸發區上停不了箱子，調度口會先把食物收走，壓力板會壓住被收進去的箱子，請移到投料口外`;
+    case 'mixer-multiple': return '一個房間只能有一台攪拌機（Mixer）；遊戲只會運轉第一台';
+    case 'mixer-outlet': return `攪拌機的出口（outlet 那一側正中間的外面一格，第 ${a['col']} 欄、第 ${a['row']} 列）是牆或在地圖外，小包裹出不來；請改 outlet 的方向或移動攪拌機`;
+    case 'port-parcel': return '調度口的 accepts 是 parcel（只收小包裹），但房間裡沒有攪拌機（Mixer）做小包裹，永遠收不滿';
     case 'slot-count': return `證據牆的${slotCell(String(a['cell']))}要剛好 ${a['want']} 個槽（EvidenceSlot），order 從 1 排到 ${a['want']}，目前有 ${a['have']} 個`;
     case 'slot-duplicate': return `證據牆的${slotCell(String(a['cell']))}已經有 order ${a['order']} 的槽 #${a['other']}；同一格內每個 order 只能用一次`;
   }
