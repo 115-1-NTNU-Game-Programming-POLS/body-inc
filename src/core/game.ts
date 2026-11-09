@@ -21,7 +21,7 @@ import { sitting, startExam, stepExam, type ExamDef, type ExamKind, type ExamSta
 import { seedStreams, type RngStreams } from './rng.ts';
 import {
   advanceSlide, beltAt, boxAhead, boxPixel, canEnter, CONVEYOR_TICKS, conveyorRunning, conveyorsOf, conveyorTiles, directionOf, filledPorts, mixerOf, mixerOutlet,
-  nearest, onPort, portOf, portOpenAt, portTakes, portTicksLeft, PUSH, pushDirection, settleBoxes, startSlide, tileAt, tileBox, withBoxes, type BoxState, type Occupants, type Tile,
+  liveGate, nearest, onPort, portOf, portOpenAt, portTakes, portTicksLeft, PUSH, pushDirection, settleBoxes, startSlide, tileAt, tileBox, withBoxes, type BoxState, type Occupants, type Tile,
 } from './rooms/boxes.ts';
 import { boxTypeOf, EMPTY_MIXER, PORTION_SECONDS, stepMixer, type MixerEvent, type MixerState, type Portion } from './stomach/mixer.ts';
 import type { EnteredRoom } from './rooms/entry.ts';
@@ -80,6 +80,11 @@ export interface GameState {
   readonly nextId: number;
   /** Whole-fight hit-stop: while above 0 only input buffering and the tick counter advance. */
   readonly freeze: number;
+  /**
+   * Ticks the room itself has run this visit: `tick` less the hit-stops. A timed gate keeps time by
+   * it, so it stops with the slides, and a slide cleared to land while the gate is open still does.
+   */
+  readonly roomTicks: number;
   /** Doors and triggers the operator stood on last tick, so each fires once when stepped onto. */
   readonly touching: readonly number[];
   /** Switches that are on, in id order: toggle switches flipped on, and hold switches being stood on. */
@@ -482,6 +487,7 @@ export function createGame(room: EnteredRoom, seed: number, table: EnemyTable, o
     bosses: spawned.bosses,
     nextId: spawned.nextId,
     freeze: 0,
+    roomTicks: 0,
     // Standing on a door or trigger at the start (a checkpoint return) must not fire it again.
     touching: touchedObjects(room, body).map((o) => o.id),
     carried,
@@ -645,8 +651,8 @@ function interactionOf(o: RoomObject): DomainEvent {
 /**
  * Boxes for this tick: slides already under way move on, the port and the second line take in
  * what rests on them, the mixer works, belts carry the boxes resting on them, then the operator's
- * push, so a box shoved onto a belt is carried from the next tick. A shut timed gate takes nothing
- * and refuses any slide that would end before it opens. The switches are last tick's: a lever thrown this tick starts its conveyor on the next.
+ * push, so a box shoved onto a belt is carried from the next tick. A shut timed gate takes nothing.
+ * The switches are last tick's: a lever thrown this tick starts its conveyor on the next.
  * The array is kept when nothing moves, so the solid grid built from it stays cached.
  */
 function moveBoxes(state: GameState, op: OperatorState, input: TickInput): MovedBoxes {
@@ -654,22 +660,26 @@ function moveBoxes(state: GameState, op: OperatorState, input: TickInput): Moved
   const room = state.room;
   const events: DomainEvent[] = [];
   const port = portOf(room);
-  const timed = port !== undefined && portTicksLeft(port, 0) !== undefined && state.delivered.length < Number(port.props['need']);
-  const shut = timed && !portOpenAt(port!, state.tick);
-  // A slide onto a timed gate must end while it is open, so no box ever rests on a shut gate: a belt
-  // holds boxes at its edge, and a push against it does nothing. Tiles are the port's by the centre rule.
-  const gateRefuses = (t: Tile, ticks: number): boolean => timed && onPort(port!, t) && !portOpenAt(port!, state.tick + ticks);
+  const gate = liveGate(room, state.delivered);
+  const now = state.roomTicks;
+  const takes = (b: BoxState): boolean => port !== undefined && !isSpawnedCrate(b) && portTakes(port, boxTypeOf(room, b));
+  // No box ever rests on a live gate that will not take it in: a belt holds it at the edge, a push
+  // against the gate does nothing and the mixer keeps its parcel. A box coming to rest `ticks` from
+  // now is taken that tick only if the gate is open then and takes its type. Tiles go by the centre rule.
+  const refused = (t: Tile, ticks: number, b?: BoxState): boolean =>
+    gate !== undefined && onPort(gate, t) && (!portOpenAt(gate, now + ticks) || (b !== undefined && !takes(b)));
   const occupants = occupantsOf(op, state.enemies);
-  // The mixer sets a parcel down at once, so to it a shut gate's tiles are simply taken.
-  const mixerSees = shut ? { bodies: [...occupants.bodies, ...conveyorTiles(port!).map(tileBox)] } : occupants;
+  // A parcel set down now is taken a tick later, since the port's pass comes before the mixer's.
+  const held = gate ? conveyorTiles(gate).filter((t) => refused(t, 1)) : [];
+  const mixerSees = held.length > 0 ? { bodies: [...occupants.bodies, ...held.map(tileBox)] } : occupants;
   let boxes = state.boxes.some((b) => b.left > 0) ? state.boxes.map((b) => (b.left > 0 ? advanceSlide(b) : b)) : state.boxes;
   const replace = (next: BoxState) => { boxes = boxes.map((b) => (b.id === next.id ? next : b)); };
 
   // A box that has come to rest on the port is taken in before belts or a push could move it on.
   let delivered = state.delivered;
-  if (port && !shut) {
+  if (port && !(gate && !portOpenAt(gate, now))) {
     const need = Number(port.props['need']);
-    for (const b of boxes.filter((x) => x.left === 0 && !isSpawnedCrate(x) && onPort(port, x) && portTakes(port, boxTypeOf(room, x)))) {
+    for (const b of boxes.filter((x) => x.left === 0 && onPort(port, x) && takes(x))) {
       boxes = boxes.filter((x) => x.id !== b.id);
       delivered = ascending([...delivered, b.id]);
       events.push({ type: 'boxDelivered', object: b.id, port: port.id, count: delivered.length, need });
@@ -702,7 +712,7 @@ function moveBoxes(state: GameState, op: OperatorState, input: TickInput): Moved
     const dir = directionOf(belt);
     const to = { col: b.col + dir.col, row: b.row + dir.row };
     const ticks = CONVEYOR_TICKS[String(belt.props['speed'])]!;
-    if (!canEnter(room, boxes, to, occupants) || gateRefuses(to, ticks)) continue;
+    if (!canEnter(room, boxes, to, occupants) || refused(to, ticks, b)) continue;
     replace(startSlide(b, dir, ticks, true));
     events.push({ type: 'boxMoved', object: b.id, ...to, by: 'conveyor' });
   }
@@ -717,7 +727,7 @@ function moveBoxes(state: GameState, op: OperatorState, input: TickInput): Moved
   const ticks = Math.min(PUSH.delayTicks, same?.box === ahead.id ? same.ticks + 1 : 1);
   if (ticks >= PUSH.delayTicks) {
     const to = { col: ahead.col + dir.col, row: ahead.row + dir.row };
-    if (canEnter(room, boxes, to, occupants) && !gateRefuses(to, PUSH.slideTicks)) {
+    if (canEnter(room, boxes, to, occupants) && !refused(to, PUSH.slideTicks, ahead)) {
       replace(startSlide(ahead, dir, PUSH.slideTicks));
       events.push({ type: 'boxMoved', object: ahead.id, ...to, by: 'push' });
     }
@@ -780,15 +790,14 @@ export function step(state: GameState, pressed: TickInput): StepResult {
     ...(state.interactRest && pressed.interactPressed ? { interactPressed: false } : {}),
   };
 
-  // Before the hit-stop, which also moves the tick on: a gate that opens or shuts during one is still announced.
-  const gate = portOf(state.room);
-  if (gate && now > 0 && state.delivered.length < Number(gate.props['need'])) {
-    const open = portOpenAt(gate, now);
-    if (open !== portOpenAt(gate, now - 1)) events.push({ type: open ? 'portOpened' : 'portClosed', object: gate.id });
-  }
-
   if (state.freeze > 0) {
     return { state: { ...state, tick: now + 1, freeze: state.freeze - 1, operator: bufferInput(state.operator, input, now) }, events };
+  }
+
+  const gate = liveGate(state.room, state.delivered);
+  if (gate && state.roomTicks > 0) {
+    const open = portOpenAt(gate, state.roomTicks);
+    if (open !== portOpenAt(gate, state.roomTicks - 1)) events.push({ type: open ? 'portOpened' : 'portClosed', object: gate.id });
   }
 
   const assists = input.assists ?? NO_ASSISTS;
@@ -1325,7 +1334,7 @@ export function step(state: GameState, pressed: TickInput): StepResult {
   }
 
   let next: GameState = restTick({
-    ...state, tick: now + 1, rng, clock, operator: op, enemies: byId(), projectiles: flying,
+    ...state, tick: now + 1, roomTicks: state.roomTicks + 1, rng, clock, operator: op, enemies: byId(), projectiles: flying,
     shots: settled.size === 0 ? movedShots : movedShots.map((sh) => (settled.has(waveKey(sh) ?? '') ? { ...sh, spent: true } : sh)),
     zones: [...zones.values()].sort((a, b) => a.id - b.id), nextId, freeze,
     // What the door check saw, not a fresh count: a lever pinned by a staple after the check must
@@ -1456,10 +1465,9 @@ export function selectPort(s: GameState): {
 } | undefined {
   const port = portOf(s.room);
   if (!port) return undefined;
-  const need = Number(port.props['need']);
-  const left = s.delivered.length < need ? portTicksLeft(port, s.tick) : undefined;
-  const base = { object: port.id, count: s.delivered.length, need };
-  return left === undefined ? base : { ...base, gate: { open: portOpenAt(port, s.tick), seconds: Math.ceil(left / TICK_HZ) } };
+  const base = { object: port.id, count: s.delivered.length, need: Number(port.props['need']) };
+  const left = liveGate(s.room, s.delivered) ? portTicksLeft(port, s.roomTicks) : undefined;
+  return left === undefined ? base : { ...base, gate: { open: portOpenAt(port, s.roomTicks), seconds: Math.ceil(left / TICK_HZ) } };
 }
 /** The room's mixer for drawing it: what it digests, each with the share done, and where parcels come out. */
 export function selectMixer(s: GameState): {
