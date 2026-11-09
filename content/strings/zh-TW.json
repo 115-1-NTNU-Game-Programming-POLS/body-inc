@@ -429,6 +429,7 @@
     "handbook.alcohol_poisoning.3": { "text": "如果沒有呼吸，照 119 線上指示做 CPR。", "fact": "2" },
     "handbook.alcohol_poisoning.4": { "text": "灌咖啡、沖冷水、讓他睡一覺都不能解酒；睡著以後，酒精濃度還可能繼續上升。", "fact": "2" },
     "liver.crate_taken": { "text": "乙醛送進第二產線", "fact": "pending:4" },
+    "stomach.mixer_jammed": { "text": "放不下了！全部退回去！", "fact": "" },
     "dizzy.true": { "text": "頭暈冒冷汗：肝醣倉庫停止出貨", "fact": "31" },
     "dizzy.false": { "text": "倉庫恢復出貨，血糖回來了", "fact": "21" },
     "hud.dizzy": { "text": "頭暈冒冷汗：空腹喝酒，肝醣倉庫暫停出貨，移速 −15%", "fact": "31" },

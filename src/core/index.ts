@@ -21,6 +21,8 @@ export * from './outer/caffeine.ts';
 export * from './outer/body.ts';
 export * from './liver/line.ts';
 export * from './liver/factory.ts';
+export * from './stomach/mixer.ts';
+export { hopperTiles, mixerOf, mixerOutlet, PARCEL } from './rooms/boxes.ts';
 export * from './chapter/rescue.ts';
 export * from './chapter/refusal.ts';
 export * from './chapter/can.ts';

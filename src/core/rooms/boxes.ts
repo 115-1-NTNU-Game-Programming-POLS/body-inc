@@ -95,6 +95,40 @@ export function onPort(port: RoomObject, t: Tile): boolean {
   return tiles.has(at(t));
 }
 
+/** Whether the port takes a box of this type in: a parcel port only takes what a mixer put out. */
+export const portTakes = (port: RoomObject, boxType: string): boolean => port.props['accepts'] !== 'parcel' || boxType === PARCEL;
+
+/** The box type of what the stomach's mixer puts out; never drawn in Tiled, only made by the mixer. */
+export const PARCEL = 'parcel';
+
+/** The room's Mixer, if it has one; the map check allows one per room. */
+export const mixerOf = (room: Pick<RoomModel, 'objects'>): RoomObject | undefined => indexOf(room).mixer;
+
+/** The mixer's hopper, by the same centre rule as a conveyor: a food box at rest on one of these is taken in. */
+export const hopperTiles = (room: Pick<RoomModel, 'objects'>): readonly Tile[] => indexOf(room).hopper;
+
+export const onHopper = (room: Pick<RoomModel, 'objects'>, t: Tile): boolean => indexOf(room).hopperKeys.has(at(t));
+
+/**
+ * Where the mixer puts a parcel out: the tile just past the middle of the hopper's `outlet` side.
+ * Undefined for a mixer that covers no tile, which the map check reports.
+ */
+export function mixerOutlet(room: Pick<RoomModel, 'objects'>): Tile | undefined {
+  const { mixer, hopper } = indexOf(room);
+  if (!mixer || hopper.length === 0) return undefined;
+  const cols = hopper.map((t) => t.col);
+  const rows = hopper.map((t) => t.row);
+  const [c0, c1, r0, r1] = [Math.min(...cols), Math.max(...cols), Math.min(...rows), Math.max(...rows)];
+  const midCol = Math.floor((c0 + c1) / 2);
+  const midRow = Math.floor((r0 + r1) / 2);
+  switch (String(mixer.props['outlet'])) {
+    case 'N': return { col: midCol, row: r0 - 1 };
+    case 'E': return { col: c1 + 1, row: midRow };
+    case 'W': return { col: c0 - 1, row: midRow };
+    default: return { col: midCol, row: r1 + 1 };
+  }
+}
+
 /** The port, once it holds as many boxes as it needs: from then on it counts as a switch that is on. */
 export function filledPorts(room: RoomModel, delivered: readonly number[]): number[] {
   const port = portOf(room);
@@ -107,19 +141,27 @@ interface RoomBoxIndex {
   /** The running conveyor's object for each tile, by `col,row`; the lowest id wins where two overlap. */
   readonly belt: ReadonlyMap<string, RoomObject>;
   readonly port: RoomObject | undefined;
+  readonly mixer: RoomObject | undefined;
+  readonly hopper: readonly Tile[];
+  readonly hopperKeys: ReadonlySet<string>;
 }
 
 const roomIndexes = new WeakMap<readonly RoomObject[], RoomBoxIndex>();
 const at = (t: Tile) => `${t.col},${t.row}`;
 
-function indexOf(room: RoomModel): RoomBoxIndex {
+function indexOf(room: Pick<RoomModel, 'objects'>): RoomBoxIndex {
   let index = roomIndexes.get(room.objects);
   if (!index) {
     const byId = [...room.objects].sort((a, b) => a.id - b.id);
     const conveyors = byId.filter((o) => o.kind === 'Conveyor');
     const belt = new Map<string, RoomObject>();
     for (const c of conveyors) for (const t of conveyorTiles(c)) if (!belt.has(at(t))) belt.set(at(t), c);
-    index = { keepClear: byId.filter((o) => KEEP_CLEAR.has(o.kind)).map(objectBox), conveyors, belt, port: room.objects.find((o) => o.kind === 'Port') };
+    const mixer = byId.find((o) => o.kind === 'Mixer');
+    const hopper = mixer && mixer.width > 0 && mixer.height > 0 ? conveyorTiles(mixer) : [];
+    index = {
+      keepClear: byId.filter((o) => KEEP_CLEAR.has(o.kind)).map(objectBox), conveyors, belt, port: room.objects.find((o) => o.kind === 'Port'),
+      mixer, hopper, hopperKeys: new Set(hopper.map(at)),
+    };
     roomIndexes.set(room.objects, index);
   }
   return index;
@@ -198,10 +240,11 @@ export function settleBoxes(room: RoomModel, remembered: ReadonlyMap<number, Til
   for (const o of objects) {
     if (placed.has(o.id)) continue;
     const home = tileOf(o);
+    // A box last seen on the hopper was inside the mixer; what the mixer held is not kept (core/stomach/mixer.ts).
     const t = remembered.get(o.id);
-    const spot = [home, t].find((x): x is Tile => x !== undefined && free(x))
-      // Nor on the port, which would take it in next tick without a push.
-      ?? nearest(room, home, (x) => free(x) && !keepClear.some((k) => overlaps(tileBox(x), k)) && !(port && onPort(port, x)));
+    const spot = [home, t && !onHopper(room, t) ? t : undefined].find((x): x is Tile => x !== undefined && free(x))
+      // Nor on the port or the hopper, which would take it in next tick without a push.
+      ?? nearest(room, home, (x) => free(x) && !keepClear.some((k) => overlaps(tileBox(x), k)) && !(port && onPort(port, x)) && !onHopper(room, x));
     placed.set(o.id, spot ?? home);
   }
   return objects.map((o) => ({ id: o.id, ...placed.get(o.id)!, left: 0, ticks: 0 }));

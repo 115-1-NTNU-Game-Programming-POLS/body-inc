@@ -88,6 +88,8 @@ export const OBJECT_CLASSES: Readonly<Record<string, ClassSpec>> = {
    */
   Box: {
     boxType: enumOf('BoxType', ['crate', 'glucose', 'acetaldehyde', 'food']),
+    /** How long the stomach's mixer takes over a food box (design doc 7.5); not read for other boxes. */
+    portion: enumOf('Portion', ['small', 'normal', 'large'], 'normal'),
     when: { type: 'condition' },
   },
   /**
@@ -100,6 +102,18 @@ export const OBJECT_CLASSES: Readonly<Record<string, ClassSpec>> = {
     need: { type: 'int', default: 1, min: 1 },
     target: { type: 'object', required: false },
     dialogueId: { type: 'ref', ref: 'dialogue', required: false },
+    /** `parcel`: only what the room's Mixer put out, such as the small intestine's gate (design doc 7.5). */
+    accepts: enumOf('PortAccepts', ['any', 'parcel']),
+  },
+  /**
+   * The stomach's mixer (design doc 7.5), not in design doc 13.3's table: a food box that comes to
+   * rest on its rectangle is taken in, held for its portion's time, and put out as a parcel on the
+   * `outlet` side. Taking in one box more than `capacity` jams it, and it throws every box back
+   * out. One per room; the rules are in core/stomach/mixer.ts.
+   */
+  Mixer: {
+    capacity: { type: 'int', default: 3, min: 1 },
+    outlet: enumOf('Socket', SOCKETS, 'S'),
   },
   /**
    * The liver factory's lines (design doc 7.7), not in design doc 13.3's table: `receiving` is the

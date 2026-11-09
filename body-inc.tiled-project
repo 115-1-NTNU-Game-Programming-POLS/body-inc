@@ -171,6 +171,29 @@
     },
     {
       "id": 12,
+      "name": "Portion",
+      "type": "enum",
+      "storageType": "string",
+      "values": [
+        "small",
+        "normal",
+        "large"
+      ],
+      "valuesAsFlags": false
+    },
+    {
+      "id": 13,
+      "name": "PortAccepts",
+      "type": "enum",
+      "storageType": "string",
+      "values": [
+        "any",
+        "parcel"
+      ],
+      "valuesAsFlags": false
+    },
+    {
+      "id": 14,
       "name": "LineStage",
       "type": "enum",
       "storageType": "string",
@@ -182,7 +205,7 @@
       "valuesAsFlags": false
     },
     {
-      "id": 13,
+      "id": 15,
       "name": "SlotLane",
       "type": "enum",
       "storageType": "string",
@@ -194,7 +217,7 @@
       "valuesAsFlags": false
     },
     {
-      "id": 14,
+      "id": 16,
       "name": "HazardType",
       "type": "enum",
       "storageType": "string",
@@ -206,7 +229,7 @@
       "valuesAsFlags": false
     },
     {
-      "id": 15,
+      "id": 17,
       "name": "ItemType",
       "type": "enum",
       "storageType": "string",
@@ -222,7 +245,7 @@
       "valuesAsFlags": false
     },
     {
-      "id": 16,
+      "id": 18,
       "name": "BedType",
       "type": "enum",
       "storageType": "string",
@@ -233,7 +256,7 @@
       "valuesAsFlags": false
     },
     {
-      "id": 17,
+      "id": 19,
       "name": "Room",
       "type": "class",
       "useAs": [
@@ -287,7 +310,7 @@
       ]
     },
     {
-      "id": 18,
+      "id": 20,
       "name": "Variant",
       "type": "class",
       "useAs": [
@@ -304,7 +327,7 @@
       ]
     },
     {
-      "id": 19,
+      "id": 21,
       "name": "PlayerStart",
       "type": "class",
       "useAs": [
@@ -315,7 +338,7 @@
       "members": []
     },
     {
-      "id": 20,
+      "id": 22,
       "name": "Spawn",
       "type": "class",
       "useAs": [
@@ -348,7 +371,7 @@
       ]
     },
     {
-      "id": 21,
+      "id": 23,
       "name": "NPC",
       "type": "class",
       "useAs": [
@@ -381,7 +404,7 @@
       ]
     },
     {
-      "id": 22,
+      "id": 24,
       "name": "Trigger",
       "type": "class",
       "useAs": [
@@ -414,7 +437,7 @@
       ]
     },
     {
-      "id": 23,
+      "id": 25,
       "name": "Door",
       "type": "class",
       "useAs": [
@@ -443,7 +466,7 @@
       ]
     },
     {
-      "id": 24,
+      "id": 26,
       "name": "Switch",
       "type": "class",
       "useAs": [
@@ -466,7 +489,7 @@
       ]
     },
     {
-      "id": 25,
+      "id": 27,
       "name": "Conveyor",
       "type": "class",
       "useAs": [
@@ -490,7 +513,7 @@
       ]
     },
     {
-      "id": 26,
+      "id": 28,
       "name": "Box",
       "type": "class",
       "useAs": [
@@ -506,6 +529,12 @@
           "value": "crate"
         },
         {
+          "name": "portion",
+          "type": "string",
+          "propertyType": "Portion",
+          "value": "normal"
+        },
+        {
           "name": "when",
           "type": "string",
           "value": ""
@@ -513,7 +542,7 @@
       ]
     },
     {
-      "id": 27,
+      "id": 29,
       "name": "Port",
       "type": "class",
       "useAs": [
@@ -536,11 +565,40 @@
           "name": "dialogueId",
           "type": "string",
           "value": ""
+        },
+        {
+          "name": "accepts",
+          "type": "string",
+          "propertyType": "PortAccepts",
+          "value": "any"
         }
       ]
     },
     {
-      "id": 28,
+      "id": 30,
+      "name": "Mixer",
+      "type": "class",
+      "useAs": [
+        "object"
+      ],
+      "color": "#ff3080c0",
+      "drawFill": true,
+      "members": [
+        {
+          "name": "capacity",
+          "type": "int",
+          "value": 3
+        },
+        {
+          "name": "outlet",
+          "type": "string",
+          "propertyType": "Socket",
+          "value": "S"
+        }
+      ]
+    },
+    {
+      "id": 31,
       "name": "Line",
       "type": "class",
       "useAs": [
@@ -558,7 +616,7 @@
       ]
     },
     {
-      "id": 29,
+      "id": 32,
       "name": "EvidenceSlot",
       "type": "class",
       "useAs": [
@@ -586,7 +644,7 @@
       ]
     },
     {
-      "id": 30,
+      "id": 33,
       "name": "Hazard",
       "type": "class",
       "useAs": [
@@ -609,7 +667,7 @@
       ]
     },
     {
-      "id": 31,
+      "id": 34,
       "name": "Pickup",
       "type": "class",
       "useAs": [
@@ -637,7 +695,7 @@
       ]
     },
     {
-      "id": 32,
+      "id": 35,
       "name": "Pen",
       "type": "class",
       "useAs": [
@@ -648,7 +706,7 @@
       "members": []
     },
     {
-      "id": 33,
+      "id": 36,
       "name": "Bed",
       "type": "class",
       "useAs": [
