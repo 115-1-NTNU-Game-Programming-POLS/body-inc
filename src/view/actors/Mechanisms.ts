@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import {
-  conveyorTiles, directionOf, dockTiles, hopperTiles, isSpawnedCrate, MIST, objectBox, outletTile, PARCEL, selectBoxes, selectConveyors, selectDoorLocks, selectFactory,
+  conveyorTiles, directionOf, dockTiles, hopperTiles, isSpawnedCrate, MIST, objectBox, outletTile, PARCEL, portCycle, selectBoxes, selectConveyors, selectDoorLocks, selectFactory,
   selectMixer, selectPickups, selectPort, selectSwitches, TILE, type BoxState, type GameState, type RoomObject,
 } from '../../core/index.ts';
 import { fillStr } from '../../app/content.ts';
@@ -38,7 +38,8 @@ export class Mechanisms {
       const o = byId.get(port.object)!;
       const b = objectBox(o);
       // A timed gate's countdown is long, so it is right-aligned to grow away from what lies east, such as a wall belt.
-      const timed = port.gate !== undefined;
+      // Kept once it fills, so the label does not jump; a timed port full on entry is aligned the same way.
+      const timed = portCycle(o) !== undefined;
       const label = addText(scene, timed ? b.right : (b.left + b.right) / 2, b.top - 4, '', { role: 'print', weight: 700, size: 14, color: '#0c2d5e', backgroundColor: '#f4efe4', padding: { x: 4, y: 1 } })
         .setOrigin(timed ? 1 : 0.5, 1).setDepth(1e4);
       this.port = { g: scene.add.graphics().setDepth(1), label, o };

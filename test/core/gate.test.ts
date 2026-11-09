@@ -4,7 +4,7 @@ import {
   parseRoom, selectPort, startChapter, stepChapter, TICK_HZ,
   type ChapterContent, type ChapterState, type GameEvent, type TickInput, type TiledMap,
 } from '../../src/core/index.ts';
-import { portOpenAt, portTicksLeft } from '../../src/core/rooms/boxes.ts';
+import { portOpenAt, portTicksLeft, settleBoxes } from '../../src/core/rooms/boxes.ts';
 import { readRoom } from '../../src/core/rooms/tiled.ts';
 
 /**
@@ -123,13 +123,17 @@ describe('the timed gate', () => {
     expect(selectPort(held.state.game)!.gate).toEqual({ open: false, seconds: 1 });
     expect(types(run(c, held.state, 2).events)).not.toContain('portOpened');
     expect(run(c, held.state, 3).events).toContainEqual({ type: 'portOpened', object: PORT_ID });
+    // A hit-stop that starts on the very tick it opens still says so once, after the stop.
+    const onFlip = { ...s0, game: { ...s0.game, tick: CLOSED * TICK_HZ, roomTicks: CLOSED * TICK_HZ, freeze: 5 } };
+    expect(types(run(c, onFlip, 8).events).filter((t) => t === 'portOpened')).toEqual(['portOpened']);
   });
 
   it('lets a slide cleared on its last open stretch land in time even when a hit-stop falls mid-slide', () => {
     const c = chapter([port(), belt, crate(3, 14)]);
     const s0 = startChapter(c);
     // The fast belt's 15-tick slide, started now, ends on the gate's last open tick.
-    const r0 = run(c, { ...s0, game: { ...s0.game, roomTicks: (CLOSED + OPEN) * TICK_HZ - 16 } }, 4);
+    const at = (CLOSED + OPEN) * TICK_HZ - 16;
+    const r0 = run(c, { ...s0, game: { ...s0.game, tick: at, roomTicks: at } }, 4);
     expect(r0.state.game.boxes.find((b) => b.id === 3)).toMatchObject({ col: 15 });
     const hit = { ...r0.state, game: { ...r0.state.game, freeze: 8 } };
     const r = run(c, hit, 8 + 15);
@@ -140,9 +144,17 @@ describe('the timed gate', () => {
     // The mixer and its food box are only there because a parcel gate needs them.
     const mixer = { id: 20, type: 'Mixer', x: 2 * 32, y: 9 * 32, width: 64, height: 32, properties: [p('outlet', 'E')] };
     const food = { id: 4, type: 'Box', x: 4 * 32 + 16, y: 2 * 32 + 16, properties: [p('boxType', 'food'), p('portion', 'small')] };
-    const c = chapter([port([p('accepts', 'parcel'), p('openSeconds', OPEN), p('closedSeconds', CLOSED)]), belt, crate(3, 13), mixer, food]);
+    const gate = port([p('accepts', 'parcel'), p('openSeconds', OPEN), p('closedSeconds', CLOSED)]);
+    const c = chapter([gate, belt, crate(3, 13), mixer, food]);
     const r = run(c, startChapter(c), 2 * (CLOSED + OPEN) * TICK_HZ);
     expect(r.state.game.boxes.find((b) => b.id === 3)).toMatchObject({ col: 14, left: 0 });
+    // Nor can it be pushed on while the gate is open.
+    const off = chapter([gate, crate(3, 14), mixer, food]);
+    const s0 = startChapter(off);
+    const open = CLOSED * TICK_HZ;
+    const at = { ...s0, game: { ...s0.game, tick: open, roomTicks: open, operator: { ...s0.game.operator, x: 13 * 32 + 8, y: 6 * 32 + 28 } } };
+    const pushed = run(off, at, 60, { move: { x: 1, y: 0 } });
+    expect(pushed.state.game.boxes.find((b) => b.id === 3)).toMatchObject({ col: 14 });
   });
 
   it('cannot be pushed onto while shut, and can once open', () => {
@@ -191,6 +203,15 @@ describe('the timed gate', () => {
     const extra = run(c, drop(later.state, 4, 15), 1);
     expect(portOpenAt(c.rooms.get('lab/a')!.objects.find((x) => x.id === PORT_ID)!, later.state.game.roomTicks)).toBe(false);
     expect(extra.events).toContainEqual({ type: 'boxDelivered', object: 4, port: PORT_ID, count: 2, need: 1 });
+  });
+
+  it('never sets a box down on it when the room is re-entered, even one last seen sliding onto it', () => {
+    const room = chapter([port(), crate(4, 8)]).rooms.get('lab/a')!;
+    // Its home is taken, so without the rule it would stay where it was last seen.
+    const home = { left: 8 * 32, top: 6 * 32, right: 9 * 32, bottom: 7 * 32 };
+    const [b] = settleBoxes(room, new Map([[4, { col: 15, row: 6 }]]), [home]);
+    expect(b).toMatchObject({ id: 4 });
+    expect(b!.col === 15 && b!.row === 6).toBe(false);
   });
 
   it('leaves a port without timing always open', () => {

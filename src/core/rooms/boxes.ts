@@ -279,8 +279,9 @@ export function settleBoxes(room: RoomModel, remembered: ReadonlyMap<number, Til
     if (placed.has(o.id)) continue;
     const home = tileOf(o);
     // A box last seen on the hopper was inside the mixer; what the mixer held is not kept (core/stomach/mixer.ts).
+    // One last seen on the port was sliding onto it, and would rest on a shut gate on entry.
     const t = remembered.get(o.id);
-    const spot = [home, t && !onHopper(room, t) ? t : undefined].find((x): x is Tile => x !== undefined && free(x))
+    const spot = [home, t && !onHopper(room, t) && !(port && onPort(port, t)) ? t : undefined].find((x): x is Tile => x !== undefined && free(x))
       // Nor on the port or the hopper, which would take it in next tick without a push.
       ?? nearest(room, home, (x) => free(x) && !keepClear.some((k) => overlaps(tileBox(x), k)) && !(port && onPort(port, x)) && !onHopper(room, x));
     placed.set(o.id, spot ?? home);

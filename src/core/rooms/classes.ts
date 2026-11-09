@@ -107,7 +107,8 @@ export const OBJECT_CLASSES: Readonly<Record<string, ClassSpec>> = {
     /**
      * Both above 0 make a timed gate, such as the small intestine's (design doc 7.5): shut for
      * `closedSeconds`, then open for `openSeconds`, over and over from the start of the visit. Shut, it
-     * takes nothing and no box slides onto it. Both 0 is a port that is always open.
+     * takes nothing and no box slides onto it; open, a `parcel` one still lets no other box on.
+     * Both 0 is a port that is always open.
      */
     openSeconds: { type: 'int', default: 0, min: 0 },
     closedSeconds: { type: 'int', default: 0, min: 0 },
