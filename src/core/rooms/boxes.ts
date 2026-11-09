@@ -1,6 +1,6 @@
 import { overlaps, type Box } from '../collision/boxes.ts';
 import { isSolid, type SolidGrid } from '../collision/grid.ts';
-import { TILE } from '../time.ts';
+import { TICK_HZ, TILE } from '../time.ts';
 import { objectBox, platesUnder } from './interact.ts';
 import { switchesFor } from './locks.ts';
 import type { RoomModel, RoomObject } from './tiled.ts';
@@ -97,6 +97,27 @@ export function onPort(port: RoomObject, t: Tile): boolean {
 
 /** Whether the port takes a box of this type in: a parcel port only takes what a mixer put out. */
 export const portTakes = (port: RoomObject, boxType: string): boolean => port.props['accepts'] !== 'parcel' || boxType === PARCEL;
+
+/** A timed port's cycle in ticks, shut first, or undefined for a port that is always open. */
+export function portCycle(port: RoomObject): { readonly closed: number; readonly open: number } | undefined {
+  const open = Number(port.props['openSeconds'] ?? 0) * TICK_HZ;
+  const closed = Number(port.props['closedSeconds'] ?? 0) * TICK_HZ;
+  return open > 0 && closed > 0 ? { closed, open } : undefined;
+}
+
+/** Whether the port is open on the visit's tick `tick`. */
+export function portOpenAt(port: RoomObject, tick: number): boolean {
+  const c = portCycle(port);
+  return c === undefined || tick % (c.closed + c.open) >= c.closed;
+}
+
+/** Ticks until a timed port opens or shuts next, counted from `tick`; undefined for a port that is always open. */
+export function portTicksLeft(port: RoomObject, tick: number): number | undefined {
+  const c = portCycle(port);
+  if (c === undefined) return undefined;
+  const at = tick % (c.closed + c.open);
+  return at < c.closed ? c.closed - at : c.closed + c.open - at;
+}
 
 /** The box type of what the stomach's mixer puts out; never drawn in Tiled, only made by the mixer. */
 export const PARCEL = 'parcel';

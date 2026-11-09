@@ -432,6 +432,8 @@
     "stomach.mixer_jammed": { "text": "放不下了！全部退回去！", "fact": "" },
     "dizzy.true": { "text": "頭暈冒冷汗：肝醣倉庫停止出貨", "fact": "31" },
     "dizzy.false": { "text": "倉庫恢復出貨，血糖回來了", "fact": "21" },
+    "port.gate.open": { "text": "{n}/{total}　還開 {seconds} 秒", "fact": "" },
+    "port.gate.closed": { "text": "{n}/{total}　{seconds} 秒後開", "fact": "" },
     "hud.sleep": { "text": "睡眠 {value}%", "fact": "" },
     "hud.sleep.awake": { "text": "睡眠 {value}%　醒著：回床上繼續睡", "fact": "" },
     "sleep.woke.mixer": { "text": "胃還在加班，半夜醒來了", "fact": "14" },
