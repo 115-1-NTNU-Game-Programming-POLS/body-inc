@@ -190,7 +190,8 @@
     "stage": { "trimDb": 5, "voices": [
       { "kind": "tone", "wave": "triangle", "freq": 392, "dur": 0.15, "gain": 0.2 }, { "kind": "tone", "wave": "triangle", "freq": 523, "at": 0.12, "dur": 0.15, "gain": 0.2 },
       { "kind": "tone", "wave": "triangle", "freq": 659, "at": 0.24, "dur": 0.3, "gain": 0.2 } ] },
-    "alarm": { "trimDb": 4, "voices": [{ "kind": "tone", "wave": "square", "freq": 880, "dur": 0.08, "gain": 0.08 }, { "kind": "tone", "wave": "square", "freq": 660, "at": 0.12, "dur": 0.08, "gain": 0.08 }, { "kind": "tone", "wave": "square", "freq": 880, "at": 0.24, "dur": 0.08, "gain": 0.08 }, { "kind": "tone", "wave": "square", "freq": 660, "at": 0.36, "dur": 0.08, "gain": 0.08 }] },
+    "woke.hurt": { "trimDb": 8, "voices": [{ "kind": "tone", "wave": "triangle", "freq": 440, "to": 660, "dur": 0.08, "gain": 0.14 }] },
+    "woke.mixer": { "trimDb": 4, "voices": [{ "kind": "tone", "wave": "square", "freq": 880, "dur": 0.08, "gain": 0.08 }, { "kind": "tone", "wave": "square", "freq": 660, "at": 0.12, "dur": 0.08, "gain": 0.08 }, { "kind": "tone", "wave": "square", "freq": 880, "at": 0.24, "dur": 0.08, "gain": 0.08 }, { "kind": "tone", "wave": "square", "freq": 660, "at": 0.36, "dur": 0.08, "gain": 0.08 }] },
     "powerdown": { "trimDb": 5, "voices": [
       { "kind": "noise", "cutoff": 800, "cutoffTo": 100, "dur": 0.5, "gain": 0.3 },
       { "kind": "tone", "wave": "sawtooth", "freq": 600, "to": 60, "dur": 0.6, "gain": 0.18 } ] },

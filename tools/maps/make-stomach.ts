@@ -5,6 +5,7 @@
  * intestine's gate (a port that takes parcels only), and a belt loop along the walls so no box can
  * be pushed into a dead corner. night-lab is for the sleep bar of core/rooms/sleep.ts: a bed that
  * takes 30 seconds to sleep in beside a mixer, so a box fed in just before bed sounds its alarm.
+ * It has no belt loop: a box pushed into a corner stays there, but the bed needs no box.
  * Open them with ?room=stomach/mixer-lab and ?room=stomach/night-lab. The chapter's real rooms
  * (esophagus lift, warehouse, cold store, intestine corridor, night dock) come in later steps.
  *

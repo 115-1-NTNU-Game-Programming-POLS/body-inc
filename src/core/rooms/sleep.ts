@@ -1,17 +1,19 @@
 /**
- * The sleep bar of a bed that takes time to sleep in (design doc 7.5, and the liver's third
- * puzzle in 7.7). Lying down on a sleep bed with `sleepSeconds` above 0 starts the bar; it fills
- * while the operator sleeps and the chapter ends once it is full. Something can wake the operator
- * (半夜醒來): the bar then stops where it is until the operator lies down on a sleep bed again. It
- * never empties, since the evidence only supports waking up, not lying awake (design doc 7.5).
+ * The sleep bar of a bed that takes time to sleep in (design doc 7.5). Lying down on a sleep bed
+ * with `sleepSeconds` above 0 starts the bar; it fills while the operator sleeps and the chapter
+ * ends once it is full. Something can wake the operator (半夜醒來): the bar then stops where it is
+ * until the operator lies down on such a bed again. It never empties, since the evidence only
+ * supports waking up, not lying awake (design doc 7.5).
  *
- * Two things wake the operator: the stomach's mixer, which sounds its alarm after every
- * `ALARM_SECONDS` of the sleep during which it held food, and a hit. The state is the room's,
- * like the mixer's: a door or a forced leave drops it, so the bar starts over on the next try.
+ * Two things wake the operator for now: the stomach's mixer, which sounds its alarm after every
+ * `ALARM_SECONDS` of the sleep during which it was digesting, and a hit. The liver's third puzzle
+ * (7.7) and the stomach boss's third stage wake it by other rules, which come with them. The state
+ * is the room's, like the mixer's: a door, a forced leave or a return to a checkpoint drops it, so
+ * the bar starts over on the next try.
  */
 import { TICK_HZ } from '../time.ts';
 
-/** How long the mixer runs during a sleep before its alarm wakes the operator (design doc 7.5: every 20 seconds). */
+/** How long the mixer digests during a sleep before its alarm wakes the operator (design doc 7.5: every 20 seconds). */
 export const ALARM_SECONDS = 20;
 export const ALARM_TICKS = ALARM_SECONDS * TICK_HZ;
 
@@ -23,7 +25,7 @@ export interface SleepState {
   readonly need: number;
   /** Woken and not yet lying down again: the bar stands still and the operator moves freely. */
   readonly awake: boolean;
-  /** Ticks of this sleep the mixer has held food since the last alarm; it starts over once the mixer is empty. */
+  /** Ticks of this sleep the mixer has been digesting since the last alarm; it starts over once the mixer stops. */
   readonly alarm: number;
   /** Times woken so far. */
   readonly wakes: number;
@@ -34,10 +36,13 @@ export type WakeCause = (typeof WAKE_CAUSES)[number];
 
 export type SleepEvent =
   | { readonly type: 'sleepInterrupted'; readonly object: number; readonly cause: WakeCause; readonly wakes: number }
-  /** The bar filled: the chapter ends as a sleep bed without a bar would end it at once. */
-  | { readonly type: 'sleptThrough'; readonly object: number; readonly wakes: number };
+  /** The bar filled, after `wakes` wakings: the chapter ends as a sleep bed without a bar would end it at once. */
+  | { readonly type: 'sleepFilled'; readonly object: number; readonly wakes: number };
 
-/** Lying down on `bed`: a fresh bar, or the bar of this visit going on from where it stopped. */
+/**
+ * Lying down on `bed`: a fresh bar, or the bar of this visit going on from where it stopped. A bar
+ * already under way keeps its length, whatever another bed's `sleepSeconds` says.
+ */
 export function lieDown(sleep: SleepState | undefined, bed: number, seconds: number): SleepState {
   if (sleep) return { ...sleep, bed, awake: false, alarm: 0 };
   return { bed, slept: 0, need: Math.round(seconds * TICK_HZ), awake: false, alarm: 0, wakes: 0 };
@@ -46,17 +51,19 @@ export function lieDown(sleep: SleepState | undefined, bed: number, seconds: num
 export const asleep = (sleep: SleepState | undefined): boolean => sleep !== undefined && !sleep.awake && sleep.slept < sleep.need;
 
 /**
- * One tick of sleep. `mixerFull` is whether the room's mixer holds food after this tick's mixer
- * step; `hurt` whether the operator lost a heart this tick. A full bar wins over an alarm on the
- * same tick, and a hit over the alarm.
+ * One tick of sleep. `mixerBusy` is whether the room's mixer is digesting after this tick's mixer
+ * step (a parcel waiting for room at the outlet is done, so it does not count); `hurt` whether
+ * something landed on the operator this tick. A hit wins over everything on the same tick, the
+ * filling of the bar included, so the bar stops one tick short and a lethal hit never ends the
+ * chapter; a full bar wins over an alarm. The next lying down fills it.
  */
-export function stepSleep(sleep: SleepState, mixerFull: boolean, hurt: boolean): { sleep: SleepState; events: SleepEvent[] } {
+export function stepSleep(sleep: SleepState, mixerBusy: boolean, hurt: boolean): { sleep: SleepState; events: SleepEvent[] } {
   if (!asleep(sleep)) return { sleep, events: [] };
-  const slept = sleep.slept + 1;
-  if (slept >= sleep.need) {
-    return { sleep: { ...sleep, slept: sleep.need, alarm: 0 }, events: [{ type: 'sleptThrough', object: sleep.bed, wakes: sleep.wakes }] };
+  if (sleep.slept + 1 >= sleep.need && !hurt) {
+    return { sleep: { ...sleep, slept: sleep.need, alarm: 0 }, events: [{ type: 'sleepFilled', object: sleep.bed, wakes: sleep.wakes }] };
   }
-  const alarm = mixerFull ? sleep.alarm + 1 : 0;
+  const slept = Math.min(sleep.slept + 1, sleep.need - 1);
+  const alarm = mixerBusy ? sleep.alarm + 1 : 0;
   const cause: WakeCause | undefined = hurt ? 'hurt' : alarm >= ALARM_TICKS ? 'mixer' : undefined;
   if (cause === undefined) return { sleep: { ...sleep, slept, alarm }, events: [] };
   const wakes = sleep.wakes + 1;

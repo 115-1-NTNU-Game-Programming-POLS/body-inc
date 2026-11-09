@@ -649,6 +649,8 @@ function stepRoom(ctx: ChapterContent, state: ChapterState, input: TickInput): C
       checkpoint: cp?.fired.includes(key) ? { ...cp, fired: cp.fired.filter((k) => k !== key) } : cp,
     };
   };
+  /** Set when the sleep bar filled on this tick (core/rooms/sleep.ts). */
+  let ended = false;
   /** Pickups the chapter put back: the room announced them taken, which they were not. */
   const putBack = new Set<number>();
   const done = (next: ChapterState, more: readonly ChapterEvent[]): ChapterResult => ({
@@ -797,15 +799,21 @@ function stepRoom(ctx: ChapterContent, state: ChapterState, input: TickInput): C
         extra.push(...a.events);
         break;
       }
-      case 'sleptThrough':
+      case 'sleepFilled':
         run = fileMemories(ctx, run, game);
         extra.push({ type: 'chapterEnded' });
+        ended = true;
         break;
       default:
         break;
     }
   }
 
+  if (ended) {
+    // The chapter is over: nothing asked for on this tick opens, and what it spent stays owed.
+    giveBack(opening?.spent);
+    return done(plain(run, game), []);
+  }
   claimPort();
   claimConcession();
   // A door crossed on the same tick waits: it is forgotten as touched, so it fires again once the

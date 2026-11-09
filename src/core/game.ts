@@ -523,9 +523,9 @@ function aimFrom(op: OperatorState, origin: Vec, enemies: readonly EnemyState[])
  * starts its fight over, and what it summoned leaves with the attempt unless it clings on; a
  * clinging one is no longer the boss's, so it does not count toward the next attempt's summons.
  */
-function forcedLeave(woke: GameState): GameState {
+function forcedLeave(before: GameState): GameState {
   // The operator is back at the start, out of bed: the sleep bar of the visit starts over.
-  const { sleep: _, ...state } = woke;
+  const { sleep: _, ...state } = before;
   const start = playerStart(state.room);
   const enemies = state.enemies.filter((e) => e.summoner === undefined || e.phase === 'attached').map((e) => {
     if (e.phase === 'attached') {
@@ -802,7 +802,8 @@ export function step(state: GameState, pressed: TickInput): StepResult {
   // A running belt under the feet carries the operator along. Walking against it is slower; a fast
   // belt (4 tiles/s) outruns an operator slowed below that, by held fire, a raised folder or the liver
   // chapter's dizziness. Clinging stacks alone cannot: two leave 4.05 tiles/s, and the third forces a nap.
-  const underfoot = beltAt(room, tileAt(op.x, op.y - 1), state.switches);
+  // Asleep, the operator stays in bed: a belt within reach of it would otherwise carry them off through doors and triggers.
+  const underfoot = asleep(state.sleep) ? undefined : beltAt(room, tileAt(op.x, op.y - 1), state.switches);
   if (underfoot) {
     const d = directionOf(underfoot);
     const v = TILE / CONVEYOR_TICKS[String(underfoot.props['speed'])]!;
@@ -1297,7 +1298,9 @@ export function step(state: GameState, pressed: TickInput): StepResult {
   if (assists.neverEmpty && op.halves < 1) op = { ...op, halves: 1 };
   let sleep = state.sleep;
   if (sleep) {
-    const r = stepSleep(sleep, (moved.mixer?.batches.length ?? 0) > 0, events.some((e) => e.type === 'heartLost'));
+    // Anything that lands on the operator wakes them, not only a heart lost: a sleeper cannot dodge, so clinging would otherwise run up to a forced nap.
+    const struck = events.some((e) => e.type === 'heartLost' || e.type === 'clung' || e.type === 'toasted' || e.type === 'canTaken');
+    const r = stepSleep(sleep, moved.mixer?.batches.some((b) => b.left > 0) === true, struck);
     sleep = r.sleep;
     events.push(...r.events);
   }
@@ -1329,7 +1332,8 @@ export function step(state: GameState, pressed: TickInput): StepResult {
   if (op.halves <= 0) {
     // The room is already reset by now, so a door, trigger or bed touched on the lethal tick would
     // be read against the wrong place and state; dying wins.
-    const settled = events.filter((e) => !roomEvents.includes(e));
+    // A bar filled on that tick does not count either: the chapter must not end and go back to the checkpoint at once.
+    const settled = events.filter((e) => !roomEvents.includes(e) && e.type !== 'sleepFilled');
     settled.push({ type: 'forcedLeave' });
     return { state: forcedLeave(next), events: settled };
   }

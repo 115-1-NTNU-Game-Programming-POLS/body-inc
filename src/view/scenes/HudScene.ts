@@ -39,7 +39,8 @@ const PAPER = 0xf4efe4;
 /** Glucose meter, beside the stamp pad on the same row. Not in art direction 8.3, which predates the prologue rules. */
 const GLUCOSE = { x: GAUGE_X + GAUGE_W + 20, w: 160 } as const;
 /** The sleep bar (design doc 7.5: at the bottom of the screen), under the sound captions. */
-const SLEEP = { w: 480, h: 14, bottom: 22 } as const;
+/** 320 wide, so the save notices stacked bottom left (up to about x 460) never run under it. */
+const SLEEP = { w: 320, h: 14, bottom: 22 } as const;
 const SLEEP_FILL = 0x4a6fa5;
 
 /**

@@ -33,7 +33,7 @@ const ALL_EVENTS: Record<GameEvent['type'], true> = {
   gaugeFull: true, stampRaised: true, stampLanded: true, stampVoid: true, clung: true, forcedNap: true,
   bossStage: true, bossDrink: true, bossSummon: true, powerCut: true, proposalRejected: true, bossDefeated: true, bossBreath: true, bossRound: true, bossConceded: true,
   doorEntered: true, doorLocked: true, switchChanged: true, boxMoved: true, boxDelivered: true, portFilled: true, crateTaken: true, mixerFed: true, mixerJammed: true, parcelOut: true, pickedUp: true,
-  fellAsleep: true, sleepInterrupted: true, sleptThrough: true,
+  fellAsleep: true, sleepInterrupted: true, sleepFilled: true,
   triggerEntered: true, talk: true, bedUse: true,
   roomChanged: true, dialogueOpened: true, dialogueClosed: true, handbookUnlocked: true, bedRefused: true, napped: true, handsFull: true,
   checkpointSaved: true, clockAdvanced: true, cardOpened: true, cardChosen: true, toolGranted: true, glucoseRefilled: true, dizzyChanged: true,

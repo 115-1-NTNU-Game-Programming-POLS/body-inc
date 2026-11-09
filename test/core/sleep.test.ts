@@ -68,13 +68,13 @@ describe('the sleep bar', () => {
     expect(selectInteractable(lay.state.game)).toBeUndefined();
     const at = { x: lay.state.game.operator.x, y: lay.state.game.operator.y };
     const before = run(c, lay.state, NEED - 1, RIGHT);
-    expect(types(before.events)).not.toContain('sleptThrough');
+    expect(types(before.events)).not.toContain('sleepFilled');
     expect(types(before.events)).not.toContain('chapterEnded');
     // The keys do nothing in bed: the operator has not moved.
     expect({ x: before.state.game.operator.x, y: before.state.game.operator.y }).toEqual(at);
     expect(selectSleep(before.state.game)!.share).toBeCloseTo((NEED - 1) / NEED, 6);
     const last = run(c, before.state, 1);
-    expect(last.events).toContainEqual({ type: 'sleptThrough', object: BED_ID, wakes: 0 });
+    expect(last.events).toContainEqual({ type: 'sleepFilled', object: BED_ID, wakes: 0 });
     expect(types(last.events)).toContain('chapterEnded');
   });
 
@@ -84,6 +84,27 @@ describe('the sleep bar', () => {
     expect(types(r.events)).toContain('chapterEnded');
     expect(types(r.events)).not.toContain('fellAsleep');
     expect(r.state.game.sleep).toBeUndefined();
+  });
+
+  it('keeps the sleeper in bed on a running belt', () => {
+    const belt = { id: 5, type: 'Conveyor', x: 0, y: 352, width: 96, height: 32, properties: [p('direction', 'W')] };
+    const c = chapter([bed(), belt]);
+    const lay = run(c, startChapter(c), 1, USE);
+    expect(types(lay.events)).toContain('fellAsleep');
+    const at = { x: lay.state.game.operator.x, y: lay.state.game.operator.y };
+    const r = run(c, lay.state, 120);
+    expect({ x: r.state.game.operator.x, y: r.state.game.operator.y }).toEqual(at);
+    expect(selectSleep(r.state.game)!.awake).toBe(false);
+  });
+
+  it('does not end the chapter when a lethal tick fills the bar: the forced leave wins', () => {
+    const c = chapter([bed()]);
+    const lay = run(c, startChapter(c), 1, USE).state;
+    const brink = { ...lay, game: { ...lay.game, sleep: { ...lay.game.sleep!, slept: NEED - 1 }, operator: { ...lay.game.operator, halves: 0 } } };
+    const r = run(c, brink, 1);
+    expect(types(r.events)).toContain('forcedLeave');
+    expect(types(r.events)).not.toContain('sleepFilled');
+    expect(types(r.events)).not.toContain('chapterEnded');
   });
 
   it('is refused like any bed whose condition fails', () => {
@@ -133,7 +154,7 @@ describe('the mixer alarm', () => {
     expect(selectMixer(s.game)!.batches).toHaveLength(1);
     const r = run(c, s, NEED);
     expect(types([...first.events, ...r.events])).not.toContain('sleepInterrupted');
-    expect(r.events).toContainEqual({ type: 'sleptThrough', object: BED_ID, wakes: 0 });
+    expect(r.events).toContainEqual({ type: 'sleepFilled', object: BED_ID, wakes: 0 });
   });
 
   it('is dropped with the bar by a forced leave, so the next try starts the bar over', () => {
@@ -156,9 +177,17 @@ describe('stepSleep', () => {
     expect(r.sleep).toMatchObject({ awake: true, slept: 1, alarm: 0, wakes: 1 });
   });
 
+  it('stops one tick short when a hit lands on the filling tick, and the next lying down fills it', () => {
+    const r = stepSleep({ ...asleep, slept: NEED - 1 }, false, true);
+    expect(r.events).toEqual([{ type: 'sleepInterrupted', object: BED_ID, cause: 'hurt', wakes: 1 }]);
+    expect(r.sleep.slept).toBe(NEED - 1);
+    const again = stepSleep(lieDown(r.sleep, BED_ID, SECONDS), false, false);
+    expect(again.events).toEqual([{ type: 'sleepFilled', object: BED_ID, wakes: 1 }]);
+  });
+
   it('fills on the tick an alarm would ring: the full bar wins', () => {
     const r = stepSleep({ ...asleep, slept: NEED - 1, alarm: ALARM_TICKS - 1 }, true, false);
-    expect(r.events).toEqual([{ type: 'sleptThrough', object: BED_ID, wakes: 0 }]);
+    expect(r.events).toEqual([{ type: 'sleepFilled', object: BED_ID, wakes: 0 }]);
   });
 
   it('does nothing once awake or full', () => {
