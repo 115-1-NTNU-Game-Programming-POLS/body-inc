@@ -571,6 +571,16 @@
           "type": "string",
           "propertyType": "PortAccepts",
           "value": "any"
+        },
+        {
+          "name": "openSeconds",
+          "type": "int",
+          "value": 0
+        },
+        {
+          "name": "closedSeconds",
+          "type": "int",
+          "value": 0
         }
       ]
     },

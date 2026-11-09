@@ -21,7 +21,7 @@ import { sitting, startExam, stepExam, type ExamDef, type ExamKind, type ExamSta
 import { seedStreams, type RngStreams } from './rng.ts';
 import {
   advanceSlide, beltAt, boxAhead, boxPixel, canEnter, CONVEYOR_TICKS, conveyorRunning, conveyorsOf, directionOf, filledPorts, mixerOf, mixerOutlet,
-  nearest, onPort, portOf, portTakes, PUSH, pushDirection, settleBoxes, startSlide, tileAt, tileBox, withBoxes, type BoxState, type Occupants, type Tile,
+  nearest, onPort, portOf, portOpenAt, portTakes, portTicksLeft, PUSH, pushDirection, settleBoxes, startSlide, tileAt, tileBox, withBoxes, type BoxState, type Occupants, type Tile,
 } from './rooms/boxes.ts';
 import { boxTypeOf, EMPTY_MIXER, PORTION_SECONDS, stepMixer, type MixerEvent, type MixerState, type Portion } from './stomach/mixer.ts';
 import type { EnteredRoom } from './rooms/entry.ts';
@@ -232,6 +232,9 @@ export type DomainEvent =
   | { readonly type: 'boxDelivered'; readonly object: number; readonly port: number; readonly count: number; readonly need: number }
   /** A Port took its last needed box: it now counts as a switch that is on, for good. */
   | { readonly type: 'portFilled'; readonly object: number }
+  /** A timed Port opened or shut (design doc 7.5); a filled one stays open and says nothing more. */
+  | { readonly type: 'portOpened'; readonly object: number }
+  | { readonly type: 'portClosed'; readonly object: number }
   /** The second line took in an acetaldehyde crate; the chapter takes it off the `acetaldehyde` tag. */
   | { readonly type: 'crateTaken'; readonly object: number; readonly line: number }
   | MixerEvent
@@ -649,14 +652,17 @@ function moveBoxes(state: GameState, op: OperatorState, input: TickInput): Moved
   if (state.boxes.length === 0 && !state.mixer?.batches.length) return { boxes: state.boxes, push: null, events: [], delivered: state.delivered, mixer: state.mixer };
   const room = state.room;
   const events: DomainEvent[] = [];
-  const occupants = occupantsOf(op, state.enemies);
+  const port = portOf(room);
+  // A shut gate is a body to boxes: none slides or is pushed onto it, and a belt holds them at its edge.
+  const shut = port !== undefined && !portOpenAt(port, state.tick) && state.delivered.length < Number(port.props['need']);
+  const near = occupantsOf(op, state.enemies);
+  const occupants = shut ? { bodies: [...near.bodies, objectBox(port)] } : near;
   let boxes = state.boxes.some((b) => b.left > 0) ? state.boxes.map((b) => (b.left > 0 ? advanceSlide(b) : b)) : state.boxes;
   const replace = (next: BoxState) => { boxes = boxes.map((b) => (b.id === next.id ? next : b)); };
 
   // A box that has come to rest on the port is taken in before belts or a push could move it on.
-  const port = portOf(room);
   let delivered = state.delivered;
-  if (port) {
+  if (port && !shut) {
     const need = Number(port.props['need']);
     for (const b of boxes.filter((x) => x.left === 0 && !isSpawnedCrate(x) && onPort(port, x) && portTakes(port, boxTypeOf(room, x)))) {
       boxes = boxes.filter((x) => x.id !== b.id);
@@ -813,6 +819,11 @@ export function step(state: GameState, pressed: TickInput): StepResult {
 
   const moved = moveBoxes(state, op, input);
   const { boxes, push } = moved;
+  const gate = portOf(room);
+  if (gate && now > 0 && state.delivered.length < Number(gate.props['need'])) {
+    const open = portOpenAt(gate, now);
+    if (open !== portOpenAt(gate, now - 1)) events.push({ type: open ? 'portOpened' : 'portClosed', object: gate.id });
+  }
   events.push(...moved.events);
   grid = withBoxes(room.grid, boxes);
 
@@ -1428,10 +1439,19 @@ export function selectFactory(s: GameState): {
   if (!f || !lines.receiving) return undefined;
   return { receiving: lines.receiving, intake: lines.intake, crates: crateTiles(s.room, f.waiting) };
 }
-/** The room's port, if any, with how many boxes it holds of the ones it needs. */
-export function selectPort(s: GameState): { readonly object: number; readonly count: number; readonly need: number } | undefined {
+/**
+ * The room's port, if any, with how many boxes it holds of the ones it needs. A timed port that is
+ * not full yet also says whether it is open and the whole seconds until that changes.
+ */
+export function selectPort(s: GameState): {
+  readonly object: number; readonly count: number; readonly need: number; readonly gate?: { readonly open: boolean; readonly seconds: number };
+} | undefined {
   const port = portOf(s.room);
-  return port ? { object: port.id, count: s.delivered.length, need: Number(port.props['need']) } : undefined;
+  if (!port) return undefined;
+  const need = Number(port.props['need']);
+  const left = s.delivered.length < need ? portTicksLeft(port, s.tick) : undefined;
+  const base = { object: port.id, count: s.delivered.length, need };
+  return left === undefined ? base : { ...base, gate: { open: portOpenAt(port, s.tick), seconds: Math.ceil(left / TICK_HZ) } };
 }
 /** The room's mixer for drawing it: what it digests, each with the share done, and where parcels come out. */
 export function selectMixer(s: GameState): {

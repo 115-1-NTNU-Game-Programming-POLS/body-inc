@@ -159,6 +159,8 @@ export type RoomProblemCode =
   | 'port-parcel'
   /** A nap bed with `sleepSeconds` set: only a sleep bed has a sleep bar, so the number is never read. */
   | 'bed-seconds'
+  /** A Port with only one of `openSeconds` and `closedSeconds` above 0: it needs both to be a timed gate. */
+  | 'port-timing'
   /** A wall room whose track or board has not exactly the slots the game fills (see core/rooms/slots.ts). */
   | 'slot-count'
   /** Two EvidenceSlots with the same track, day and order. */
@@ -434,6 +436,7 @@ export function readRoom(id: string, map: TiledMap, dict: TagDictionary): ReadRe
     const need = Number(p.props['need']);
     // A parcel port can only ever hold what the mixer makes, and the mixer only takes food.
     const parcels = p.props['accepts'] === 'parcel';
+    if ((Number(p.props['openSeconds']) > 0) !== (Number(p.props['closedSeconds']) > 0)) problems.push({ code: 'port-timing', object: p.id });
     if (parcels && mixers.length === 0) problems.push({ code: 'port-parcel', object: p.id });
     const sure = parcels ? sureBoxes.filter((b) => b.props['boxType'] === 'food').length : sureBoxes.length;
     if (sure < need) problems.push({ code: 'port-need', object: p.id, args: { need, boxes: sure } });

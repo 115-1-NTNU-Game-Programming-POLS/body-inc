@@ -104,6 +104,13 @@ export const OBJECT_CLASSES: Readonly<Record<string, ClassSpec>> = {
     dialogueId: { type: 'ref', ref: 'dialogue', required: false },
     /** `parcel`: only what the room's Mixer put out, such as the small intestine's gate (design doc 7.5). */
     accepts: enumOf('PortAccepts', ['any', 'parcel']),
+    /**
+     * Both above 0 make a timed gate, such as the small intestine's (design doc 7.5): shut for
+     * `closedSeconds`, then open for `openSeconds`, over and over from the start of the visit. Shut, it
+     * takes nothing and no box slides onto it. Both 0 is a port that is always open.
+     */
+    openSeconds: { type: 'int', default: 0, min: 0 },
+    closedSeconds: { type: 'int', default: 0, min: 0 },
   },
   /**
    * The stomach's mixer (design doc 7.5), not in design doc 13.3's table: a food box that comes to

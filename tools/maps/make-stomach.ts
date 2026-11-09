@@ -2,8 +2,8 @@
  * Writes the stomach chapter's greybox rooms (design doc 7.5) into public/assets/maps/stomach/.
  * For now these are two lab rooms. mixer-lab is for the mixer of core/stomach/mixer.ts: five food
  * boxes of the three portions, a belt into the hopper, a slow belt from the outlet to the small
- * intestine's gate (a port that takes parcels only), and a belt loop along the walls so no box can
- * be pushed into a dead corner. night-lab is for the sleep bar of core/rooms/sleep.ts: a bed that
+ * intestine's timed gate (a port that takes parcels only, shut for 20 seconds and then open for 8),
+ * and a belt loop along the walls so no box can be pushed into a dead corner. night-lab is for the sleep bar of core/rooms/sleep.ts: a bed that
  * takes 30 seconds to sleep in beside a mixer, so a box fed in just before bed sounds its alarm.
  * It has no belt loop: a box pushed into a corner stays there, but the bed needs no box.
  * Open them with ?room=stomach/mixer-lab and ?room=stomach/night-lab. The chapter's real rooms
@@ -33,7 +33,7 @@ writeRoom('stomach/mixer-lab.tmj', {
   properties: [
     { name: 'organ', type: 'string', value: 'stomach' },
     { name: 'role', type: 'string', value: 'puzzle' },
-    { name: 'estSeconds', type: 'int', value: 90 },
+    { name: 'estSeconds', type: 'int', value: 120 },
     { name: 'storyOnly', type: 'bool', value: true },
   ],
   layers: [
@@ -51,8 +51,11 @@ writeRoom('stomach/mixer-lab.tmj', {
         rect(7, 'belt-in', 'Conveyor', 2, 6, 8, 1, [str('direction', 'Direction', 'E')]),
         rect(8, 'mixer', 'Mixer', 10, 6, 2, 1, [int('capacity', 3), str('outlet', 'Socket', 'E')]),
         rect(9, 'belt-out', 'Conveyor', 12, 6, 4, 1, [str('direction', 'Direction', 'E'), str('speed', 'ConveyorSpeed', 'slow')]),
-        // Three parcels through the gate open the way on to the night lab.
-        rect(10, 'gate', 'Port', 16, 6, 2, 1, [int('need', 3), str('accepts', 'PortAccepts', 'parcel'), obj('target', 15)]),
+        // Three parcels through the gate open the way on to the night lab. The gate keeps its own hours
+        // (design doc 7.5, 攪拌機節奏): a parcel that misses the 8 open seconds waits on the belt for the next.
+        rect(10, 'gate', 'Port', 16, 6, 2, 1, [
+          int('need', 3), str('accepts', 'PortAccepts', 'parcel'), obj('target', 15), int('openSeconds', 8), int('closedSeconds', 20),
+        ]),
         // A loop along the walls, as in the prologue warehouse: a box pushed against a wall rides round
         // instead of sticking, and on the west side it passes the in-belt, where one push sends it in.
         rect(11, 'loop-north', 'Conveyor', 2, 3, 17, 1, [str('direction', 'Direction', 'W')]),

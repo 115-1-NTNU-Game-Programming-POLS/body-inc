@@ -3,6 +3,7 @@ import {
   conveyorTiles, directionOf, dockTiles, hopperTiles, isSpawnedCrate, MIST, objectBox, outletTile, PARCEL, selectBoxes, selectConveyors, selectDoorLocks, selectFactory,
   selectMixer, selectPickups, selectPort, selectSwitches, TILE, type BoxState, type GameState, type RoomObject,
 } from '../../core/index.ts';
+import { str } from '../../app/content.ts';
 import { addText, updateText } from '../text/fonts.ts';
 
 const INK = 0x0c2d5e;
@@ -119,11 +120,15 @@ export class Mechanisms {
     }
     const port = selectPort(state);
     if (port && this.port) {
-      const key = `${port.count}/${port.need}`;
+      const gate = port.gate;
+      const key = `${port.count}/${port.need}/${gate?.open}/${gate?.seconds}`;
       if (this.port.drawn !== key) {
         this.port.drawn = key;
-        drawPort(this.port.g.clear(), this.port.o, port.count >= port.need);
-        updateText(this.port.label, key);
+        drawPort(this.port.g.clear(), this.port.o, port.count >= port.need, gate?.open === false);
+        const count = `${port.count}/${port.need}`;
+        updateText(this.port.label, gate
+          ? str(gate.open ? 'port.gate.open' : 'port.gate.closed').replace('{n}', String(port.count)).replace('{total}', String(port.need)).replace('{seconds}', String(gate.seconds))
+          : count);
       }
     }
     for (const c of selectConveyors(state)) {
@@ -212,8 +217,8 @@ function drawOutlet(g: Phaser.GameObjects.Graphics, col: number, row: number): v
   g.lineStyle(2, INK, 0.7).strokeCircle((col + 0.5) * TILE, (row + 0.5) * TILE, TILE / 2 - 3);
 }
 
-/** The dispatch port: a hatched yellow bay on the floor; filled, it turns blue. */
-function drawPort(g: Phaser.GameObjects.Graphics, o: RoomObject, full: boolean): void {
+/** The dispatch port: a hatched yellow bay on the floor; filled, it turns blue. A shut timed gate has a grey shutter across it. */
+function drawPort(g: Phaser.GameObjects.Graphics, o: RoomObject, full: boolean, shut: boolean): void {
   const b = objectBox(o);
   const w = b.right - b.left;
   const h = b.bottom - b.top;
@@ -221,6 +226,10 @@ function drawPort(g: Phaser.GameObjects.Graphics, o: RoomObject, full: boolean):
   g.lineStyle(2, INK, 1).strokeRect(b.left + 1, b.top + 1, w - 2, h - 2);
   g.lineStyle(1, INK, 0.35);
   for (let d = 8; d < w + h; d += 8) g.lineBetween(b.left + Math.max(0, d - h), b.top + Math.min(d, h), b.left + Math.min(d, w), b.top + Math.max(0, d - w));
+  if (!shut) return;
+  g.fillStyle(0x7d8594, 0.9).fillRect(b.left + 2, b.top + 2, w - 4, h - 4);
+  g.lineStyle(2, INK, 0.8);
+  for (let y = b.top + 8; y < b.bottom - 2; y += 8) g.lineBetween(b.left + 2, y, b.right - 2, y);
 }
 
 /** The mixer's hopper: a steel drum mouth over each tile, with the blades showing. */
