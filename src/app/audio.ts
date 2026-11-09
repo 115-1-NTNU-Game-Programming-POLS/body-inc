@@ -168,6 +168,8 @@ export function audioProblems(
       if (v.kind === 'tone' && (v.cutoff !== undefined || v.cutoffTo !== undefined || v.filter !== undefined || v.q !== undefined)) out.push(`${at}: a tone has no filter`);
       if (v.kind === 'noise' && (v.freq !== undefined || v.to !== undefined || v.wave !== undefined)) out.push(`${at}: a noise has no pitch or wave`);
       if ((v.at ?? 0) + v.dur > 3) out.push(`${at}: ends after 3 s`);
+      // The synth caps the attack at half the voice, so a longer one would never sound as written.
+      if (v.attack !== undefined && v.attack > v.dur / 2) out.push(`${at}: attack ${v.attack} s is over half of dur ${v.dur} s`);
     });
     if (peakSum(cue) > 1) out.push(`cue "${id}": voices at one moment add up to ${peakSum(cue).toFixed(2)}, over 1`);
   }

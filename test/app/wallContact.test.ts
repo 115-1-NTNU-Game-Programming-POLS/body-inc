@@ -21,6 +21,13 @@ describe('a wall sounds once per touch', () => {
     expect(walls.starts([again], 4)).toEqual(new Set([again]));
   });
 
+  it('keeps the touch while a swing, stamp, dodge or hit stops the bumps, so the held wall does not sound again', () => {
+    const walls = new WallContact();
+    walls.starts([bump('x')], 1);
+    for (let t = 2; t < 18; t++) expect(walls.starts([], t, false).size).toBe(0);
+    expect(walls.starts([bump('x')], 18).size).toBe(0);
+  });
+
   it('counts each axis on its own: sliding along a wall into a corner sounds the second wall', () => {
     const walls = new WallContact();
     walls.starts([bump('y')], 1);

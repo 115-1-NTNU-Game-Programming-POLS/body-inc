@@ -13,8 +13,13 @@ export class WallContact {
   private touching = new Set<Axis>();
   private lastTick: number | undefined;
 
-  /** The bumpWall events among one frame's events that begin a contact; `tick` is the rules tick after them. */
-  starts(events: readonly GameEvent[], tick: number): ReadonlySet<GameEvent> {
+  /**
+   * The bumpWall events among one frame's events that begin a contact; `tick` is the rules tick
+   * after them. `walking` is false while the operator swings, stamps, dodges or reels from a hit:
+   * the rules report no bump then even if the key still presses the wall, so the touch is kept
+   * rather than read as a let-go that would sound the same wall again afterwards.
+   */
+  starts(events: readonly GameEvent[], tick: number, walking = true): ReadonlySet<GameEvent> {
     const out = new Set<GameEvent>();
     if (tick === this.lastTick) return out;
     this.lastTick = tick;
@@ -24,7 +29,7 @@ export class WallContact {
       now.add(e.axis);
       if (!this.touching.has(e.axis)) out.add(e);
     }
-    this.touching = now;
+    this.touching = walking ? now : new Set([...this.touching, ...now]);
     return out;
   }
 }

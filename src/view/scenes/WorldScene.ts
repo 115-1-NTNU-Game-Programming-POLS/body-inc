@@ -238,7 +238,7 @@ export class WorldScene extends Phaser.Scene {
     this.mechanisms.render(state);
     this.renderStaples(prevState, alpha);
     this.overlay.render(state);
-    const bumps = this.walls.starts(this.pending, tick);
+    const bumps = this.walls.starts(this.pending, tick, cur.action.kind === 'free' || cur.action.kind === 'guard');
     for (const e of this.pending.splice(0)) {
       if (e.type === 'stampLanded') this.stampRing(e.x, e.y, e.radius);
       this.react(e);
