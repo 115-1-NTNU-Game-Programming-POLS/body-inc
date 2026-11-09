@@ -91,7 +91,7 @@ export function stepMixer(room: RoomModel, state: MixerState, boxes: readonly Bo
   const port = portOf(room);
   // A thrown box lands nowhere that would take it straight back: not on the hopper, not on a port,
   // not on a belt, running or not, which could carry it in again, and not on a cold store, which
-  // would chill it without the push that makes that the player's choice.
+  // would chill it though nobody sent it there.
   const free = (t: Tile) => canEnter(room, all, t, occupants) && !onHopper(room, t) && !(port && onPort(port, t)) && !onConveyor(room, t)
     && coldStoreAt(room, t) === undefined;
 

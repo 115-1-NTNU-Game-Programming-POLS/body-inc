@@ -79,10 +79,27 @@ describe('the cold store', () => {
     const sliding = { ...r.state, game: { ...r.state.game, boxes: r.state.game.boxes.map((b) => (b.id === 5 ? { ...b, col: 14, row: 6, left: 2, ticks: 12 } : b)) } };
     expect(types(run(c, sliding, 1).events)).not.toContain('boxChilled');
     expect(run(c, sliding, 2).events).toContainEqual({ type: 'boxChilled', object: 5, store: STORE });
-    // The crate stays where it rests.
+    // The crate stays where it rests, and so does a parcel: it is already digested.
     const later = run(c, r.state, 60);
     expect(types(later.events)).not.toContain('boxChilled');
     expect(tiles(later.state)).toContainEqual([4, 14, 7]);
+    const parcel = { ...r.state, game: { ...r.state.game, boxes: [{ id: 5, col: 14, row: 6, left: 0, ticks: 0, boxType: 'parcel' }] } };
+    const kept = run(c, parcel, 5);
+    expect(types(kept.events)).not.toContain('boxChilled');
+    expect(tiles(kept.state)).toEqual([[5, 14, 6]]);
+  });
+
+  it('stays chilled after a return to a time clock punched before it was chilled', () => {
+    const clock = { id: 9, type: 'Trigger', x: 32, y: 96, width: 32, height: 32, properties: [p('event', 'checkpoint')] };
+    const c = chapter([cold(), clock, food(3, 4, 4)]);
+    const punched = until(c, place(startChapter(c), 48, 120), NONE, 'checkpointSaved');
+    const chilled = run(c, drop(punched, 3, 14, 6), 1).state;
+    expect(chilled.game.chilled).toEqual([3]);
+    const dying = { ...chilled, game: { ...chilled.game, operator: { ...chilled.game.operator, halves: 0 } } };
+    const r = run(c, dying, 1);
+    expect(types(r.events)).toContain('returnedToCheckpoint');
+    expect(r.state.game.chilled).toEqual([3]);
+    expect(r.state.game.boxes).toEqual([]);
   });
 
   it('keeps a chilled box gone for the chapter, through a door and a forced leave, and no port counts it', () => {
@@ -124,6 +141,11 @@ describe('the cold store', () => {
     const home = { left: 8 * 32, top: 6 * 32, right: 9 * 32, bottom: 7 * 32 };
     const [b] = settleBoxes(room, new Map([[3, { col: 14, row: 6 }]]), [home]);
     expect(b!.col === 14 && (b!.row === 6 || b!.row === 7)).toBe(false);
+    // Nor on the nearest free tile, when every neighbour of a blocked home is a cold store.
+    const ringed = chapter([cold(51, 13, 5, 1, 1), cold(52, 13, 7, 1, 1), cold(53, 12, 6, 1, 1), cold(54, 14, 6, 1, 1), food(3, 13, 6)]).rooms.get('lab/a')!;
+    const blocked = { left: 13 * 32, top: 6 * 32, right: 14 * 32, bottom: 7 * 32 };
+    const [n] = settleBoxes(ringed, new Map(), [blocked]);
+    expect([[13, 5], [13, 7], [12, 6], [14, 6]]).not.toContainEqual([n!.col, n!.row]);
   });
 });
 
@@ -148,8 +170,30 @@ describe('the map check', () => {
     expect(codes([cold()], [[14, 6]])).toEqual([]);
   });
 
-  it('reports a belt, port, mixer, bed or plate over it, and a box drawn on it', () => {
-    for (const x of [belt, port, mixer, bed, plate]) expect(codes([cold(), x])).toContain('cold-blocked');
+  it('reports a belt, port, mixer, bed, door, trigger, pickup or plate over it, and a box drawn on it', () => {
+    const door = { id: 62, type: 'Door', name: 'door-e', x: 19 * 32, y: 6 * 32, width: 32, height: 64, properties: [p('socket', 'E')] };
+    const trigger = { id: 63, type: 'Trigger', x: 14 * 32, y: 6 * 32, width: 32, height: 32, properties: [p('event', 'checkpoint')] };
+    const pickup = { id: 64, type: 'Pickup', x: 14 * 32 + 16, y: 7 * 32 + 16, properties: [p('itemType', 'coffee')] };
+    for (const x of [belt, port, mixer, bed, trigger, pickup, plate]) expect(codes([cold(), x])).toContain('cold-blocked');
+    expect(codes([cold(51, 18, 6, 2, 2), door])).toContain('cold-blocked');
     expect(codes([cold(), crate(5, 14, 6)])).toEqual(['box-blocked']);
+  });
+
+  it('lets a cold store share tiles with what can never be in the room on the same visit', () => {
+    const map = mapOf([food(3, 4, 4)]) as unknown as { layers: object[] };
+    map.layers.push({ type: 'objectgroup', name: 'variant:fed', properties: [p('when', 'breakfast')], objects: [cold()] });
+    map.layers.push({ type: 'objectgroup', name: 'variant:hungry', properties: [p('when', '!breakfast')], objects: [bed] });
+    expect(readRoom('lab/a', map as unknown as TiledMap, TAGS).problems.map((x) => x.code)).toEqual([]);
+    map.layers.pop();
+    map.layers.push({ type: 'objectgroup', name: 'variant:late', properties: [p('when', 'sleep_debt>=3')], objects: [bed] });
+    expect(readRoom('lab/a', map as unknown as TiledMap, TAGS).problems.map((x) => x.code)).toEqual(['cold-blocked']);
+  });
+
+  it('reports a cold store over the liver dock', () => {
+    const line = (id: number, stage: string, col: number, row: number, cols = 0) => (cols > 0
+      ? { id, type: 'Line', x: col * 32, y: row * 32, width: cols * 32, height: 32, properties: [p('stage', stage)] }
+      : { id, type: 'Line', x: col * 32 + 16, y: row * 32 + 16, properties: [p('stage', stage)] });
+    const factory = [line(70, 'receiving', 13, 6, 3), line(71, 'outlet', 15, 9), line(72, 'intake', 3, 9, 2)];
+    expect(codes([cold(), ...factory])).toContain('dock-blocked');
   });
 });
