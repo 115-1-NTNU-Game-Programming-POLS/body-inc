@@ -11,10 +11,10 @@ export const DEFAULT_BINDINGS: Readonly<Record<Action, readonly string[]>> = {
   attack: ['KeyJ', 'Mouse0'],
   dodge: ['Space', 'KeyK'],
   stamp: ['KeyR', 'Mouse1'],
-  // The mouse wheel of design doc 5.2 is not tracked yet.
-  swap: ['KeyF'],
-  // The right mouse button of design doc 5.2 is not bound: nothing here stops the browser's context menu.
-  partner: ['KeyL'],
+  // 'Wheel' is a notch of the mouse wheel in either direction: there are two stationery slots, so both swap.
+  swap: ['KeyF', 'Wheel'],
+  // The right button: the browser's context menu is cancelled so the click reaches the game.
+  partner: ['KeyL', 'Mouse2'],
   interact: ['KeyE', 'Enter'],
   pick1: ['Digit1', 'Numpad1'],
   pick2: ['Digit2', 'Numpad2'],
@@ -28,9 +28,24 @@ export const DEFAULT_BINDINGS: Readonly<Record<Action, readonly string[]>> = {
 const PICKS = ['pick1', 'pick2', 'pick3', 'pick4', 'pick5', 'pick6'] as const;
 
 /**
+ * Milliseconds the wheel must stay still before a new wheel event counts as another swap. A mouse
+ * notch is one event, but a trackpad sends a stream of them for one gesture, momentum included,
+ * every 10 to 20 ms; every event restarts this wait, so the whole stream is one swap however long
+ * it runs. Two notches turned faster than this also make one swap, which costs nothing with two slots.
+ */
+export const WHEEL_QUIET_MS = 200;
+
+/** A DOM node where the browser's own right-click menu is still wanted (the host's name box, for pasting). */
+function isEditable(target: EventTarget | null): boolean {
+  const el = target as { tagName?: unknown; isContentEditable?: unknown } | null;
+  return el?.isContentEditable === true || el?.tagName === 'INPUT' || el?.tagName === 'TEXTAREA';
+}
+
+/**
  * Tracks held keys by KeyboardEvent.code, so bindings work on any keyboard layout. Mouse
- * buttons are recorded as "Mouse<button>". A key that goes down and up between two samples
- * still counts as pressed, so a quick tap is never lost to the fixed-step loop.
+ * buttons are recorded as "Mouse<button>" and a turn of the wheel as a press of "Wheel", which is
+ * never held. A key that goes down and up between two samples still counts as pressed, so a quick
+ * tap is never lost to the fixed-step loop.
  */
 export class KeyboardInput {
   private readonly held = new Set<string>();
@@ -43,8 +58,11 @@ export class KeyboardInput {
   private mouseIgnored = false;
   /** Whether the toggled attack is on (`sample` with `toggleAttack`). */
   private attackOn = false;
+  /** When the last wheel event came, counted or not; see `WHEEL_QUIET_MS`. */
+  private lastWheelAt: number | undefined;
   private readonly target: EventTarget;
   private readonly bindings: Readonly<Record<Action, readonly string[]>>;
+  private readonly now: () => number;
   private readonly down = (code: string) => {
     if (!this.held.has(code)) this.pressedSince.add(code);
     this.held.add(code);
@@ -65,19 +83,37 @@ export class KeyboardInput {
     if (!this.mouseIgnored) this.down(code);
   };
   private readonly onMouseUp = (e: Event) => this.release(`Mouse${(e as MouseEvent).button}`);
+  private readonly onWheel = (e: Event) => {
+    const w = e as WheelEvent;
+    // While the game has the page, the wheel never scrolls it, and a pinch or Ctrl+wheel never zooms it.
+    w.preventDefault();
+    // A trackpad pinch arrives as a wheel event with ctrlKey set, and a sideways swipe has no deltaY: neither is a notch.
+    if (w.ctrlKey || !w.deltaY) return;
+    const at = this.now();
+    if (this.lastWheelAt === undefined || at - this.lastWheelAt >= WHEEL_QUIET_MS) this.pressedSince.add('Wheel');
+    this.lastWheelAt = at;
+  };
+  private readonly onContextMenu = (e: Event) => {
+    if (!isEditable(e.target)) e.preventDefault();
+  };
   private readonly onBlur = () => {
     this.held.clear();
     this.ignored.clear();
     this.attackOn = false;
   };
 
-  constructor(target: EventTarget, bindings = DEFAULT_BINDINGS) {
+  /** `now` is a clock in milliseconds, for the wheel; tests pass their own. */
+  constructor(target: EventTarget, bindings = DEFAULT_BINDINGS, now: () => number = () => performance.now()) {
     this.target = target;
     this.bindings = bindings;
+    this.now = now;
     target.addEventListener('keydown', this.onKeyDown);
     target.addEventListener('keyup', this.onKeyUp);
     target.addEventListener('mousedown', this.onMouseDown);
     target.addEventListener('mouseup', this.onMouseUp);
+    // Not passive, or the browser would scroll before preventDefault could stop it.
+    target.addEventListener('wheel', this.onWheel, { passive: false });
+    target.addEventListener('contextmenu', this.onContextMenu);
     target.addEventListener('blur', this.onBlur);
   }
 
@@ -177,6 +213,8 @@ export class KeyboardInput {
     this.target.removeEventListener('keyup', this.onKeyUp);
     this.target.removeEventListener('mousedown', this.onMouseDown);
     this.target.removeEventListener('mouseup', this.onMouseUp);
+    this.target.removeEventListener('wheel', this.onWheel);
+    this.target.removeEventListener('contextmenu', this.onContextMenu);
     this.target.removeEventListener('blur', this.onBlur);
   }
 }

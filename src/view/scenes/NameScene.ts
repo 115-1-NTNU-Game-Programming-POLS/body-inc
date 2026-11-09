@@ -9,6 +9,7 @@ import { soundIn } from '../audio/installSound.ts';
 import { addText, admitText, setHostName, updateText } from '../text/fonts.ts';
 import { FONT } from '../text/styles.ts';
 import { startNewGame } from './run.ts';
+import { primary } from '../ui/primary.ts';
 
 const PAPER = '#f4efe4';
 const INK = '#0c2d5e';
@@ -68,7 +69,7 @@ export class NameScene extends Phaser.Scene {
     this.message = addText(this, w / 2, 442, '', { role: 'print', weight: 400, size: 20, color: WARN }).setOrigin(0.5);
     const plate = { role: 'print', weight: 700, size: 30, color: PAPER, padding: { x: 20, y: 8 } } as const;
     this.confirmText = addText(this, w / 2, 530, str('name.confirm'), { ...plate, color: INK, backgroundColor: PAPER }).setOrigin(0.5);
-    this.confirmText.setInteractive({ useHandCursor: true }).on('pointerup', () => void this.confirm());
+    this.confirmText.setInteractive({ useHandCursor: true }).on('pointerup', primary(() => void this.confirm()));
     addText(this, w / 2, this.scale.height - 56, str('name.hint'), { role: 'print', weight: 400, size: 18, color: DIM }).setOrigin(0.5);
 
     // The game's key listeners are on window (app/input.ts and Phaser's keyboard), so a key stopped

@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { optionMark, PRESENTER_KEY } from '../../app/presenter.ts';
 import { addText } from '../text/fonts.ts';
 import { CARD, cardWidth } from '../text/styles.ts';
+import { primary } from './primary.ts';
 
 const INK = 0x0c2d5e;
 const STAMP_RED = 0xc8372d;
@@ -74,7 +75,7 @@ export class CardTable {
       const frame = scene.add.graphics();
       const badge = scene.add.graphics();
       const zone = scene.add.zone(0, 0, w, h).setOrigin(0, 0).setInteractive({ useHandCursor: true });
-      zone.on('pointerdown', () => onPick(i));
+      zone.on('pointerdown', primary(() => onPick(i)));
       if (onHover) zone.on('pointerover', () => onHover(i));
       this.layer.add(scene.add.container(left + i * (w + CARD.gap), top, [frame, badge, b.label, b.note, b.number, zone]));
       this.faces.push({ frame, badge, w, h });

@@ -18,6 +18,7 @@ import { soundIn } from '../audio/installSound.ts';
 import { addText, updateText } from '../text/fonts.ts';
 import { CardTable } from '../ui/cardTable.ts';
 import { ElevatorPanelView } from '../ui/elevatorPanel.ts';
+import { primary } from '../ui/primary.ts';
 
 const DIM = '#c9d3e3';
 const PAPER = '#fbfaf6';
@@ -136,9 +137,9 @@ export class SemesterScene extends Phaser.Scene {
       }
     };
     // A click goes on from a text page; on a menu the cards and plates take it.
-    const onClick = () => {
+    const onClick = primary(() => {
       if (this.menu === undefined && !this.busy) this.proceed();
-    };
+    });
     this.input.keyboard?.on('keydown', onKey);
     this.input.on('pointerdown', onClick);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {

@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { str } from '../../app/content.ts';
 import type { ElevatorPanel, FloorId, Light } from '../../core/index.ts';
 import { addText } from '../text/fonts.ts';
+import { primary } from './primary.ts';
 
 const INK = 0x0c2d5e;
 const STAMP_RED = 0xc8372d;
@@ -51,7 +52,7 @@ export class ElevatorPanelView {
       parts.push(addText(scene, 22, 14, String(i + 1), { role: 'print', weight: 700, size: 16, color: '#2b3448' }));
       if (!off) {
         const zone = scene.add.zone(0, 0, PLATE.w, PLATE.h).setOrigin(0, 0).setInteractive({ useHandCursor: true });
-        zone.on('pointerdown', () => onPick(i));
+        zone.on('pointerdown', primary(() => onPick(i)));
         if (onHover) zone.on('pointerover', () => onHover(i));
         parts.push(zone);
       }

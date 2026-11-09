@@ -9,6 +9,7 @@ import { playCue } from '../audio/installSound.ts';
 import { loadPortraits } from '../portraits.ts';
 import { addText } from '../text/fonts.ts';
 import { DIALOGUE, MEMO, REPLY } from '../text/styles.ts';
+import { primary } from '../ui/primary.ts';
 
 const INK = 0x0c2d5e;
 const STAMP_RED = 0xc8372d;
@@ -197,7 +198,7 @@ export class DialogueScene extends Phaser.Scene {
       const badge = this.add.graphics();
       const number = addText(this, -16, 17, String(i + 1), { role: 'print', weight: 700, size: 16, color: '#fbfaf6' }).setOrigin(0.5);
       const zone = this.add.zone(0, 0, REPLY.noteWidth, h).setOrigin(0, 0).setInteractive({ useHandCursor: true });
-      zone.on('pointerdown', () => this.keys.queuePick(i + 1));
+      zone.on('pointerdown', primary(() => this.keys.queuePick(i + 1)));
       const note = this.put(this.add.container(x + SLIDE_PX, y, [frame, badge, text, number, zone]));
       note.setAlpha(0);
       this.tweens.add({ targets: note, x, alpha: 1, duration: SLIDE_MS, delay: (options.length - 1 - i) * SLIDE_STAGGER_MS, ease: 'Cubic.easeOut' });
