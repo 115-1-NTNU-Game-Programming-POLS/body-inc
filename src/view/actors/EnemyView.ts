@@ -10,6 +10,8 @@ import { puppetSway } from './puppet.ts';
 export const SKINS: Readonly<Record<string, string>> = {
   salesman: 'suit-base',
   energy_seller: 'energy-seller',
+  // Greybox: the sugar salesman wears the energy drink seller's look until it has art of its own.
+  sugar_seller: 'energy-seller',
   cheers: 'cheers',
   // Greybox: the prologue's training dummy wears the salesman's suit until it has art of its own.
   dummy: 'suit-base',

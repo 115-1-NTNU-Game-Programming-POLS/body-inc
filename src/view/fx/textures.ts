@@ -27,6 +27,13 @@ export function makeFxTextures(scene: Phaser.Scene): void {
     g.fillStyle(0xf4ebdd).fillRect(1, 2, 4, 6);
     g.fillStyle(0x8b5a3c).fillRect(1, 4, 4, 2);
   });
+  // The sugar salesman's tea: a milk tea cup with pearls and a straw, so it reads apart from the coffee cup.
+  make('fx-shot-tea', 6, 10, () => {
+    g.fillStyle(0xe85d75).fillRect(3, 0, 1, 2);
+    g.fillStyle(0xf4efe4).fillRect(0, 2, 6, 1);
+    g.fillStyle(0xd9b38c).fillRect(1, 3, 4, 7);
+    g.fillStyle(0x3a2a22).fillRect(1, 8, 1, 1).fillRect(3, 8, 1, 1).fillRect(2, 9, 1, 1).fillRect(4, 9, 1, 1);
+  });
   make('fx-shot-sheet', 7, 6, () => {
     g.fillStyle(0x0c2d5e).fillRect(0, 0, 7, 6);
     g.fillStyle(0xf4efe4).fillRect(1, 1, 5, 4);

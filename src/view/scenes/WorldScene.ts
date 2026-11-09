@@ -27,6 +27,7 @@ import { drawRoomObjects } from '../actors/RoomObjects.ts';
 import { CollisionOverlay } from '../debug/CollisionOverlay.ts';
 import { soundIn } from '../audio/installSound.ts';
 import { FeedbackPlayer, type ActorFx } from '../fx/FeedbackPlayer.ts';
+import { FogView } from '../fx/FogView.ts';
 import { HazardView } from '../fx/HazardView.ts';
 import { makeFxTextures } from '../fx/textures.ts';
 import { roomKey } from './BootScene.ts';
@@ -49,6 +50,7 @@ export class WorldScene extends Phaser.Scene {
   private overlay!: CollisionOverlay;
   private feedback!: FeedbackPlayer;
   private hazards!: HazardView;
+  private fog!: FogView;
   private mechanisms!: Mechanisms;
   private entry!: (key: string) => ManifestEntry;
   private readonly enemyViews = new Map<number, EnemyView | DrawnView>();
@@ -113,6 +115,7 @@ export class WorldScene extends Phaser.Scene {
     };
     this.operator = new OperatorView(this, this.entry('operator'), this.entry('adenosine-mini'));
     this.hazards = new HazardView(this);
+    this.fog = new FogView(this, chapter.game.operator.fatigue !== undefined);
     this.exam = new ExamLayer(this, this.entry('exam'));
     this.syncViews(chapter.game);
     this.overlay = new CollisionOverlay(this, chapter.game);
@@ -221,6 +224,7 @@ export class WorldScene extends Phaser.Scene {
     for (const e of this.pending) if (e.type === 'fire') this.operator.fired(tick);
     this.operator.render(cur, x, y, tick);
     this.operator.renderStacks(cur.stacks);
+    this.fog.render(this, cur.fatigue !== undefined, x, y);
     if (this.wide) this.cameras.main.centerOn(x, (state.room.grid.rows * TILE) / 2);
     this.board?.update(x, y);
 

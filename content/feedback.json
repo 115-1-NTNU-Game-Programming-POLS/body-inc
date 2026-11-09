@@ -48,6 +48,7 @@
     "pieRaised": { "sound": "shield", "note": "pie.raised.{sleepy}" },
     "pieBlocked": { "sound": "shield", "particles": [{ "preset": "paper", "count": 4 }] },
     "canTaken": { "sound": "pick", "pulse": { "amount": 0.01, "beats": 6, "seconds": 3 } },
+    "teaTaken": { "sound": "pick", "note": "stomach.tea" },
     "palpitation": { "sound": "heartbeat", "note": "can.palpitation" },
     "canDisco": { "sound": "disco", "note": "can.disco" },
     "backedOff": { "sound": "boing", "bounce": true, "note": "cheers.backed_off" },

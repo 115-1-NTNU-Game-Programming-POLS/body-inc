@@ -5,6 +5,8 @@ import { centeredBox, type Box } from '../collision/boxes.ts';
  * coffee cup); a zone is a ground area with a tier-2 or tier-3 telegraph that goes live once the
  * telegraph has run (design doc 5.3). Both hurt the operator only; staples are separate.
  */
+export type Drink = 'can' | 'tea';
+
 export interface Shot {
   readonly id: number;
   readonly owner: number;
@@ -17,8 +19,11 @@ export interface Shot {
   readonly halves: number;
   /** A toast wave (design doc 7.7): landing adds this many cups instead of costing hearts, and the guard refuses it. */
   readonly cups?: number;
-  /** An energy-drink can (design doc 7.4): landing costs no heart and is drunk instead; the guard still catches it. */
-  readonly can?: true;
+  /**
+   * A drink: landing costs no heart and it is drunk instead, an energy-drink can (design doc 7.4)
+   * or the sugar salesman's tea (7.5). The guard still catches it, and a dodge refuses it.
+   */
+  readonly drink?: Drink;
   /** The shots of one ring share this, so the ring lands at most one cup or one refusal however many of it touch the operator. */
   readonly wave?: number;
   /** Half the side of the shot's box. */

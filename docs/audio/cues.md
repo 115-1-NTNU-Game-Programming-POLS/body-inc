@@ -56,7 +56,7 @@
 | `yawn` | 下行的哈欠 | `forcedLeave`, `bedUse`, `forcedNap`, `napped` |
 | `door` | 進門 | `doorEntered` |
 | `locked` | 門鎖住的兩聲；限時閘門關上時也用它，因為閘門關上就是一扇鎖住的門 | `doorLocked`, `portClosed` |
-| `pick` | 撿起東西的上行音 | `canTaken`, `pickedUp`, `parcelOut` |
+| `pick` | 撿起東西的上行音 | `canTaken`, `teaTaken`, `pickedUp`, `parcelOut` |
 | `click` | 開關 | `switchChanged` |
 | `thunk` | 箱子或貨物落位 | `boxDelivered`, `boxChilled`, `portFilled`, `crateTaken`, `mixerFed` |
 | `punch` | 打卡 | `checkpointSaved` |

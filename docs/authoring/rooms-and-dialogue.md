@@ -195,7 +195,7 @@ Pickup 是撿得起來的道具，走到旁邊按 E 或 Enter 撿起，撿起後
 
 `climax` 是設計文件 7.4 的「最後一杯」：Boss 戰前由房間裡一張 `once` 的事件卡讓玩家選，選了多喝一杯就設定 `flag` 指定的布林標籤（來源要含 `event`）。寫法是 `"climax": { "flag": "one_more_cup", "summonFactor": 2, "archiveFactor": 0.5 }`：這一章的房間裡，咖啡因 Boss 第二階段每次召喚的腺苷數與同時存在的上限乘上 `summonFactor`，睡著時歸檔量乘上 `archiveFactor`（只能和 `archive` 一起用）。大腦章的事件卡 `climax` 放在海馬迴通往會議室的樓梯前，橫跨整層地板，所以走不到樓梯而不被問到。
 
-`closedCases` 讓一章記住「已經結案」的敵人：`"closedCases": { "energy_seller": "seller_closed" }` 表示能量飲料推銷員被結案時設定 `seller_closed`（布林標籤），而放他的 Spawn 寫 `when` 為 `!seller_closed`，之後每次進房他都不會再出現。敵人檔裡飛行型的敵人可以填 `"throws": "can"`，讓牠丟出的是罐裝能量飲料而不是紙張：罐子要格擋或閃開，打中的人不扣心，而是咖啡因殘留加 150（`content/params.json` 的 `energyDrink`），殘留已超過 300 時推銷員會說出 Disco 那句台詞。
+`closedCases` 讓一章記住「已經結案」的敵人：`"closedCases": { "energy_seller": "seller_closed" }` 表示能量飲料推銷員被結案時設定 `seller_closed`（布林標籤），而放他的 Spawn 寫 `when` 為 `!seller_closed`，之後每次進房他都不會再出現。敵人檔裡飛行型的敵人可以填 `"throws": "can"`，讓牠丟出的是罐裝能量飲料而不是紙張：罐子要格擋或閃開，打中的人不扣心，而是咖啡因殘留加 150（`content/params.json` 的 `energyDrink`），殘留已超過 300 時推銷員會說出 Disco 那句台詞。填 `"throws": "tea"` 則丟出全糖手搖飲（胃章節的全糖推銷員 `sugar_seller`），一樣不扣心、閃避會拒絕、格擋接得住，喝到的話營運長進入 45 秒的全糖倦怠霧：移動慢 15%（和其他減速一起受設計文件 5.1 的上限約束，而霧單獨就達到上限，所以霧中其他減速不再疊加），畫面只留營運長周圍一小圈看得清楚，HUD 顯示剩下的秒數。再喝一杯會從 45 秒重新算。倦怠霧跟著營運長走過門，打卡不會清掉，強制下班或讀取打卡點則會清掉。外層卡片設下的 `sugar_fatigue` 標籤不會帶來這層霧。灰盒測試房 `stomach/mixer-lab` 裡有一個全糖推銷員。
 
 `partner` 指定這一章帶著哪位夥伴，目前只有 `"partner": "chairman"`，按 L 或滑鼠右鍵舉起董事長的「畫大餅」護盾：護盾罩住營運長 2.5 格的範圍 4 秒，擋掉範圍內飛來的投射物（不擋範圍攻擊與近戰），然後冷卻 12 秒，冷卻是每進一間房重新計算。範圍與持續時間都乘上 S，S 由睡眠決定，所以睡得少的日子護盾又小又短，畫面上的狀態列會顯示「大餅 ×S」。基本數值寫在 `src/core/combat/pie.ts`，是等試玩調整的暫定值。
 
