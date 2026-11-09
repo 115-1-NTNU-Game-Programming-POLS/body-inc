@@ -4,7 +4,7 @@ import type { Enemy } from '../content/generated.ts';
 import type { BossState } from './bosses/boss.ts';
 import type { Archetype, Category } from './enemies.ts';
 import { CHEERS, CLING, FLYER, REFORM_TICKS, SALESMAN } from './frames.ts';
-import type { ShotSpec } from './hazards.ts';
+import type { Drink, ShotSpec } from './hazards.ts';
 import type { Vec } from './movement.ts';
 
 /**
@@ -47,8 +47,8 @@ export interface EnemyState {
   readonly boss?: BossState;
   /** Id of the boss that summoned this enemy; summoned enemies leave on a forced leave. */
   readonly summoner?: number;
-  /** A flyer that throws cans instead of sheets (content/enemies.json `throws`). */
-  readonly throws?: 'can';
+  /** A flyer that throws a drink instead of sheets (content/enemies.json `throws`). */
+  readonly throws?: Drink;
   /** Cheers kid: a weapon has made him back off since his last toast, so the next one cannot. */
   readonly shooed?: true;
   /** Ticks of a binding pin left (core/combat/perks.ts). It is filled with `frozen` and counts down with it; see `isBound`. */
@@ -282,12 +282,12 @@ function stepFlyer(grid: SolidGrid, e: EnemyState, target: Vec, out: Out): Enemy
       const ax = target.x - ox;
       const ay = target.y - 4 - oy;
       const len = Math.hypot(ax, ay) || 1;
-      const can = e.throws === 'can';
+      const drink = e.throws;
       return out(to(e, 'strike'), {
         shots: [{
-          owner: e.id, kind: can ? 'can' : 'sheet', x: ox, y: oy, vx: (ax / len) * FLYER.shotSpeed, vy: (ay / len) * FLYER.shotSpeed,
-          ticksLeft: Math.ceil(FLYER.shotRangePx / FLYER.shotSpeed), halves: can ? 0 : FLYER.damageHalves, half: FLYER.shotHalf,
-          ...(can ? { can: true as const } : {}),
+          owner: e.id, kind: drink ?? 'sheet', x: ox, y: oy, vx: (ax / len) * FLYER.shotSpeed, vy: (ay / len) * FLYER.shotSpeed,
+          ticksLeft: Math.ceil(FLYER.shotRangePx / FLYER.shotSpeed), halves: drink ? 0 : FLYER.damageHalves, half: FLYER.shotHalf,
+          ...(drink ? { drink } : {}),
         }],
       });
     }

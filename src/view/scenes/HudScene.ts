@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import type { FixedStepLoop } from '../../app/loop.ts';
 import {
   acetaldehydeCrates, BASE_HALVES, debtOfSpirit, GLUCOSE as METER, glucoseOf, isDizzy, MINUTES_PER_DAY, questionOf, selectBoss, selectClock, selectExam, selectFactory, selectGauge, selectHearts,
-  selectDoorLocks, selectInteractable, selectPie, selectSleep, selectTick, selectTool, stepAt, TICK_HZ, waitingCrates, workOrders,
+  selectDoorLocks, selectInteractable, selectOperator, selectPie, selectSleep, selectTick, selectTool, stepAt, TICK_HZ, waitingCrates, workOrders,
   type BossSummary, type ChapterState, type GameEvent, type GameState,
 } from '../../core/index.ts';
 import type { WorldCaption } from '../../app/audio.ts';
@@ -531,7 +531,7 @@ export class HudScene extends Phaser.Scene {
     updateText(this.clock, dev ? str('hud.rule_time').replace('{seconds}', seconds).replace('{clock}', hhmm) : str('hud.clock').replace('{clock}', hhmm));
   }
 
-  /** Under the clock: why hearts are suspended, the tool in hand once there is a second to swap to, the factory's crate counts in a factory room, and the dizzy warning (design doc 7.7). */
+  /** Under the clock: why hearts are suspended, the tool in hand once there is a second to swap to, the factory's crate counts in a factory room, the dizzy warning (design doc 7.7) and the sugar fog's countdown (7.5). */
   private renderStatus(state: ChapterState): void {
     const lines: string[] = [];
     const suspended = (BASE_HALVES - selectHearts(state.game).maxHalves) / 2;
@@ -556,6 +556,9 @@ export class HudScene extends Phaser.Scene {
     lines.push(...examLines(state.game));
     const dizzy = glucoseOf(state.run.tags) !== undefined && isDizzy(state.run.tags);
     if (dizzy) lines.push(str('hud.dizzy'));
+    // Design doc 7.5 has the fog's icon name it 全糖倦怠, so the dimmed view is not read as a bug.
+    const { fatigue } = selectOperator(state.game);
+    if (fatigue !== undefined) lines.push(str('hud.fatigue').replace('{seconds}', String(Math.ceil(fatigue / TICK_HZ))));
     // Lights out while the operator sleeps (design doc 7.5, 熄燈), as dark as the dizzy haze.
     const sleep = selectSleep(state.game);
     this.haze.setVisible(dizzy || (sleep !== undefined && !sleep.awake));

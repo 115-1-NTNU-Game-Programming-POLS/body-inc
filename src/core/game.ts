@@ -5,7 +5,7 @@ import { newBossState, type BossDef, type BossTable, type ToastState } from './c
 import { proposalOpen, stepCaffeine } from './combat/bosses/caffeine.ts';
 import { breathing, stepToast } from './combat/bosses/toast.ts';
 import type { EnemyTable } from './combat/enemies.ts';
-import { BASE_HALVES, BIND, BOSS, CLING, DODGE, ENEMY_HIT_FREEZE, FOLDER, GAUGE, heartCap, HURT, PARRY_BOOST, SALESMAN, STAMP, STAPLER } from './combat/frames.ts';
+import { BASE_HALVES, BIND, BOSS, CLING, DODGE, ENEMY_HIT_FREEZE, FOLDER, GAUGE, heartCap, HURT, PARRY_BOOST, SALESMAN, STAMP, STAPLER, SUGAR_FOG } from './combat/frames.ts';
 import { guardCovers, parryOpen, swingBox } from './combat/folder.ts';
 import { chip, NO_ASSISTS, owing } from './combat/assists.ts';
 import { BASE_PERKS, type Perks } from './combat/perks.ts';
@@ -187,6 +187,8 @@ export type DomainEvent =
   | { readonly type: 'pieBlocked'; readonly source: number }
   /** An energy-drink can landed (design doc 7.4): no heart is lost, and the chapter adds the caffeine. */
   | { readonly type: 'canTaken'; readonly source: number }
+  /** The sugar salesman's tea landed (design doc 7.5): no heart is lost, and the fatigue fog starts over at its full 45 seconds. */
+  | { readonly type: 'teaTaken'; readonly source: number }
   /** 婉拒: the guard met a toast wave, on any of its frames; `parry` when it was inside the parry window. */
   | { readonly type: 'refused'; readonly source: number; readonly parry: boolean }
   /** A weapon landed on a cheers kid, who only backs off (design doc 7.7). */
@@ -334,6 +336,8 @@ export interface GameOptions {
   readonly stacks?: number;
   /** A half-heart owed under the halved-damage assist (assists.ts), carried in like the hearts; defaults to none. */
   readonly halfCarry?: 0 | 1;
+  /** Ticks left in the sugar fatigue fog, carried in through a door; defaults to none. */
+  readonly fatigue?: number;
   /** Toggle switches already on, from an earlier visit; ids that are not toggle switches of this room are ignored. */
   readonly switches?: readonly number[];
   /** Doors open by their clock or resource lock at entry; the chapter refreshes this every tick. */
@@ -457,7 +461,7 @@ export function createGame(room: EnteredRoom, seed: number, table: EnemyTable, o
   const spawned = spawnEnemies(room, table, options.bosses, 1);
   // A tool carried in is only believed while the folder is handed over, so a locked folder is never in hand.
   const tool: HeldTool = options.tool === 'folder' && !options.folderLocked ? 'folder' : 'stapler';
-  const operator = { ...newOperator(start.x, start.y, cap, gauge), halves, stacks: carried, tool, ...(options.halfCarry ? { halfCarry: options.halfCarry } : {}) };
+  const operator = { ...newOperator(start.x, start.y, cap, gauge), halves, stacks: carried, tool, ...(options.halfCarry ? { halfCarry: options.halfCarry } : {}), ...(options.fatigue ? { fatigue: options.fatigue } : {}) };
   const body = boxAt(OPERATOR_BODY, operator.x, operator.y);
   const delivered = ascending(options.delivered ?? []);
   const chilled = ascending(options.chilled ?? []);
@@ -761,6 +765,13 @@ interface MovedBoxes {
   readonly mixer: MixerState | undefined;
 }
 
+/** One tick off the sugar fatigue fog; the field goes once it runs out, as if never drunk. */
+function tire(op: OperatorState): OperatorState {
+  if (op.fatigue === undefined) return op;
+  const { fatigue, ...rest } = op;
+  return fatigue > 1 ? { ...rest, fatigue: fatigue - 1 } : rest;
+}
+
 const penCache = new WeakMap<readonly RoomObject[], readonly Box[]>();
 /** The rest areas of a room, boxed once for as long as its object list lives: `step` asks every tick. */
 const pensOf = (objects: readonly RoomObject[]): readonly Box[] => {
@@ -826,7 +837,7 @@ export function step(state: GameState, pressed: TickInput): StepResult {
   let bind = state.bind;
   let boostUntil = state.boostUntil;
   const s = stepOperator(grid, state.operator, input, now, boostUntil !== undefined && now < boostUntil ? PARRY_BOOST.factor : 1);
-  let op = s.op;
+  let op = tire(s.op);
   // A door is passed by walking into it, never by being knocked into it: the knockback step is dropped instead.
   const knocked = state.operator.action.kind === 'hurt' && state.operator.action.frame < HURT.knockbackTicks;
   if (knocked && ontoDoor(room, state.operator, op)) op = { ...op, x: state.operator.x, y: state.operator.y };
@@ -1278,11 +1289,15 @@ export function step(state: GameState, pressed: TickInput): StepResult {
         }
         continue;
       }
-      if (sh.can) {
-        // A can is drunk, not taken as a hit: no knockback, no freeze, no heart.
+      if (sh.drink) {
+        // A drink is drunk, not taken as a hit: no knockback, no freeze, no heart.
         const r = evade(sh.owner);
-        if (r === undefined) events.push({ type: 'canTaken', source: sh.owner });
-        else movedShots.push(r === 'dodged' ? { ...sh, spent: true } : sh);
+        if (r !== undefined) movedShots.push(r === 'dodged' ? { ...sh, spent: true } : sh);
+        else if (sh.drink === 'can') events.push({ type: 'canTaken', source: sh.owner });
+        else {
+          events.push({ type: 'teaTaken', source: sh.owner });
+          op = { ...op, fatigue: SUGAR_FOG.ticks };
+        }
         continue;
       }
       const r = absorb(sh.owner, sh.halves, { x: sh.x - sh.vx, y: sh.y - sh.vy }, typeOf(sh.owner));
@@ -1345,7 +1360,7 @@ export function step(state: GameState, pressed: TickInput): StepResult {
   let sleep = state.sleep;
   if (sleep) {
     // Anything that lands on the operator wakes them, not only a heart lost: a sleeper cannot dodge, so clinging would otherwise run up to a forced nap.
-    const struck = events.some((e) => e.type === 'heartLost' || e.type === 'clung' || e.type === 'toasted' || e.type === 'canTaken');
+    const struck = events.some((e) => e.type === 'heartLost' || e.type === 'clung' || e.type === 'toasted' || e.type === 'canTaken' || e.type === 'teaTaken');
     const r = stepSleep(sleep, moved.mixer?.batches.some((b) => b.left > 0) === true, struck);
     sleep = r.sleep;
     events.push(...r.events);

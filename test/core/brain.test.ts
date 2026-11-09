@@ -294,7 +294,7 @@ describe('the energy-drink salesman (design doc 7.4)', () => {
   /** A can already on the operator, thrown by the salesman: it lands on the next tick. */
   const canOn = (q: string): ChapterState => {
     const s = at(TUTORIAL, q, { x: 200, y: 200 });
-    const can = { id: 900, owner: seller(s)!.id, kind: 'can', can: true as const, x: 200, y: 196, vx: 0, vy: 0, ticksLeft: 5, halves: 0, half: 3, spent: false };
+    const can = { id: 900, owner: seller(s)!.id, kind: 'can', drink: 'can' as const, x: 200, y: 196, vx: 0, vy: 0, ticksLeft: 5, halves: 0, half: 3, spent: false };
     return { ...s, game: { ...s.game, shots: [can] } };
   };
   const drink = (q: string) => go(canOn(q), NONE, 1);

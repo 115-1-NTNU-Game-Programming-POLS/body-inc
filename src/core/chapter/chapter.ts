@@ -194,6 +194,8 @@ interface Carry {
   readonly halfCarry?: 0 | 1;
   /** The tool in hand; the stapler when absent. */
   readonly tool?: HeldTool;
+  /** Ticks left in the sugar fatigue fog; only a door carries it, since a return or a retry starts the operator afresh. */
+  readonly fatigue?: number;
 }
 
 function build(ctx: ChapterContent, run: Run, place: Place, carry: Carry): GameState {
@@ -214,6 +216,7 @@ function build(ctx: ChapterContent, run: Run, place: Place, carry: Carry): GameS
     halves: carry.halves,
     stacks: carry.stacks,
     ...(carry.halfCarry ? { halfCarry: carry.halfCarry } : {}),
+    ...(carry.fatigue ? { fatigue: carry.fatigue } : {}),
     switches: idsHere(run, run.switches),
     unlocked: openByState(room.objects, run.tags, ctx.dict, carry.clock),
     // `fired` also holds triggers and beds; the room keeps only the ids that are its pickups.
@@ -870,6 +873,7 @@ function stepRoom(ctx: ChapterContent, state: ChapterState, input: TickInput): C
     const built = build(ctx, next, { kind: 'door', door: dest.door }, {
       clock: game.clock, gauge: game.operator.gauge, halves: game.operator.halves, stacks: game.operator.stacks, tool: game.operator.tool,
       ...(game.operator.halfCarry ? { halfCarry: game.operator.halfCarry } : {}),
+      ...(game.operator.fatigue ? { fatigue: game.operator.fatigue } : {}),
     });
     return done(plain(remember(next, built), built), [{ type: 'roomChanged', from: run.roomId, to: dest.room }]);
   }

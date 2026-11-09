@@ -157,6 +157,13 @@ export const TELEGRAPH = {
  */
 export const ZONE_MAX_ACTIVE = DODGE.iframeLast - DODGE.iframeFirst + 1;
 
+/**
+ * The sugar salesman's drink (design doc 7.5, fact 13): accepted, it leaves the operator in a
+ * fatigue fog for 45 seconds, a 15% slow under the cap of design doc 5.1, and a shrunk view that
+ * only the view draws. Fact 13 supports the tiredness, not a sugar crash, so there is no crash.
+ */
+export const SUGAR_FOG = { ticks: 45 * TICK_HZ, slow: 0.15 } as const;
+
 /** Salesman archetype (design doc 5.3): melee rush, tier-1 telegraph. */
 export const SALESMAN = {
   speed: tilesPerSecond(1.5),

@@ -1,6 +1,6 @@
 import { moveAndCollide, type Body, type SolidGrid } from '../collision/grid.ts';
 import type { Assists } from './assists.ts';
-import { BUFFER_TICKS, CLING, DODGE, FOLDER, HURT, STAMP, STAPLER } from './frames.ts';
+import { BUFFER_TICKS, CLING, DODGE, FOLDER, HURT, STAMP, STAPLER, SUGAR_FOG } from './frames.ts';
 import { approach, desiredVelocity, facingFor, type Facing, type Vec } from './movement.ts';
 
 /**
@@ -60,6 +60,8 @@ export interface OperatorState {
   readonly slows: readonly number[];
   /** A slow the chapter sets from the body's state each tick (dizziness, design doc 7.7); kept apart from `slows` so neither overwrites the other. */
   readonly bodySlow?: number;
+  /** Ticks left in the sugar salesman's fatigue fog (SUGAR_FOG); none when absent. */
+  readonly fatigue?: number;
   /** Clinging stacks riding on the operator, each one a CLING.slowPerStack slow source. */
   readonly stacks: number;
   readonly halves: number;
@@ -307,7 +309,9 @@ export function stepOperator(grid: SolidGrid, op0: OperatorState, input: TickInp
   const stick = unit(input.move);
   const aim = stick.x === 0 && stick.y === 0 ? op.aim : stick;
   const factor = speed * (guard ? FOLDER.guardSpeedFactor : op.tool === 'stapler' && input.attack === true ? STAPLER.holdSpeedFactor : 1);
-  const want = desiredVelocity(input.move, [...op.slows, ...(op.bodySlow ? [op.bodySlow] : []), ...Array<number>(op.stacks).fill(CLING.slowPerStack)]);
+  const want = desiredVelocity(input.move, [
+    ...op.slows, ...(op.bodySlow ? [op.bodySlow] : []), ...(op.fatigue ? [SUGAR_FOG.slow] : []), ...Array<number>(op.stacks).fill(CLING.slowPerStack),
+  ]);
   const v = approach({ x: op.vx, y: op.vy }, { x: want.x * factor, y: want.y * factor });
   const m = moveAndCollide(grid, OPERATOR_BODY, op.x, op.y, v.x, v.y);
   const guardFrame = a.kind === 'guard' && keepGuard ? a.frame + 1 : 1;

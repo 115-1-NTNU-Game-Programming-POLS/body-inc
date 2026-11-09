@@ -919,9 +919,10 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
             "type": "string"
           },
           "throws": {
-            "description": "What a flyer throws instead of a folded sheet. A can costs no heart: landing adds caffeine to the residual and starts the palpitation (design doc 7.4), while the folder's guard still sends it back. Flyer archetype only.",
+            "description": "What a flyer throws instead of a folded sheet. A drink costs no heart and a dodge refuses it, while the folder's guard still sends it back. A can adds caffeine to the residual and starts the palpitation (design doc 7.4); tea leaves the operator in the sugar fatigue fog for 45 seconds (design doc 7.5). Flyer archetype only.",
             "enum": [
-              "can"
+              "can",
+              "tea"
             ]
           }
         }
@@ -3572,8 +3573,8 @@ export interface Enemy {
   readonly clings?: boolean;
   /** Id of the file in content/bosses that runs this enemy; its budget replaces performance and its moves replace an archetype. */
   readonly boss?: string;
-  /** What a flyer throws instead of a folded sheet. A can costs no heart: landing adds caffeine to the residual and starts the palpitation (design doc 7.4), while the folder's guard still sends it back. Flyer archetype only. */
-  readonly throws?: "can";
+  /** What a flyer throws instead of a folded sheet. A drink costs no heart and a dodge refuses it, while the folder's guard still sends it back. A can adds caffeine to the residual and starts the palpitation (design doc 7.4); tea leaves the operator in the sugar fatigue fog for 45 seconds (design doc 7.5). Flyer archetype only. */
+  readonly throws?: "can" | "tea";
 }
 
 /** One exam fight of the story (design doc 7.6, 8.9): segments of questions the operator answers while the paper throws a barrage. A Trigger with event exam and this id opens the forecast; the fight then runs in the room and the score goes through core/exam/scoring.ts. Rules the schema cannot state (enemy categories, telegraph lengths, the gap between waves) are checked in core/exam/fight.ts. Text lives in content/strings under exam.<id>.*. */

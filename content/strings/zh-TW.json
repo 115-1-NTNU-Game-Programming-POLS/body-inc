@@ -432,6 +432,8 @@
     "stomach.mixer_jammed": { "text": "放不下了！全部退回去！", "fact": "" },
     "stomach.chilled": { "text": "冷藏起來，明天當早餐", "fact": "" },
     "stomach.cold_store": { "text": "冷藏庫", "fact": "" },
+    "stomach.tea": { "text": "全糖喝下去，反而更累了", "fact": "13" },
+    "hud.fatigue": { "text": "全糖倦怠　{seconds} 秒", "fact": "13" },
     "dizzy.true": { "text": "頭暈冒冷汗：肝醣倉庫停止出貨", "fact": "31" },
     "dizzy.false": { "text": "倉庫恢復出貨，血糖回來了", "fact": "21" },
     "port.gate.open": { "text": "{n}/{total}　還開 {seconds} 秒", "fact": "" },

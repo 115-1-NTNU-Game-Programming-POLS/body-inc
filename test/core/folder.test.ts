@@ -581,7 +581,7 @@ describe('the energy-drink can (design doc 7.4)', () => {
     const gone = run(seller(), h + 40);
     expect(gone.state.shots).toEqual([]);
     const flying = run(seller(), h - 4).state;
-    const can = flying.shots.find((s) => s.can);
+    const can = flying.shots.find((s) => s.drink === 'can');
     expect(can).toMatchObject({ kind: 'can', halves: 0 });
     const spent = { ...flying, shots: flying.shots.map((s) => ({ ...s, spent: true })) };
     expect(ofType(run(spent, 60), 'canTaken')).toEqual([]);
