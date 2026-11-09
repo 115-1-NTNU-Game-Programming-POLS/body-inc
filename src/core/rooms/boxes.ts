@@ -179,6 +179,8 @@ interface RoomBoxIndex {
   readonly mixer: RoomObject | undefined;
   readonly hopper: readonly Tile[];
   readonly hopperKeys: ReadonlySet<string>;
+  /** Every cold store's tiles, by `col,row`. */
+  readonly cold: ReadonlyMap<string, RoomObject>;
 }
 
 const roomIndexes = new WeakMap<readonly RoomObject[], RoomBoxIndex>();
@@ -193,14 +195,23 @@ function indexOf(room: Pick<RoomModel, 'objects'>): RoomBoxIndex {
     for (const c of conveyors) for (const t of conveyorTiles(c)) if (!belt.has(at(t))) belt.set(at(t), c);
     const mixer = byId.find((o) => o.kind === 'Mixer');
     const hopper = mixer && mixer.width > 0 && mixer.height > 0 ? conveyorTiles(mixer) : [];
+    const cold = new Map<string, RoomObject>();
+    for (const c of byId.filter((o) => o.kind === 'ColdStore')) for (const t of conveyorTiles(c)) if (!cold.has(at(t))) cold.set(at(t), c);
     index = {
       keepClear: byId.filter((o) => KEEP_CLEAR.has(o.kind)).map(objectBox), conveyors, belt, port: room.objects.find((o) => o.kind === 'Port'),
-      mixer, hopper, hopperKeys: new Set(hopper.map(at)),
+      mixer, hopper, hopperKeys: new Set(hopper.map(at)), cold,
     };
     roomIndexes.set(room.objects, index);
   }
   return index;
 }
+
+/** The cold store under a tile, by the same centre rule as a conveyor; a food box at rest there is chilled. */
+export const coldStoreAt = (room: Pick<RoomModel, 'objects'>, t: Tile): RoomObject | undefined => indexOf(room).cold.get(at(t));
+
+/** Whether something would take a box resting on the tile in without a push: the port, the hopper or a cold store. */
+const takesIn = (room: Pick<RoomModel, 'objects'>, port: RoomObject | undefined, t: Tile): boolean =>
+  (port !== undefined && onPort(port, t)) || onHopper(room, t) || coldStoreAt(room, t) !== undefined;
 
 export const conveyorsOf = (room: RoomModel): readonly RoomObject[] => indexOf(room).conveyors;
 
@@ -279,11 +290,11 @@ export function settleBoxes(room: RoomModel, remembered: ReadonlyMap<number, Til
     if (placed.has(o.id)) continue;
     const home = tileOf(o);
     // A box last seen on the hopper was inside the mixer; what the mixer held is not kept (core/stomach/mixer.ts).
-    // One last seen on the port was sliding onto it, and would rest on a shut gate on entry.
+    // One last seen on the port or a cold store was sliding onto it, and would rest on a shut gate
+    // or be taken in on entry without a push.
     const t = remembered.get(o.id);
-    const spot = [home, t && !onHopper(room, t) && !(port && onPort(port, t)) ? t : undefined].find((x): x is Tile => x !== undefined && free(x))
-      // Nor on the port or the hopper, which would take it in next tick without a push.
-      ?? nearest(room, home, (x) => free(x) && !keepClear.some((k) => overlaps(tileBox(x), k)) && !(port && onPort(port, x)) && !onHopper(room, x));
+    const spot = [home, t && !takesIn(room, port, t) ? t : undefined].find((x): x is Tile => x !== undefined && free(x))
+      ?? nearest(room, home, (x) => free(x) && !keepClear.some((k) => overlaps(tileBox(x), k)) && !takesIn(room, port, x));
     placed.set(o.id, spot ?? home);
   }
   return objects.map((o) => ({ id: o.id, ...placed.get(o.id)!, left: 0, ticks: 0 }));

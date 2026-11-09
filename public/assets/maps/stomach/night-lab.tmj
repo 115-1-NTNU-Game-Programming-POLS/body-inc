@@ -10,7 +10,7 @@
  "tilewidth": 32,
  "tileheight": 32,
  "nextlayerid": 4,
- "nextobjectid": 10,
+ "nextobjectid": 11,
  "class": "Room",
  "properties": [
   {
@@ -749,6 +749,18 @@
        "value": "W"
       }
      ]
+    },
+    {
+     "id": 10,
+     "name": "cold",
+     "type": "ColdStore",
+     "x": 192,
+     "y": 288,
+     "width": 96,
+     "height": 64,
+     "rotation": 0,
+     "visible": true,
+     "properties": []
     }
    ]
   }

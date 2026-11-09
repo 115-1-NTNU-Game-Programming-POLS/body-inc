@@ -222,6 +222,7 @@ function build(ctx: ChapterContent, run: Run, place: Place, carry: Carry): GameS
     // the whole map, not this visit's room: a box from a variant or with a `when` stays delivered
     // when it would be absent now, or the filled port would empty again.
     delivered: idsHere(run, run.fired).filter((id) => model.objects.some((o) => o.id === id && o.kind === 'Box')),
+    chilled: chilledHere(run),
     boxes: boxesHere(run),
     stampLocked: !run.tools.includes('stamp'),
     folderLocked: !run.tools.includes('folder'),
@@ -257,6 +258,20 @@ function remember(run: Run, game: GameState): Run {
 function boxesHere(run: Run): Map<number, { col: number; row: number }> {
   const prefix = `${run.roomId}#`;
   return new Map(run.boxes.filter((b) => b.key.startsWith(prefix)).map((b) => [Number(b.key.slice(prefix.length)), { col: b.col, row: b.row }]));
+}
+
+/**
+ * The `fired` key of a box a cold store chilled. It is kept apart from a delivered box's plain
+ * `roomId#objectId`, which every port in the room would count, and is never a number, so no
+ * lookup by object id ever matches it.
+ */
+const CHILLED = '#chilled.';
+const chilledKey = (roomId: string, box: number): string => `${roomId}${CHILLED}${box}`;
+
+/** Box ids of the run's current room that a cold store chilled. */
+function chilledHere(run: Run): number[] {
+  const prefix = `${run.roomId}${CHILLED}`;
+  return run.fired.filter((k) => k.startsWith(prefix)).map((k) => Number(k.slice(prefix.length)));
 }
 
 /** Object ids of the run's current room among `roomId#objectId` keys. */
@@ -738,6 +753,12 @@ function stepRoom(ctx: ChapterContent, state: ChapterState, input: TickInput): C
         // Taken in for good: spent like a pickup, and no longer a box the room has to place.
         const key = `${run.roomId}#${e.object}`;
         run = { ...run, fired: [...run.fired, key], boxes: run.boxes.filter((b) => b.key !== key) };
+        break;
+      }
+      case 'boxChilled': {
+        // Gone until tomorrow, like a delivered box, but under its own key so no port counts it.
+        const key = `${run.roomId}#${e.object}`;
+        run = { ...run, fired: [...run.fired, chilledKey(run.roomId, e.object)], boxes: run.boxes.filter((b) => b.key !== key) };
         break;
       }
       case 'portFilled':

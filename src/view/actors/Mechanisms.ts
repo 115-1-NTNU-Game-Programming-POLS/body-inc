@@ -3,13 +3,14 @@ import {
   conveyorTiles, directionOf, dockTiles, hopperTiles, isSpawnedCrate, MIST, objectBox, outletTile, PARCEL, portCycle, selectBoxes, selectConveyors, selectDoorLocks, selectFactory,
   selectMixer, selectPickups, selectPort, selectSwitches, TILE, type BoxState, type GameState, type RoomObject,
 } from '../../core/index.ts';
-import { fillStr } from '../../app/content.ts';
+import { fillStr, str } from '../../app/content.ts';
 import { addText, updateText } from '../text/fonts.ts';
 
 const INK = 0x0c2d5e;
 const PAPER = 0xf4efe4;
 const BLUE = 0x2f5fa8;
 const GREY = 0x8a8780;
+const COLD = 0x9cc7de;
 
 /**
  * Placeholder pictures for switches, pickups and door locks, redrawn only when their state changes. A
@@ -54,6 +55,12 @@ export class Mechanisms {
       const dock = dockTiles(state.room);
       const bottom = Math.max(...dock.map((t) => (t.row + 1) * TILE));
       this.factory = { dock: scene.add.graphics().setDepth(bottom), fog: scene.add.graphics().setDepth(2) };
+    }
+    // Cold stores never change, so they are drawn once, on the floor with a name plate.
+    for (const o of state.room.objects.filter((x) => x.kind === 'ColdStore')) {
+      const b = objectBox(o);
+      drawColdStore(scene.add.graphics().setDepth(1), o);
+      addText(scene, b.left + 4, b.top + 3, str('stomach.cold_store'), { role: 'print', weight: 700, size: 12, color: '#0c2d5e' }).setOrigin(0, 0).setDepth(1);
     }
     const mix = selectMixer(state);
     if (mix) {
@@ -238,6 +245,21 @@ function drawPort(g: Phaser.GameObjects.Graphics, o: RoomObject, full: boolean, 
   g.fillStyle(0x7d8594, 0.9).fillRect(b.left + 2, b.top + 2, w - 4, h - 4);
   g.lineStyle(2, INK, 0.8);
   for (let y = b.top + 8; y < b.bottom - 2; y += 8) g.lineBetween(b.left + 2, y, b.right - 2, y);
+}
+
+/** A cold store: a cold-blue bay on the floor with frost ticks, art direction's cold blue. */
+function drawColdStore(g: Phaser.GameObjects.Graphics, o: RoomObject): void {
+  const b = objectBox(o);
+  const w = b.right - b.left;
+  const h = b.bottom - b.top;
+  g.fillStyle(COLD, 0.6).fillRect(b.left, b.top, w, h);
+  g.lineStyle(2, INK, 1).strokeRect(b.left + 1, b.top + 1, w - 2, h - 2);
+  g.lineStyle(1, PAPER, 0.8);
+  for (let y = b.top + 24; y < b.bottom - 4; y += 16) {
+    for (let x = b.left + 12 + ((y - b.top) % 32 === 8 ? 8 : 0); x < b.right - 6; x += 16) {
+      g.lineBetween(x - 4, y, x + 4, y).lineBetween(x, y - 4, x, y + 4);
+    }
+  }
 }
 
 /** The mixer's hopper: a steel drum mouth over each tile, with the blades showing. */

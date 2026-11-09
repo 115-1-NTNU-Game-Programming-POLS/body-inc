@@ -75,6 +75,7 @@
     "checkpointSaved": { "sound": "punch", "note": "checkpoint.saved" },
     "crateTaken": { "sound": "thunk", "particles": [{ "preset": "paper", "count": 6 }], "note": "liver.crate_taken" },
     "mixerFed": { "sound": "thunk" },
+    "boxChilled": { "sound": "thunk", "note": "stomach.chilled" },
     "parcelOut": { "sound": "pick" },
     "mixerJammed": { "sound": "bad", "shake": { "px": 4, "seconds": 0.15 }, "particles": [{ "preset": "paper", "count": 10 }], "note": "stomach.mixer_jammed" },
     "dizzyChanged": { "sound": "dizzy.{dizzy}", "note": "dizzy.{dizzy}" },

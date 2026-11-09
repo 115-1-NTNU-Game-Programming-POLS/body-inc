@@ -161,6 +161,15 @@ export type RoomProblemCode =
   | 'bed-seconds'
   /** A Port with only one of `openSeconds` and `closedSeconds` above 0: it needs both to be a timed gate. */
   | 'port-timing'
+  /** A ColdStore drawn as a point, or too small to hold any tile's centre. */
+  | 'cold-shape'
+  /** A ColdStore whose every tile is a wall, so no box can come to rest on it. */
+  | 'cold-wall'
+  /**
+   * A door, NPC, bed, pickup, trigger, switch, port, mixer or belt over a cold store: no box can rest
+   * under the first ones, and on the others two things would want the same box.
+   */
+  | 'cold-blocked'
   /** A wall room whose track or board has not exactly the slots the game fills (see core/rooms/slots.ts). */
   | 'slot-count'
   /** Two EvidenceSlots with the same track, day and order. */
@@ -418,11 +427,12 @@ export function readRoom(id: string, map: TiledMap, dict: TagDictionary): ReadRe
       else if (t.kind !== 'Conveyor' && (t.kind !== 'Door' || t.props['lock'] !== 'switch')) problems.push({ code: 'switch-target-kind', object: o.id, args: { target } });
     }
     if (o.kind === 'Conveyor' && (o.width <= 0 || o.height <= 0)) problems.push({ code: 'conveyor-shape', object: o.id });
-    if (o.kind === 'Port') {
-      // The game takes a box in by the tile centre rule, so a port covering no centre has no tile.
+    if (o.kind === 'Port' || o.kind === 'ColdStore') {
+      // The game takes a box in by the tile centre rule, so one covering no centre has no tile.
+      const port = o.kind === 'Port';
       const tiles = o.width > 0 && o.height > 0 ? conveyorTiles(o) : [];
-      if (tiles.length === 0) problems.push({ code: 'port-shape', object: o.id });
-      else if (tiles.every((t) => isSolid({ cols: map.width, rows: map.height, solid }, t.col, t.row))) problems.push({ code: 'port-wall', object: o.id });
+      if (tiles.length === 0) problems.push({ code: port ? 'port-shape' : 'cold-shape', object: o.id });
+      else if (tiles.every((t) => isSolid({ cols: map.width, rows: map.height, solid }, t.col, t.row))) problems.push({ code: port ? 'port-wall' : 'cold-wall', object: o.id });
     }
   }
   const boxes = objects.filter((o) => o.kind === 'Box').sort((a, b) => a.id - b.id);
@@ -459,6 +469,15 @@ export function readRoom(id: string, map: TiledMap, dict: TagDictionary): ReadRe
     const over = objects.find((x) => (KEEP_CLEAR.has(x.kind) || x.kind === 'Port' || x.kind === 'Switch') && hopper.some((h) => overlaps(h, objectBox(x))));
     if (over) problems.push({ code: 'mixer-blocked', object: m.id, args: { other: over.id, kind: over.kind } });
   }
+  const tilesOf = (o: RoomObject) => (o.width > 0 && o.height > 0 ? conveyorTiles(o) : []);
+  for (const c of objects.filter((o) => o.kind === 'ColdStore')) {
+    const tiles = tilesOf(c);
+    const keys = new Set(tiles.map((t) => `${t.col},${t.row}`));
+    const over = objects.find((x) => together(c, x) && (
+      (KEEP_CLEAR.has(x.kind) || x.kind === 'Switch') ? tiles.some((t) => overlaps(tileBox(t), objectBox(x)))
+        : (x.kind === 'Port' || x.kind === 'Mixer' || x.kind === 'Conveyor') && tilesOf(x).some((t) => keys.has(`${t.col},${t.row}`))));
+    if (over) problems.push({ code: 'cold-blocked', object: c.id, args: { other: over.id, kind: over.kind } });
+  }
   for (const [i, b] of boxes.entries()) {
     if (b.props['boxType'] === 'acetaldehyde') problems.push({ code: 'box-acetaldehyde', object: b.id });
     const t = tileOf(b);
@@ -466,7 +485,7 @@ export function readRoom(id: string, map: TiledMap, dict: TagDictionary): ReadRe
     if (isSolid({ cols: map.width, rows: map.height, solid }, t.col, t.row)) problems.push({ code: 'box-wall', object: b.id, args: { col: t.col, row: t.row } });
     const twin = boxes.slice(0, i).find((x) => { const u = tileOf(x); return u.col === t.col && u.row === t.row && together(b, x); });
     if (twin) problems.push({ code: 'box-stack', object: b.id, args: { other: twin.id } });
-    const blocked = objects.find((x) => (KEEP_CLEAR.has(x.kind) || x.kind === 'Port' || x.kind === 'Mixer') && overlaps(tb, objectBox(x)) && together(b, x));
+    const blocked = objects.find((x) => (KEEP_CLEAR.has(x.kind) || x.kind === 'Port' || x.kind === 'Mixer' || x.kind === 'ColdStore') && overlaps(tb, objectBox(x)) && together(b, x));
     if (blocked) problems.push({ code: 'box-blocked', object: b.id, args: { other: blocked.id, kind: blocked.kind } });
   }
 
@@ -508,7 +527,7 @@ function lineProblems(objects: readonly RoomObject[], cols: number, rows: number
   const onDock = (t: { col: number; row: number }) => dock.some((d) => d.col === t.col && d.row === t.row);
   for (const o of objects) {
     const covered = o.kind === 'Line' ? (o.props['stage'] === 'intake' && o.width > 0 && o.height > 0 ? conveyorTiles(o) : [])
-      : o.kind === 'Port' || o.kind === 'Conveyor' || o.kind === 'Mixer' ? (o.width > 0 && o.height > 0 ? conveyorTiles(o) : [])
+      : o.kind === 'Port' || o.kind === 'Conveyor' || o.kind === 'Mixer' || o.kind === 'ColdStore' ? (o.width > 0 && o.height > 0 ? conveyorTiles(o) : [])
         : DOCK_CLEAR.has(o.kind) ? dock.filter((d) => overlaps(tileBox(d), objectBox(o))) : [];
     if (covered.some(onDock)) problems.push({ code: 'dock-blocked', object: o.id, args: { kind: o.kind } });
   }

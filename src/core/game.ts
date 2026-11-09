@@ -21,7 +21,7 @@ import { sitting, startExam, stepExam, type ExamDef, type ExamKind, type ExamSta
 import { seedStreams, type RngStreams } from './rng.ts';
 import {
   advanceSlide, beltAt, boxAhead, boxPixel, canEnter, CONVEYOR_TICKS, conveyorRunning, conveyorsOf, conveyorTiles, directionOf, filledPorts, mixerOf, mixerOutlet,
-  liveGate, nearest, onPort, portOf, portOpenAt, portTakes, portTicksLeft, PUSH, pushDirection, settleBoxes, startSlide, tileAt, tileBox, withBoxes, type BoxState, type Occupants, type Tile,
+  coldStoreAt, liveGate, nearest, onPort, portOf, portOpenAt, portTakes, portTicksLeft, PUSH, pushDirection, settleBoxes, startSlide, tileAt, tileBox, withBoxes, type BoxState, type Occupants, type Tile,
 } from './rooms/boxes.ts';
 import { boxTypeOf, EMPTY_MIXER, PORTION_SECONDS, stepMixer, type MixerEvent, type MixerState, type Portion } from './stomach/mixer.ts';
 import type { EnteredRoom } from './rooms/entry.ts';
@@ -106,6 +106,8 @@ export interface GameState {
   readonly push: PushState | null;
   /** Boxes a Port has taken, in id order: gone from the room for good, and what the port counts. */
   readonly delivered: readonly number[];
+  /** Food boxes a cold store has taken, in id order: gone from the room for good, counted by no port. */
+  readonly chilled: readonly number[];
   /** Set until the chairman hands over the stamp (design doc 5.4): the stamp key does nothing. */
   readonly stampLocked?: true;
   /** Set until the general affairs office hands over the folder (design doc 7.4): the swap key does nothing. */
@@ -235,6 +237,8 @@ export type DomainEvent =
   | { readonly type: 'boxMoved'; readonly object: number; readonly col: number; readonly row: number; readonly by: 'push' | 'conveyor' | 'mixer' }
   /** A box came to rest on a Port, which took it; `count` is how many the port holds now. */
   | { readonly type: 'boxDelivered'; readonly object: number; readonly port: number; readonly count: number; readonly need: number }
+  /** A food box came to rest on a cold store, which chilled it until tomorrow (design doc 7.5). */
+  | { readonly type: 'boxChilled'; readonly object: number; readonly store: number }
   /** A Port took its last needed box: it now counts as a switch that is on, for good. */
   | { readonly type: 'portFilled'; readonly object: number }
   /** A timed Port opened or shut (design doc 7.5); a filled one stays open and says nothing more. */
@@ -343,6 +347,8 @@ export interface GameOptions {
    * delivered box may be absent from this visit's room, and the port still holds it.
    */
   readonly delivered?: readonly number[];
+  /** Food boxes a cold store took on an earlier visit, as box ids of the whole map like `delivered`. */
+  readonly chilled?: readonly number[];
   /** The stamp is not handed over yet. */
   readonly stampLocked?: boolean;
   /** The folder is not handed over yet. */
@@ -454,7 +460,8 @@ export function createGame(room: EnteredRoom, seed: number, table: EnemyTable, o
   const operator = { ...newOperator(start.x, start.y, cap, gauge), halves, stacks: carried, tool, ...(options.halfCarry ? { halfCarry: options.halfCarry } : {}) };
   const body = boxAt(OPERATOR_BODY, operator.x, operator.y);
   const delivered = ascending(options.delivered ?? []);
-  const boxes = settleBoxes(room, options.boxes ?? new Map(), occupantsOf(operator, spawned.enemies).bodies, delivered);
+  const chilled = ascending(options.chilled ?? []);
+  const boxes = settleBoxes(room, options.boxes ?? new Map(), occupantsOf(operator, spawned.enemies).bodies, [...delivered, ...chilled]);
   const switches = ascending([
     ...(options.switches ?? []).filter((id) => switchMode(room, id) === 'toggle'),
     ...platesUnder(room, body),
@@ -498,6 +505,7 @@ export function createGame(room: EnteredRoom, seed: number, table: EnemyTable, o
     boxes: allBoxes,
     push: null,
     delivered,
+    chilled,
     ...(options.stampLocked ? { stampLocked: true as const } : {}),
     ...(options.folderLocked ? { folderLocked: true as const } : {}),
     ...(options.pie ? { pie: PIE_READY } : {}),
@@ -551,7 +559,7 @@ function forcedLeave(before: GameState): GameState {
   // A solved switch stays solved (design doc 5.6); a plate is only down while someone or a box is on it.
   const body = boxAt(OPERATOR_BODY, operator.x, operator.y);
   const clear = occupantsOf(operator, enemies).bodies;
-  const settled = settleBoxes(state.room, new Map(state.boxes.filter((b) => !isSpawnedCrate(b)).map((b) => [b.id, { col: b.col, row: b.row }])), clear, state.delivered);
+  const settled = settleBoxes(state.room, new Map(state.boxes.filter((b) => !isSpawnedCrate(b)).map((b) => [b.id, { col: b.col, row: b.row }])), clear, [...state.delivered, ...state.chilled]);
   // Acetaldehyde crates are not the map's, so they have no home to settle on: they go back round the outlet, all of them.
   const crates = state.factory
     ? placeCrates(state.room, settled, clear, state.boxes.filter(isSpawnedCrate).length, state.factory.serial)
@@ -656,7 +664,7 @@ function interactionOf(o: RoomObject): DomainEvent {
  * The array is kept when nothing moves, so the solid grid built from it stays cached.
  */
 function moveBoxes(state: GameState, op: OperatorState, input: TickInput): MovedBoxes {
-  if (state.boxes.length === 0 && !state.mixer?.batches.length) return { boxes: state.boxes, push: null, events: [], delivered: state.delivered, mixer: state.mixer };
+  if (state.boxes.length === 0 && !state.mixer?.batches.length) return { boxes: state.boxes, push: null, events: [], delivered: state.delivered, chilled: state.chilled, mixer: state.mixer };
   const room = state.room;
   const events: DomainEvent[] = [];
   const port = portOf(room);
@@ -686,6 +694,15 @@ function moveBoxes(state: GameState, op: OperatorState, input: TickInput): Moved
       if (delivered.length === need) events.push({ type: 'portFilled', object: port.id });
     }
   }
+  // A cold store chills a food box at rest on it in the same way; other boxes rest there like on floor.
+  let chilled = state.chilled;
+  for (const b of boxes.filter((x) => x.left === 0 && !isSpawnedCrate(x) && boxTypeOf(room, x) === 'food')) {
+    const store = coldStoreAt(room, b);
+    if (!store) continue;
+    boxes = boxes.filter((x) => x.id !== b.id);
+    chilled = ascending([...chilled, b.id]);
+    events.push({ type: 'boxChilled', object: b.id, store: store.id });
+  }
   // The second line takes in an acetaldehyde crate at rest on it in the same way (design doc 7.7).
   const intake = state.factory ? linesOf(room).intake : undefined;
   if (intake) {
@@ -703,7 +720,7 @@ function moveBoxes(state: GameState, op: OperatorState, input: TickInput): Moved
     boxes = m.boxes;
     events.push(...m.events);
   }
-  const out = (push: PushState | null): MovedBoxes => ({ boxes, push, events, delivered, mixer });
+  const out = (push: PushState | null): MovedBoxes => ({ boxes, push, events, delivered, chilled, mixer });
 
   for (const b of [...boxes]) {
     if (b.left > 0) continue;
@@ -740,6 +757,7 @@ interface MovedBoxes {
   readonly push: PushState | null;
   readonly events: DomainEvent[];
   readonly delivered: readonly number[];
+  readonly chilled: readonly number[];
   readonly mixer: MixerState | undefined;
 }
 
@@ -1339,7 +1357,7 @@ export function step(state: GameState, pressed: TickInput): StepResult {
     zones: [...zones.values()].sort((a, b) => a.id - b.id), nextId, freeze,
     // What the door check saw, not a fresh count: a lever pinned by a staple after the check must
     // still count as newly opened next tick for an operator already pressed against its door.
-    touching: onNow.map((o) => o.id), carried, switches, doorsOpen: doorsOpenNow, taken, boxes, push, delivered: moved.delivered,
+    touching: onNow.map((o) => o.id), carried, switches, doorsOpen: doorsOpenNow, taken, boxes, push, delivered: moved.delivered, chilled: moved.chilled,
     ...(pie ? { pie } : {}),
     ...(factory ? { factory } : {}),
     ...(moved.mixer ? { mixer: moved.mixer } : {}),
