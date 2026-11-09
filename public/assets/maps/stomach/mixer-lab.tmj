@@ -10,7 +10,7 @@
  "tilewidth": 32,
  "tileheight": 32,
  "nextlayerid": 4,
- "nextobjectid": 13,
+ "nextobjectid": 15,
  "class": "Room",
  "properties": [
   {
@@ -697,9 +697,9 @@
      "id": 7,
      "name": "belt-in",
      "type": "Conveyor",
-     "x": 96,
+     "x": 64,
      "y": 192,
-     "width": 224,
+     "width": 256,
      "height": 32,
      "rotation": 0,
      "visible": true,
@@ -782,6 +782,82 @@
        "type": "string",
        "propertytype": "PortAccepts",
        "value": "parcel"
+      }
+     ]
+    },
+    {
+     "id": 11,
+     "name": "loop-north",
+     "type": "Conveyor",
+     "x": 64,
+     "y": 96,
+     "width": 544,
+     "height": 32,
+     "rotation": 0,
+     "visible": true,
+     "properties": [
+      {
+       "name": "direction",
+       "type": "string",
+       "propertytype": "Direction",
+       "value": "W"
+      }
+     ]
+    },
+    {
+     "id": 12,
+     "name": "loop-west",
+     "type": "Conveyor",
+     "x": 32,
+     "y": 96,
+     "width": 32,
+     "height": 224,
+     "rotation": 0,
+     "visible": true,
+     "properties": [
+      {
+       "name": "direction",
+       "type": "string",
+       "propertytype": "Direction",
+       "value": "S"
+      }
+     ]
+    },
+    {
+     "id": 13,
+     "name": "loop-south",
+     "type": "Conveyor",
+     "x": 32,
+     "y": 320,
+     "width": 544,
+     "height": 32,
+     "rotation": 0,
+     "visible": true,
+     "properties": [
+      {
+       "name": "direction",
+       "type": "string",
+       "propertytype": "Direction",
+       "value": "E"
+      }
+     ]
+    },
+    {
+     "id": 14,
+     "name": "loop-east",
+     "type": "Conveyor",
+     "x": 576,
+     "y": 128,
+     "width": 32,
+     "height": 224,
+     "rotation": 0,
+     "visible": true,
+     "properties": [
+      {
+       "name": "direction",
+       "type": "string",
+       "propertytype": "Direction",
+       "value": "N"
       }
      ]
     }

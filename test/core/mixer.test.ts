@@ -125,6 +125,23 @@ describe('jamming', () => {
     expect(types(run(c, r.state, 3).events)).not.toContain('mixerFed');
   });
 
+  it('never throws a box onto a belt, running or stopped, which could carry it straight back in', () => {
+    // The in-belt runs east into the hopper from column 4; a stopped belt lies north of the hopper.
+    const belt = (id: number, col: number, row: number, cols: number) =>
+      ({ id, type: 'Conveyor', x: col * 32, y: row * 32, width: cols * 32, height: 32, properties: [p('direction', 'E')] });
+    const lever = { id: 42, type: 'Switch', x: 2 * 32 + 16, y: 2 * 32 + 16 + 64, properties: [p('target', 41), p('mode', 'toggle')] };
+    const c = chapter([mixer(), belt(40, 4, 6, 6), belt(41, 9, 5, 4), lever, food(3, 4, 9), food(4, 5, 9), food(5, 6, 9), food(6, 7, 9)]);
+    let s = startChapter(c);
+    for (const id of [3, 4, 5]) s = run(c, drop(s, id, 10, 6), 1).state;
+    const r = run(c, drop(s, 6, 11, 6), 1);
+    expect(types(r.events)).toContain('mixerJammed');
+    for (const b of r.state.game.boxes) {
+      expect(b.row === 6 && b.col >= 4 && b.col <= 9, `box ${b.id} on the in-belt`).toBe(false);
+      expect(b.row === 5 && b.col >= 9 && b.col <= 12, `box ${b.id} on the stopped belt`).toBe(false);
+    }
+    expect(types(run(c, r.state, 120).events)).not.toContain('mixerFed');
+  });
+
   it('follows the capacity the map sets', () => {
     const c = chapter([mixer([p('outlet', 'E'), p('capacity', 4)]), food(3, 4, 4), food(4, 5, 4), food(5, 6, 4), food(6, 7, 4), food(7, 8, 4)]);
     let s = startChapter(c);
@@ -181,6 +198,29 @@ describe('leaving the room', () => {
     expect(onHopper(room, three)).toBe(false);
   });
 
+  it('remembers where it set a box down, so a door and a forced leave agree about a parcel left on a plate', () => {
+    const plateAtOutlet = { id: 40, type: 'Switch', x: 12 * 32, y: 6 * 32, width: 32, height: 32, properties: [p('target', 41), p('mode', 'hold')] };
+    const belt = { id: 41, type: 'Conveyor', x: 2 * 32, y: 9 * 32, width: 64, height: 32, properties: [] };
+    const c = chapter([mixer(), food(3, 4, 4, 'small'), plateAtOutlet, belt]);
+    const out = run(c, drop(startChapter(c), 3, 10, 6), 1 + portionTicks('small'));
+    expect(out.events).toContainEqual({ type: 'boxMoved', object: 3, col: 12, row: 6, by: 'mixer' });
+    expect(out.state.run.boxes).toContainEqual({ key: 'lab/a#3', col: 12, row: 6 });
+    expect(out.state.game.switches).toContain(40);
+
+    const walk = (s: ChapterState, y: number, dy: number, room: string) => {
+      let at: ChapterState = { ...s, game: { ...s.game, touching: [], operator: { ...s.game.operator, x: 320, y } } };
+      for (let i = 0; i < 60 && at.run.roomId !== room; i++) at = stepChapter(c, at, { move: { x: 0, y: dy } }).state;
+      return at;
+    };
+    const back = walk(walk(out.state, 330, 1, 'lab/b'), 110, -1, 'lab/a');
+    const died = run(c, { ...out.state, game: { ...out.state.game, operator: { ...out.state.game.operator, halves: 0 } } }, 1).state;
+    for (const s of [back, died]) {
+      // Food again, still on the plate, which stays down.
+      expect(selectBoxes(s.game)).toEqual([{ object: 3, boxType: 'food', x: 12 * 32, y: 6 * 32 }]);
+      expect(s.game.switches).toContain(40);
+    }
+  });
+
   it('empties it on a forced leave too', () => {
     const c = chapter([mixer(), food(3, 4, 4, 'large')]);
     const fed = run(c, drop(startChapter(c), 3, 10, 6), 1).state;
@@ -205,6 +245,8 @@ describe('the map check', () => {
     expect(codes([{ ...mixer(), width: 0, height: 0 }])).toEqual(['mixer-shape']);
     expect(codes([mixer(), { ...mixer(), id: 21, y: 8 * 32 }])).toEqual(['mixer-multiple']);
     expect(codes([mixer()], [[10, 6], [11, 6]])).toEqual(['mixer-wall']);
+    // One wall tile is enough: the outlet and the throws are reckoned from the whole rectangle.
+    expect(codes([mixer()], [[11, 6]])).toEqual(['mixer-wall']);
     expect(codes([mixer()], [[12, 6]])).toEqual(['mixer-outlet']);
     // East of column 18 is the map's edge.
     expect(codes([mixer([p('outlet', 'E')], 18, 1)], [])).toEqual([]);
@@ -219,5 +261,28 @@ describe('the map check', () => {
 
   it('reports a box that starts on the hopper', () => {
     expect(codes([mixer(), food(3, 10, 6)])).toEqual(['box-blocked']);
+  });
+
+  it('reports a mixer in a variant layer, so a parcel port is never judged against a mixer that can be absent', () => {
+    const map = mapOf([food(3, 4, 4), port('parcel')]) as unknown as { layers: object[] };
+    map.layers.push({ type: 'objectgroup', name: 'variant:fed', properties: [p('when', 'breakfast')], objects: [mixer()] });
+    expect(readRoom('lab/a', map as unknown as TiledMap, TAGS).problems.map((x) => x.code)).toEqual(['mixer-variant']);
+  });
+
+  it('reports a trigger, port or switch over the hopper', () => {
+    const trigger = { id: 40, type: 'Trigger', x: 11 * 32, y: 6 * 32, width: 32, height: 32, properties: [p('event', 'checkpoint')] };
+    expect(codes([mixer(), trigger])).toEqual(['mixer-blocked']);
+    expect(codes([mixer(), food(3, 4, 4), { ...port('any'), x: 10 * 32, y: 6 * 32 }])).toEqual(['mixer-blocked']);
+    const belt = { id: 41, type: 'Conveyor', x: 2 * 32, y: 9 * 32, width: 64, height: 32, properties: [] };
+    const plate = { id: 42, type: 'Switch', x: 10 * 32, y: 6 * 32, width: 32, height: 32, properties: [p('target', 41), p('mode', 'hold')] };
+    expect(codes([mixer(), belt, plate])).toEqual(['mixer-blocked']);
+  });
+
+  it('reports a mixer over the liver dock', () => {
+    const line = (id: number, stage: string, col: number, row: number, cols = 0) => (cols > 0
+      ? { id, type: 'Line', x: col * 32, y: row * 32, width: cols * 32, height: 32, properties: [p('stage', stage)] }
+      : { id, type: 'Line', x: col * 32 + 16, y: row * 32 + 16, properties: [p('stage', stage)] });
+    const factory = [line(50, 'receiving', 11, 6, 3), line(51, 'outlet', 15, 8), line(52, 'intake', 3, 9, 2)];
+    expect(codes([mixer([p('outlet', 'S')]), ...factory])).toContain('dock-blocked');
   });
 });

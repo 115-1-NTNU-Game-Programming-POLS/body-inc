@@ -1,9 +1,10 @@
 /**
  * Writes the stomach chapter's greybox rooms (design doc 7.5) into public/assets/maps/stomach/.
  * For now that is one lab room for the mixer of core/stomach/mixer.ts: five food boxes of the three
- * portions, a belt into the hopper, and a slow belt from the outlet to the small intestine's gate, a
- * port that takes parcels only. Open it with ?room=stomach/mixer-lab. The chapter's real rooms
- * (esophagus lift, warehouse, cold store, intestine corridor, night dock) come in later steps.
+ * portions, a belt into the hopper, a slow belt from the outlet to the small intestine's gate (a
+ * port that takes parcels only), and a belt loop along the walls so no box can be pushed into a
+ * dead corner. Open it with ?room=stomach/mixer-lab. The chapter's real rooms (esophagus lift,
+ * warehouse, cold store, intestine corridor, night dock) come in later steps.
  *
  *   node tools/maps/make-stomach.ts
  */
@@ -24,7 +25,7 @@ const food = (id: number, col: number, row: number, portion: string) => ({
 
 writeRoom('stomach/mixer-lab.tmj', {
   type: 'map', version: '1.10', tiledversion: '1.11.0', orientation: 'orthogonal', renderorder: 'right-down',
-  infinite: false, width: W, height: 12, tilewidth: T, tileheight: T, nextlayerid: 4, nextobjectid: 13, class: 'Room',
+  infinite: false, width: W, height: 12, tilewidth: T, tileheight: T, nextlayerid: 4, nextobjectid: 15, class: 'Room',
   properties: [
     { name: 'organ', type: 'string', value: 'stomach' },
     { name: 'role', type: 'string', value: 'puzzle' },
@@ -43,10 +44,16 @@ writeRoom('stomach/mixer-lab.tmj', {
         food(4, 8, 4, 'large'),
         food(5, 4, 9, 'normal'),
         food(6, 6, 9, 'small'),
-        rect(7, 'belt-in', 'Conveyor', 3, 6, 7, 1, [str('direction', 'Direction', 'E')]),
+        rect(7, 'belt-in', 'Conveyor', 2, 6, 8, 1, [str('direction', 'Direction', 'E')]),
         rect(8, 'mixer', 'Mixer', 10, 6, 2, 1, [int('capacity', 3), str('outlet', 'Socket', 'E')]),
         rect(9, 'belt-out', 'Conveyor', 12, 6, 4, 1, [str('direction', 'Direction', 'E'), str('speed', 'ConveyorSpeed', 'slow')]),
         rect(10, 'gate', 'Port', 16, 6, 2, 1, [int('need', 3), str('accepts', 'PortAccepts', 'parcel')]),
+        // A loop along the walls, as in the prologue warehouse: a box pushed against a wall rides round
+        // instead of sticking, and on the west side it passes the in-belt, where one push sends it in.
+        rect(11, 'loop-north', 'Conveyor', 2, 3, 17, 1, [str('direction', 'Direction', 'W')]),
+        rect(12, 'loop-west', 'Conveyor', 1, 3, 1, 7, [str('direction', 'Direction', 'S')]),
+        rect(13, 'loop-south', 'Conveyor', 1, 10, 17, 1, [str('direction', 'Direction', 'E')]),
+        rect(14, 'loop-east', 'Conveyor', 18, 4, 1, 7, [str('direction', 'Direction', 'N')]),
       ],
     },
   ],

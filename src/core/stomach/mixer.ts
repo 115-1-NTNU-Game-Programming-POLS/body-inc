@@ -1,6 +1,6 @@
 import { TICK_HZ } from '../time.ts';
 import {
-  canEnter, hopperTiles, mixerOf, mixerOutlet, nearest, onHopper, onPort, PARCEL, portOf, type BoxState, type Occupants, type Tile,
+  canEnter, hopperTiles, mixerOf, mixerOutlet, nearest, onConveyor, onHopper, onPort, PARCEL, portOf, type BoxState, type Occupants, type Tile,
 } from '../rooms/boxes.ts';
 import type { RoomModel } from '../rooms/tiled.ts';
 
@@ -12,7 +12,9 @@ import type { RoomModel } from '../rooms/tiled.ts';
  * back out, undigested. The rules for authors are in docs/authoring/rooms-and-dialogue.md.
  *
  * What the mixer holds belongs to the visit, like a box pushed but not delivered: a forced leave or
- * a walk out of the room empties it, and the boxes it held start from home again.
+ * a walk out of the room empties it, and the boxes it held start from home again. A box it has set
+ * down, a parcel or a thrown box, is remembered like a pushed one; settling then makes it food again
+ * at home, unless it rests on a plate, where it stays.
  */
 
 /**
@@ -48,10 +50,16 @@ export type MixerEvent =
   /** A box finished and came out as a parcel on this tile. */
   | { readonly type: 'parcelOut'; readonly object: number; readonly mixer: number; readonly col: number; readonly row: number };
 
+/**
+ * Where the mixer set a box down, a parcel or a thrown box, reported like any other box move so the
+ * chapter's box memory follows it: a box the mixer leaves on a plate stays there like a pushed one.
+ */
+export interface MixerMove { readonly type: 'boxMoved'; readonly object: number; readonly col: number; readonly row: number; readonly by: 'mixer' }
+
 export interface MixerStep {
   readonly mixer: MixerState;
   readonly boxes: readonly BoxState[];
-  readonly events: readonly MixerEvent[];
+  readonly events: readonly (MixerEvent | MixerMove)[];
 }
 
 /** A box's type as drawn now: a parcel or acetaldehyde crate carries its own, a map box takes the map's. */
@@ -77,12 +85,13 @@ const resting = (id: number, t: Tile): BoxState => ({ id, col: t.col, row: t.row
 export function stepMixer(room: RoomModel, state: MixerState, boxes: readonly BoxState[], occupants: Occupants): MixerStep {
   const mixer = mixerOf(room);
   if (!mixer) return { mixer: state, boxes, events: [] };
-  const events: MixerEvent[] = [];
+  const events: (MixerEvent | MixerMove)[] = [];
   let all = [...boxes];
   let batches = state.batches.map((b) => (b.left > 0 ? { ...b, left: b.left - 1 } : b));
   const port = portOf(room);
-  // Nothing lands back on the hopper, or it would go straight in again, nor on a port, which would take it.
-  const free = (t: Tile) => canEnter(room, all, t, occupants) && !onHopper(room, t) && !(port && onPort(port, t));
+  // A thrown box lands nowhere that would take it straight back: not on the hopper, not on a port,
+  // and not on a belt, running or not, which could carry it in again.
+  const free = (t: Tile) => canEnter(room, all, t, occupants) && !onHopper(room, t) && !(port && onPort(port, t)) && !onConveyor(room, t);
 
   const outlet = mixerOutlet(room);
   for (const b of batches.filter((x) => x.left === 0)) {
@@ -93,6 +102,7 @@ export function stepMixer(room: RoomModel, state: MixerState, boxes: readonly Bo
     all.push({ ...resting(b.box, t), boxType: PARCEL });
     batches = batches.filter((x) => x.box !== b.box);
     events.push({ type: 'parcelOut', object: b.box, mixer: mixer.id, col: t.col, row: t.row });
+    events.push({ type: 'boxMoved', object: b.box, col: t.col, row: t.row, by: 'mixer' });
   }
 
   const capacity = Number(mixer.props['capacity']);
@@ -109,13 +119,16 @@ export function stepMixer(room: RoomModel, state: MixerState, boxes: readonly Bo
     const thrown = [...batches.map((x) => x.box), ...fed.slice(i).map((x) => x.id)].sort((x, y) => x - y);
     all = all.filter((x) => !thrown.includes(x.id));
     const from = hopperTiles(room)[0]!;
+    const moves: MixerMove[] = [];
     for (const id of thrown) {
       const t = nearest(room, from, free);
-      // Only a room whose every floor tile is taken has nowhere to put it; it is back home on the next visit.
-      if (t) all.push(resting(id, t));
+      // Only a room whose every free floor tile is taken has nowhere to put it; it is back home on the next visit.
+      if (!t) continue;
+      all.push(resting(id, t));
+      moves.push({ type: 'boxMoved', object: id, col: t.col, row: t.row, by: 'mixer' });
     }
     batches = [];
-    events.push({ type: 'mixerJammed', mixer: mixer.id, boxes: thrown.length });
+    events.push({ type: 'mixerJammed', mixer: mixer.id, boxes: thrown.length }, ...moves);
     break;
   }
   // Kept as they were when nothing happened, so the solid grid built from the boxes stays cached.

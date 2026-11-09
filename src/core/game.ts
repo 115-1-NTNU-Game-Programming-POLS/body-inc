@@ -223,8 +223,8 @@ export type DomainEvent =
   | { readonly type: 'doorLocked'; readonly object: number; readonly lock: string }
   /** A switch went on or off; `by` says what moved it. Only toggle switches stay on after the operator leaves. */
   | { readonly type: 'switchChanged'; readonly object: number; readonly on: boolean; readonly mode: string; readonly by: 'interact' | 'staple' | 'step' | 'box' }
-  /** A box started sliding to this tile, pushed by the operator or carried by a conveyor. */
-  | { readonly type: 'boxMoved'; readonly object: number; readonly col: number; readonly row: number; readonly by: 'push' | 'conveyor' }
+  /** A box started sliding to this tile, pushed by the operator or carried by a conveyor, or the mixer set it down there. */
+  | { readonly type: 'boxMoved'; readonly object: number; readonly col: number; readonly row: number; readonly by: 'push' | 'conveyor' | 'mixer' }
   /** A box came to rest on a Port, which took it; `count` is how many the port holds now. */
   | { readonly type: 'boxDelivered'; readonly object: number; readonly port: number; readonly count: number; readonly need: number }
   /** A Port took its last needed box: it now counts as a switch that is on, for good. */
@@ -667,7 +667,8 @@ function moveBoxes(state: GameState, op: OperatorState, input: TickInput): Moved
       events.push({ type: 'crateTaken', object: b.id, line: intake.id });
     }
   }
-  // The mixer works between the port and the belts: a parcel it puts out waits a tick before either moves it.
+  // The mixer works after the port and before the belts and the push: a parcel it puts out may be
+  // carried or pushed on the same tick, and only a port takes it in a tick later.
   let mixer = state.mixer;
   if (mixer) {
     const m = stepMixer(room, mixer, boxes, occupants);

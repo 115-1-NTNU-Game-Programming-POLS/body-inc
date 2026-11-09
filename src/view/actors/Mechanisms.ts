@@ -245,7 +245,7 @@ function drawBox(g: Phaser.GameObjects.Graphics, boxType: string): void {
     g.lineStyle(1, 0xb58a55, 1).lineBetween(16, 13, 16, 27).lineBetween(8, 20, 24, 20);
     return;
   }
-  const label = boxType === 'glucose' ? 0xe8c96a : boxType === 'acetaldehyde' ? 0xa0306a : boxType === 'food' ? 0xc8372d : PAPER;
+  const label = boxType === 'glucose' ? 0xe8c96a : boxType === 'acetaldehyde' ? 0xa0306a : boxType === 'food' ? 0xe8955a : PAPER;
   g.fillStyle(INK, 0.25).fillEllipse(16, 29, 28, 6);
   g.fillStyle(0xb58a55).fillRect(3, 6, 26, 23).lineStyle(1.5, INK, 1).strokeRect(3, 6, 26, 23);
   g.lineBetween(3, 12, 29, 12);

@@ -169,6 +169,9 @@ function indexOf(room: Pick<RoomModel, 'objects'>): RoomBoxIndex {
 
 export const conveyorsOf = (room: RoomModel): readonly RoomObject[] => indexOf(room).conveyors;
 
+/** Whether any conveyor covers the tile, running or not. */
+export const onConveyor = (room: Pick<RoomModel, 'objects'>, t: Tile): boolean => indexOf(room).belt.has(at(t));
+
 /** The conveyor under a tile and whether it runs now; undefined off the belts. */
 export function beltAt(room: RoomModel, t: Tile, switchesOn: readonly number[]): RoomObject | undefined {
   const c = indexOf(room).belt.get(at(t));
