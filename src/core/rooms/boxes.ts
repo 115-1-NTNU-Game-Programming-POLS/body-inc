@@ -98,14 +98,28 @@ export function onPort(port: RoomObject, t: Tile): boolean {
 /** Whether the port takes a box of this type in: a parcel port only takes what a mixer put out. */
 export const portTakes = (port: RoomObject, boxType: string): boolean => port.props['accepts'] !== 'parcel' || boxType === PARCEL;
 
+interface PortCycle { readonly closed: number; readonly open: number }
+const portCycles = new WeakMap<RoomObject, PortCycle | null>();
+
 /** A timed port's cycle in ticks, shut first, or undefined for a port that is always open. */
-export function portCycle(port: RoomObject): { readonly closed: number; readonly open: number } | undefined {
-  const open = Number(port.props['openSeconds'] ?? 0) * TICK_HZ;
-  const closed = Number(port.props['closedSeconds'] ?? 0) * TICK_HZ;
-  return open > 0 && closed > 0 ? { closed, open } : undefined;
+export function portCycle(port: RoomObject): PortCycle | undefined {
+  let c = portCycles.get(port);
+  if (c === undefined) {
+    const open = Number(port.props['openSeconds'] ?? 0) * TICK_HZ;
+    const closed = Number(port.props['closedSeconds'] ?? 0) * TICK_HZ;
+    c = open > 0 && closed > 0 ? { closed, open } : null;
+    portCycles.set(port, c);
+  }
+  return c ?? undefined;
 }
 
-/** Whether the port is open on the visit's tick `tick`. */
+/** The room's port while it is a timed gate still short of its need; once full it no longer keeps hours. */
+export function liveGate(room: RoomModel, delivered: readonly number[]): RoomObject | undefined {
+  const port = portOf(room);
+  return port && portCycle(port) && delivered.length < Number(port.props['need']) ? port : undefined;
+}
+
+/** Whether the port is open on the room tick `tick` (GameState.roomTicks). */
 export function portOpenAt(port: RoomObject, tick: number): boolean {
   const c = portCycle(port);
   return c === undefined || tick % (c.closed + c.open) >= c.closed;
@@ -265,8 +279,9 @@ export function settleBoxes(room: RoomModel, remembered: ReadonlyMap<number, Til
     if (placed.has(o.id)) continue;
     const home = tileOf(o);
     // A box last seen on the hopper was inside the mixer; what the mixer held is not kept (core/stomach/mixer.ts).
+    // One last seen on the port was sliding onto it, and would rest on a shut gate on entry.
     const t = remembered.get(o.id);
-    const spot = [home, t && !onHopper(room, t) ? t : undefined].find((x): x is Tile => x !== undefined && free(x))
+    const spot = [home, t && !onHopper(room, t) && !(port && onPort(port, t)) ? t : undefined].find((x): x is Tile => x !== undefined && free(x))
       // Nor on the port or the hopper, which would take it in next tick without a push.
       ?? nearest(room, home, (x) => free(x) && !keepClear.some((k) => overlaps(tileBox(x), k)) && !(port && onPort(port, x)) && !onHopper(room, x));
     placed.set(o.id, spot ?? home);

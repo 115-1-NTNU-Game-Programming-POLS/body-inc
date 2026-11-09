@@ -1,9 +1,9 @@
 import Phaser from 'phaser';
 import {
-  conveyorTiles, directionOf, dockTiles, hopperTiles, isSpawnedCrate, MIST, objectBox, outletTile, PARCEL, selectBoxes, selectConveyors, selectDoorLocks, selectFactory,
+  conveyorTiles, directionOf, dockTiles, hopperTiles, isSpawnedCrate, MIST, objectBox, outletTile, PARCEL, portCycle, selectBoxes, selectConveyors, selectDoorLocks, selectFactory,
   selectMixer, selectPickups, selectPort, selectSwitches, TILE, type BoxState, type GameState, type RoomObject,
 } from '../../core/index.ts';
-import { str } from '../../app/content.ts';
+import { fillStr } from '../../app/content.ts';
 import { addText, updateText } from '../text/fonts.ts';
 
 const INK = 0x0c2d5e;
@@ -24,7 +24,7 @@ export class Mechanisms {
   private readonly boxes = new Map<number, { g: Phaser.GameObjects.Graphics; type: string }>();
   private mixer: { gauge: Phaser.GameObjects.Graphics; o: RoomObject; drawn?: string } | undefined;
   private readonly belts = new Map<number, { g: Phaser.GameObjects.Graphics; o: RoomObject; drawn?: string }>();
-  private port: { g: Phaser.GameObjects.Graphics; label: Phaser.GameObjects.Text; o: RoomObject; drawn?: string } | undefined;
+  private port: { g: Phaser.GameObjects.Graphics; label: Phaser.GameObjects.Text; o: RoomObject; drawn?: string; text?: string } | undefined;
   private factory: { dock: Phaser.GameObjects.Graphics; fog: Phaser.GameObjects.Graphics; dockDrawn?: number; fogDrawn?: readonly BoxState[] } | undefined;
   private readonly scene: Phaser.Scene;
 
@@ -37,9 +37,11 @@ export class Mechanisms {
     if (port) {
       const o = byId.get(port.object)!;
       const b = objectBox(o);
-      // Right-aligned to the port, so a long countdown grows away from what lies east of it, such as a wall belt.
-      const label = addText(scene, b.right, b.top - 4, '', { role: 'print', weight: 700, size: 14, color: '#0c2d5e', backgroundColor: '#f4efe4', padding: { x: 4, y: 1 } })
-        .setOrigin(1, 1).setDepth(1e4);
+      // A timed gate's countdown is long, so it is right-aligned to grow away from what lies east, such as a wall belt.
+      // Kept once it fills, so the label does not jump; a timed port full on entry is aligned the same way.
+      const timed = portCycle(o) !== undefined;
+      const label = addText(scene, timed ? b.right : (b.left + b.right) / 2, b.top - 4, '', { role: 'print', weight: 700, size: 14, color: '#0c2d5e', backgroundColor: '#f4efe4', padding: { x: 4, y: 1 } })
+        .setOrigin(timed ? 1 : 0.5, 1).setDepth(1e4);
       this.port = { g: scene.add.graphics().setDepth(1), label, o };
     }
     const factory = selectFactory(state);
@@ -122,14 +124,19 @@ export class Mechanisms {
     const port = selectPort(state);
     if (port && this.port) {
       const gate = port.gate;
-      const key = `${port.count}/${port.need}/${gate?.open}/${gate?.seconds}`;
-      if (this.port.drawn !== key) {
-        this.port.drawn = key;
-        drawPort(this.port.g.clear(), this.port.o, port.count >= port.need, gate?.open === false);
-        const count = `${port.count}/${port.need}`;
-        updateText(this.port.label, gate
-          ? str(gate.open ? 'port.gate.open' : 'port.gate.closed').replace('{n}', String(port.count)).replace('{total}', String(port.need)).replace('{seconds}', String(gate.seconds))
-          : count);
+      const full = port.count >= port.need;
+      // The countdown ticks every second; the picture only changes when the gate flips or a box goes in.
+      const look = `${port.count}/${gate?.open}`;
+      if (this.port.drawn !== look) {
+        this.port.drawn = look;
+        drawPort(this.port.g.clear(), this.port.o, full, gate?.open === false);
+      }
+      const text = gate
+        ? fillStr(gate.open ? 'port.gate.open' : 'port.gate.closed', { n: port.count, total: port.need, seconds: gate.seconds })
+        : `${port.count}/${port.need}`;
+      if (this.port.text !== text) {
+        this.port.text = text;
+        updateText(this.port.label, text);
       }
     }
     for (const c of selectConveyors(state)) {

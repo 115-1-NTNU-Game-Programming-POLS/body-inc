@@ -4,7 +4,7 @@ import {
   parseRoom, selectPort, startChapter, stepChapter, TICK_HZ,
   type ChapterContent, type ChapterState, type GameEvent, type TickInput, type TiledMap,
 } from '../../src/core/index.ts';
-import { portOpenAt, portTicksLeft } from '../../src/core/rooms/boxes.ts';
+import { portOpenAt, portTicksLeft, settleBoxes } from '../../src/core/rooms/boxes.ts';
 import { readRoom } from '../../src/core/rooms/tiled.ts';
 
 /**
@@ -97,14 +97,14 @@ describe('the timed gate', () => {
   it('refuses a slide that would end after it shuts, so a late box waits on the belt for the next opening', () => {
     const c = chapter([port(), belt, crate(3, 14)]);
     // The fast belt takes 15 ticks a tile; ten ticks before the gate shuts, a slide would end too late.
-    const late = { ...startChapter(c), game: { ...startChapter(c).game, tick: (CLOSED + OPEN) * TICK_HZ - 10 } };
+    const late = { ...startChapter(c), game: { ...startChapter(c).game, roomTicks: (CLOSED + OPEN) * TICK_HZ - 10 } };
     const r = run(c, late, CLOSED * TICK_HZ - 30);
     expect(types(r.events)).not.toContain('boxDelivered');
     expect(r.state.game.boxes.map((b) => [b.id, b.col, b.left])).toEqual([[3, 14, 0]]);
     // It starts in time to land on the next opening's first tick.
     const next = (2 * CLOSED + OPEN) * TICK_HZ;
-    expect(run(c, r.state, next - r.state.game.tick).events).not.toContainEqual(expect.objectContaining({ type: 'boxDelivered' }));
-    expect(run(c, r.state, next - r.state.game.tick + 1).events).toContainEqual({ type: 'boxDelivered', object: 3, port: PORT_ID, count: 1, need: 1 });
+    expect(run(c, r.state, next - r.state.game.roomTicks).events).not.toContainEqual(expect.objectContaining({ type: 'boxDelivered' }));
+    expect(run(c, r.state, next - r.state.game.roomTicks + 1).events).toContainEqual({ type: 'boxDelivered', object: 3, port: PORT_ID, count: 1, need: 1 });
   });
 
   it('owns only the tiles whose centre it covers: drawn off the grid, a shut gate does not block the tile beside it', () => {
@@ -114,11 +114,47 @@ describe('the timed gate', () => {
     expect(r.state.game.boxes.map((b) => [b.id, b.col])).toEqual([[3, 14]]);
   });
 
-  it('announces opening even when a hit-stop covers the tick it opens on', () => {
+  it('stops during a hit-stop like everything else in the room, and opens once the room runs on', () => {
     const c = chapter([port(), crate(3, 4, 2)]);
     const s0 = startChapter(c);
-    const frozen = { ...s0, game: { ...s0.game, tick: CLOSED * TICK_HZ - 2, freeze: 5 } };
-    expect(run(c, frozen, 5).events).toContainEqual({ type: 'portOpened', object: PORT_ID });
+    const frozen = { ...s0, game: { ...s0.game, tick: CLOSED * TICK_HZ - 2, roomTicks: CLOSED * TICK_HZ - 2, freeze: 5 } };
+    const held = run(c, frozen, 5);
+    expect(types(held.events)).not.toContain('portOpened');
+    expect(selectPort(held.state.game)!.gate).toEqual({ open: false, seconds: 1 });
+    expect(types(run(c, held.state, 2).events)).not.toContain('portOpened');
+    expect(run(c, held.state, 3).events).toContainEqual({ type: 'portOpened', object: PORT_ID });
+    // A hit-stop that starts on the very tick it opens still says so once, after the stop.
+    const onFlip = { ...s0, game: { ...s0.game, tick: CLOSED * TICK_HZ, roomTicks: CLOSED * TICK_HZ, freeze: 5 } };
+    expect(types(run(c, onFlip, 8).events).filter((t) => t === 'portOpened')).toEqual(['portOpened']);
+  });
+
+  it('lets a slide cleared on its last open stretch land in time even when a hit-stop falls mid-slide', () => {
+    const c = chapter([port(), belt, crate(3, 14)]);
+    const s0 = startChapter(c);
+    // The fast belt's 15-tick slide, started now, ends on the gate's last open tick.
+    const at = (CLOSED + OPEN) * TICK_HZ - 16;
+    const r0 = run(c, { ...s0, game: { ...s0.game, tick: at, roomTicks: at } }, 4);
+    expect(r0.state.game.boxes.find((b) => b.id === 3)).toMatchObject({ col: 15 });
+    const hit = { ...r0.state, game: { ...r0.state.game, freeze: 8 } };
+    const r = run(c, hit, 8 + 15);
+    expect(r.events).toContainEqual({ type: 'boxDelivered', object: 3, port: PORT_ID, count: 1, need: 1 });
+  });
+
+  it('refuses for good a box it would never take: a parcel gate holds a plain box at its edge, open or shut', () => {
+    // The mixer and its food box are only there because a parcel gate needs them.
+    const mixer = { id: 20, type: 'Mixer', x: 2 * 32, y: 9 * 32, width: 64, height: 32, properties: [p('outlet', 'E')] };
+    const food = { id: 4, type: 'Box', x: 4 * 32 + 16, y: 2 * 32 + 16, properties: [p('boxType', 'food'), p('portion', 'small')] };
+    const gate = port([p('accepts', 'parcel'), p('openSeconds', OPEN), p('closedSeconds', CLOSED)]);
+    const c = chapter([gate, belt, crate(3, 13), mixer, food]);
+    const r = run(c, startChapter(c), 2 * (CLOSED + OPEN) * TICK_HZ);
+    expect(r.state.game.boxes.find((b) => b.id === 3)).toMatchObject({ col: 14, left: 0 });
+    // Nor can it be pushed on while the gate is open.
+    const off = chapter([gate, crate(3, 14), mixer, food]);
+    const s0 = startChapter(off);
+    const open = CLOSED * TICK_HZ;
+    const at = { ...s0, game: { ...s0.game, tick: open, roomTicks: open, operator: { ...s0.game.operator, x: 13 * 32 + 8, y: 6 * 32 + 28 } } };
+    const pushed = run(off, at, 60, { move: { x: 1, y: 0 } });
+    expect(pushed.state.game.boxes.find((b) => b.id === 3)).toMatchObject({ col: 14 });
   });
 
   it('cannot be pushed onto while shut, and can once open', () => {
@@ -140,9 +176,17 @@ describe('the timed gate', () => {
     const s = run(c, drop(startChapter(c), 3, 10), 1).state;
     const waiting = run(c, s, 20 * TICK_HZ - 2);
     expect(types(waiting.events)).not.toContain('parcelOut');
-    const out = run(c, waiting.state, 2);
+    // It comes out on the last shut tick, so the gate takes it in on the first open one.
+    const out = run(c, waiting.state, 1);
     expect(out.events).toContainEqual({ type: 'parcelOut', object: 3, mixer: 20, col: 12, row: 6 });
     expect(types(run(c, out.state, 1).events)).toContain('boxDelivered');
+    // On the gate's last open tick it stays in: set down then, it would be taken only after the gate shut.
+    const last = { ...waiting.state, game: { ...waiting.state.game, roomTicks: 22 * TICK_HZ - 1 } };
+    const kept = run(c, last, 1);
+    expect(types(kept.events)).not.toContain('parcelOut');
+    const shut = run(c, kept.state, 20 * TICK_HZ - 1);
+    expect(types(shut.events)).not.toContain('parcelOut');
+    expect(types(run(c, shut.state, 2).events).filter((t) => t === 'parcelOut' || t === 'boxDelivered')).toEqual(['parcelOut', 'boxDelivered']);
   });
 
   it('stays open and quiet once full', () => {
@@ -157,8 +201,17 @@ describe('the timed gate', () => {
     expect(types(later.events)).not.toContain('portOpened');
     // In what would be its shut time, a full port still takes a box: it no longer keeps hours.
     const extra = run(c, drop(later.state, 4, 15), 1);
-    expect(portOpenAt(c.rooms.get('lab/a')!.objects.find((x) => x.id === PORT_ID)!, later.state.game.tick)).toBe(false);
+    expect(portOpenAt(c.rooms.get('lab/a')!.objects.find((x) => x.id === PORT_ID)!, later.state.game.roomTicks)).toBe(false);
     expect(extra.events).toContainEqual({ type: 'boxDelivered', object: 4, port: PORT_ID, count: 2, need: 1 });
+  });
+
+  it('never sets a box down on it when the room is re-entered, even one last seen sliding onto it', () => {
+    const room = chapter([port(), crate(4, 8)]).rooms.get('lab/a')!;
+    // Its home is taken, so without the rule it would stay where it was last seen.
+    const home = { left: 8 * 32, top: 6 * 32, right: 9 * 32, bottom: 7 * 32 };
+    const [b] = settleBoxes(room, new Map([[4, { col: 15, row: 6 }]]), [home]);
+    expect(b).toMatchObject({ id: 4 });
+    expect(b!.col === 15 && b!.row === 6).toBe(false);
   });
 
   it('leaves a port without timing always open', () => {
