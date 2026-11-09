@@ -730,6 +730,11 @@
           "name": "unlocks",
           "type": "string",
           "value": ""
+        },
+        {
+          "name": "sleepSeconds",
+          "type": "int",
+          "value": 0
         }
       ]
     }

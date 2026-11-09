@@ -153,6 +153,11 @@ export const OBJECT_CLASSES: Readonly<Record<string, ClassSpec>> = {
     requires: { type: 'condition' },
     /** A handbook page the bed unlocks when it is used (design doc 7.4: the nap sofa gives 〈短暫午睡〉). */
     unlocks: { type: 'string', default: '' },
+    /**
+     * A sleep bed above 0 does not end the chapter at once: lying down starts a sleep bar this many
+     * seconds long, which the stomach's mixer or a hit can interrupt (design doc 7.5; core/rooms/sleep.ts).
+     */
+    sleepSeconds: { type: 'int', default: 0, min: 0 },
   },
 };
 
