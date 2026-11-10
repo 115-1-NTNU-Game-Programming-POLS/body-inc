@@ -71,7 +71,8 @@ export function boxTypeOf(room: Pick<RoomModel, 'objects'>, b: BoxState): string
   return String(room.objects.find((o) => o.id === b.id)?.props['boxType'] ?? 'crate');
 }
 
-function portionOf(room: Pick<RoomModel, 'objects'>, id: number): Portion {
+/** The portion a food box was drawn with, `normal` for one the map does not have, such as a courier's order. */
+export function portionOf(room: Pick<RoomModel, 'objects'>, id: number): Portion {
   const p = String(room.objects.find((o) => o.id === id)?.props['portion'] ?? 'normal');
   return isPortion(p) ? p : 'normal';
 }

@@ -4,7 +4,7 @@ import { ConditionError, type Condition, type ConditionProblem } from '../tags/c
 import { compileCondition, type TagDictionary } from '../tags/dictionary.ts';
 import { TILE } from '../time.ts';
 import { OBJECT_CLASSES, ROOM_CLASS, VARIANT_PREFIX, type ClassSpec, type RefKind, type Scalar } from './classes.ts';
-import { conveyorTiles, KEEP_CLEAR, mixerOutlet, tileBox, tileOf } from './boxes.ts';
+import { conveyorTiles, isFork, KEEP_CLEAR, mixerOutlet, tileBox, tileOf } from './boxes.ts';
 import { canMeet } from './entry.ts';
 import { objectBox } from './interact.ts';
 import { keyOf, keysFor, parseClockWindow, SWITCH_KINDS, switchesFor } from './locks.ts';
@@ -110,6 +110,12 @@ export type RoomProblemCode =
   | 'box-blocked'
   /** A Conveyor drawn as a point; it needs a rectangle to say which tiles it covers. */
   | 'conveyor-shape'
+  /** A fork (a Conveyor with an `altDirection`) that no Switch or Port is aimed at, so it would never turn. */
+  | 'fork-switch'
+  /** A fork whose `altDirection` is its own `direction`: the switch would turn it nowhere. */
+  | 'fork-same'
+  /** A hold switch (a plate) with `cooldownSeconds`: a plate is down only while something stands on it, so it has nothing to cool. */
+  | 'cooldown-hold'
   /** A door with a switch lock that no Switch is aimed at. */
   | 'switch-missing'
   /** A key lock whose lockParam names no Pickup in the room. */
@@ -443,6 +449,11 @@ export function readRoom(id: string, map: TiledMap, dict: TagDictionary): ReadRe
       else if (t.kind !== 'Conveyor' && (t.kind !== 'Door' || t.props['lock'] !== 'switch')) problems.push({ code: 'switch-target-kind', object: o.id, args: { target } });
     }
     if (o.kind === 'Conveyor' && (o.width <= 0 || o.height <= 0)) problems.push({ code: 'conveyor-shape', object: o.id });
+    if (o.kind === 'Conveyor' && isFork(o)) {
+      if (o.props['altDirection'] === o.props['direction']) problems.push({ code: 'fork-same', object: o.id });
+      if (switchesFor(objects, o.id).length === 0) problems.push({ code: 'fork-switch', object: o.id });
+    }
+    if (o.kind === 'Switch' && o.props['mode'] === 'hold' && Number(o.props['cooldownSeconds']) > 0) problems.push({ code: 'cooldown-hold', object: o.id });
     if (o.kind === 'Port' || o.kind === 'ColdStore') {
       // The game takes a box in by the tile centre rule, so one covering no centre has no tile.
       const port = o.kind === 'Port';

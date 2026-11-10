@@ -18,6 +18,7 @@
     "stampRaised": { "sound": "stampUp" },
     "doorEntered": { "sound": "door" },
     "switchChanged": { "sound": "click" },
+    "switchCooling": { "sound": "nope", "note": "switch.cooling" },
     "boxDelivered": { "sound": "thunk" },
     "portFilled": { "sound": "thunk" },
     "talk": { "sound": "blip" },

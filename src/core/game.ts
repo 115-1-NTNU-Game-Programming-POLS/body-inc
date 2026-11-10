@@ -21,13 +21,14 @@ import { advance, startClock, type RuleClock } from './clock.ts';
 import { sitting, startExam, stepExam, type ExamDef, type ExamKind, type ExamState, type ExamTally, type ExamTick } from './exam/fight.ts';
 import { seedStreams, type RngStreams } from './rng.ts';
 import {
-  advanceSlide, beltAt, boxAhead, boxPixel, canEnter, CONVEYOR_TICKS, conveyorRunning, conveyorsOf, conveyorTiles, directionOf, filledPorts, mixerOf, mixerOutlet,
+  advanceSlide, beltAt, boxAhead, boxPixel, canEnter, CONVEYOR_TICKS, conveyorRunning, conveyorsOf, conveyorTiles, filledPorts, flowName, flowOf, mixerOf, mixerOutlet,
   coldStoreAt, liveGate, nearest, onPort, portOf, portOpenAt, portTakes, portTicksLeft, PUSH, pushDirection, settleBoxes, startSlide, tileAt, tileBox, withBoxes, type BoxState, type Occupants, type Tile,
 } from './rooms/boxes.ts';
-import { boxTypeOf, EMPTY_MIXER, PORTION_SECONDS, stepMixer, type MixerEvent, type MixerState, type Portion } from './stomach/mixer.ts';
+import { boxTypeOf, EMPTY_MIXER, PORTION_SECONDS, portionOf, stepMixer, type MixerEvent, type MixerState, type Portion } from './stomach/mixer.ts';
 import { isOrder, newOrder, orderSpot } from './stomach/orders.ts';
 import { CHUNK, chunksOf, chunksUnder, withoutChunks } from './stomach/chunks.ts';
 import type { EnteredRoom } from './rooms/entry.ts';
+import { coolDown, cooldownTicks, coolingLeft, startCooling, type Cooling } from './rooms/cooling.ts';
 import { asleep, stepSleep, type SleepEvent, type SleepState } from './rooms/sleep.ts';
 import { leverAt, objectBox, platesUnder, reachableObject, touchedObjects } from './rooms/interact.ts';
 import { doorOpen } from './rooms/locks.ts';
@@ -120,6 +121,8 @@ export interface GameState {
   readonly chilled: readonly number[];
   /** Food chunks the logistics chief's acid has dissolved, in id order: gone from this room's grid for good (core/stomach/chunks.ts). */
   readonly dissolved: readonly number[];
+  /** Toggle switches still cooling down after a throw, in id order (core/rooms/cooling.ts); absent when none is. */
+  readonly cooling?: readonly Cooling[];
   /** Orders the courier has thrown on this visit, so each gets an id of its own (core/stomach/orders.ts); absent before the first. */
   readonly orderSerial?: number;
   /** Set until the chairman hands over the stamp (design doc 5.4): the stamp key does nothing. */
@@ -261,6 +264,8 @@ export type DomainEvent =
   | { readonly type: 'doorLocked'; readonly object: number; readonly lock: string }
   /** A switch went on or off; `by` says what moved it. Only toggle switches stay on after the operator leaves. */
   | { readonly type: 'switchChanged'; readonly object: number; readonly on: boolean; readonly mode: string; readonly by: 'interact' | 'staple' | 'step' | 'box' }
+  /** The interact key was pressed at a switch that is still cooling down from its last throw; nothing changed. */
+  | { readonly type: 'switchCooling'; readonly object: number; readonly seconds: number }
   /** A box started sliding to this tile, pushed by the operator or carried by a conveyor, or the mixer set it down there. */
   | { readonly type: 'boxMoved'; readonly object: number; readonly col: number; readonly row: number; readonly by: 'push' | 'conveyor' | 'mixer' }
   /** A box came to rest on a Port, which took it; `count` is how many the port holds now. */
@@ -582,7 +587,7 @@ function aimFrom(op: OperatorState, origin: Vec, enemies: readonly EnemyState[])
  */
 function forcedLeave(before: GameState): GameState {
   // The operator is back at the start, out of bed: the sleep bar of the visit starts over.
-  const { sleep: _, ...state } = before;
+  const { sleep: _, cooling: __, ...state } = before;
   const start = playerStart(state.room);
   const enemies = state.enemies.filter((e) => e.summoner === undefined || e.phase === 'attached').map((e) => {
     if (e.phase === 'attached') {
@@ -768,7 +773,7 @@ function moveBoxes(state: GameState, op: OperatorState, input: TickInput): Moved
     if (b.left > 0) continue;
     const belt = beltAt(room, b, state.switches);
     if (!belt) continue;
-    const dir = directionOf(belt);
+    const dir = flowOf(room.objects, belt, state.switches);
     const to = { col: b.col + dir.col, row: b.row + dir.row };
     const ticks = CONVEYOR_TICKS[String(belt.props['speed'])]!;
     if (!canEnter(room, boxes, to, occupants) || refused(to, ticks, b)) continue;
@@ -909,7 +914,7 @@ export function step(state: GameState, pressed: TickInput): StepResult {
   // Asleep, the operator stays in bed: a belt within reach of it would otherwise carry them off through doors and triggers.
   const underfoot = asleep(state.sleep) ? undefined : beltAt(room, tileAt(op.x, op.y - 1), state.switches);
   if (underfoot) {
-    const d = directionOf(underfoot);
+    const d = flowOf(room.objects, underfoot, state.switches);
     const v = TILE / CONVEYOR_TICKS[String(underfoot.props['speed'])]!;
     const m = moveAndCollide(grid, OPERATOR_BODY, op.x, op.y, d.col * v, d.row * v);
     op = { ...op, x: m.x, y: m.y };
@@ -929,10 +934,16 @@ export function step(state: GameState, pressed: TickInput): StepResult {
   const body = boxAt(OPERATOR_BODY, op.x, op.y);
   const used = input.interactPressed && op.action.kind === 'free' ? reachableObject(state.room, body, op, state.taken) : undefined;
   let levers = state.switches.filter((id) => switchMode(state.room, id) === 'toggle');
+  let cooling = coolDown(state.cooling ?? []);
   if (used?.kind === 'Switch') {
-    const on = !levers.includes(used.id);
-    levers = on ? [...levers, used.id] : levers.filter((id) => id !== used.id);
-    events.push({ type: 'switchChanged', object: used.id, on, mode: 'toggle', by: 'interact' });
+    const left = coolingLeft(cooling, used.id);
+    if (left > 0) events.push({ type: 'switchCooling', object: used.id, seconds: left / TICK_HZ });
+    else {
+      const on = !levers.includes(used.id);
+      levers = on ? [...levers, used.id] : levers.filter((id) => id !== used.id);
+      cooling = startCooling(cooling, used.id, cooldownTicks(used));
+      events.push({ type: 'switchChanged', object: used.id, on, mode: 'toggle', by: 'interact' });
+    }
   }
   let taken = state.taken;
   if (used?.kind === 'Pickup') {
@@ -1251,8 +1262,9 @@ export function step(state: GameState, pressed: TickInput): StepResult {
       const leverBox = objectBox(lever);
       const covers = (t: Box) => overlaps(box, t) && overlaps(leverBox, t);
       const crated = boxes.some((b) => covers(tileBox(b)) || (b.carried === true && b.from !== undefined && covers(tileBox(b.from))));
-      if (!crated && !switches.includes(lever.id)) {
+      if (!crated && !switches.includes(lever.id) && coolingLeft(cooling, lever.id) === 0) {
         switches = ascending([...switches, lever.id]);
+        cooling = startCooling(cooling, lever.id, cooldownTicks(lever));
         events.push({ type: 'switchChanged', object: lever.id, on: true, mode: 'toggle', by: 'staple' });
       }
       continue;
@@ -1492,8 +1504,9 @@ export function step(state: GameState, pressed: TickInput): StepResult {
     events.push(...r.events);
   }
 
+  const { cooling: _cooled, ...uncooled } = state;
   let next: GameState = restTick({
-    ...state, tick: now + 1, roomTicks: state.roomTicks + 1, rng, clock, operator: op, enemies: byId(), projectiles: flying,
+    ...uncooled, tick: now + 1, roomTicks: state.roomTicks + 1, rng, clock, operator: op, enemies: byId(), projectiles: flying,
     shots: settled.size === 0 ? movedShots : movedShots.map((sh) => (settled.has(waveKey(sh) ?? '') ? { ...sh, spent: true } : sh)),
     zones: [...zones.values()].sort((a, b) => a.id - b.id), nextId, freeze,
     // What the door check saw, not a fresh count: a lever pinned by a staple after the check must
@@ -1505,6 +1518,7 @@ export function step(state: GameState, pressed: TickInput): StepResult {
     ...(factory ? { factory } : {}),
     ...(moved.mixer ? { mixer: moved.mixer } : {}),
     ...(orderSerial > 0 ? { orderSerial } : {}),
+    ...(cooling.length > 0 ? { cooling } : {}),
     ...(sleep ? { sleep } : {}),
     ...(bind ? { bind } : {}),
     ...(boostUntil !== undefined ? { boostUntil } : {}),
@@ -1622,6 +1636,10 @@ export function selectBoxes(s: GameState): readonly { readonly object: number; r
     return { object: b.id, boxType: b.boxType ?? String(o?.props['boxType'] ?? 'crate'), ...boxPixel(b) };
   });
 }
+/** Every food box on the floor and its portion, for the pips on its label: the sorting center asks the player to tell them apart. */
+export function selectPortions(s: GameState): readonly { readonly object: number; readonly portion: Portion }[] {
+  return s.boxes.filter((b) => boxTypeOf(s.room, b) === 'food').map((b) => ({ object: b.id, portion: portionOf(s.room, b.id) }));
+}
 /** Whether a hurtbox touches the fog of any acetaldehyde crate (design doc 7.7). */
 export const inMist = (boxes: readonly BoxState[], hurt: Box): boolean =>
   boxes.some((b) => isSpawnedCrate(b) && circleTouchesBox(boxCentre(b).x, boxCentre(b).y, MIST.radiusPx, hurt));
@@ -1668,8 +1686,15 @@ export function selectSleep(s: GameState): { readonly bed: number; readonly shar
 /** Every conveyor and whether it runs now, by the rule the step uses. */
 export function selectConveyors(s: GameState): readonly { readonly object: number; readonly direction: string; readonly speed: string; readonly running: boolean }[] {
   return conveyorsOf(s.room).map((o) => ({
-    object: o.id, direction: String(o.props['direction']), speed: String(o.props['speed']), running: conveyorRunning(s.room.objects, o, s.switches),
+    object: o.id, direction: flowName(s.room.objects, o, s.switches), speed: String(o.props['speed']), running: conveyorRunning(s.room.objects, o, s.switches),
   }));
+}
+/** The toggle switches still cooling down, with the share of the cooldown left (1 just after a throw, 0 when ready); none when all are ready. */
+export function selectCooling(s: GameState): readonly { readonly object: number; readonly left: number; readonly seconds: number }[] {
+  return (s.cooling ?? []).map((c) => {
+    const o = s.room.objects.find((x) => x.id === c.id);
+    return { object: c.id, left: o ? c.left / cooldownTicks(o) : 0, seconds: c.left / TICK_HZ };
+  });
 }
 /** Clinging enemies in id order, for drawing them on the operator. */
 export const selectStacks = (s: GameState): readonly Readonly<EnemyState>[] =>

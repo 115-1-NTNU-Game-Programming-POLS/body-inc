@@ -441,6 +441,7 @@
     "liver.crate_taken": { "text": "乙醛送進第二產線", "fact": "pending:4" },
     "stomach.mixer_jammed": { "text": "放不下了！全部退回去！", "fact": "" },
     "stomach.chilled": { "text": "冷藏起來，明天當早餐", "fact": "" },
+    "switch.cooling": { "text": "開關還在冷卻，等一下再按", "fact": "" },
     "stomach.cold_store": { "text": "冷藏庫", "fact": "" },
     "stomach.tea": { "text": "全糖喝下去，反而更累了", "fact": "13" },
     "stomach.order_in": { "text": "外送到了：退貨，或讓它進攪拌機", "fact": "" },

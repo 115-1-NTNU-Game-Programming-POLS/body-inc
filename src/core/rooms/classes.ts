@@ -77,10 +77,21 @@ export const OBJECT_CLASSES: Readonly<Record<string, ClassSpec>> = {
   Switch: {
     target: { type: 'object', required: true },
     mode: enumOf('SwitchMode', ['toggle', 'hold']),
+    /**
+     * A toggle switch above 0 takes no new throw for this many seconds after it changed, such as the
+     * stomach sorting center's fork lever (design doc 7.5, 8.5, 8.8). A hold switch has nothing to cool.
+     */
+    cooldownSeconds: { type: 'int', default: 0, min: 0 },
   },
   Conveyor: {
     direction: enumOf('Direction', SOCKETS, 'E'),
     speed: enumOf('ConveyorSpeed', ['slow', 'normal', 'fast'], 'normal'),
+    /**
+     * Set, the conveyor is a fork (the stomach's sorting center, design doc 7.5): it always runs, and
+     * carries a box `direction` while the switches aimed at it are not all on, `altDirection` while
+     * they are. `none` is an ordinary conveyor. The branches are conveyors of their own, with their own speeds.
+     */
+    altDirection: enumOf('AltDirection', ['none', ...SOCKETS], 'none'),
   },
   /**
    * A push box. Not in design doc 13.3's table, which predates the puzzle rules; the prologue's
