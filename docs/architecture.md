@@ -118,7 +118,7 @@ src/
     tags/                  dictionary loader, condition parser and evaluator, causal log
     content/               schema subset, content loader, generated types
     collision/             boxes, tile grid, per-axis movement resolution
-    combat/                frame data, operator, enemies, bosses/, hazards, folder, pie, perks, assists
+    combat/                frame data, operator, enemies, bosses/, hazards, folder, pie, unload, perks, assists
     rooms/                 Tiled JSON to room model, entering a room with its variant, locks, props, interaction, evidence wall slots
     chapter/               rooms joined into a chapter: tags, checkpoints, dialogue, cards, rescue, exam panel, patrol
     exam/                  exam fight and the scoring shared with the semester

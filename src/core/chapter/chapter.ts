@@ -230,6 +230,7 @@ function build(ctx: ChapterContent, run: Run, place: Place, carry: Carry): GameS
     stampLocked: !run.tools.includes('stamp'),
     folderLocked: !run.tools.includes('folder'),
     pie: ctx.chapter.partner === 'chairman',
+    unload: ctx.chapter.partner === 'logistics',
     ...(run.perks ? { perks: run.perks } : {}),
     ...(carry.tool ? { tool: carry.tool } : {}),
     waiting: waitingCrates(run.tags, ctx.dict),

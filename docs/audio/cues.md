@@ -41,7 +41,7 @@
 | `perfect` | 完美閃身的三個上行高音 | `perfectDodge` |
 | `hit` | 釘書針擊中 | `hit` |
 | `closed` | 結案：低沉的蓋章加雙音 | `caseClosed` |
-| `poof` | 散開的氣音 | `dispersed`, `bossSummon` |
+| `poof` | 散開的氣音 | `dispersed`, `bossSummon`, `unloadRaised` |
 | `reform` | 重組：倒過來的散開聲，輕輕漸強的氣音，中間冒出幾顆往上滑的泡泡聲 | `reformed` |
 | `respawn` | 重生：一聲紙張的沙，接兩個不高的上行音，比換文具低 | `respawned` |
 | `bump` | 撞牆：一聲輕的悶響，只在剛碰到牆時響一次 | `bumpWall` |

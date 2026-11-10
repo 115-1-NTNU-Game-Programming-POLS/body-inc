@@ -10,6 +10,7 @@ import { guardCovers, parryOpen, swingBox } from './combat/folder.ts';
 import { chip, NO_ASSISTS, owing } from './combat/assists.ts';
 import { BASE_PERKS, type Perks } from './combat/perks.ts';
 import { pieCovers, PIE_READY, stepPie, sleepOfSpirit, type PieState } from './combat/pie.ts';
+import { stepUnload, UNLOAD, UNLOAD_READY, unloadAge, unloadBox, type UnloadState } from './combat/unload.ts';
 import { circleTouchesBox, shotBox, zoneContinues, zoneLive, type Shot, type ShotSpec, type Zone, type ZoneSpec } from './combat/hazards.ts';
 import type { Vec } from './combat/movement.ts';
 import {
@@ -138,6 +139,8 @@ export interface GameState {
   readonly summonScale?: number;
   /** The chairman's pie shield (core/combat/pie.ts); present only in a chapter whose partner has it. A new room starts it ready. */
   readonly pie?: PieState;
+  /** The stomach logistics chief's acid (core/combat/unload.ts); present only in a chapter whose partner has it. A new room starts it ready. */
+  readonly unload?: UnloadState;
   /** Only in a liver factory room (core/liver/factory.ts). */
   readonly factory?: FactoryState;
   /** Only in a room with the stomach's mixer (core/stomach/mixer.ts): what it is digesting. */
@@ -195,6 +198,8 @@ export type DomainEvent =
   | { readonly type: 'pieRaised'; readonly radiusPx: number; readonly seconds: number; readonly sleepy: boolean }
   /** The shield stopped a thrown shot. */
   | { readonly type: 'pieBlocked'; readonly source: number }
+  /** The logistics chief's acid was spat (design doc 6.2) from the operator at this point, along one of the four axes. */
+  | { readonly type: 'unloadRaised'; readonly x: number; readonly y: number; readonly dir: Vec }
   /** An energy-drink can landed (design doc 7.4): no heart is lost, and the chapter adds the caffeine. */
   | { readonly type: 'canTaken'; readonly source: number }
   /** The sugar salesman's tea landed (design doc 7.5): no heart is lost, and the fatigue fog starts over at its full 45 seconds. */
@@ -379,6 +384,8 @@ export interface GameOptions {
   readonly tool?: HeldTool;
   /** The chapter's partner has the pie shield, ready at entry. */
   readonly pie?: boolean;
+  /** The chapter's partner has the unloading acid, ready at entry. */
+  readonly unload?: boolean;
   /** In a factory room: alcohol crates waiting in receiving. */
   readonly waiting?: number;
   /** In a factory room: acetaldehyde crates to put out round the outlet at entry. */
@@ -531,6 +538,7 @@ export function createGame(room: EnteredRoom, seed: number, table: EnemyTable, o
     ...(options.stampLocked ? { stampLocked: true as const } : {}),
     ...(options.folderLocked ? { folderLocked: true as const } : {}),
     ...(options.pie ? { pie: PIE_READY } : {}),
+    ...(options.unload ? { unload: UNLOAD_READY } : {}),
     ...(factory ? { factory } : {}),
     ...(mixerOf(room) ? { mixer: EMPTY_MIXER } : {}),
     ...(options.perks ? { perks: options.perks } : {}),
@@ -607,6 +615,8 @@ function forcedLeave(before: GameState): GameState {
     ...(state.factory ? { factory: { ...state.factory, serial: crates.serial, mist: 0 } } : {}),
     // What it held went home with the other boxes above, since settleBoxes rebuilds every box not delivered.
     ...(state.mixer ? { mixer: EMPTY_MIXER } : {}),
+    // The acid lies where the operator no longer is, so a retry starts with none and the skill ready.
+    ...(state.unload ? { unload: UNLOAD_READY } : {}),
   };
 }
 
@@ -872,6 +882,13 @@ export function step(state: GameState, pressed: TickInput): StepResult {
     const r = stepPie(pie, input.partnerPressed === true && op.action.kind !== 'hurt', state.p);
     pie = r.pie;
     if (r.raised) events.push({ type: 'pieRaised', radiusPx: pie.radiusPx, seconds: pie.ticksLeft / TICK_HZ, sleepy: sleepOfSpirit(state.p) < 1 });
+  }
+  // The acid is spat on the same rules: any state but a hurt one, and the operator's own action goes on.
+  let unload = state.unload;
+  if (unload) {
+    const r = stepUnload(unload, input.partnerPressed === true && op.action.kind !== 'hurt', { x: op.x, y: op.y }, op.aim);
+    unload = r.unload;
+    if (r.raised) events.push({ type: 'unloadRaised', x: unload.x, y: unload.y, dir: unload.dir });
   }
 
   // A running belt under the feet carries the operator along. Walking against it is slower; a fast
@@ -1181,6 +1198,21 @@ export function step(state: GameState, pressed: TickInput): StepResult {
     }
   }
 
+  // 強制卸貨: while the acid lies, an ordinary defeatable enemy in it is shoved along it and, on the
+  // acid's rhythm, loses performance. A pinned enemy is held where it is, a manager's shield does not
+  // meet spit, and the rest (immune, reforming, the cheers kid, bosses) are left alone.
+  if (unload && unload.ticksLeft > 0) {
+    const area = unloadBox(unload);
+    const bite = (unloadAge(unload) - 1) % UNLOAD.damageEveryTicks === 0;
+    for (const { id } of byId()) {
+      const e = enemies.get(id)!;
+      if (!isHittable(e) || e.category !== 'defeatable' || e.archetype === 'cheers' || e.boss || !overlaps(area, enemyHurtbox(e))) continue;
+      const m = isBound(e) ? { x: e.x, y: e.y } : moveAndCollide(grid, ENEMY_BODY, e.x, e.y, unload.dir.x * UNLOAD.shovePx, unload.dir.y * UNLOAD.shovePx);
+      const shoved: EnemyState = { ...e, x: m.x, y: m.y };
+      enemies.set(id, bite ? damage(shoved, UNLOAD.damage, 0, events, state.bosses) : shoved);
+    }
+  }
+
   // Staples: move, pin a lever they reach (design doc 6.1 shoots far switches), stop at walls,
   // hit the lowest-id hittable enemy they overlap. Levers come before walls because they are
   // usually mounted on one. A staple only ever turns a lever on: held fire would otherwise flick
@@ -1447,6 +1479,7 @@ export function step(state: GameState, pressed: TickInput): StepResult {
     // still count as newly opened next tick for an operator already pressed against its door.
     touching: onNow.map((o) => o.id), carried, switches, doorsOpen: doorsOpenNow, taken, boxes, push, delivered: moved.delivered, chilled: moved.chilled,
     ...(pie ? { pie } : {}),
+    ...(unload ? { unload } : {}),
     ...(factory ? { factory } : {}),
     ...(moved.mixer ? { mixer: moved.mixer } : {}),
     ...(orderSerial > 0 ? { orderSerial } : {}),
@@ -1525,6 +1558,13 @@ export function selectPie(s: GameState): { readonly phase: 'ready' | 'up' | 'coo
   const scale = sleepOfSpirit(s.p);
   if (p.ticksLeft > 0) return { phase: 'up', seconds: Math.ceil(p.ticksLeft / TICK_HZ), scale };
   return p.cooldown > 0 ? { phase: 'cooling', seconds: Math.ceil(p.cooldown / TICK_HZ), scale } : { phase: 'ready', seconds: 0, scale };
+}
+/** The partner's acid for the HUD: whether it lies, cools or is ready, and the seconds left on that. Absent without a partner that has it. */
+export function selectUnload(s: GameState): { readonly phase: 'ready' | 'up' | 'cooling'; readonly seconds: number } | undefined {
+  const u = s.unload;
+  if (!u) return undefined;
+  if (u.ticksLeft > 0) return { phase: 'up', seconds: Math.ceil(u.ticksLeft / TICK_HZ) };
+  return u.cooldown > 0 ? { phase: 'cooling', seconds: Math.ceil(u.cooldown / TICK_HZ) } : { phase: 'ready', seconds: 0 };
 }
 /** The NPC, bed, pickup or toggle switch the interact key would use right now, for the HUD prompt; same rule as the key. */
 export function selectInteractable(s: GameState): { readonly object: number; readonly kind: string } | undefined {
