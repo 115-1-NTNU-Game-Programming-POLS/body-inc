@@ -95,7 +95,10 @@ const belt = (id: number, name: string, col: number, row: number, cols: number, 
 // The sorting center (design doc 7.5, 8.5, 8.8): a line of four portions runs to a fork, and the fork's lever sends
 // the next box either straight to the hopper on a fast belt or round a 22-tile slow belt that comes back to it.
 // The mixer holds three, so the fourth box jams it unless it takes the slow way; a large portion on the slow way
-// reaches the timed gate a window late. The line starts when the first lever is thrown, so the operator is ready.
+// reaches the timed gate a window late. The line waits for its own lever so the operator is ready. That lever cools
+// down for 30 seconds, longer than the four boxes take to pass the fork, so it cannot pause the line to space the boxes
+// out in place of the fork. Levers are remembered between visits and a cooldown is not: after a forced leave the line
+// is already running on entry.
 writeRoom('stomach/sorting-lab.tmj', {
   type: 'map', version: '1.10', tiledversion: '1.11.0', orientation: 'orthogonal', renderorder: 'right-down',
   infinite: false, width: W, height: 12, tilewidth: T, tileheight: T, nextlayerid: 4, nextobjectid: 21, class: 'Room',
@@ -118,7 +121,7 @@ writeRoom('stomach/sorting-lab.tmj', {
         food(4, 4, 6, 'normal'),
         food(5, 2, 6, 'small'),
         belt(6, 'belt-in', 1, 6, 8, 1, 'E', 'slow'),
-        lever(7, 'lever-start', 5, 4, 6),
+        lever(7, 'lever-start', 5, 4, 6, [int('cooldownSeconds', 30)]),
         // A fork turns to the south branch while its lever is on. The lever takes no new throw for 5 seconds.
         rect(8, 'fork', 'Conveyor', 9, 6, 1, 1, [str('direction', 'Direction', 'E'), str('altDirection', 'AltDirection', 'S'), str('speed', 'ConveyorSpeed', 'fast')]),
         lever(9, 'lever-fork', 9, 4, 8, [int('cooldownSeconds', 5)]),

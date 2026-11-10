@@ -70,7 +70,10 @@ export function conveyorTiles(o: RoomObject): Tile[] {
   return out;
 }
 
-export const directionOf = (conveyor: RoomObject): Tile => STEP[String(conveyor.props['direction'])] ?? STEP['E']!;
+/** The tile step of a socket letter; east for anything else. */
+export const stepOf = (way: string): Tile => STEP[way] ?? STEP['E']!;
+
+export const directionOf = (conveyor: RoomObject): Tile => stepOf(String(conveyor.props['direction']));
 
 /** A fork: a conveyor with an `altDirection`, such as the stomach sorting center's (design doc 7.5). */
 export const isFork = (conveyor: RoomObject): boolean => String(conveyor.props['altDirection']) in STEP;
@@ -85,7 +88,7 @@ export function flowName(objects: readonly RoomObject[], conveyor: RoomObject, s
 }
 
 export const flowOf = (objects: readonly RoomObject[], conveyor: RoomObject, switchesOn: readonly number[]): Tile =>
-  STEP[flowName(objects, conveyor, switchesOn)] ?? STEP['E']!;
+  stepOf(flowName(objects, conveyor, switchesOn));
 
 /**
  * A conveyor runs unless switches are aimed at it, and then only while all of them are on: the

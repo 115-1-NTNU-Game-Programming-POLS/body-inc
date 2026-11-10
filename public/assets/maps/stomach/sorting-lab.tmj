@@ -713,6 +713,11 @@
        "type": "string",
        "propertytype": "SwitchMode",
        "value": "toggle"
+      },
+      {
+       "name": "cooldownSeconds",
+       "type": "int",
+       "value": 30
       }
      ]
     },

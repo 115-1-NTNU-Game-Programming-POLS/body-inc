@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { BOSSES, CHAPTERS, DIALOGUES, ENEMIES, PARAMS, RESCUES, TAGS } from '../../src/app/content.ts';
 import { readRoom } from '../../src/core/rooms/tiled.ts';
 import {
-  CONVEYOR_TICKS, conveyorTiles, createGame, loadEnemyTable, NO_INPUT, parseRoom, PORTION_SECONDS, roomsOf, selectConveyors, selectCooling, selectDoorLocks, selectPortions,
+  CONVEYOR_TICKS, conveyorTiles, createGame, loadEnemyTable, NO_INPUT, parseRoom, PORTION_SECONDS, roomsOf, selectConveyors, selectCooling, selectDoorLocks, selectInteractable, selectPortions,
   startChapter, step, stepChapter, TICK_HZ,
   type ChapterContent, type ChapterState, type EnteredRoom, type GameEvent, type TickInput, type TiledMap,
 } from '../../src/core/index.ts';
@@ -168,6 +168,15 @@ describe("a lever's cooldown", () => {
     expect('cooling' in r.state.game).toBe(false);
   });
 
+  it('is not offered as the interact prompt while it cools, and is again the tick it has cooled', () => {
+    const c = cool(5);
+    expect(selectInteractable(at(startChapter(c)).game)).toMatchObject({ object: 5, kind: 'Switch' });
+    const on = thrown(c).state;
+    expect(selectInteractable(on.game)).toBeUndefined();
+    expect(selectInteractable(run(c, on, NONE, 5 * TICK_HZ - 1).state.game)).toBeUndefined();
+    expect(selectInteractable(run(c, on, NONE, 5 * TICK_HZ).state.game)).toMatchObject({ object: 5, kind: 'Switch' });
+  });
+
   it('is reported for the view as the share left, and is gone from the state once over', () => {
     const c = cool(5);
     const on = thrown(c).state;
@@ -250,14 +259,15 @@ describe("the stomach chapter's sorting lab", () => {
   const stand = (s: ChapterState, col: number): ChapterState => place(s, col * 32 + 16, 5 * 32 + 20);
 
   interface Play { readonly events: readonly { readonly t: number; readonly e: GameEvent }[]; readonly state: ChapterState }
-  /** Throws the line's lever on tick 0, then the fork's lever at each of `forkAt` (seconds); plays on for `seconds`. */
-  function play(forkAt: readonly number[], seconds = 120): Play {
+  /** Throws the line's lever at each of `startAt` (seconds), then the fork's lever at each of `forkAt`; plays on for `seconds`. */
+  function play(forkAt: readonly number[], seconds = 120, startAt: readonly number[] = [0]): Play {
     let s = stand(lab(), 5);
     const events: { t: number; e: GameEvent }[] = [];
     const ticks = forkAt.map((sec) => Math.round(sec * TICK_HZ));
+    const starts = startAt.map((sec) => Math.round(sec * TICK_HZ));
     for (let t = 0; t < seconds * TICK_HZ; t++) {
       let input = NONE;
-      if (t === 0) input = INTERACT;
+      if (starts.includes(t)) { s = stand(s, 5); input = INTERACT; }
       else if (ticks.includes(t)) { s = stand(s, 9); input = INTERACT; }
       const r = stepChapter(content, s, input);
       s = r.state;
@@ -292,6 +302,14 @@ describe("the stomach chapter's sorting lab", () => {
     const still = run(content, s, NONE, 600).state;
     expect(tiles(still)).toEqual(tiles(s));
     expect(types(run(content, still, NONE, 600).events)).not.toContain('mixerFed');
+  });
+
+  it('refuses to pause the line with its own lever, so the fork cannot be skipped', () => {
+    // Stopping the belt after three boxes and starting it again once the mixer had emptied would pass the room with the fork untouched.
+    const r = play([], 120, [0, 6, 20]);
+    expect(r.events.filter((x) => x.e.type === 'switchCooling').map((x) => x.t)).toEqual([6, 20]);
+    expect(first(r, 'mixerJammed')).toBeCloseTo(7.5, 0);
+    expect(first(r, 'portFilled')).toBeUndefined();
   });
 
   it('jams the mixer on the fourth box when the fork is never thrown', () => {

@@ -1609,11 +1609,12 @@ export function selectUnload(s: GameState): { readonly phase: 'ready' | 'up' | '
   if (u.ticksLeft > 0) return { phase: 'up', seconds: Math.ceil(u.ticksLeft / TICK_HZ) };
   return u.cooldown > 0 ? { phase: 'cooling', seconds: Math.ceil(u.cooldown / TICK_HZ) } : { phase: 'ready', seconds: 0 };
 }
-/** The NPC, bed, pickup or toggle switch the interact key would use right now, for the HUD prompt; same rule as the key. */
+/** The NPC, bed, pickup or toggle switch the interact key would use right now, for the HUD prompt; same rule as the key, except that a switch still cooling is not offered, since the key would only say so. */
 export function selectInteractable(s: GameState): { readonly object: number; readonly kind: string } | undefined {
   if (s.operator.action.kind !== 'free' || s.interactRest || asleep(s.sleep)) return undefined;
   const o = reachableObject(s.room, boxAt(OPERATOR_BODY, s.operator.x, s.operator.y), s.operator, s.taken);
-  return o ? { object: o.id, kind: o.kind } : undefined;
+  if (!o || (o.kind === 'Switch' && coolingLeft(s.cooling ?? [], o.id) > 0)) return undefined;
+  return { object: o.id, kind: o.kind };
 }
 /** Every locked door of the room and whether it is open now, by the same rule the step uses. */
 export function selectDoorLocks(s: GameState): readonly { readonly object: number; readonly lock: string; readonly open: boolean }[] {

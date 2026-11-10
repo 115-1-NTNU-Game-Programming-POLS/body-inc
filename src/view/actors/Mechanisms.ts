@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import {
-  chunksOf, conveyorTiles, dockTiles, hopperTiles, isSpawnedCrate, MIST, objectBox, outletTile, PARCEL, portCycle, selectBoxes, selectChunks, selectConveyors, selectCooling, selectDoorLocks, selectFactory,
-  selectMixer, selectPickups, selectPort, selectPortions, selectSwitches, TILE, type BoxState, type GameState, type RoomObject,
+  chunksOf, conveyorTiles, dockTiles, hopperTiles, isFork, isSpawnedCrate, MIST, objectBox, outletTile, PARCEL, portCycle, selectBoxes, selectChunks, selectConveyors, selectCooling, selectDoorLocks, selectFactory,
+  selectMixer, selectPickups, selectPort, selectPortions, selectSwitches, stepOf, TILE, type BoxState, type GameState, type RoomObject,
 } from '../../core/index.ts';
 import { fillStr, str } from '../../app/content.ts';
 import { addText, updateText } from '../text/fonts.ts';
@@ -333,15 +333,13 @@ function drawBox(g: Phaser.GameObjects.Graphics, boxType: string, portion?: stri
   for (let i = 0; i < pips; i++) g.fillStyle(INK).fillRect(17 - 2 * pips + 4 * i, 18, 2, 4);
 }
 
-const WAYS: Readonly<Record<string, { col: number; row: number }>> = { N: { col: 0, row: -1 }, S: { col: 0, row: 1 }, E: { col: 1, row: 0 }, W: { col: -1, row: 0 } };
-
 /**
  * A grey belt with chevrons pointing the way it runs; stopped, the chevrons go dim. A fork, which
  * a lever turns, is warm yellow-grey so it reads as the place where the way can change.
  */
 function drawBelt(g: Phaser.GameObjects.Graphics, o: RoomObject, way: string, running: boolean, phase: number): void {
-  const d = WAYS[way] ?? WAYS['E']!;
-  const fork = String(o.props['altDirection']) in WAYS;
+  const d = stepOf(way);
+  const fork = isFork(o);
   for (const t of conveyorTiles(o)) {
     const x = t.col * TILE;
     const y = t.row * TILE;

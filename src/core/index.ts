@@ -6,7 +6,7 @@ export { DAY_SLOTS, WALL_LAYOUT, LIVER_SLOTS, slotProblems, WALL_DAYS, type Slot
 export * from './rooms/props.ts';
 export { arrivalPoint, INTERACT_REACH, objectBox, reachableObject, touchedObjects } from './rooms/interact.ts';
 export {
-  CONVEYOR_TICKS, conveyorTiles, directionOf, onPlate, onPort, portOf, PUSH, settleBoxes, tileBox, tileOf, type BoxState, type Tile,
+  CONVEYOR_TICKS, conveyorTiles, directionOf, isFork, onPlate, onPort, portOf, PUSH, settleBoxes, stepOf, tileBox, tileOf, type BoxState, type Tile,
 } from './rooms/boxes.ts';
 export * from './chapter/glucose.ts';
 export * from './tools.ts';
