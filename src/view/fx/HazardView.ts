@@ -14,7 +14,8 @@ const SHOT_TEXTURES: Readonly<Record<string, string>> = { cup: 'fx-shot-cup', sh
  * Tier-2 areas and thrown shots, drawn from core state each frame. A tier-2 area is the
  * attack's real shape: a dashed red outline at full size from the first tick and 45-degree red
  * hatching that fills from the rim inward, complete on the tick it goes live (art direction
- * 9.2). Tier-3 areas are not drawn on the ground; their warning is the proposal on the boss.
+ * 9.2). Tier-3 areas are not drawn on the ground, since their warning is the proposal on the boss;
+ * the mixer's protest is the exception, as it is centred on the hopper and not on a boss.
  */
 export class HazardView {
   private readonly scene: Phaser.Scene;
@@ -58,7 +59,8 @@ export class HazardView {
       const x = q.x + (s.x - q.x) * alpha;
       const y = q.y + (s.y - q.y) * alpha;
       // Lifted like staples: the core position is the shadow on the ground plane.
-      img.setPosition(Math.round(x), Math.round(y - 12)).setDepth(y).setAlpha(s.spent ? 0.5 : 1);
+      // The large portion of the stomach boss is a box one and a half times the size.
+      img.setPosition(Math.round(x), Math.round(y - 12)).setDepth(y).setAlpha(s.spent ? 0.5 : 1).setScale(s.delivery === 'large' ? 1.5 : 1);
     }
     for (const [id, img] of this.shots) {
       if (alive.has(id)) continue;

@@ -263,6 +263,8 @@ export type DomainEvent =
   | { readonly type: 'bossBreath'; readonly target: number; readonly seconds: number }
   /** The toast boss starts the next round of the song, at a quicker beat (乾杯三巡). */
   | { readonly type: 'bossRound'; readonly target: number; readonly round: 1 | 2 | 3 }
+  /** The stomach boss moved to his second stage; he has a line of his own, unlike the caffeine boss's bossStage. */
+  | { readonly type: 'snackStage'; readonly target: number; readonly stage: 2 }
   /** The toast boss's budget ran out: he is not beaten but gives up toasting (design doc 7.7). */
   | { readonly type: 'bossConceded'; readonly target: number; readonly enemy: string }
   /** The operator stepped onto an unlocked door; the chapter decides where it leads. */
@@ -1718,13 +1720,13 @@ export function selectPort(s: GameState): {
 /** The room's mixer for drawing it: what it digests, each with the share done, and where parcels come out. */
 export function selectMixer(s: GameState): {
   readonly mixer: RoomObject; readonly capacity: number; readonly outlet: Tile | undefined;
-  readonly batches: readonly { readonly box: number; readonly portion: Portion; readonly done: number }[];
+  readonly batches: readonly { readonly box: number; readonly portion: Portion; readonly done: number; readonly slots: number }[];
 } | undefined {
   const m = mixerOf(s.room);
   if (!m || !s.mixer) return undefined;
   return {
     mixer: m, capacity: Number(m.props['capacity']), outlet: mixerOutlet(s.room),
-    batches: s.mixer.batches.map((b) => ({ box: b.box, portion: b.portion, done: 1 - b.left / (PORTION_SECONDS[b.portion] * TICK_HZ) })),
+    batches: s.mixer.batches.map((b) => ({ box: b.box, portion: b.portion, done: 1 - b.left / (PORTION_SECONDS[b.portion] * TICK_HZ), slots: b.slots ?? 1 })),
   };
 }
 /** The sleep bar for the HUD: the share slept, and whether the operator is up and has to lie down again. */

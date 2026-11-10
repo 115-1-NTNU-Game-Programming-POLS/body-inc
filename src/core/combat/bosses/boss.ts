@@ -87,10 +87,8 @@ export interface ToastDef {
  * room to the mixer's hopper. A box nobody stops is digested; a box taken in over the mixer's capacity makes
  * it protest with an area around the hopper. The folder's parry sends a box back at him.
  */
-export interface SnackDef {
-  readonly behaviour: 'snack';
-  readonly id: string;
-  readonly budget: number;
+export interface SnackDelivery {
+  /** From the start of the fight, or of the stage, to the first throw's telegraph. */
   readonly startTicks: number;
   /** From one throw to the next, so the telegraph is part of it. */
   readonly everyTicks: number;
@@ -98,6 +96,14 @@ export interface SnackDef {
   readonly portion: Portion;
   readonly halves: number;
   readonly returnDamage: number;
+}
+
+/** Stage 1 is the fields of the def itself, stage 2 (加大份量) is `stage2`, which starts when his budget is at most `budget`. */
+export interface SnackDef extends SnackDelivery {
+  readonly behaviour: 'snack';
+  readonly id: string;
+  readonly budget: number;
+  readonly stage2: SnackDelivery & { readonly budget: number };
   readonly protest: { readonly telegraphTicks: number; readonly activeTicks: number; readonly radius: number; readonly halves: number };
   /** Opened by the chapter once his case is closed; optional, like the caffeine boss's. */
   readonly concedeDialogue?: string;
@@ -124,7 +130,7 @@ const CAFFEINE_FIELDS = ['stage2Budget', 'speedTiles', 'rangeTiles', 'restSecond
 const TOAST_FIELDS = ['song', 'workOrder', 'concedeDialogue'] as const;
 /** A caffeine boss may also carry concedeDialogue; only these are refused on it. */
 const TOAST_ONLY_FIELDS = ['song', 'workOrder'] as const;
-const SNACK_FIELDS = ['deliveries', 'protest'] as const;
+const SNACK_FIELDS = ['deliveries', 'stage2', 'protest'] as const;
 
 function moveProblems(where: string, m: NonNullable<BossFile['moves']>[string]): string[] {
   const out: string[] = [];
@@ -239,11 +245,18 @@ function toastDef(f: BossFile, where: string, problems: string[]): ToastDef {
   };
 }
 
-function snackDef(f: BossFile, where: string, problems: string[]): SnackDef {
-  const d = f.deliveries!;
-  const p = f.protest!;
+function deliveryOf(d: NonNullable<BossFile['deliveries']>, name: string, where: string, problems: string[]): SnackDelivery {
   const everyTicks = ticks(d.everySeconds);
-  if (everyTicks <= TELEGRAPH.tier1Ticks) problems.push(`${where}: deliveries.everySeconds must be longer than the 0.5 s tier-1 telegraph`);
+  if (everyTicks <= TELEGRAPH.tier1Ticks) problems.push(`${where}: ${name}.everySeconds must be longer than the 0.5 s tier-1 telegraph`);
+  if (d.halves !== 1) problems.push(`${where}: ${name}.halves: a delivery is a tier-1 hit and costs half a heart (halves 1)`);
+  return { startTicks: ticks(d.startSeconds), everyTicks, speed: tilesPerSecond(d.speedTiles), portion: d.portion, halves: d.halves, returnDamage: d.returnDamage };
+}
+
+function snackDef(f: BossFile, where: string, problems: string[]): SnackDef {
+  const p = f.protest!;
+  const one = deliveryOf(f.deliveries!, 'deliveries', where, problems);
+  const two = deliveryOf(f.stage2!.deliveries, 'stage2.deliveries', where, problems);
+  if (f.stage2!.budget >= f.budget) problems.push(`${where}: stage2.budget must be below budget`);
   const telegraphTicks = ticks(p.telegraphSeconds);
   if (telegraphTicks < TELEGRAPH.tier3MinTicks || telegraphTicks > TELEGRAPH.tier3MaxTicks) {
     problems.push(`${where}: protest.telegraphSeconds is a tier-3 telegraph of 1.2 to 1.5 s, got ${p.telegraphSeconds} s`);
@@ -252,17 +265,12 @@ function snackDef(f: BossFile, where: string, problems: string[]): SnackDef {
     problems.push(`${where}: protest.activeTicks ${p.activeTicks} is longer than the ${ZONE_MAX_ACTIVE} dodge i-frames, so a dodge could not avoid it`);
   }
   if (p.halves !== 2) problems.push(`${where}: the protest is his signature move and costs a whole heart (halves 2)`);
-  if (d.halves !== 1) problems.push(`${where}: a delivery is a tier-1 hit and costs half a heart (halves 1)`);
   return {
     behaviour: 'snack',
     id: f.id,
     budget: f.budget,
-    startTicks: ticks(d.startSeconds),
-    everyTicks,
-    speed: tilesPerSecond(d.speedTiles),
-    portion: d.portion,
-    halves: d.halves,
-    returnDamage: d.returnDamage,
+    ...one,
+    stage2: { budget: f.stage2!.budget, ...two },
     protest: { telegraphTicks, activeTicks: p.activeTicks, radius: p.radiusTiles * TILE, halves: p.halves },
     ...(f.concedeDialogue !== undefined ? { concedeDialogue: f.concedeDialogue } : {}),
   };
@@ -353,6 +361,8 @@ export interface SnackState {
   readonly dock: number;
   /** Boxes thrown so far in the fight. */
   readonly thrown: number;
+  /** Boxes thrown in this stage; the first of a stage waits `startTicks`, the rest `everyTicks`. */
+  readonly stageThrown: number;
   readonly move: { readonly id: 'deliver'; readonly frame: number } | null;
 }
 
@@ -360,7 +370,7 @@ export type BossState = CaffeineState | ToastState | SnackState;
 
 /** The caffeine fight opens with a cup (design doc 7.4: each cup he drinks adds 100); the toast fight with him waiting. */
 export function newBossState(def: BossDef): BossState {
-  if (def.behaviour === 'snack') return { behaviour: 'snack', def: def.id, stage: 1, ticks: 0, dock: 0, thrown: 0, move: null };
+  if (def.behaviour === 'snack') return { behaviour: 'snack', def: def.id, stage: 1, ticks: 0, dock: 0, thrown: 0, stageThrown: 0, move: null };
   if (def.behaviour === 'toast') return { behaviour: 'toast', def: def.id, stage: 1, part: 'wait', line: 0, ticks: 0, waves: 0, move: null };
   return {
     behaviour: 'caffeine', def: def.id, stage: 1, residue: 0, cups: 0, burst: 1, boosted: false, lowTicks: 0, move: null,
@@ -370,7 +380,7 @@ export function newBossState(def: BossDef): BossState {
 
 /** Strings the nameplate shows for a boss enemy: its name, a label per stage and, for toast, the breath. */
 export function bossStringKeys(enemyType: string, def: BossDef): string[] {
-  const stages = def.behaviour === 'toast' ? def.rounds.length : def.behaviour === 'snack' ? 1 : 3;
+  const stages = def.behaviour === 'toast' ? def.rounds.length : def.behaviour === 'snack' ? 2 : 3;
   return [
     `boss.${enemyType}.name`,
     ...Array.from({ length: stages }, (_, i) => `boss.${enemyType}.stage.${i + 1}`),

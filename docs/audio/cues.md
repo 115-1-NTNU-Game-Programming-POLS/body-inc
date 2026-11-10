@@ -76,7 +76,7 @@
 | `proof.false` | 證明為假的蓋章加下行雙音 | `proofStamped`（`ok` 為假） |
 | `blip` | 對話的短嗶 | `talk`, `dialogueOpened`；對話逐句前進時由對話畫面播放（見下方介面音效） |
 | `gulp` | Boss 喝飲料 | `bossDrink` |
-| `stage` | Boss 換階段或換回合的三個音 | `bossStage`, `bossRound` |
+| `stage` | Boss 換階段或換回合的三個音 | `bossStage`, `bossRound`, `snackStage` |
 | `powerdown` | 斷電 | `powerCut` |
 | `woke.mixer` | 鬧鐘：高低交替的四聲方波短嗶，胃的攪拌機在睡眠中響起的警報 | `sleepInterrupted`（cause 為 `mixer`） |
 | `woke.hurt` | 驚醒：一聲短促上揚的三角波，挨打的受傷音之外只提示「醒了」，不放鬧鐘 | `sleepInterrupted`（cause 為 `hurt`） |

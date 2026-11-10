@@ -248,6 +248,9 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
       "deliveries": {
         "$ref": "#/$defs/BossDeliveries"
       },
+      "stage2": {
+        "$ref": "#/$defs/BossSnackStage"
+      },
       "protest": {
         "$ref": "#/$defs/BossProtest"
       },
@@ -479,6 +482,25 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
             "description": "Budget a box takes off him when the folder's parry sends it back.",
             "type": "number",
             "exclusiveMinimum": 0
+          }
+        }
+      },
+      "BossSnackStage": {
+        "description": "Snack: the second stage (加大份量). It starts when his budget has fallen to `budget` and replaces the deliveries of stage 1 with its own; startSeconds is then the pause from the start of the stage to the first telegraph.",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "budget",
+          "deliveries"
+        ],
+        "properties": {
+          "budget": {
+            "description": "The stage starts when his budget is at most this; below the budget of the file.",
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "deliveries": {
+            "$ref": "#/$defs/BossDeliveries"
           }
         }
       },
@@ -3460,6 +3482,7 @@ export interface BossFile {
   /** Which core controller runs this boss. */
   readonly behaviour: "caffeine" | "toast" | "snack";
   readonly deliveries?: BossDeliveries;
+  readonly stage2?: BossSnackStage;
   readonly protest?: BossProtest;
   readonly song?: BossSong;
   readonly workOrder?: BossWorkOrder;
@@ -3534,6 +3557,13 @@ export interface BossDeliveries {
   readonly halves: number;
   /** Budget a box takes off him when the folder's parry sends it back. */
   readonly returnDamage: number;
+}
+
+/** Snack: the second stage (加大份量). It starts when his budget has fallen to `budget` and replaces the deliveries of stage 1 with its own; startSeconds is then the pause from the start of the stage to the first telegraph. */
+export interface BossSnackStage {
+  /** The stage starts when his budget is at most this; below the budget of the file. */
+  readonly budget: number;
+  readonly deliveries: BossDeliveries;
 }
 
 /** Snack: the area the mixer throws when it is fed one box over its capacity (胃抗議). It hurts the operator wherever he stands round the hopper, so it is a tier-3 move with the longest telegraph. */

@@ -10,6 +10,7 @@
     "id": { "description": "Matches the boss field of the enemy in content/enemies.json.", "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
     "behaviour": { "description": "Which core controller runs this boss.", "enum": ["caffeine", "toast", "snack"] },
     "deliveries": { "$ref": "#/$defs/BossDeliveries" },
+    "stage2": { "$ref": "#/$defs/BossSnackStage" },
     "protest": { "$ref": "#/$defs/BossProtest" },
     "song": { "$ref": "#/$defs/BossSong" },
     "workOrder": { "$ref": "#/$defs/BossWorkOrder" },
@@ -82,6 +83,16 @@
         "portion": { "description": "How long the mixer digests a delivery.", "enum": ["small", "normal", "large"] },
         "halves": { "description": "Half hearts when a box hits the operator; a tier-1 hit costs half a heart.", "type": "integer", "minimum": 1 },
         "returnDamage": { "description": "Budget a box takes off him when the folder's parry sends it back.", "type": "number", "exclusiveMinimum": 0 }
+      }
+    },
+    "BossSnackStage": {
+      "description": "Snack: the second stage (加大份量). It starts when his budget has fallen to `budget` and replaces the deliveries of stage 1 with its own; startSeconds is then the pause from the start of the stage to the first telegraph.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["budget", "deliveries"],
+      "properties": {
+        "budget": { "description": "The stage starts when his budget is at most this; below the budget of the file.", "type": "number", "exclusiveMinimum": 0 },
+        "deliveries": { "$ref": "#/$defs/BossDeliveries" }
       }
     },
     "BossProtest": {
