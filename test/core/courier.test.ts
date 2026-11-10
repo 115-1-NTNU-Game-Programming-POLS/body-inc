@@ -2,11 +2,11 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { BOSSES, CHAPTERS, DIALOGUES, ENEMIES, PARAMS, RESCUES, TAGS } from '../../src/app/content.ts';
 import {
-  amount, COURIER, createGame, holds, isOrder, newOrder, NO_INPUT, ORDER_ID_BASE, parseRoom, roomsOf, selectBoxes, selectMixer, STAMP, startChapter, step,
-  stepChapter, TELEGRAPH, TICK_HZ, TILE,
+  amount, boxAt, COURIER, createGame, holds, isOrder, newOrder, NO_INPUT, ORDER_ID_BASE, overlaps, parseRoom, roomsOf, selectBoxes, selectMixer, STAMP, startChapter,
+  step, stepChapter, TELEGRAPH, tileBox, TICK_HZ, TILE,
   type ChapterContent, type ChapterState, type DomainEvent, type EnteredRoom, type EnemyState, type GameEvent, type GameState, type TickInput, type TiledMap,
 } from '../../src/core/index.ts';
-import { stepEnemy } from '../../src/core/combat/actors.ts';
+import { ENEMY_BODY, stepEnemy } from '../../src/core/combat/actors.ts';
 import { readRoom } from '../../src/core/rooms/tiled.ts';
 import { stepMixer } from '../../src/core/stomach/mixer.ts';
 import { compileCondition } from '../../src/core/tags/dictionary.ts';
@@ -212,6 +212,94 @@ describe('throwing an order', () => {
     expect(ofType(r, 'orderThrown')).toHaveLength(1);
     expect(orders(r.state)).toHaveLength(1);
     expect(ofType(r, 'telegraph')).toHaveLength(1);
+  });
+
+  describe('the cap holds at the moment of the throw, not only when the telegraph starts', () => {
+    const at = (row: number) => ({ x: 3 * TILE + 16, y: row * TILE + 16 });
+
+    it('lets three couriers that raise an order together land two, with three belt heads free', () => {
+      const r = run(game(room([
+        courier(10, at(2)), courier(11, at(5)), courier(12, at(8)), belt(20, 2, 8, 3), belt(21, 2, 8, 6), belt(22, 2, 8, 9),
+      ])), COURIER.intervalTicks + WINDUP);
+      // All three telegraph on the same tick, each seeing an empty floor: the windup check alone cannot hold the cap.
+      expect(ofType(r, 'telegraph')).toHaveLength(3);
+      expect(ofType(r, 'orderThrown')).toHaveLength(COURIER.maxOrders);
+      expect(orders(r.state)).toHaveLength(COURIER.maxOrders);
+    });
+
+    it('counts the order already on the floor: one afloat and two couriers throwing leave two', () => {
+      const g = game(room([courier(10, at(2)), courier(11, at(5)), belt(20, 2, 8, 3), belt(21, 2, 8, 6)]));
+      const afloat: GameState = { ...g, boxes: [newOrder(0, { col: 15, row: 10 })], orderSerial: 1 };
+      const r = run(afloat, COURIER.intervalTicks + WINDUP);
+      expect(ofType(r, 'telegraph')).toHaveLength(2);
+      expect(ofType(r, 'orderThrown')).toHaveLength(1);
+      expect(orders(r.state)).toHaveLength(COURIER.maxOrders);
+    });
+
+    it('gives the places to the couriers with the lower ids when there are fewer than throws', () => {
+      const r = run(game(room([
+        courier(10, at(2)), courier(11, at(5)), courier(12, at(8)), belt(20, 2, 8, 3), belt(21, 2, 8, 6), belt(22, 2, 8, 9),
+      ])), COURIER.intervalTicks + WINDUP);
+      const ids = r.state.enemies.map((e) => e.id);
+      expect(ofType(r, 'orderThrown').map((e) => e.source)).toEqual([ids[0], ids[1]]);
+    });
+  });
+
+  describe('an order lands only where nobody stands once this tick\'s movement is done', () => {
+    const SALESMAN_AT = { x: 80, y: 191.7 };
+    const OPERATOR = { x: 80, y: 320 };
+    const away = { x: 15 * TILE + 16, y: 2 * TILE + 16 };
+    const spawn = (id: number, type: string, at: { x: number; y: number }) => ({
+      id, kind: 'Spawn', name: '', x: at.x, y: at.y, width: 0, height: 0, conditions: {}, props: { enemyType: type, count: 1, respawnSeconds: 0, when: '' },
+    });
+
+    /**
+     * A salesman held out of play until the courier's last windup tick, then put 0.8 px above the
+     * head tile (2, 6) of the belt, walking south at the operator: this tick he steps onto it.
+     */
+    function onTheThrowTick(courierId: number, salesmanId: number): Run & { before: GameState } {
+      const g = game(room([spawn(courierId, 'courier', COURIER_AT), spawn(salesmanId, 'salesman', away), belt(20, 2, 8)], [], OPERATOR));
+      const held: GameState = { ...g, enemies: g.enemies.map((e) => (e.archetype === 'salesman' ? { ...e, phase: 'closed' as const } : e)) };
+      const ready = run(held, COURIER.intervalTicks + WINDUP - 1).state;
+      const before: GameState = {
+        ...ready, enemies: ready.enemies.map((e) => (e.archetype === 'salesman' ? { ...e, phase: 'idle' as const, phaseTicks: 0, ...SALESMAN_AT } : e)),
+      };
+      return { ...run(before, 1), before };
+    }
+
+    for (const [name, courierId, salesmanId] of [['the courier is processed first', 10, 11], ['the salesman is processed first', 11, 10]] as const) {
+      it(`leaves no enemy overlapping an order when ${name}`, () => {
+        const r = onTheThrowTick(courierId, salesmanId);
+        // The scenario reached the throw tick: he was raising the order and has let go of it.
+        expect(r.before.enemies.find((e) => e.archetype === 'courier')).toMatchObject({ phase: 'windup' });
+        expect(r.state.enemies.find((e) => e.archetype === 'courier')).toMatchObject({ phase: 'strike' });
+        // The salesman walked on this tick.
+        expect(r.state.enemies.find((e) => e.archetype === 'salesman')!.y).toBeGreaterThan(SALESMAN_AT.y);
+        for (const e of r.state.enemies) {
+          for (const b of orders(r.state)) {
+            expect(overlaps(boxAt(ENEMY_BODY, e.x, e.y), tileBox(b)), `${e.type} ${e.id} against the order on (${b.col}, ${b.row})`).toBe(false);
+          }
+        }
+      });
+    }
+
+    it('is solid to a staple that reaches the head tile on the throw tick, not one tick late', () => {
+      const g = game(room([spawn(10, 'courier', COURIER_AT), belt(20, 2, 8)], [], OPERATOR));
+      const ready = run(g, COURIER.intervalTicks + WINDUP - 1).state;
+      // From (80, 190) it moves to (80, 194): into the tile (2, 6) where the order lands this tick.
+      const staple = { id: 900, x: 80, y: 190, vx: 0, vy: 4, ticksLeft: 30 };
+      const r = run({ ...ready, projectiles: [staple] }, 1);
+      expect(ofType(r, 'orderThrown')).toMatchObject([{ col: 2, row: 6 }]);
+      expect(r.state.projectiles).toEqual([]);
+    });
+
+    it('still throws when nobody is on the head tile, in either order of the ids', () => {
+      for (const [courierId, salesmanId] of [[10, 11], [11, 10]] as const) {
+        const g = game(room([spawn(courierId, 'courier', COURIER_AT), spawn(salesmanId, 'salesman', away), belt(20, 2, 8)], [], OPERATOR));
+        const held: GameState = { ...g, enemies: g.enemies.map((e) => (e.archetype === 'salesman' ? { ...e, phase: 'closed' as const } : e)) };
+        expect(ofType(run(held, COURIER.intervalTicks + WINDUP), 'orderThrown')).toMatchObject([{ col: 2, row: 6 }]);
+      }
+    });
   });
 
   it('numbers every order of the visit once, through a forced leave', () => {

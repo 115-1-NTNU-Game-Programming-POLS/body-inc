@@ -959,6 +959,7 @@ export function step(state: GameState, pressed: TickInput): StepResult {
   const newShots: ShotSpec[] = [];
   const newZones: ZoneSpec[] = [];
   let orderSerial = state.orderSerial ?? 0;
+  const throws: { readonly source: number; readonly x: number; readonly y: number }[] = [];
   const target = { x: op.x, y: op.y };
   const enemies = new Map<number, EnemyState>();
   const ordered = [...state.enemies].sort((a, b) => a.id - b.id);
@@ -1010,18 +1011,25 @@ export function step(state: GameState, pressed: TickInput): StepResult {
     const r = stepEnemy(grid, e, aim, senseRange, ready);
     enemies.set(e.id, r.enemy);
     newShots.push(...r.shots);
-    if (r.order) {
-      // Looked for again: the belt's head may have been taken since the windup began, and then the order is lost.
-      const spot = orderSpot(room, boxes, occupantsOf(op, state.enemies), switches, e.x, e.y);
-      if (spot) {
-        const box = newOrder(orderSerial++, spot);
-        boxes = [...boxes, box].sort((a, b) => a.id - b.id);
-        events.push({ type: 'orderThrown', source: e.id, object: box.id, col: spot.col, row: spot.row });
-      }
-    }
+    if (r.order) throws.push({ source: e.id, x: r.enemy.x, y: r.enemy.y });
     if (r.telegraph) events.push({ type: 'telegraph', source: e.id, tier: 1 });
     if (r.reformed) events.push({ type: 'reformed', target: e.id, enemy: e.type });
     if (r.respawned) events.push({ type: 'respawned', target: e.id, enemy: e.type });
+  }
+  // Orders land once every enemy has moved, in id order. The cap and the head tile are judged on what
+  // the floor and the bodies are now: a windup began on a floor that other couriers are filling in this
+  // same tick, and a walker may have stepped onto the head after the courier's turn in the loop. An
+  // order that finds no room is lost, as when the head was taken during the windup.
+  if (throws.length > 0) {
+    for (const t of throws) {
+      if (boxes.filter(isOrder).length >= COURIER.maxOrders) break;
+      const spot = orderSpot(room, boxes, occupantsOf(op, enemies.values()), switches, t.x, t.y);
+      if (!spot) continue;
+      const box = newOrder(orderSerial++, spot);
+      boxes = [...boxes, box].sort((a, b) => a.id - b.id);
+      events.push({ type: 'orderThrown', source: t.source, object: box.id, col: spot.col, row: spot.row });
+    }
+    grid = withBoxes(room.grid, boxes);
   }
   for (const z of newZones) zones.set(nextId, { ...z, id: nextId++, age: 1, spent: false });
   // The rest area locks what drifts into it: the answer to adenosine that cannot be beaten (design doc 8.5).
