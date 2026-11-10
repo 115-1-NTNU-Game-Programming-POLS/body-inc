@@ -215,6 +215,14 @@ export class HudScene extends Phaser.Scene {
 
   /** Gray memo above the object (art direction 9.2), converted from world to screen once. */
   private note(n: WorldNote): void {
+    // Held fire at a shield or an immune box repeats the same memo every few ticks: keep one and renew its time.
+    const same = this.notes.find((t) => t.getData('note') === n.text);
+    if (same) {
+      this.tweens.killTweensOf(same);
+      same.setAlpha(1);
+      this.fadeNote(same);
+      return;
+    }
     const cam = this.scene.get('World').cameras.main;
     const sx = (n.worldX - cam.worldView.x) * cam.zoom;
     const sy = (n.worldY - cam.worldView.y) * cam.zoom;
@@ -245,7 +253,12 @@ export class HudScene extends Phaser.Scene {
       }
       placed.push(b);
     }
+    text.setData('note', n.text);
     this.notes.push(text);
+    this.fadeNote(text);
+  }
+
+  private fadeNote(text: Phaser.GameObjects.Text): void {
     this.tweens.add({
       targets: text, alpha: 0, delay: (NOTE_SECONDS - 0.4) * 1000, duration: 400,
       onComplete: () => {
