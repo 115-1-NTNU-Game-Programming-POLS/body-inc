@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import {
-  chunksOf, conveyorTiles, directionOf, dockTiles, hopperTiles, isSpawnedCrate, MIST, objectBox, outletTile, PARCEL, portCycle, selectBoxes, selectChunks, selectConveyors, selectDoorLocks, selectFactory,
-  selectMixer, selectPickups, selectPort, selectSwitches, TILE, type BoxState, type GameState, type RoomObject,
+  chunksOf, conveyorTiles, dockTiles, hopperTiles, isFork, isSpawnedCrate, MIST, objectBox, outletTile, PARCEL, portCycle, selectBoxes, selectChunks, selectConveyors, selectCooling, selectDoorLocks, selectFactory,
+  selectMixer, selectPickups, selectPort, selectPortions, selectSwitches, stepOf, TILE, type BoxState, type GameState, type RoomObject,
 } from '../../core/index.ts';
 import { fillStr, str } from '../../app/content.ts';
 import { addText, updateText } from '../text/fonts.ts';
@@ -20,7 +20,7 @@ const CHUNK_ACID = 0x8fb339;
  * clock, resource); the plate comes off when the door opens. Real art replaces these later.
  */
 export class Mechanisms {
-  private readonly levers = new Map<number, { g: Phaser.GameObjects.Graphics; o: RoomObject; on?: boolean }>();
+  private readonly levers = new Map<number, { g: Phaser.GameObjects.Graphics; o: RoomObject; drawn?: string }>();
   private readonly plates = new Map<number, Phaser.GameObjects.Graphics>();
   private readonly items = new Map<number, Phaser.GameObjects.Graphics>();
   /** A food box keeps its id when the mixer turns it into a parcel, so the type drawn is kept to redraw it then. */
@@ -99,13 +99,15 @@ export class Mechanisms {
   }
 
   render(state: GameState): void {
+    const cooling = new Set(selectCooling(state).map((c) => c.object));
     for (const s of selectSwitches(state)) {
       const v = this.levers.get(s.object);
-      if (!v || v.on === s.on) continue;
-      v.on = s.on;
+      const look = `${s.on}|${cooling.has(s.object)}`;
+      if (!v || v.drawn === look) continue;
+      v.drawn = look;
       v.g.clear();
       if (s.mode === 'hold') drawPlate(v.g, v.o, s.on);
-      else drawLever(v.g, v.o, s.on);
+      else drawLever(v.g, v.o, s.on, cooling.has(s.object));
     }
     for (const d of selectDoorLocks(state)) this.plates.get(d.object)?.setVisible(!d.open);
     for (const c of selectChunks(state)) {
@@ -122,6 +124,7 @@ export class Mechanisms {
     // A box is drawn at its feet line like an actor, so the operator walks behind or in front of it.
     // Acetaldehyde crates come out of the line while the room is open, so pictures are made on first sight.
     const here = new Set<number>();
+    const portions = new Map(selectPortions(state).map((p) => [p.object, p.portion]));
     for (const b of selectBoxes(state)) {
       here.add(b.object);
       let v = this.boxes.get(b.object);
@@ -129,9 +132,10 @@ export class Mechanisms {
         v = { g: this.scene.add.graphics(), type: '' };
         this.boxes.set(b.object, v);
       }
-      if (v.type !== b.boxType) {
-        v.type = b.boxType;
-        drawBox(v.g.clear(), b.boxType);
+      const look = `${b.boxType}|${portions.get(b.object) ?? ''}`;
+      if (v.type !== look) {
+        v.type = look;
+        drawBox(v.g.clear(), b.boxType, portions.get(b.object));
       }
       v.g.setPosition(b.x, b.y).setDepth(b.y + TILE);
     }
@@ -169,11 +173,11 @@ export class Mechanisms {
       if (!v) continue;
       // The chevrons crawl one step every 8 rule ticks while running, which is enough to read the direction.
       const phase = c.running ? Math.floor(state.tick / 8) % 4 : 0;
-      const key = `${c.running}|${phase}`;
+      const key = `${c.running}|${phase}|${c.direction}`;
       if (v.drawn === key) continue;
       v.drawn = key;
       v.g.clear();
-      drawBelt(v.g, v.o, c.running, phase);
+      drawBelt(v.g, v.o, c.direction, c.running, phase);
     }
   }
 
@@ -305,11 +309,15 @@ function drawHopper(g: Phaser.GameObjects.Graphics, tiles: readonly { col: numbe
   }
 }
 
+/** Pips on a food box's label: one for a small portion, two for a normal one, three for a large one. */
+const PIPS: Readonly<Record<string, number>> = { small: 1, normal: 2, large: 3 };
+
 /**
- * A crate on its tile, drawn from the tile's top-left; the type only changes the label colour. A
- * parcel, what the mixer puts out, is a small paper bundle tied with string instead.
+ * A crate on its tile, drawn from the tile's top-left; the type only changes the label colour, and a
+ * food box shows its portion as pips on the label. A parcel, what the mixer puts out, is a small
+ * paper bundle tied with string instead.
  */
-function drawBox(g: Phaser.GameObjects.Graphics, boxType: string): void {
+function drawBox(g: Phaser.GameObjects.Graphics, boxType: string, portion?: string): void {
   if (boxType === PARCEL) {
     g.fillStyle(INK, 0.25).fillEllipse(16, 28, 20, 5);
     g.fillStyle(PAPER).fillRect(8, 13, 16, 14).lineStyle(1.5, INK, 1).strokeRect(8, 13, 16, 14);
@@ -321,15 +329,21 @@ function drawBox(g: Phaser.GameObjects.Graphics, boxType: string): void {
   g.fillStyle(0xb58a55).fillRect(3, 6, 26, 23).lineStyle(1.5, INK, 1).strokeRect(3, 6, 26, 23);
   g.lineBetween(3, 12, 29, 12);
   g.fillStyle(label).fillRect(10, 16, 12, 8).strokeRect(10, 16, 12, 8);
+  const pips = PIPS[portion ?? ''] ?? 0;
+  for (let i = 0; i < pips; i++) g.fillStyle(INK).fillRect(17 - 2 * pips + 4 * i, 18, 2, 4);
 }
 
-/** A grey belt with chevrons pointing the way it runs; stopped, the chevrons go dim. */
-function drawBelt(g: Phaser.GameObjects.Graphics, o: RoomObject, running: boolean, phase: number): void {
-  const d = directionOf(o);
+/**
+ * A grey belt with chevrons pointing the way it runs; stopped, the chevrons go dim. A fork, which
+ * a lever turns, is warm yellow-grey so it reads as the place where the way can change.
+ */
+function drawBelt(g: Phaser.GameObjects.Graphics, o: RoomObject, way: string, running: boolean, phase: number): void {
+  const d = stepOf(way);
+  const fork = isFork(o);
   for (const t of conveyorTiles(o)) {
     const x = t.col * TILE;
     const y = t.row * TILE;
-    g.fillStyle(0x5c6270).fillRect(x, y, TILE, TILE);
+    g.fillStyle(fork ? 0x7a6f4a : 0x5c6270).fillRect(x, y, TILE, TILE);
     g.lineStyle(1, INK, 0.6).strokeRect(x + 0.5, y + 0.5, TILE - 1, TILE - 1);
     g.lineStyle(2, running ? 0xf4efe4 : 0x8a8780, running ? 0.9 : 0.5);
     for (let i = 0; i < 2; i++) {
@@ -397,8 +411,8 @@ function drawPlate(g: Phaser.GameObjects.Graphics, o: RoomObject, down: boolean)
   g.fillStyle(down ? BLUE : PAPER).fillRect(b.left + 5, b.top + (down ? 7 : 5), w - 10, h - (down ? 12 : 10));
 }
 
-/** A lever on a base: thrown, it leans right and turns blue. */
-function drawLever(g: Phaser.GameObjects.Graphics, o: RoomObject, on: boolean): void {
+/** A lever on a base: thrown, it leans right and turns blue; while it cools down the knob goes grey and the base gets a bar. */
+function drawLever(g: Phaser.GameObjects.Graphics, o: RoomObject, on: boolean, cooling = false): void {
   const b = objectBox(o);
   const cx = (b.left + b.right) / 2;
   const base = b.bottom - 6;
@@ -406,7 +420,8 @@ function drawLever(g: Phaser.GameObjects.Graphics, o: RoomObject, on: boolean): 
   const tipX = cx + (on ? 9 : -9);
   const tipY = base - 16;
   g.lineStyle(3, INK, 1).lineBetween(cx, base - 2, tipX, tipY);
-  g.fillStyle(on ? BLUE : GREY).fillCircle(tipX, tipY, 4).lineStyle(1, INK, 1).strokeCircle(tipX, tipY, 4);
+  g.fillStyle(on && !cooling ? BLUE : GREY).fillCircle(tipX, tipY, 4).lineStyle(1, INK, 1).strokeCircle(tipX, tipY, 4);
+  if (cooling) g.fillStyle(0xc8372d).fillRect(cx - 9, base + 5, 18, 3);
 }
 
 /** An ink plate with the lock's icon, on the face of the door. */

@@ -673,3 +673,46 @@ describe('Tiled project file', () => {
     expect(p.propertyTypes.find((t) => t.name === 'EnemyType')?.values).toEqual(['a', 'b']);
   });
 });
+
+describe('room parser: forks and lever cooldowns (the stomach sorting center)', () => {
+  const fork = (extra: ReturnType<typeof prop>[] = [prop('altDirection', 'S')], id = 1): Partial<TiledObject> =>
+    ({ id, type: 'Conveyor', x: 224, y: 128, width: 32, height: 32, properties: [prop('direction', 'E'), ...extra] });
+  const lever = (target: number, extra: ReturnType<typeof prop>[] = [], mode = 'toggle'): Partial<TiledObject> =>
+    ({ id: 2, type: 'Switch', x: 300, y: 300, properties: [prop('target', target), prop('mode', mode), ...extra] });
+
+  it('accepts a fork with a lever aimed at it, and a lever with a cooldown', () => {
+    expect(codes(map([fork(), lever(1, [prop('cooldownSeconds', 5)])]))).toEqual([]);
+  });
+
+  it('counts a port aimed at the fork as its switch, like a door or an ordinary conveyor does', () => {
+    const port: Partial<TiledObject> = { id: 3, type: 'Port', x: 320, y: 192, width: 64, height: 32, properties: [prop('need', 1), prop('target', 1)] };
+    const box: Partial<TiledObject> = { id: 4, type: 'Box', x: 112, y: 112 };
+    expect(codes(map([fork(), port, box]))).toEqual([]);
+  });
+
+  it('reports a fork that nothing is aimed at, which would never turn', () => {
+    expect(codes(map([fork()]))).toEqual(['fork-switch']);
+  });
+
+  it('reports a fork whose other way is its own', () => {
+    expect(codes(map([fork([prop('altDirection', 'E')]), lever(1)]))).toEqual(['fork-same']);
+  });
+
+  it('takes altDirection none for an ordinary conveyor, which needs no switch', () => {
+    expect(codes(map([fork([prop('altDirection', 'none')])]))).toEqual([]);
+    expect(codes(map([fork([])]))).toEqual([]);
+  });
+
+  it('rejects a direction that is not a socket letter', () => {
+    expect(codes(map([fork([prop('altDirection', 'up')]), lever(1)]))).toEqual(['enum-value']);
+  });
+
+  it('reports a cooldown on a pressure plate, which is down only while something stands on it', () => {
+    expect(codes(map([fork(), lever(1, [prop('cooldownSeconds', 5)], 'hold')]))).toEqual(['cooldown-hold']);
+    expect(codes(map([fork(), lever(1, [prop('cooldownSeconds', 0)], 'hold')]))).toEqual([]);
+  });
+
+  it('refuses a negative cooldown', () => {
+    expect(codes(map([fork(), lever(1, [prop('cooldownSeconds', -1)])]))).toEqual(['out-of-range']);
+  });
+});

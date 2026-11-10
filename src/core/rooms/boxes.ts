@@ -2,7 +2,7 @@ import { overlaps, type Box } from '../collision/boxes.ts';
 import { isSolid, type SolidGrid } from '../collision/grid.ts';
 import { TICK_HZ, TILE } from '../time.ts';
 import { objectBox, platesUnder } from './interact.ts';
-import { switchesFor } from './locks.ts';
+import { switchesFor, switchLockOpen } from './locks.ts';
 import type { RoomModel, RoomObject } from './tiled.ts';
 
 /**
@@ -70,14 +70,33 @@ export function conveyorTiles(o: RoomObject): Tile[] {
   return out;
 }
 
-export const directionOf = (conveyor: RoomObject): Tile => STEP[String(conveyor.props['direction'])] ?? STEP['E']!;
+/** The tile step of a socket letter; east for anything else. */
+export const stepOf = (way: string): Tile => STEP[way] ?? STEP['E']!;
+
+export const directionOf = (conveyor: RoomObject): Tile => stepOf(String(conveyor.props['direction']));
+
+/** A fork: a conveyor with an `altDirection`, such as the stomach sorting center's (design doc 7.5). */
+export const isFork = (conveyor: RoomObject): boolean => String(conveyor.props['altDirection']) in STEP;
+
+/**
+ * The way a conveyor carries a box now, as a socket letter. A fork turns to `altDirection` while
+ * every switch aimed at it is on (and one is), and otherwise keeps `direction`; any other conveyor
+ * only ever has its `direction`.
+ */
+export function flowName(objects: readonly RoomObject[], conveyor: RoomObject, switchesOn: readonly number[]): string {
+  return isFork(conveyor) && switchLockOpen(objects, conveyor.id, switchesOn) ? String(conveyor.props['altDirection']) : String(conveyor.props['direction']);
+}
+
+export const flowOf = (objects: readonly RoomObject[], conveyor: RoomObject, switchesOn: readonly number[]): Tile =>
+  stepOf(flowName(objects, conveyor, switchesOn));
 
 /**
  * A conveyor runs unless switches are aimed at it, and then only while all of them are on: the
- * same rule as a switch lock, except that a conveyor with no switch simply runs.
+ * same rule as a switch lock, except that a conveyor with no switch simply runs. A fork always
+ * runs: its switches choose the way, not whether.
  */
 export function conveyorRunning(objects: readonly RoomObject[], conveyor: RoomObject, switchesOn: readonly number[]): boolean {
-  return switchesFor(objects, conveyor.id).every((s) => switchesOn.includes(s.id));
+  return isFork(conveyor) || switchesFor(objects, conveyor.id).every((s) => switchesOn.includes(s.id));
 }
 
 /** The room's Port, if it has one; the map check allows one per room, since it counts every box delivered there. */

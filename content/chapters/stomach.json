@@ -6,6 +6,7 @@
   "closedCases": { "sugar_seller": "sugar_seller_closed", "courier": "courier_closed" },
   "caseDrops": { "sugar_seller": "sugar_fatigue" },
   "links": [
-    { "a": "stomach/mixer-lab#door-e", "b": "stomach/night-lab#door-w" }
+    { "a": "stomach/mixer-lab#door-e", "b": "stomach/sorting-lab#door-w" },
+    { "a": "stomach/sorting-lab#door-e", "b": "stomach/night-lab#door-w" }
   ]
 }

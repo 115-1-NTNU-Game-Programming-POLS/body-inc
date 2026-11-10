@@ -1,6 +1,6 @@
 /**
  * Writes the stomach chapter's greybox rooms (design doc 7.5) into public/assets/maps/stomach/.
- * For now these are two lab rooms. mixer-lab is for the mixer of core/stomach/mixer.ts: five food
+ * For now these are three lab rooms. mixer-lab is for the mixer of core/stomach/mixer.ts: five food
  * boxes of the three portions, a belt into the hopper, two tiles of slow belt from the outlet to
  * the small intestine's timed gate (a port that takes parcels only, shut for 20 seconds and then
  * open for 8), and a belt loop along the walls so no box can be pushed into a dead corner. With the
@@ -14,7 +14,9 @@
  * returned and counted (design doc 7.5). It has no belt loop: a box pushed into a corner stays
  * there, but the bed needs no box. A spare food box sits in the north-east corner behind two food chunks
  * (design doc 6.2): the logistics chief's acid, on L, dissolves them after 1.5 seconds and the way is open for good.
- * Open them with ?room=stomach/mixer-lab and ?room=stomach/night-lab. The chapter's real rooms
+ * sorting-lab is for the fork of core/rooms/boxes.ts and the lever cooldown of core/rooms/cooling.ts (the sorting
+ * center): a line of four portions, a fork on it that a lever turns, a fast way to the hopper and a 22-tile slow way
+ * round to it. Open them with ?room=stomach/mixer-lab, ?room=stomach/sorting-lab and ?room=stomach/night-lab. The chapter's real rooms
  * (esophagus lift, warehouse, cold store, intestine corridor, night dock) come in later steps.
  *
  *   node tools/maps/make-stomach.ts
@@ -78,6 +80,65 @@ writeRoom('stomach/mixer-lab.tmj', {
         // Greybox: the large-portion salesman of design doc 7.5 (the manager archetype, shield and all) in the south-east corner.
         { id: 17, name: 'large-seller', type: 'Spawn', x: 17 * T + 16, y: 9 * T + 16, width: 0, height: 0, rotation: 0, visible: true, point: true,
           properties: [str('enemyType', 'EnemyType', 'large_seller')] },
+      ],
+    },
+  ],
+  tilesets: [tileset],
+});
+
+const lever = (id: number, name: string, col: number, row: number, target: number, extra: object[] = []) => rect(id, name, 'Switch', col, row, 1, 1, [
+  obj('target', target), str('mode', 'SwitchMode', 'toggle'), ...extra,
+]);
+const belt = (id: number, name: string, col: number, row: number, cols: number, rows: number, direction: string, speed?: string) =>
+  rect(id, name, 'Conveyor', col, row, cols, rows, [str('direction', 'Direction', direction), ...(speed ? [str('speed', 'ConveyorSpeed', speed)] : [])]);
+
+// The sorting center (design doc 7.5, 8.5, 8.8): a line of four portions runs to a fork, and the fork's lever sends
+// the next box either straight to the hopper on a fast belt or round a 22-tile slow belt that comes back to it.
+// The mixer holds three, so the fourth box jams it unless it takes the slow way; a large portion on the slow way
+// reaches the timed gate a window late. The line waits for its own lever so the operator is ready. That lever cools
+// down for 30 seconds, longer than the four boxes take to pass the fork, so it cannot pause the line to space the boxes
+// out in place of the fork. Levers are remembered between visits and a cooldown is not: after a forced leave the line
+// is already running on entry.
+writeRoom('stomach/sorting-lab.tmj', {
+  type: 'map', version: '1.10', tiledversion: '1.11.0', orientation: 'orthogonal', renderorder: 'right-down',
+  infinite: false, width: W, height: 12, tilewidth: T, tileheight: T, nextlayerid: 4, nextobjectid: 21, class: 'Room',
+  properties: [
+    { name: 'organ', type: 'string', value: 'stomach' },
+    { name: 'role', type: 'string', value: 'puzzle' },
+    { name: 'estSeconds', type: 'int', value: 120 },
+    { name: 'storyOnly', type: 'bool', value: true },
+  ],
+  layers: [
+    tileLayer(1, 'floor', floor),
+    tileLayer(2, 'walls', walls),
+    {
+      id: 3, name: 'objects', type: 'objectgroup', x: 0, y: 0, opacity: 1, visible: true, draworder: 'topdown',
+      objects: [
+        { id: 1, name: 'start', type: 'PlayerStart', x: 2 * T + 16, y: 8 * T + 16, width: 0, height: 0, rotation: 0, visible: true, point: true },
+        // Nearest the fork first: a large, a small, a normal and a small portion, two tiles apart on the line.
+        food(2, 8, 6, 'large'),
+        food(3, 6, 6, 'small'),
+        food(4, 4, 6, 'normal'),
+        food(5, 2, 6, 'small'),
+        belt(6, 'belt-in', 1, 6, 8, 1, 'E', 'slow'),
+        lever(7, 'lever-start', 5, 4, 6, [int('cooldownSeconds', 30)]),
+        // A fork turns to the south branch while its lever is on. The lever takes no new throw for 5 seconds.
+        rect(8, 'fork', 'Conveyor', 9, 6, 1, 1, [str('direction', 'Direction', 'E'), str('altDirection', 'AltDirection', 'S'), str('speed', 'ConveyorSpeed', 'fast')]),
+        lever(9, 'lever-fork', 9, 4, 8, [int('cooldownSeconds', 5)]),
+        belt(10, 'belt-fast', 10, 6, 1, 1, 'E', 'fast'),
+        rect(11, 'mixer', 'Mixer', 11, 6, 2, 1, [int('capacity', 3), str('outlet', 'Socket', 'E')]),
+        belt(12, 'belt-out', 13, 6, 2, 1, 'E', 'slow'),
+        rect(13, 'gate', 'Port', 15, 6, 2, 1, [
+          int('need', 4), str('accepts', 'PortAccepts', 'parcel'), obj('target', 14), int('openSeconds', 8), int('closedSeconds', 20),
+        ]),
+        rect(14, 'door-e', 'Door', 19, 6, 1, 2, [str('socket', 'Socket', 'E'), str('lock', 'Lock', 'switch')]),
+        rect(15, 'door-w', 'Door', 0, 6, 1, 2, [str('socket', 'Socket', 'W')]),
+        // The slow way round: south, east along the bottom, north, west back under the gate's line, and up into the hopper.
+        belt(16, 'slow-a', 9, 7, 1, 3, 'S', 'slow'),
+        belt(17, 'slow-b', 9, 10, 9, 1, 'E', 'slow'),
+        belt(18, 'slow-c', 18, 9, 1, 2, 'N', 'slow'),
+        belt(19, 'slow-d', 13, 8, 6, 1, 'W', 'slow'),
+        belt(20, 'slow-e', 12, 7, 1, 2, 'N', 'slow'),
       ],
     },
   ],

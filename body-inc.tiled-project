@@ -161,6 +161,20 @@
     },
     {
       "id": 11,
+      "name": "AltDirection",
+      "type": "enum",
+      "storageType": "string",
+      "values": [
+        "none",
+        "N",
+        "E",
+        "S",
+        "W"
+      ],
+      "valuesAsFlags": false
+    },
+    {
+      "id": 12,
       "name": "BoxType",
       "type": "enum",
       "storageType": "string",
@@ -173,7 +187,7 @@
       "valuesAsFlags": false
     },
     {
-      "id": 12,
+      "id": 13,
       "name": "Portion",
       "type": "enum",
       "storageType": "string",
@@ -185,7 +199,7 @@
       "valuesAsFlags": false
     },
     {
-      "id": 13,
+      "id": 14,
       "name": "PortAccepts",
       "type": "enum",
       "storageType": "string",
@@ -196,7 +210,7 @@
       "valuesAsFlags": false
     },
     {
-      "id": 14,
+      "id": 15,
       "name": "LineStage",
       "type": "enum",
       "storageType": "string",
@@ -208,7 +222,7 @@
       "valuesAsFlags": false
     },
     {
-      "id": 15,
+      "id": 16,
       "name": "SlotLane",
       "type": "enum",
       "storageType": "string",
@@ -220,7 +234,7 @@
       "valuesAsFlags": false
     },
     {
-      "id": 16,
+      "id": 17,
       "name": "HazardType",
       "type": "enum",
       "storageType": "string",
@@ -232,7 +246,7 @@
       "valuesAsFlags": false
     },
     {
-      "id": 17,
+      "id": 18,
       "name": "ItemType",
       "type": "enum",
       "storageType": "string",
@@ -248,7 +262,7 @@
       "valuesAsFlags": false
     },
     {
-      "id": 18,
+      "id": 19,
       "name": "BedType",
       "type": "enum",
       "storageType": "string",
@@ -259,7 +273,7 @@
       "valuesAsFlags": false
     },
     {
-      "id": 19,
+      "id": 20,
       "name": "Room",
       "type": "class",
       "useAs": [
@@ -313,7 +327,7 @@
       ]
     },
     {
-      "id": 20,
+      "id": 21,
       "name": "Variant",
       "type": "class",
       "useAs": [
@@ -330,7 +344,7 @@
       ]
     },
     {
-      "id": 21,
+      "id": 22,
       "name": "PlayerStart",
       "type": "class",
       "useAs": [
@@ -341,7 +355,7 @@
       "members": []
     },
     {
-      "id": 22,
+      "id": 23,
       "name": "Spawn",
       "type": "class",
       "useAs": [
@@ -374,7 +388,7 @@
       ]
     },
     {
-      "id": 23,
+      "id": 24,
       "name": "NPC",
       "type": "class",
       "useAs": [
@@ -407,7 +421,7 @@
       ]
     },
     {
-      "id": 24,
+      "id": 25,
       "name": "Trigger",
       "type": "class",
       "useAs": [
@@ -440,7 +454,7 @@
       ]
     },
     {
-      "id": 25,
+      "id": 26,
       "name": "Door",
       "type": "class",
       "useAs": [
@@ -469,7 +483,7 @@
       ]
     },
     {
-      "id": 26,
+      "id": 27,
       "name": "Switch",
       "type": "class",
       "useAs": [
@@ -488,11 +502,16 @@
           "type": "string",
           "propertyType": "SwitchMode",
           "value": "toggle"
+        },
+        {
+          "name": "cooldownSeconds",
+          "type": "int",
+          "value": 0
         }
       ]
     },
     {
-      "id": 27,
+      "id": 28,
       "name": "Conveyor",
       "type": "class",
       "useAs": [
@@ -512,11 +531,17 @@
           "type": "string",
           "propertyType": "ConveyorSpeed",
           "value": "normal"
+        },
+        {
+          "name": "altDirection",
+          "type": "string",
+          "propertyType": "AltDirection",
+          "value": "none"
         }
       ]
     },
     {
-      "id": 28,
+      "id": 29,
       "name": "Box",
       "type": "class",
       "useAs": [
@@ -545,7 +570,7 @@
       ]
     },
     {
-      "id": 29,
+      "id": 30,
       "name": "Port",
       "type": "class",
       "useAs": [
@@ -588,7 +613,7 @@
       ]
     },
     {
-      "id": 30,
+      "id": 31,
       "name": "Mixer",
       "type": "class",
       "useAs": [
@@ -611,7 +636,7 @@
       ]
     },
     {
-      "id": 31,
+      "id": 32,
       "name": "ColdStore",
       "type": "class",
       "useAs": [
@@ -622,7 +647,7 @@
       "members": []
     },
     {
-      "id": 32,
+      "id": 33,
       "name": "Chunk",
       "type": "class",
       "useAs": [
@@ -633,7 +658,7 @@
       "members": []
     },
     {
-      "id": 33,
+      "id": 34,
       "name": "Line",
       "type": "class",
       "useAs": [
@@ -651,7 +676,7 @@
       ]
     },
     {
-      "id": 34,
+      "id": 35,
       "name": "EvidenceSlot",
       "type": "class",
       "useAs": [
@@ -679,7 +704,7 @@
       ]
     },
     {
-      "id": 35,
+      "id": 36,
       "name": "Hazard",
       "type": "class",
       "useAs": [
@@ -702,7 +727,7 @@
       ]
     },
     {
-      "id": 36,
+      "id": 37,
       "name": "Pickup",
       "type": "class",
       "useAs": [
@@ -730,7 +755,7 @@
       ]
     },
     {
-      "id": 37,
+      "id": 38,
       "name": "Pen",
       "type": "class",
       "useAs": [
@@ -741,7 +766,7 @@
       "members": []
     },
     {
-      "id": 38,
+      "id": 39,
       "name": "Bed",
       "type": "class",
       "useAs": [

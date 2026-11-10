@@ -183,6 +183,9 @@ function problemMessage(p: RoomProblem): string {
       ? `箱子一開始就壓在攪拌機 #${a['other']} 的投料口上，一進房就會被收進去；請放在投料口外`
       : `箱子壓在物件 #${a['other']}（${a['kind']}）上；箱子不能放在門、NPC、床、道具或觸發區上，也推不進這些格子`;
     case 'conveyor-shape': return '輸送帶必須畫成矩形，蓋住它佔的格子；點不知道佔哪些格子';
+    case 'fork-switch': return '分岔輸送帶（altDirection 不是 none 的 Conveyor）沒有任何開關（Switch）或調度口指向它，永遠不會轉向；請讓一根拉桿的 target 指向它，或把 altDirection 設回 none';
+    case 'fork-same': return '分岔輸送帶的 altDirection 和 direction 方向一樣，拉桿轉了也沒有差別；請改成另一個方向';
+    case 'cooldown-hold': return '壓力板（mode 為 hold 的 Switch）設了 cooldownSeconds；壓力板只在有人或箱子壓著時才是開的，沒有東西可以冷卻，請設成 0，或把 mode 改成 toggle';
     case 'switch-missing': return 'lock 是 switch，但房間裡沒有任何開關（Switch）的 target 指向這扇門，門永遠打不開';
     case 'key-missing': return `lock 是 key，lockParam 是「${a['key']}」，但房間裡沒有 itemId 為「${a['key']}」的道具（Pickup），門永遠打不開；不打算開的門請把 lockParam 留空`;
     case 'key-conditional': return `這個道具是門 #${a['door']} 的鑰匙，必須放在 objects 圖層、when 留空；放在變體圖層或加了條件，換一組狀態再進房時它會不見，打開過的門又會鎖上`;

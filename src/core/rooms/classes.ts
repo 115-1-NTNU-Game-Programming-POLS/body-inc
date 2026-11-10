@@ -77,10 +77,14 @@ export const OBJECT_CLASSES: Readonly<Record<string, ClassSpec>> = {
   Switch: {
     target: { type: 'object', required: true },
     mode: enumOf('SwitchMode', ['toggle', 'hold']),
+    /** Toggle only: the map check rejects it on a hold switch, which has nothing to cool. */
+    cooldownSeconds: { type: 'int', default: 0, min: 0 },
   },
   Conveyor: {
     direction: enumOf('Direction', SOCKETS, 'E'),
     speed: enumOf('ConveyorSpeed', ['slow', 'normal', 'fast'], 'normal'),
+    /** `none` is an ordinary conveyor; any other value makes it a fork (docs/authoring/rooms-and-dialogue.md). */
+    altDirection: enumOf('AltDirection', ['none', ...SOCKETS], 'none'),
   },
   /**
    * A push box. Not in design doc 13.3's table, which predates the puzzle rules; the prologue's
