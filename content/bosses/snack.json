@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "id": "snack",
+  "behaviour": "snack",
+  "budget": 100,
+  "deliveries": {
+    "startSeconds": 3,
+    "everySeconds": 4,
+    "speedTiles": 5,
+    "portion": "normal",
+    "halves": 1,
+    "returnDamage": 20
+  },
+  "protest": {
+    "telegraphSeconds": 1.4,
+    "radiusTiles": 3,
+    "activeTicks": 8,
+    "halves": 2
+  },
+  "notes": {
+    "budget": "ASSUME: five returned boxes at returnDamage 20; the design doc gives no budget and gives stage 1 only the folder's return as its main damage (7.5). Stages 2 and 3 are not built, so this is the whole fight for now",
+    "deliveries": "DOC the boss throws fried boxes from the dock at the mixer, one capacity of 4 in the fight (7.5), which the room's Mixer states; the pace (a box every 4 s, 3 s before the first), the flight speed, the normal 20 s portion and the 20 per returned box are ASSUME. At one box every 4 s and 20 s per box, a fifth box lands before the first is done, so the fight protests by itself unless the player stops or returns at least one box in five",
+    "protest": "DOC an area that hurts friend and foe when the mixer takes more than its capacity, named 胃抗議 (7.5); it hurts the operator only for now, since the boss stands outside its radius. Telegraph 1.4 s (tier 3), radius 3 tiles, 8 live ticks and a whole heart are ASSUME within the fairness rules of 5.3"
+  }
+}

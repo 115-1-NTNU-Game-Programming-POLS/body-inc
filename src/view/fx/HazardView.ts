@@ -30,7 +30,8 @@ export class HazardView {
   render(prev: GameState, cur: GameState, alpha: number): void {
     const g = this.ground.clear();
     for (const z of cur.zones) {
-      if (z.tier !== 2) continue;
+      // The mixer's protest is a tier-3 move, but its centre is the hopper and not the boss, so it has no proposal to warn by: it is drawn on the ground.
+      if (z.tier !== 2 && z.move !== 'protest') continue;
       dashedCircle(g, z.x, z.y, z.radius, RED);
       const inner = z.radius * (1 - zoneFill(z));
       hatchRing(g, z.x, z.y, z.radius, inner);

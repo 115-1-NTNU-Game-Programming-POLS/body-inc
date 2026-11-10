@@ -142,6 +142,12 @@ export const OBJECT_CLASSES: Readonly<Record<string, ClassSpec>> = {
    */
   Chunk: {},
   /**
+   * A delivery dock of the stomach boss's room (design doc 7.5, the four 外送口), not in design doc
+   * 13.3's table: the boss throws his boxes from the centre of its box, one dock after another in id
+   * order, at the mixer's hopper. Not on a variant layer; the rules are in core/stomach/docks.ts.
+   */
+  Dock: {},
+  /**
    * The liver factory's lines (design doc 7.7), not in design doc 13.3's table: `receiving` is the
    * dock where alcohol crates wait (a rectangle, solid like a counter), `outlet` the point where the
    * first line puts out acetaldehyde crates, and `intake` the second line's rectangle, which takes

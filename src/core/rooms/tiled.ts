@@ -5,6 +5,7 @@ import { compileCondition, type TagDictionary } from '../tags/dictionary.ts';
 import { TILE } from '../time.ts';
 import { OBJECT_CLASSES, ROOM_CLASS, VARIANT_PREFIX, type ClassSpec, type RefKind, type Scalar } from './classes.ts';
 import { conveyorTiles, isFork, KEEP_CLEAR, mixerOutlet, tileBox, tileOf } from './boxes.ts';
+import { mouthOf } from '../stomach/docks.ts';
 import { canMeet } from './entry.ts';
 import { objectBox } from './interact.ts';
 import { keyOf, keysFor, parseClockWindow, SWITCH_KINDS, switchesFor } from './locks.ts';
@@ -168,6 +169,16 @@ export type RoomProblemCode =
   | 'courier-belt'
   /** A courier spawn in a room with a factory Line, which would take his orders for acetaldehyde crates. */
   | 'courier-factory'
+  /** A snack boss spawn in a room with no Dock outside the variant layers: he would have nowhere to throw from. */
+  | 'snack-dock'
+  /** A snack boss spawn in a room with no Mixer: his boxes would have nowhere to go. */
+  | 'snack-mixer'
+  /** A Dock on a variant layer: the boss calls the docks the room has, in a fixed order, so a dock cannot come and go. */
+  | 'dock-variant'
+  /** A Dock whose centre is a wall or off the map: the box would start inside it. */
+  | 'dock-wall'
+  /** A wall tile on the straight line from a Dock to the mixer's hopper, which would stop every box thrown from it. */
+  | 'dock-path'
   /** A nap bed with `sleepSeconds` set: only a sleep bed has a sleep bar, so the number is never read. */
   | 'bed-seconds'
   /** A Port with only one of `openSeconds` and `closedSeconds` above 0: it needs both to be a timed gate. */
@@ -487,6 +498,24 @@ export function readRoom(id: string, map: TiledMap, dict: TagDictionary): ReadRe
     problems.push({ code: 'bed-seconds', object: b.id });
   }
   const grid = { cols: map.width, rows: map.height, solid };
+  // The snack boss throws from the docks at the mixer's hopper in a straight line (design doc 7.5): he needs both, each dock a
+  // free tile, and nothing solid between it and the hopper, or every box from it would be lost on the way.
+  const snack = objects.find((o) => o.kind === 'Spawn' && o.props['enemyType'] === 'snack');
+  const docks = objects.filter((o) => o.kind === 'Dock').sort((a, b) => a.id - b.id);
+  if (snack && !docks.some((d) => d.variant === undefined)) problems.push({ code: 'snack-dock', object: snack.id });
+  if (snack && mixers.length === 0) problems.push({ code: 'snack-mixer', object: snack.id });
+  const mouth = mixers.length > 0 ? mouthOf({ objects: [mixers[0]!] }) : undefined;
+  for (const d of docks) {
+    if (d.variant !== undefined) { problems.push({ code: 'dock-variant', object: d.id }); continue; }
+    const b = objectBox(d);
+    const [x, y] = [(b.left + b.right) / 2, (b.top + b.bottom) / 2];
+    if (isSolid(grid, Math.floor(x / TILE), Math.floor(y / TILE))) { problems.push({ code: 'dock-wall', object: d.id }); continue; }
+    if (!mouth) continue;
+    const steps = Math.ceil(Math.hypot(mouth.x - x, mouth.y - y) / 4);
+    const blocked = Array.from({ length: steps + 1 }, (_, i) => i / Math.max(steps, 1))
+      .some((f) => isSolid(grid, Math.floor((x + (mouth.x - x) * f) / TILE), Math.floor((y + (mouth.y - y) * f) / TILE)));
+    if (blocked) problems.push({ code: 'dock-path', object: d.id });
+  }
   for (const m of mixers) {
     if (m.variant !== undefined) problems.push({ code: 'mixer-variant', object: m.id });
     const tiles = m.width > 0 && m.height > 0 ? conveyorTiles(m) : [];

@@ -16,7 +16,9 @@
  * (design doc 6.2): the logistics chief's acid, on L, dissolves them after 1.5 seconds and the way is open for good.
  * sorting-lab is for the fork of core/rooms/boxes.ts and the lever cooldown of core/rooms/cooling.ts (the sorting
  * center): a line of four portions, a fork on it that a lever turns, a fast way to the hopper and a 22-tile slow way
- * round to it. Open them with ?room=stomach/mixer-lab, ?room=stomach/sorting-lab and ?room=stomach/night-lab. The chapter's real rooms
+ * round to it. boss-arena is for the snack boss (core/combat/bosses/snack.ts): a mixer of capacity 4 in the middle and four
+ * docks in the corners that the boss throws his boxes from. Open them with ?room=stomach/mixer-lab, ?room=stomach/sorting-lab,
+ * ?room=stomach/night-lab and ?room=stomach/boss-arena. The chapter's real rooms
  * (esophagus lift, warehouse, cold store, intestine corridor, night dock) come in later steps.
  *
  *   node tools/maps/make-stomach.ts
@@ -147,7 +149,7 @@ writeRoom('stomach/sorting-lab.tmj', {
 
 writeRoom('stomach/night-lab.tmj', {
   type: 'map', version: '1.10', tiledversion: '1.11.0', orientation: 'orthogonal', renderorder: 'right-down',
-  infinite: false, width: W, height: 12, tilewidth: T, tileheight: T, nextlayerid: 4, nextobjectid: 15, class: 'Room',
+  infinite: false, width: W, height: 12, tilewidth: T, tileheight: T, nextlayerid: 4, nextobjectid: 16, class: 'Room',
   properties: [
     { name: 'organ', type: 'string', value: 'stomach' },
     { name: 'role', type: 'string', value: 'puzzle' },
@@ -177,6 +179,43 @@ writeRoom('stomach/night-lab.tmj', {
         food(12, 17, 3, 'normal'),
         rect(13, 'chunk-south', 'Chunk', 17, 5, 2, 1, []),
         rect(14, 'chunk-west', 'Chunk', 16, 3, 1, 2, []),
+        // The way on to the boss arena, open from the start: the lab has no rule that gates it yet.
+        rect(15, 'door-e', 'Door', 19, 6, 1, 2, [str('socket', 'Socket', 'E')]),
+      ],
+    },
+  ],
+  tilesets: [tileset],
+});
+
+// The snack boss's arena (design doc 7.5, 午夜外送): the mixer stands in the middle with the boss's capacity of 4, and
+// the boss, at the north, calls the four docks in the corners one after another. Each box flies from its dock straight at the
+// hopper. The operator stands in its way with the folder's guard up: a parry sends the box back at him, and a box nobody
+// stops is digested for 20 seconds, so five in a row fill the mixer and the fifth makes it protest with an area round the hopper.
+writeRoom('stomach/boss-arena.tmj', {
+  type: 'map', version: '1.10', tiledversion: '1.11.0', orientation: 'orthogonal', renderorder: 'right-down',
+  infinite: false, width: W, height: 12, tilewidth: T, tileheight: T, nextlayerid: 4, nextobjectid: 9, class: 'Room',
+  properties: [
+    { name: 'organ', type: 'string', value: 'stomach' },
+    { name: 'role', type: 'string', value: 'combat' },
+    { name: 'estSeconds', type: 'int', value: 120 },
+    { name: 'storyOnly', type: 'bool', value: true },
+  ],
+  layers: [
+    tileLayer(1, 'floor', floor),
+    tileLayer(2, 'walls', walls),
+    {
+      id: 3, name: 'objects', type: 'objectgroup', x: 0, y: 0, opacity: 1, visible: true, draworder: 'topdown',
+      objects: [
+        { id: 1, name: 'start', type: 'PlayerStart', x: 3 * T + 16, y: 7 * T + 16, width: 0, height: 0, rotation: 0, visible: true, point: true },
+        rect(2, 'door-w', 'Door', 0, 6, 1, 2, [str('socket', 'Socket', 'W')]),
+        rect(3, 'mixer', 'Mixer', 9, 7, 2, 1, [int('capacity', 4), str('outlet', 'Socket', 'S')]),
+        // Clockwise from the north-west: the order the boss calls them in.
+        rect(4, 'dock-nw', 'Dock', 2, 4, 1, 1, []),
+        rect(5, 'dock-ne', 'Dock', 17, 4, 1, 1, []),
+        rect(6, 'dock-se', 'Dock', 17, 9, 1, 1, []),
+        rect(7, 'dock-sw', 'Dock', 2, 9, 1, 1, []),
+        { id: 8, name: 'snack-boss', type: 'Spawn', x: 10 * T, y: 4 * T + 16, width: 0, height: 0, rotation: 0, visible: true, point: true,
+          properties: [str('enemyType', 'EnemyType', 'snack')] },
       ],
     },
   ],

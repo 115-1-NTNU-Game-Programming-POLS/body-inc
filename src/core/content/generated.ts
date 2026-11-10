@@ -218,7 +218,7 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
   "boss": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "title": "BossFile",
-    "description": "One boss: budget, stages and move table (architecture section 4, content/bosses). Which fields a boss needs depends on its behaviour: caffeine uses stage2Budget to moves, toast uses song and workOrder. Rules the schema cannot state (the fields of each behaviour, telegraph lengths per tier, live windows no longer than the dodge i-frames, the summoned enemy existing) are checked in core/combat/bosses/boss.ts.",
+    "description": "One boss: budget, stages and move table (architecture section 4, content/bosses). Which fields a boss needs depends on its behaviour: caffeine uses stage2Budget to moves, toast uses song and workOrder, snack uses deliveries and protest. Rules the schema cannot state (the fields of each behaviour, telegraph lengths per tier, live windows no longer than the dodge i-frames, the summoned enemy existing) are checked in core/combat/bosses/boss.ts.",
     "type": "object",
     "additionalProperties": false,
     "required": [
@@ -241,8 +241,15 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
         "description": "Which core controller runs this boss.",
         "enum": [
           "caffeine",
-          "toast"
+          "toast",
+          "snack"
         ]
+      },
+      "deliveries": {
+        "$ref": "#/$defs/BossDeliveries"
+      },
+      "protest": {
+        "$ref": "#/$defs/BossProtest"
       },
       "song": {
         "$ref": "#/$defs/BossSong"
@@ -423,6 +430,82 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
             "maximum": 1
           },
           "maxStacks": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "BossDeliveries": {
+        "description": "Snack: the boss throws one food box at a time from a dock of the room to the mixer's hopper (design doc 7.5, 午夜外送). A box nobody stops is taken in by the mixer.",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "startSeconds",
+          "everySeconds",
+          "speedTiles",
+          "portion",
+          "halves",
+          "returnDamage"
+        ],
+        "properties": {
+          "startSeconds": {
+            "description": "From the start of the fight to the first throw's telegraph.",
+            "type": "number",
+            "minimum": 0
+          },
+          "everySeconds": {
+            "description": "From one throw to the next; longer than the 0.5 s tier-1 telegraph.",
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "speedTiles": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "portion": {
+            "description": "How long the mixer digests a delivery.",
+            "enum": [
+              "small",
+              "normal",
+              "large"
+            ]
+          },
+          "halves": {
+            "description": "Half hearts when a box hits the operator; a tier-1 hit costs half a heart.",
+            "type": "integer",
+            "minimum": 1
+          },
+          "returnDamage": {
+            "description": "Budget a box takes off him when the folder's parry sends it back.",
+            "type": "number",
+            "exclusiveMinimum": 0
+          }
+        }
+      },
+      "BossProtest": {
+        "description": "Snack: the area the mixer throws when it is fed one box over its capacity (胃抗議). It hurts the operator wherever he stands round the hopper, so it is a tier-3 move with the longest telegraph.",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "telegraphSeconds",
+          "radiusTiles",
+          "activeTicks",
+          "halves"
+        ],
+        "properties": {
+          "telegraphSeconds": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "radiusTiles": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "activeTicks": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "halves": {
             "type": "integer",
             "minimum": 1
           }
@@ -3369,13 +3452,15 @@ export interface Voice {
   readonly gain: number;
 }
 
-/** One boss: budget, stages and move table (architecture section 4, content/bosses). Which fields a boss needs depends on its behaviour: caffeine uses stage2Budget to moves, toast uses song and workOrder. Rules the schema cannot state (the fields of each behaviour, telegraph lengths per tier, live windows no longer than the dodge i-frames, the summoned enemy existing) are checked in core/combat/bosses/boss.ts. */
+/** One boss: budget, stages and move table (architecture section 4, content/bosses). Which fields a boss needs depends on its behaviour: caffeine uses stage2Budget to moves, toast uses song and workOrder, snack uses deliveries and protest. Rules the schema cannot state (the fields of each behaviour, telegraph lengths per tier, live windows no longer than the dodge i-frames, the summoned enemy existing) are checked in core/combat/bosses/boss.ts. */
 export interface BossFile {
   readonly version: 1;
   /** Matches the boss field of the enemy in content/enemies.json. */
   readonly id: string;
   /** Which core controller runs this boss. */
-  readonly behaviour: "caffeine" | "toast";
+  readonly behaviour: "caffeine" | "toast" | "snack";
+  readonly deliveries?: BossDeliveries;
+  readonly protest?: BossProtest;
   readonly song?: BossSong;
   readonly workOrder?: BossWorkOrder;
   /** The conversation that opens when his case is closed (toast: when his budget runs out). Required for toast, optional for caffeine; it sets whatever lets the chapter go on. */
@@ -3434,6 +3519,29 @@ export interface BossRing {
 export interface BossWorkOrder {
   readonly slowPerStack: number;
   readonly maxStacks: number;
+}
+
+/** Snack: the boss throws one food box at a time from a dock of the room to the mixer's hopper (design doc 7.5, 午夜外送). A box nobody stops is taken in by the mixer. */
+export interface BossDeliveries {
+  /** From the start of the fight to the first throw's telegraph. */
+  readonly startSeconds: number;
+  /** From one throw to the next; longer than the 0.5 s tier-1 telegraph. */
+  readonly everySeconds: number;
+  readonly speedTiles: number;
+  /** How long the mixer digests a delivery. */
+  readonly portion: "small" | "normal" | "large";
+  /** Half hearts when a box hits the operator; a tier-1 hit costs half a heart. */
+  readonly halves: number;
+  /** Budget a box takes off him when the folder's parry sends it back. */
+  readonly returnDamage: number;
+}
+
+/** Snack: the area the mixer throws when it is fed one box over its capacity (胃抗議). It hurts the operator wherever he stands round the hopper, so it is a tier-3 move with the longest telegraph. */
+export interface BossProtest {
+  readonly telegraphSeconds: number;
+  readonly radiusTiles: number;
+  readonly activeTicks: number;
+  readonly halves: number;
 }
 
 export interface BossDrink {

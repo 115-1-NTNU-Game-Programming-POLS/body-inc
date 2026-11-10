@@ -11,7 +11,8 @@ const PARAMS = JSON.parse(readFileSync('content/params.json', 'utf8')).defaults 
 const RAW = JSON.parse(readFileSync('content/bosses/caffeine.json', 'utf8'));
 /** Every boss enemy needs its file, so the toast boss loads beside the caffeine boss this file is about. */
 const TOAST_RAW = JSON.parse(readFileSync('content/bosses/toast.json', 'utf8'));
-const BOSSES = loadBossTable([RAW, TOAST_RAW], TABLE, PARAMS);
+const SNACK_RAW = JSON.parse(readFileSync('content/bosses/snack.json', 'utf8'));
+const BOSSES = loadBossTable([RAW, TOAST_RAW, SNACK_RAW], TABLE, PARAMS);
 const DEF = BOSSES.get('caffeine')! as CaffeineDef;
 const HOME = { x: 320, y: 168 };
 
@@ -71,7 +72,7 @@ describe('boss definitions (design doc 5.3)', () => {
   const load = (edit: (raw: typeof RAW) => void) => {
     const raw = structuredClone(RAW);
     edit(raw);
-    return () => loadBossTable([raw, TOAST_RAW], TABLE, PARAMS);
+    return () => loadBossTable([raw, TOAST_RAW, SNACK_RAW], TABLE, PARAMS);
   };
 
   it('loads the caffeine boss with each tier at its telegraph length', () => {

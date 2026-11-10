@@ -22,6 +22,8 @@ export const SKINS: Readonly<Record<string, string>> = {
   flyer: 'flyer',
   caffeine: 'caffeine',
   toast: 'toast-boss',
+  // Greybox: the snack boss wears the toast boss's look until he has art of his own.
+  snack: 'toast-boss',
   adenosine: 'adenosine',
   alcohol_barrel: 'alcohol-barrel',
 };

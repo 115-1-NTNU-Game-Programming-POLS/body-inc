@@ -65,6 +65,20 @@ export interface MixerStep {
   readonly events: readonly (MixerEvent | MixerMove)[];
 }
 
+/**
+ * A box the stomach boss threw lands on the hopper (design doc 7.5). It is taken in like a fed box
+ * while the mixer has room, and digested like an order: it leaves no parcel. The box after the
+ * capacity makes the mixer protest instead: everything it held is lost with it and the caller raises
+ * the area attack. `id` is an order id, so it cannot clash with a box of the map.
+ */
+export function takeDelivery(
+  state: MixerState, capacity: number, id: number, portion: Portion,
+): { readonly mixer: MixerState; readonly jammed: boolean; readonly count: number } {
+  if (state.batches.length >= capacity) return { mixer: EMPTY_MIXER, jammed: true, count: state.batches.length + 1 };
+  const batches = [...state.batches, { box: id, portion, left: portionTicks(portion), order: true as const }];
+  return { mixer: { batches }, jammed: false, count: batches.length };
+}
+
 /** A box's type as drawn now: a parcel or acetaldehyde crate carries its own, a map box takes the map's. */
 export function boxTypeOf(room: Pick<RoomModel, 'objects'>, b: BoxState): string {
   if (b.boxType !== undefined) return b.boxType;

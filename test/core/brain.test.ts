@@ -12,6 +12,7 @@ import { compileCondition } from '../../src/core/tags/dictionary.ts';
 const NONE: TickInput = { move: { x: 0, y: 0 } };
 const CAFFEINE_RAW = JSON.parse(readFileSync('content/bosses/caffeine.json', 'utf8'));
 const TOAST_RAW = JSON.parse(readFileSync('content/bosses/toast.json', 'utf8'));
+const SNACK_RAW = JSON.parse(readFileSync('content/bosses/snack.json', 'utf8'));
 const PARAMS_C = JSON.parse(readFileSync('content/params.json', 'utf8')).defaults as CaffeineParams;
 
 const CHAPTER = readContent('chapter', JSON.parse(readFileSync('content/chapters/brain.json', 'utf8')));
@@ -536,7 +537,7 @@ describe('the caffeine boss file with a conversation to open', () => {
   const load = (edit: (c: typeof CAFFEINE_RAW) => void) => () => {
     const c = structuredClone(CAFFEINE_RAW);
     edit(c);
-    return loadBossTable([c, TOAST_RAW], ENEMIES, PARAMS_C);
+    return loadBossTable([c, TOAST_RAW, SNACK_RAW], ENEMIES, PARAMS_C);
   };
 
   it('reads concedeDialogue as optional on the caffeine boss and still requires it on the toast boss', () => {
@@ -545,7 +546,7 @@ describe('the caffeine boss file with a conversation to open', () => {
     const noToastTalk = () => {
       const t = structuredClone(TOAST_RAW);
       delete t.concedeDialogue;
-      return loadBossTable([CAFFEINE_RAW, t], ENEMIES, PARAMS_C);
+      return loadBossTable([CAFFEINE_RAW, t, SNACK_RAW], ENEMIES, PARAMS_C);
     };
     expect(noToastTalk).toThrow(/a toast boss needs concedeDialogue/);
   });
