@@ -371,7 +371,7 @@ describe('chapter check (build plan P0)', () => {
   const check = (rooms: Record<string, TiledMap>, links = AB, chapter: Partial<{
     id: string; start: string; next: string; intro: string; carry: string[]; archive: { held: string; hands: number; desk: string; total: number; into: string };
     climax: { flag: string; summonFactor?: number; archiveFactor?: number };
-    closedCases: Record<string, string>; caseDrops: Record<string, string>;
+    closedCases: Record<string, string>; caseDrops: Record<string, string>; partner: 'chairman' | 'logistics';
   }> = {}) => {
     const dir = join(root, `maps${n++}`);
     mkdirSync(join(dir, 'lab'), { recursive: true });
@@ -481,6 +481,15 @@ describe('chapter check (build plan P0)', () => {
       expect.stringMatching(/carry 的「nowhere」不在狀態標籤字典/), expect.stringMatching(/archive\.into「nowhere」必須是/),
     ]);
     expect(check(rooms(), AB)).toEqual([expect.stringMatching(/有 2 份記憶文件.*沒有 archive/)]);
+  });
+
+  it('a food chunk needs the logistics chief, whose acid is the only thing that dissolves it', () => {
+    const chunk = { type: 'Chunk', x: 256, y: 160, width: 64, height: 96, properties: [] };
+    const rooms = { a: map([start, southDoor(), chunk]), b: b() };
+    expect(check(rooms, AB, { partner: 'logistics' })).toEqual([]);
+    expect(check(rooms, AB)).toEqual([expect.stringMatching(/食物塊.*partner 不是 logistics/)]);
+    expect(check(rooms, AB, { partner: 'chairman' })).toEqual([expect.stringMatching(/食物塊.*partner 不是 logistics/)]);
+    expect(check({ a: a(), b: b() }, AB)).toEqual([]);
   });
 
   it('a remembered closed case must be kept on a boolean tag', () => {

@@ -214,6 +214,11 @@ function problemMessage(p: RoomProblem): string {
     case 'cold-shape': return '冷藏庫（ColdStore）必須畫成矩形，蓋住收食物箱的格子（以格子中心為準）；點或太小的矩形不知道佔哪些格子';
     case 'cold-wall': return '冷藏庫（ColdStore）蓋住的格子全是牆，箱子停不上去；要畫在地板上';
     case 'cold-blocked': return `物件 #${a['other']}（${a['kind']}）和冷藏庫重疊；門、NPC、床、道具、觸發區上停不了箱子，壓力板、調度口、攪拌機和輸送帶會和冷藏庫搶同一個箱子，請移到冷藏庫外`;
+    case 'chunk-shape': return '食物塊（Chunk）必須畫成矩形，蓋住擋路的格子（以格子中心為準）；點或太小的矩形不知道佔哪些格子';
+    case 'chunk-variant': return '食物塊（Chunk）不能放在變體圖層；它的格子在地圖載入時就算進牆裡，不能隨狀態出現或消失';
+    case 'chunk-wall': return '食物塊（Chunk）蓋住的格子裡有牆、收貨區或地圖外；酸液融掉食物塊會連那一格牆一起打通，請只畫在地板上';
+    case 'chunk-overlap': return `食物塊和食物塊 #${a['other']} 共用同一格；融掉其中一塊會讓另一塊還蓋著的格子也開通，請讓它們互不重疊`;
+    case 'chunk-blocked': return `${a['kind']} 壓在食物塊 #${a['chunk']} 上；食物塊的格子在遊戲中是實心的，站在上面的物件走不到、蓋格子的物件收不到箱子，請移到食物塊外（觸發區可以跨過）`;
     case 'bed-seconds': return '午睡床（bedType nap）設了 sleepSeconds；只有就寢床（sleep）有睡眠進度條，這個數字不會被讀到';
     case 'courier-belt': return '宵夜外送員（enemyType 為 courier 的 Spawn）所在的房間沒有輸送帶（Conveyor，變體圖層裡的不算）；他要把訂單丟上輸送帶，沒有帶子就只會站著';
     case 'courier-factory': return '宵夜外送員（enemyType 為 courier 的 Spawn）不能放在有產線（Line）的房間；他的訂單箱會被工廠當成乙醛箱';
@@ -443,6 +448,12 @@ export function checkChapters(mapsDir: string, content: MapContent = loadMapCont
       for (const n of new Set(names.filter((x, i) => names.indexOf(x) !== i))) out.push(`${r.path}：有不只一扇門叫「${n}」，門的名字在同一間房裡不能重複`);
       if (!r.room.objects.some((o) => o.kind === 'PlayerStart' && o.variant === undefined)) {
         out.push(`${r.path}：缺少 PlayerStart；強制下班而還沒打過卡時，營運長會回到這裡`);
+      }
+      // Only the logistics chief's acid dissolves a chunk, so a chapter with another partner could never pass it.
+      if (chapter.partner !== 'logistics') {
+        for (const c of r.room.objects.filter((o) => o.kind === 'Chunk')) {
+          out.push(`${r.path} 物件 #${c.id}（Chunk）：食物塊只有胃物流主管的酸液融得掉，這一章的 partner 不是 logistics，玩家永遠過不去`);
+        }
       }
       // A chapter file cannot name a door inside a variant, yet the game would let the operator through one that opens.
       for (const d of doors.filter((x) => x.variant !== undefined && mayOpen(x))) {

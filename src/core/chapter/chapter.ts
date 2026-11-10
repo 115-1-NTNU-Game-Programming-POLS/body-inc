@@ -226,10 +226,12 @@ function build(ctx: ChapterContent, run: Run, place: Place, carry: Carry): GameS
     // when it would be absent now, or the filled port would empty again.
     delivered: idsHere(run, run.fired).filter((id) => model.objects.some((o) => o.id === id && o.kind === 'Box')),
     chilled: chilledHere(run),
+    dissolved: dissolvedHere(run),
     boxes: boxesHere(run),
     stampLocked: !run.tools.includes('stamp'),
     folderLocked: !run.tools.includes('folder'),
     pie: ctx.chapter.partner === 'chairman',
+    unload: ctx.chapter.partner === 'logistics',
     ...(run.perks ? { perks: run.perks } : {}),
     ...(carry.tool ? { tool: carry.tool } : {}),
     waiting: waitingCrates(run.tags, ctx.dict),
@@ -274,6 +276,20 @@ const chilledKey = (roomId: string, box: number): string => `${roomId}${CHILLED}
 /** Box ids of the run's current room that a cold store chilled. */
 function chilledHere(run: Run): number[] {
   const prefix = `${run.roomId}${CHILLED}`;
+  return run.fired.filter((k) => k.startsWith(prefix)).map((k) => Number(k.slice(prefix.length)));
+}
+
+/**
+ * The `fired` key of a food chunk the acid dissolved: gone for the rest of the chapter, through a
+ * forced leave too, since the passage was opened by the operator's own work. Like a chilled box's key
+ * it is never a number, so no lookup by object id ever matches it.
+ */
+const DISSOLVED = '#dissolved.';
+const dissolvedKey = (roomId: string, chunk: number): string => `${roomId}${DISSOLVED}${chunk}`;
+
+/** Chunk ids of the run's current room that the acid dissolved. */
+function dissolvedHere(run: Run): number[] {
+  const prefix = `${run.roomId}${DISSOLVED}`;
   return run.fired.filter((k) => k.startsWith(prefix)).map((k) => Number(k.slice(prefix.length)));
 }
 
@@ -774,6 +790,11 @@ function stepRoom(ctx: ChapterContent, state: ChapterState, input: TickInput): C
         // Gone until tomorrow, like a delivered box, but under its own key so no port counts it.
         const key = `${run.roomId}#${e.object}`;
         run = { ...run, fired: [...run.fired, chilledKey(run.roomId, e.object)], boxes: run.boxes.filter((b) => b.key !== key) };
+        break;
+      }
+      case 'chunkDissolved': {
+        const key = dissolvedKey(run.roomId, e.object);
+        if (!run.fired.includes(key)) run = { ...run, fired: [...run.fired, key] };
         break;
       }
       case 'portFilled':

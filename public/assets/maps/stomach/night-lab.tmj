@@ -10,7 +10,7 @@
  "tilewidth": 32,
  "tileheight": 32,
  "nextlayerid": 4,
- "nextobjectid": 12,
+ "nextobjectid": 15,
  "class": "Room",
  "properties": [
   {
@@ -786,6 +786,56 @@
        "value": "!courier_closed"
       }
      ]
+    },
+    {
+     "id": 12,
+     "name": "food-normal",
+     "type": "Box",
+     "x": 560,
+     "y": 112,
+     "width": 0,
+     "height": 0,
+     "rotation": 0,
+     "visible": true,
+     "point": true,
+     "properties": [
+      {
+       "name": "boxType",
+       "type": "string",
+       "propertytype": "BoxType",
+       "value": "food"
+      },
+      {
+       "name": "portion",
+       "type": "string",
+       "propertytype": "Portion",
+       "value": "normal"
+      }
+     ]
+    },
+    {
+     "id": 13,
+     "name": "chunk-south",
+     "type": "Chunk",
+     "x": 544,
+     "y": 160,
+     "width": 64,
+     "height": 32,
+     "rotation": 0,
+     "visible": true,
+     "properties": []
+    },
+    {
+     "id": 14,
+     "name": "chunk-west",
+     "type": "Chunk",
+     "x": 512,
+     "y": 96,
+     "width": 32,
+     "height": 64,
+     "rotation": 0,
+     "visible": true,
+     "properties": []
     }
    ]
   }

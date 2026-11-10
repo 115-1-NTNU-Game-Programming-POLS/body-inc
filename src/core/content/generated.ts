@@ -618,9 +618,10 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
         "uniqueItems": true
       },
       "partner": {
-        "description": "The partner who walks with the operator through this chapter. The chairman gives the L key his pie shield (design doc 5.1): it stops thrown shots for a few seconds, its size and duration times S, and then has to cool down. Absent: L does nothing.",
+        "description": "The partner who walks with the operator through this chapter. The chairman gives the L key his pie shield (design doc 5.1): it stops thrown shots for a few seconds, its size and duration times S, and then has to cool down. The stomach logistics chief gives it his acid (design doc 6.2): a zone spat ahead that hurts and shoves back ordinary enemies for 3 seconds, with a cooldown of 9. Absent: L does nothing.",
         "enum": [
-          "chairman"
+          "chairman",
+          "logistics"
         ]
       },
       "glucose": {
@@ -3493,8 +3494,8 @@ export interface ChapterFile {
   readonly intro?: string;
   /** Tools the operator has from the start of this chapter. Absent means every tool; the prologue lists none, since the chairman hands over the stamp at its end (design doc 5.4). Tools granted earlier in the run are kept. */
   readonly tools?: readonly "stamp"[];
-  /** The partner who walks with the operator through this chapter. The chairman gives the L key his pie shield (design doc 5.1): it stops thrown shots for a few seconds, its size and duration times S, and then has to cool down. Absent: L does nothing. */
-  readonly partner?: "chairman";
+  /** The partner who walks with the operator through this chapter. The chairman gives the L key his pie shield (design doc 5.1): it stops thrown shots for a few seconds, its size and duration times S, and then has to cool down. The stomach logistics chief gives it his acid (design doc 6.2): a zone spat ahead that hurts and shoves back ordinary enemies for 3 seconds, with a cooldown of 9. Absent: L does nothing. */
+  readonly partner?: "chairman" | "logistics";
   /** Shows the blood glucose meter and runs its rules in this chapter (design doc 7.3). */
   readonly glucose?: boolean;
   /** Makes the chapter the rooms of one floor's patrol in the semester mode (design doc 8.5): the chapter clock does not run, so the rooms stay a snapshot of the day the semester handed in. The value is the floor. */

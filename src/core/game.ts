@@ -10,6 +10,7 @@ import { guardCovers, parryOpen, swingBox } from './combat/folder.ts';
 import { chip, NO_ASSISTS, owing } from './combat/assists.ts';
 import { BASE_PERKS, type Perks } from './combat/perks.ts';
 import { pieCovers, PIE_READY, stepPie, sleepOfSpirit, type PieState } from './combat/pie.ts';
+import { stepUnload, UNLOAD, UNLOAD_READY, unloadAge, unloadBox, type UnloadState } from './combat/unload.ts';
 import { circleTouchesBox, shotBox, zoneContinues, zoneLive, type Shot, type ShotSpec, type Zone, type ZoneSpec } from './combat/hazards.ts';
 import type { Vec } from './combat/movement.ts';
 import {
@@ -25,6 +26,7 @@ import {
 } from './rooms/boxes.ts';
 import { boxTypeOf, EMPTY_MIXER, PORTION_SECONDS, stepMixer, type MixerEvent, type MixerState, type Portion } from './stomach/mixer.ts';
 import { isOrder, newOrder, orderSpot } from './stomach/orders.ts';
+import { CHUNK, chunksOf, chunksUnder, withoutChunks } from './stomach/chunks.ts';
 import type { EnteredRoom } from './rooms/entry.ts';
 import { asleep, stepSleep, type SleepEvent, type SleepState } from './rooms/sleep.ts';
 import { leverAt, objectBox, platesUnder, reachableObject, touchedObjects } from './rooms/interact.ts';
@@ -116,6 +118,8 @@ export interface GameState {
   readonly delivered: readonly number[];
   /** Food boxes a cold store has taken, in id order: gone from the room for good, counted by no port. */
   readonly chilled: readonly number[];
+  /** Food chunks the logistics chief's acid has dissolved, in id order: gone from this room's grid for good (core/stomach/chunks.ts). */
+  readonly dissolved: readonly number[];
   /** Orders the courier has thrown on this visit, so each gets an id of its own (core/stomach/orders.ts); absent before the first. */
   readonly orderSerial?: number;
   /** Set until the chairman hands over the stamp (design doc 5.4): the stamp key does nothing. */
@@ -138,6 +142,8 @@ export interface GameState {
   readonly summonScale?: number;
   /** The chairman's pie shield (core/combat/pie.ts); present only in a chapter whose partner has it. A new room starts it ready. */
   readonly pie?: PieState;
+  /** The stomach logistics chief's acid (core/combat/unload.ts); present only in a chapter whose partner has it. A new room starts it ready. */
+  readonly unload?: UnloadState;
   /** Only in a liver factory room (core/liver/factory.ts). */
   readonly factory?: FactoryState;
   /** Only in a room with the stomach's mixer (core/stomach/mixer.ts): what it is digesting. */
@@ -195,6 +201,8 @@ export type DomainEvent =
   | { readonly type: 'pieRaised'; readonly radiusPx: number; readonly seconds: number; readonly sleepy: boolean }
   /** The shield stopped a thrown shot. */
   | { readonly type: 'pieBlocked'; readonly source: number }
+  /** The logistics chief's acid was spat (design doc 6.2) from the operator at this point, along one of the four axes. */
+  | { readonly type: 'unloadRaised'; readonly x: number; readonly y: number; readonly dir: Vec }
   /** An energy-drink can landed (design doc 7.4): no heart is lost, and the chapter adds the caffeine. */
   | { readonly type: 'canTaken'; readonly source: number }
   /** The sugar salesman's tea landed (design doc 7.5): no heart is lost, and the fatigue fog starts over at its full 45 seconds. */
@@ -259,6 +267,8 @@ export type DomainEvent =
   | { readonly type: 'boxDelivered'; readonly object: number; readonly port: number; readonly count: number; readonly need: number }
   /** A food box came to rest on a cold store, which chilled it until tomorrow (design doc 7.5). */
   | { readonly type: 'boxChilled'; readonly object: number; readonly store: number }
+  /** The acid has lain on a food chunk long enough: its tiles are floor from the next tick, for good. */
+  | { readonly type: 'chunkDissolved'; readonly object: number }
   /** A Port took its last needed box: it now counts as a switch that is on, for good. */
   | { readonly type: 'portFilled'; readonly object: number }
   /** A timed Port opened or shut (design doc 7.5); a filled one stays open and says nothing more. */
@@ -371,6 +381,8 @@ export interface GameOptions {
   readonly delivered?: readonly number[];
   /** Food boxes a cold store took on an earlier visit, as box ids of the whole map like `delivered`. */
   readonly chilled?: readonly number[];
+  /** Food chunks the acid dissolved on an earlier visit; ids that are not chunks of this room are ignored. */
+  readonly dissolved?: readonly number[];
   /** The stamp is not handed over yet. */
   readonly stampLocked?: boolean;
   /** The folder is not handed over yet. */
@@ -379,6 +391,8 @@ export interface GameOptions {
   readonly tool?: HeldTool;
   /** The chapter's partner has the pie shield, ready at entry. */
   readonly pie?: boolean;
+  /** The chapter's partner has the unloading acid, ready at entry. */
+  readonly unload?: boolean;
   /** In a factory room: alcohol crates waiting in receiving. */
   readonly waiting?: number;
   /** In a factory room: acetaldehyde crates to put out round the outlet at entry. */
@@ -461,7 +475,9 @@ function openDoors(room: EnteredRoom, switches: readonly number[], unlocked: rea
  * The enemy table is required: rooms with Spawns cannot start without it. The room must have
  * gone through enterRoom, so a caller cannot forget the tags and silently get the base room.
  */
-export function createGame(room: EnteredRoom, seed: number, table: EnemyTable, options: GameOptions = {}): GameState {
+export function createGame(entered: EnteredRoom, seed: number, table: EnemyTable, options: GameOptions = {}): GameState {
+  const dissolved = ascending((options.dissolved ?? []).filter((id) => chunksOf(entered).some((c) => c.object.id === id)));
+  const room = withoutChunks(entered, dissolved);
   const p = options.p ?? 1;
   const gauge = options.gauge ?? 0;
   if (!(p > 0 && p <= 1)) throw new GameSetupError(`P must be in (0, 1], got ${p}`);
@@ -528,9 +544,11 @@ export function createGame(room: EnteredRoom, seed: number, table: EnemyTable, o
     push: null,
     delivered,
     chilled,
+    dissolved,
     ...(options.stampLocked ? { stampLocked: true as const } : {}),
     ...(options.folderLocked ? { folderLocked: true as const } : {}),
     ...(options.pie ? { pie: PIE_READY } : {}),
+    ...(options.unload ? { unload: UNLOAD_READY } : {}),
     ...(factory ? { factory } : {}),
     ...(mixerOf(room) ? { mixer: EMPTY_MIXER } : {}),
     ...(options.perks ? { perks: options.perks } : {}),
@@ -607,6 +625,8 @@ function forcedLeave(before: GameState): GameState {
     ...(state.factory ? { factory: { ...state.factory, serial: crates.serial, mist: 0 } } : {}),
     // What it held went home with the other boxes above, since settleBoxes rebuilds every box not delivered.
     ...(state.mixer ? { mixer: EMPTY_MIXER } : {}),
+    // The acid lies where the operator no longer is, so a retry starts with none and the skill ready.
+    ...(state.unload ? { unload: UNLOAD_READY } : {}),
   };
 }
 
@@ -872,6 +892,15 @@ export function step(state: GameState, pressed: TickInput): StepResult {
     const r = stepPie(pie, input.partnerPressed === true && op.action.kind !== 'hurt', state.p);
     pie = r.pie;
     if (r.raised) events.push({ type: 'pieRaised', radiusPx: pie.radiusPx, seconds: pie.ticksLeft / TICK_HZ, sleepy: sleepOfSpirit(state.p) < 1 });
+  }
+  // The acid is spat on the same rules: any state but a hurt one, and the operator's own action goes on.
+  let unload = state.unload;
+  let dissolved = state.dissolved;
+  let roomNow = state.room;
+  if (unload) {
+    const r = stepUnload(unload, input.partnerPressed === true && op.action.kind !== 'hurt', { x: op.x, y: op.y }, op.aim);
+    unload = r.unload;
+    if (r.raised) events.push({ type: 'unloadRaised', x: unload.x, y: unload.y, dir: unload.dir });
   }
 
   // A running belt under the feet carries the operator along. Walking against it is slower; a fast
@@ -1181,6 +1210,30 @@ export function step(state: GameState, pressed: TickInput): StepResult {
     }
   }
 
+  // 強制卸貨: while the acid lies, an ordinary defeatable enemy in it is shoved along it and, on the
+  // acid's rhythm, loses performance. A pinned enemy is held where it is, a manager's shield does not
+  // meet spit, and the rest (immune, reforming, the cheers kid, bosses) are left alone.
+  if (unload && unload.ticksLeft > 0) {
+    const area = unloadBox(unload);
+    const bite = (unloadAge(unload) - 1) % UNLOAD.damageEveryTicks === 0;
+    for (const { id } of byId()) {
+      const e = enemies.get(id)!;
+      if (!isHittable(e) || e.category !== 'defeatable' || e.archetype === 'cheers' || e.boss || !overlaps(area, enemyHurtbox(e))) continue;
+      const m = isBound(e) ? { x: e.x, y: e.y } : moveAndCollide(grid, ENEMY_BODY, e.x, e.y, unload.dir.x * UNLOAD.shovePx, unload.dir.y * UNLOAD.shovePx);
+      const shoved: EnemyState = { ...e, x: m.x, y: m.y };
+      enemies.set(id, bite ? damage(shoved, UNLOAD.damage, 0, events, state.bosses) : shoved);
+    }
+    // The acid is a fixed rectangle, so a chunk it covers is covered for as long as it lies and only the clock matters. The tiles open at the end of the tick.
+    if (unloadAge(unload) === CHUNK.dissolveTicks) {
+      const gone = chunksUnder(state.room, state.dissolved, area).map((c) => c.object.id);
+      if (gone.length > 0) {
+        dissolved = ascending([...dissolved, ...gone]);
+        roomNow = withoutChunks(state.room, dissolved);
+        for (const object of gone) events.push({ type: 'chunkDissolved', object });
+      }
+    }
+  }
+
   // Staples: move, pin a lever they reach (design doc 6.1 shoots far switches), stop at walls,
   // hit the lowest-id hittable enemy they overlap. Levers come before walls because they are
   // usually mounted on one. A staple only ever turns a lever on: held fire would otherwise flick
@@ -1446,7 +1499,9 @@ export function step(state: GameState, pressed: TickInput): StepResult {
     // What the door check saw, not a fresh count: a lever pinned by a staple after the check must
     // still count as newly opened next tick for an operator already pressed against its door.
     touching: onNow.map((o) => o.id), carried, switches, doorsOpen: doorsOpenNow, taken, boxes, push, delivered: moved.delivered, chilled: moved.chilled,
+    ...(roomNow === state.room ? {} : { room: roomNow, dissolved }),
     ...(pie ? { pie } : {}),
+    ...(unload ? { unload } : {}),
     ...(factory ? { factory } : {}),
     ...(moved.mixer ? { mixer: moved.mixer } : {}),
     ...(orderSerial > 0 ? { orderSerial } : {}),
@@ -1525,6 +1580,20 @@ export function selectPie(s: GameState): { readonly phase: 'ready' | 'up' | 'coo
   const scale = sleepOfSpirit(s.p);
   if (p.ticksLeft > 0) return { phase: 'up', seconds: Math.ceil(p.ticksLeft / TICK_HZ), scale };
   return p.cooldown > 0 ? { phase: 'cooling', seconds: Math.ceil(p.cooldown / TICK_HZ), scale } : { phase: 'ready', seconds: 0, scale };
+}
+/** The room's food chunks for the view: each with whether the acid has dissolved it, and how far the acid lying on it has got (0 to 1; 0 when none lies on it). */
+export function selectChunks(s: GameState): readonly { readonly object: number; readonly dissolved: boolean; readonly melting: number }[] {
+  const acid = s.unload && s.unload.ticksLeft > 0 ? unloadBox(s.unload) : undefined;
+  const under = acid ? new Set(chunksUnder(s.room, s.dissolved, acid).map((c) => c.object.id)) : new Set<number>();
+  const progress = s.unload ? Math.min(1, unloadAge(s.unload) / CHUNK.dissolveTicks) : 0;
+  return chunksOf(s.room).map((c) => ({ object: c.object.id, dissolved: s.dissolved.includes(c.object.id), melting: under.has(c.object.id) ? progress : 0 }));
+}
+/** The partner's acid for the HUD: whether it lies, cools or is ready, and the seconds left on that. Absent without a partner that has it. */
+export function selectUnload(s: GameState): { readonly phase: 'ready' | 'up' | 'cooling'; readonly seconds: number } | undefined {
+  const u = s.unload;
+  if (!u) return undefined;
+  if (u.ticksLeft > 0) return { phase: 'up', seconds: Math.ceil(u.ticksLeft / TICK_HZ) };
+  return u.cooldown > 0 ? { phase: 'cooling', seconds: Math.ceil(u.cooldown / TICK_HZ) } : { phase: 'ready', seconds: 0 };
 }
 /** The NPC, bed, pickup or toggle switch the interact key would use right now, for the HUD prompt; same rule as the key. */
 export function selectInteractable(s: GameState): { readonly object: number; readonly kind: string } | undefined {

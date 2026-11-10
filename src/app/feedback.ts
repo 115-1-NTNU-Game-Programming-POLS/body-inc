@@ -27,7 +27,7 @@ export type StringTable = StringsFile;
 /** A Record keyed by the union, so adding an event to core without listing it here fails to compile. */
 const ALL_EVENTS: Record<GameEvent['type'], true> = {
   bumpWall: true, fire: true, swing: true, toolSwapped: true, guardRaised: true, blocked: true, parry: true,
-  toasted: true, refused: true, backedOff: true, shieldBlocked: true, shieldBroken: true, refusalSaid: true, canTaken: true, teaTaken: true, orderThrown: true, orderReturned: true, palpitation: true, canDisco: true, pieRaised: true, pieBlocked: true,
+  toasted: true, refused: true, backedOff: true, shieldBlocked: true, shieldBroken: true, refusalSaid: true, canTaken: true, teaTaken: true, orderThrown: true, orderReturned: true, palpitation: true, canDisco: true, pieRaised: true, pieBlocked: true, unloadRaised: true, chunkDissolved: true,
   dodge: true, perfectDodge: true, telegraph: true, hit: true, caseClosed: true, bound: true,
   dispersed: true, reformed: true, respawned: true, immuneBounce: true, heartLost: true, freeze: true, forcedLeave: true,
   gaugeFull: true, stampRaised: true, stampLanded: true, stampVoid: true, clung: true, forcedNap: true,

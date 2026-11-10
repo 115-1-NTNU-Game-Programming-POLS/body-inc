@@ -10,6 +10,7 @@ import { objectBox } from './interact.ts';
 import { keyOf, keysFor, parseClockWindow, SWITCH_KINDS, switchesFor } from './locks.ts';
 import { slotProblems } from './slots.ts';
 import { dockTiles, solidDock } from '../liver/factory.ts';
+import { chunksOf, solidChunks } from '../stomach/chunks.ts';
 
 /**
  * Tiled JSON (.tmj) to room model. Core only needs structure, not art: which cells are solid,
@@ -174,6 +175,16 @@ export type RoomProblemCode =
    * under the first ones, and on the others two things would want the same box.
    */
   | 'cold-blocked'
+  /** A Chunk drawn as a point, or too small to hold any tile's centre. */
+  | 'chunk-shape'
+  /** A Chunk on a variant layer: it is baked into the room's walls, so it cannot come and go with a state. */
+  | 'chunk-variant'
+  /** A Chunk with a tile that is already a wall (or the dock, or off the map): dissolving it would open the wall. */
+  | 'chunk-wall'
+  /** Two Chunks that share a tile: dissolving one would open a tile the other still covers. */
+  | 'chunk-overlap'
+  /** An object that stands on a tile, or one that covers tiles, over a chunk's tiles, which are solid. */
+  | 'chunk-blocked'
   /** A wall room whose track or board has not exactly the slots the game fills (see core/rooms/slots.ts). */
   | 'slot-count'
   /** Two EvidenceSlots with the same track, day and order. */
@@ -409,6 +420,7 @@ export function readRoom(id: string, map: TiledMap, dict: TagDictionary): ReadRe
   const locked = objects.map((o) => (o.kind === 'Door' ? lockedDoor(o, dict, problems) : o));
   // First, so the dock is solid for every check below, as it will be in the game.
   lineProblems(objects, map.width, map.height, solid, problems);
+  chunkProblems(objects, map.width, map.height, solid, problems);
   for (const o of locked) {
     if (o.kind === 'Door' && cellsOk) {
       const p = doorProblem(o, map.width, map.height);
@@ -541,8 +553,40 @@ function lineProblems(objects: readonly RoomObject[], cols: number, rows: number
   }
 }
 
+/**
+ * The Chunks (core/stomach/chunks.ts). Reads the walls and the dock before the chunks are made solid,
+ * then marks them in `solid`, so the checks below see the grid the game will use: a Box on a chunk is
+ * a `box-wall`. A Trigger may span a chunk, like the dock.
+ */
+function chunkProblems(objects: readonly RoomObject[], cols: number, rows: number, solid: boolean[], problems: RoomProblem[]): void {
+  const chunks = chunksOf({ objects });
+  if (chunks.length === 0) return;
+  const grid = { cols, rows, solid };
+  const claimed = new Map<string, number>();
+  for (const c of chunks) {
+    const id = c.object.id;
+    if (c.object.variant !== undefined) problems.push({ code: 'chunk-variant', object: id });
+    if (c.tiles.length === 0) { problems.push({ code: 'chunk-shape', object: id }); continue; }
+    if (c.tiles.some((t) => isSolid(grid, t.col, t.row))) problems.push({ code: 'chunk-wall', object: id });
+    const twin = c.tiles.map((t) => claimed.get(`${t.col},${t.row}`)).find((other) => other !== undefined);
+    if (twin !== undefined) problems.push({ code: 'chunk-overlap', object: id, args: { other: twin } });
+    for (const t of c.tiles) claimed.set(`${t.col},${t.row}`, id);
+  }
+  solidChunks(objects, cols, rows, solid);
+  for (const o of objects) {
+    if (o.kind === 'Chunk') continue;
+    const standing = CHUNK_CLEAR.has(o.kind);
+    const covering = o.kind === 'Port' || o.kind === 'Conveyor' || o.kind === 'Mixer' || o.kind === 'ColdStore' || (o.kind === 'Line' && o.props['stage'] !== 'outlet');
+    const tiles = covering && o.width > 0 && o.height > 0 ? conveyorTiles(o) : [];
+    const under = chunks.find((c) => c.tiles.some((t) => (standing && overlaps(tileBox(t), objectBox(o))) || tiles.some((u) => u.col === t.col && u.row === t.row)));
+    if (under) problems.push({ code: 'chunk-blocked', object: o.id, args: { chunk: under.object.id, kind: o.kind } });
+  }
+}
+
 /** Objects that stand on a tile; a Trigger may span the dock, and a Box there is already a box wall. */
 const DOCK_CLEAR: ReadonlySet<string> = new Set(['PlayerStart', 'NPC', 'Pickup', 'Bed', 'Switch', 'Spawn']);
+/** What a chunk may not sit on: the dock's objects, and a door, whose arrival point would be inside it. */
+const CHUNK_CLEAR: ReadonlySet<string> = new Set([...DOCK_CLEAR, 'Door']);
 
 /** For the game: a room with any problem is a bug that the map check should have caught. */
 export function parseRoom(id: string, map: TiledMap, dict: TagDictionary): RoomModel {

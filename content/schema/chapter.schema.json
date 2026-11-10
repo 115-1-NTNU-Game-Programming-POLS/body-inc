@@ -18,7 +18,7 @@
       "items": { "enum": ["stamp"] },
       "uniqueItems": true
     },
-    "partner": { "description": "The partner who walks with the operator through this chapter. The chairman gives the L key his pie shield (design doc 5.1): it stops thrown shots for a few seconds, its size and duration times S, and then has to cool down. Absent: L does nothing.", "enum": ["chairman"] },
+    "partner": { "description": "The partner who walks with the operator through this chapter. The chairman gives the L key his pie shield (design doc 5.1): it stops thrown shots for a few seconds, its size and duration times S, and then has to cool down. The stomach logistics chief gives it his acid (design doc 6.2): a zone spat ahead that hurts and shoves back ordinary enemies for 3 seconds, with a cooldown of 9. Absent: L does nothing.", "enum": ["chairman", "logistics"] },
     "glucose": { "description": "Shows the blood glucose meter and runs its rules in this chapter (design doc 7.3).", "type": "boolean" },
     "patrol": {
       "description": "Makes the chapter the rooms of one floor's patrol in the semester mode (design doc 8.5): the chapter clock does not run, so the rooms stay a snapshot of the day the semester handed in. The value is the floor.",

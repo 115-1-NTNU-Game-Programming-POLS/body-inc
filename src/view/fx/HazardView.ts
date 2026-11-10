@@ -1,8 +1,10 @@
 import Phaser from 'phaser';
-import { zoneFill, type GameState, type Shot } from '../../core/index.ts';
+import { unloadBox, zoneFill, type GameState, type Shot } from '../../core/index.ts';
 import { dashedCircle } from './telegraph.ts';
 
 const RED = 0xc8372d;
+/** The logistics chief's acid; a placeholder green until the art direction gives the zone a decal of its own. */
+const ACID = 0x8fb339;
 /** Hatch period of fx-hatch-tile (art direction 9.2): 45-degree lines every 8 world px. */
 const HATCH_PERIOD = 8;
 // The toast wave borrows the cup until it has art of its own.
@@ -32,6 +34,14 @@ export class HazardView {
       dashedCircle(g, z.x, z.y, z.radius, RED);
       const inner = z.radius * (1 - zoneFill(z));
       hatchRing(g, z.x, z.y, z.radius, inner);
+    }
+    // The partner's acid lies where it was spat, not where the operator stands now, and blinks for its last second.
+    const acid = cur.unload;
+    if (acid && acid.ticksLeft > 0) {
+      const b = unloadBox(acid);
+      const fading = acid.ticksLeft < 60 && Math.floor(acid.ticksLeft / 6) % 2 === 0;
+      g.fillStyle(ACID, fading ? 0.25 : 0.5).fillRect(b.left, b.top, b.right - b.left, b.bottom - b.top);
+      g.lineStyle(1.5, ACID, 0.9).strokeRect(b.left, b.top, b.right - b.left, b.bottom - b.top);
     }
 
     const before = new Map<number, Shot>(prev.shots.map((s) => [s.id, s]));

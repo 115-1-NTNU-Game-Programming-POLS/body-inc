@@ -227,23 +227,27 @@ export function beltAt(room: RoomModel, t: Tile, switchesOn: readonly number[]):
 /** The tile under a point, such as the operator's feet. */
 export const tileAt = (x: number, y: number): Tile => ({ col: Math.floor(x / TILE), row: Math.floor(y / TILE) });
 
-const gridCache = new WeakMap<readonly BoxState[], SolidGrid>();
+const gridCache = new WeakMap<readonly BoxState[], { readonly base: SolidGrid; readonly grid: SolidGrid }>();
 
-/** The room's walls with every box's tile made solid, for everything that moves or flies. */
+/**
+ * The room's walls with every box's tile made solid, for everything that moves or flies. The result
+ * is kept for the boxes array it was made from, and for the room grid it was made on: a dissolved
+ * chunk swaps in a new room grid under boxes that did not move.
+ */
 export function withBoxes(grid: SolidGrid, boxes: readonly BoxState[]): SolidGrid {
   if (boxes.length === 0) return grid;
   let g = gridCache.get(boxes);
-  if (!g || g.cols !== grid.cols) {
+  if (!g || g.base !== grid) {
     const solid = [...grid.solid];
     const mark = (t: Tile) => { if (t.col >= 0 && t.row >= 0 && t.col < grid.cols && t.row < grid.rows) solid[t.row * grid.cols + t.col] = true; };
     for (const b of boxes) {
       mark(b);
       if (b.carried && b.from) mark(b.from);
     }
-    g = { ...grid, solid };
+    g = { base: grid, grid: { ...grid, solid } };
     gridCache.set(boxes, g);
   }
-  return g;
+  return g.grid;
 }
 
 /** Anything a box must not slide into, other than walls, boxes and the room's fixed objects. */
