@@ -237,6 +237,8 @@
     "handbook.eating_before_sleep.title": { "text": "睡前進食與睡眠", "fact": "" },
     "handbook.eating_before_sleep.1": { "text": "睡前吃大餐，胃得加班消化，有研究發現睡前 3 小時內吃東西的大學生比較容易半夜醒來。", "fact": "14" },
     "handbook.eating_before_sleep.2": { "text": "睡前不要吃大餐，也不要餓著肚子上床，適量就好。", "fact": "18" },
+    "handbook.sugar_fatigue.title": { "text": "糖分與疲倦", "fact": "" },
+    "handbook.sugar_fatigue.1": { "text": "喝完全糖以為會很有精神？研究發現大量吃糖後半小時到一小時內，人反而比較累、比較不清醒。", "fact": "13" },
     "report.dept.company": { "text": "本公司", "fact": "" },
     "report.dept.brain": { "text": "大腦董事長室", "fact": "" },
     "report.dept.immune": { "text": "免疫保全部", "fact": "" },

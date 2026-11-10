@@ -918,6 +918,11 @@
        "type": "string",
        "propertytype": "EnemyType",
        "value": "sugar_seller"
+      },
+      {
+       "name": "when",
+       "type": "string",
+       "value": "!sugar_seller_closed"
       }
      ]
     }

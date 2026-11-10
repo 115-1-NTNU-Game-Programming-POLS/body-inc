@@ -67,8 +67,9 @@ writeRoom('stomach/mixer-lab.tmj', {
         rect(14, 'loop-east', 'Conveyor', 18, 4, 1, 7, [str('direction', 'Direction', 'N')]),
         rect(15, 'door-e', 'Door', 19, 6, 1, 2, [str('socket', 'Socket', 'E'), str('lock', 'Lock', 'switch')]),
         // Greybox: the sugar salesman of design doc 7.5 stands inside the loop to try the fatigue fog on; its tea costs no heart.
+        // Once his case is closed (chapter file closedCases) he stays out, and his page 〈糖分與疲倦〉 comes with the closing (caseDrops).
         { id: 16, name: 'sugar-seller', type: 'Spawn', x: 15 * T + 16, y: 8 * T + 16, width: 0, height: 0, rotation: 0, visible: true, point: true,
-          properties: [str('enemyType', 'EnemyType', 'sugar_seller')] },
+          properties: [str('enemyType', 'EnemyType', 'sugar_seller'), str('when', undefined, '!sugar_seller_closed')] },
       ],
     },
   ],

@@ -371,7 +371,7 @@ describe('chapter check (build plan P0)', () => {
   const check = (rooms: Record<string, TiledMap>, links = AB, chapter: Partial<{
     id: string; start: string; next: string; intro: string; carry: string[]; archive: { held: string; hands: number; desk: string; total: number; into: string };
     climax: { flag: string; summonFactor?: number; archiveFactor?: number };
-    closedCases: Record<string, string>;
+    closedCases: Record<string, string>; caseDrops: Record<string, string>;
   }> = {}) => {
     const dir = join(root, `maps${n++}`);
     mkdirSync(join(dir, 'lab'), { recursive: true });
@@ -488,6 +488,15 @@ describe('chapter check (build plan P0)', () => {
     expect(closed({ energy_seller: 'seller_closed' })).toEqual([]);
     expect(closed({ energy_seller: 'memory_held' })).toEqual([expect.stringMatching(/closedCases 的「energy_seller」要記在布林標籤上，「memory_held」/)]);
     expect(closed({ energy_seller: 'no_such_tag' })).toEqual([expect.stringMatching(/「no_such_tag」不是狀態標籤字典/)]);
+  });
+
+  it('a case drop must name a defeatable enemy and a page the handbook has', () => {
+    const drops = (caseDrops: Record<string, string>) => check({ a: a(), b: b() }, AB, { caseDrops });
+    expect(drops({ sugar_seller: 'sugar_fatigue' })).toEqual([]);
+    expect(drops({ sugar_seller: 'no_such_page' })).toEqual([expect.stringMatching(/caseDrops 的「sugar_seller」掉落的手冊頁「no_such_page」不存在/)]);
+    expect(drops({ no_such_enemy: 'sugar_fatigue' })).toEqual([expect.stringMatching(/caseDrops 的「no_such_enemy」不是敵人種類/)]);
+    // An immune enemy has no case to close, so a drop on it could never come.
+    expect(drops({ alcohol_barrel: 'sugar_fatigue' })).toEqual([expect.stringMatching(/caseDrops 的「alcohol_barrel」不是敵人種類/)]);
   });
 
   it('a climax must name a flag that an event card can set, and an archive factor needs an archive', () => {

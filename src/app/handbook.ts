@@ -1,4 +1,4 @@
-import { PROGRESS, withPage, type Deck, type DialogueTable, type HandbookFile, type ProgressData, type RoomModel, type StringsFile } from '../core/index.ts';
+import { PROGRESS, withPage, type ChapterFile, type Deck, type DialogueTable, type HandbookFile, type ProgressData, type RoomModel, type StringsFile } from '../core/index.ts';
 import type { SaveIssue, SaveStore } from './storage.ts';
 
 /** String key of a page's title; the body keys are listed in content/handbook.json. */
@@ -28,7 +28,7 @@ export function handbookProblems(file: HandbookFile, strings: readonly { readonl
  * dialogue and deck checks report these to authors; this repeats them at startup because an
  * unknown page would be saved to the progress slot and then crash the note that names it.
  */
-export function missingPages(rooms: ReadonlyMap<string, RoomModel>, dialogues: DialogueTable, file: HandbookFile, deck?: Deck): string[] {
+export function missingPages(rooms: ReadonlyMap<string, RoomModel>, dialogues: DialogueTable, file: HandbookFile, deck?: Deck, chapter?: ChapterFile): string[] {
   const pages = new Set(file.pages.map((p) => p.id));
   const out: string[] = [];
   for (const [path, room] of rooms) {
@@ -44,6 +44,9 @@ export function missingPages(rooms: ReadonlyMap<string, RoomModel>, dialogues: D
   }
   for (const c of deck ? [...deck.opening, ...deck.events.values(), ...deck.closing] : []) {
     for (const o of c.options) for (const e of o.effects) if (e.kind === 'unlock' && !pages.has(e.id)) out.push(`card ${c.id}/${o.id}: handbook page "${e.id}"`);
+  }
+  for (const [enemy, id] of Object.entries(chapter?.caseDrops ?? {})) {
+    if (!pages.has(id)) out.push(`chapter ${chapter!.id}: case of ${enemy} drops handbook page "${id}"`);
   }
   return out;
 }

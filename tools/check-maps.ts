@@ -474,6 +474,10 @@ export function checkChapters(mapsDir: string, content: MapContent = loadMapCont
     for (const [enemy, name] of Object.entries(chapter.closedCases ?? {})) {
       if (content.dict.tags.get(name)?.type !== 'boolean') out.push(`${file}：closedCases 的「${enemy}」要記在布林標籤上，「${name}」不是狀態標籤字典（content/tags.json）裡的布林標籤`);
     }
+    for (const [enemy, page] of Object.entries(chapter.caseDrops ?? {})) {
+      if (content.enemies.enemies.get(enemy)?.category !== 'defeatable') out.push(`${file}：caseDrops 的「${enemy}」不是敵人種類（content/enemies.json）裡可結案的敵人`);
+      if (!content.handbookIds.has(page)) out.push(`${file}：caseDrops 的「${enemy}」掉落的手冊頁「${page}」不存在於手冊頁（content/handbook.json）`);
+    }
     const climax = chapter.climax;
     if (climax !== undefined) {
       const def = content.dict.tags.get(climax.flag);

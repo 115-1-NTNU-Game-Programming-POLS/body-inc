@@ -98,6 +98,12 @@ describe('handbook content', () => {
     ]);
   });
 
+  it('a chapter whose closed case drops a page the handbook lacks stops the game', () => {
+    const chapter = { version: 1 as const, id: 'lab', start: 'lab/a', links: [], caseDrops: { sugar_seller: 'sugar_fatigue', cheers: 'nope' } };
+    expect(missingPages(new Map(), new Map(), HANDBOOK, undefined, chapter)).toEqual(['chapter lab: case of cheers drops handbook page "nope"']);
+    expect(missingPages(new Map(), new Map(), HANDBOOK, undefined, { ...chapter, caseDrops: { sugar_seller: 'sugar_fatigue' } })).toEqual([]);
+  });
+
   /** Pages whose body is taller than the page at a text size, `{host}` measured as the widest name allowed. */
   const overflowing = (texts: readonly (readonly string[])[]): string[] => TEXT_SCALES.flatMap((scale) => {
     const size = LAYOUT.body.fontSize * scale;
