@@ -12,6 +12,7 @@
     { "name": "late_snack", "type": "boolean", "sources": ["card"], "duration": "nextDay", "facts": ["14"] },
     { "name": "alcohol", "type": "number", "unit": "cups", "sources": ["event"], "duration": "persistent", "facts": ["22", "29", "pending:4"] },
     { "name": "refusals", "type": "number", "unit": "times", "sources": ["rule"], "duration": "persistent", "facts": ["general"] },
+    { "name": "returned_orders", "type": "number", "unit": "times", "sources": ["event"], "duration": "persistent", "facts": ["general"] },
     { "name": "acetaldehyde", "type": "number", "unit": "crates", "sources": ["rule"], "duration": "persistent", "facts": ["pending:4"] },
     { "name": "dizzy", "type": "boolean", "sources": ["rule"], "duration": "untilWake", "facts": ["31"] },
     { "name": "roommate", "type": "boolean", "sources": ["card"], "duration": "untilWake", "facts": ["general"] },
@@ -43,6 +44,7 @@
     { "name": "one_more_cup", "type": "boolean", "sources": ["event"], "duration": "persistent", "facts": ["26"] },
     { "name": "seller_closed", "type": "boolean", "sources": ["chapter"], "duration": "persistent", "facts": ["9"] },
     { "name": "sugar_seller_closed", "type": "boolean", "sources": ["chapter"], "duration": "persistent", "facts": ["13"] },
+    { "name": "courier_closed", "type": "boolean", "sources": ["chapter"], "duration": "persistent", "facts": ["14"] },
     { "name": "midterm_score", "type": "number", "unit": "points", "sources": ["rule"], "duration": "persistent", "facts": ["general"] },
     { "name": "midterm_taken", "type": "boolean", "sources": ["rule"], "duration": "persistent", "facts": ["general"] }
   ],

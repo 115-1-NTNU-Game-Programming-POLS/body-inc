@@ -22,6 +22,7 @@ export * from './outer/body.ts';
 export * from './liver/line.ts';
 export * from './liver/factory.ts';
 export * from './stomach/mixer.ts';
+export * from './stomach/orders.ts';
 export { hopperTiles, mixerOf, mixerOutlet, PARCEL, portCycle } from './rooms/boxes.ts';
 export * from './rooms/sleep.ts';
 export * from './chapter/rescue.ts';

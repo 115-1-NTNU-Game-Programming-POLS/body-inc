@@ -215,6 +215,8 @@ function problemMessage(p: RoomProblem): string {
     case 'cold-wall': return '冷藏庫（ColdStore）蓋住的格子全是牆，箱子停不上去；要畫在地板上';
     case 'cold-blocked': return `物件 #${a['other']}（${a['kind']}）和冷藏庫重疊；門、NPC、床、道具、觸發區上停不了箱子，壓力板、調度口、攪拌機和輸送帶會和冷藏庫搶同一個箱子，請移到冷藏庫外`;
     case 'bed-seconds': return '午睡床（bedType nap）設了 sleepSeconds；只有就寢床（sleep）有睡眠進度條，這個數字不會被讀到';
+    case 'courier-belt': return '宵夜外送員（enemyType 為 courier 的 Spawn）所在的房間沒有輸送帶（Conveyor，變體圖層裡的不算）；他要把訂單丟上輸送帶，沒有帶子就只會站著';
+    case 'courier-factory': return '宵夜外送員（enemyType 為 courier 的 Spawn）不能放在有產線（Line）的房間；他的訂單箱會被工廠當成乙醛箱';
     case 'port-parcel': return '調度口的 accepts 是 parcel（只收小包裹），但房間裡沒有攪拌機（Mixer）做小包裹，永遠收不滿';
     case 'slot-count': return `證據牆的${slotCell(String(a['cell']))}要剛好 ${a['want']} 個槽（EvidenceSlot），order 從 1 排到 ${a['want']}，目前有 ${a['have']} 個`;
     case 'slot-duplicate': return `證據牆的${slotCell(String(a['cell']))}已經有 order ${a['order']} 的槽 #${a['other']}；同一格內每個 order 只能用一次`;

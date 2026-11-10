@@ -15,6 +15,7 @@
     { "id": "sugar_seller", "category": "defeatable", "archetype": "flyer", "performance": 4, "throws": "tea" },
     { "id": "large_seller", "category": "defeatable", "archetype": "manager", "performance": 12 },
     { "id": "cheers", "category": "defeatable", "archetype": "cheers", "performance": 3 },
+    { "id": "courier", "category": "defeatable", "archetype": "courier", "performance": 4 },
     { "id": "dummy", "category": "defeatable", "performance": 6 },
     { "id": "deadline_imp", "category": "defeatable" },
     { "id": "caffeine", "category": "defeatable", "boss": "caffeine" },

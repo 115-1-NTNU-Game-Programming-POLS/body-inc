@@ -10,7 +10,7 @@
  "tilewidth": 32,
  "tileheight": 32,
  "nextlayerid": 4,
- "nextobjectid": 11,
+ "nextobjectid": 12,
  "class": "Room",
  "properties": [
   {
@@ -761,6 +761,31 @@
      "rotation": 0,
      "visible": true,
      "properties": []
+    },
+    {
+     "id": 11,
+     "name": "courier",
+     "type": "Spawn",
+     "x": 112,
+     "y": 176,
+     "width": 0,
+     "height": 0,
+     "rotation": 0,
+     "visible": true,
+     "point": true,
+     "properties": [
+      {
+       "name": "enemyType",
+       "type": "string",
+       "propertytype": "EnemyType",
+       "value": "courier"
+      },
+      {
+       "name": "when",
+       "type": "string",
+       "value": "!courier_closed"
+      }
+     ]
     }
    ]
   }

@@ -80,6 +80,8 @@
     "mixerFed": { "sound": "thunk" },
     "boxChilled": { "sound": "thunk", "note": "stomach.chilled" },
     "parcelOut": { "sound": "pick" },
+    "orderThrown": { "sound": "thunk", "note": "stomach.order_in" },
+    "orderReturned": { "sound": "page", "particles": [{ "preset": "paper", "count": 6 }], "note": "stomach.order_back" },
     "mixerJammed": { "sound": "bad", "shake": { "px": 4, "seconds": 0.15 }, "particles": [{ "preset": "paper", "count": 10 }], "note": "stomach.mixer_jammed" },
     "dizzyChanged": { "sound": "dizzy.{dizzy}", "note": "dizzy.{dizzy}" },
     "examHit": { "sound": "heart", "flashOperator": 2, "shake": { "px": 3, "seconds": 0.1 }, "particles": [{ "preset": "ink", "count": 3 }] },

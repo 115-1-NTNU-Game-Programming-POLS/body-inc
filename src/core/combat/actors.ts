@@ -3,7 +3,7 @@ import { moveAndCollide, type Body, type SolidGrid } from '../collision/grid.ts'
 import type { Enemy } from '../content/generated.ts';
 import type { BossState } from './bosses/boss.ts';
 import type { Archetype, Category } from './enemies.ts';
-import { CHEERS, CLING, FLYER, MANAGER, REFORM_TICKS, SALESMAN } from './frames.ts';
+import { CHEERS, CLING, COURIER, FLYER, MANAGER, REFORM_TICKS, SALESMAN } from './frames.ts';
 import { guardCovers } from './folder.ts';
 import type { Drink, ShotSpec } from './hazards.ts';
 import type { Vec } from './movement.ts';
@@ -11,8 +11,9 @@ import type { Vec } from './movement.ts';
 /**
  * Enemy runtime state. Behaviour is a pure function of (state, what it perceives). Archetypes
  * with behaviour: salesman (approach, tier-1 telegraph, melee strike), manager (the same bash
- * behind a shield), flyer (keep range, tier-1 telegraph, one thrown sheet) and the cheers kid
- * (circle, tier-1 telegraph, one toast wave); the others stand still until their packages. A boss is
+ * behind a shield), flyer (keep range, tier-1 telegraph, one thrown sheet), the cheers kid
+ * (circle, tier-1 telegraph, one toast wave) and the courier (stand, tier-1 telegraph, one food
+ * box thrown onto a belt); the others stand still until their packages. A boss is
  * an enemy with `boss` set, stepped by its controller in combat/bosses instead.
  *
  * Phases: idle, windup (telegraph), strike (melee hitbox live or throw pose), recover; dispersed
@@ -153,12 +154,18 @@ export interface EnemyStep {
   readonly reformed: boolean;
   readonly respawned: boolean;
   readonly shots: readonly ShotSpec[];
+  /** A courier let go of an order on this tick; where it lands is for game.ts to decide, since it knows the boxes. */
+  readonly order: boolean;
 }
 
-/** `senseRangePx` is how far a clinging enemy notices the operator; the caffeine cloak lowers it. */
-export function stepEnemy(grid: SolidGrid, enemy: EnemyState, target: Vec, senseRangePx: number = CLING.senseRangePx): EnemyStep {
+/**
+ * `senseRangePx` is how far a clinging enemy notices the operator; the caffeine cloak lowers it.
+ * A courier throws at `target`, which for him is the belt he throws onto and not the operator, and
+ * only starts his telegraph while `ready`, that is while game.ts has somewhere to put the order.
+ */
+export function stepEnemy(grid: SolidGrid, enemy: EnemyState, target: Vec, senseRangePx: number = CLING.senseRangePx, ready = true): EnemyStep {
   const out = (e: EnemyState, flags: Partial<Omit<EnemyStep, 'enemy'>> = {}): EnemyStep =>
-    ({ enemy: e, telegraph: false, reformed: false, respawned: false, shots: [], ...flags });
+    ({ enemy: e, telegraph: false, reformed: false, respawned: false, shots: [], order: false, ...flags });
   // A kill or a reset zeroes `frozen` and leaves the pin, which a later hit-stop must not mistake for its own.
   const e0 = enemy.frozen === 0 && (enemy.pin ?? 0) > 0 ? { ...enemy, pin: 0 } : enemy;
   if (e0.frozen > 0) {
@@ -167,7 +174,7 @@ export function stepEnemy(grid: SolidGrid, enemy: EnemyState, target: Vec, sense
     }
     // Hit-stop is a pose (design doc 5.3): an attack keeps its schedule, and the rest of the pose
     // is dropped when it moves on.
-    const r = stepEnemy(grid, { ...e0, frozen: 0 }, target, senseRangePx);
+    const r = stepEnemy(grid, { ...e0, frozen: 0 }, target, senseRangePx, ready);
     return { ...r, enemy: { ...r.enemy, frozen: r.enemy.phase === e0.phase ? e0.frozen - 1 : 0 } };
   }
   const e = mend({ ...e0, phaseTicks: e0.phaseTicks + 1 });
@@ -199,6 +206,7 @@ export function stepEnemy(grid: SolidGrid, enemy: EnemyState, target: Vec, sense
   if (e.archetype === 'flyer') return stepFlyer(grid, e, target, out);
   if (e.archetype === 'cheers') return stepCheers(grid, e, target, out);
   if (e.archetype === 'manager') return stepManager(grid, e, target, out);
+  if (e.archetype === 'courier') return stepCourier(e, target, ready, out);
   if (e.archetype !== 'salesman') return out(e);
 
   switch (e.phase) {
@@ -257,6 +265,26 @@ function stepManager(grid: SolidGrid, e: EnemyState, target: Vec, out: Out): Ene
       return out(e.phaseTicks >= MANAGER.strikeTicks ? to(e, 'recover') : e);
     case 'recover':
       return out(e.phaseTicks >= MANAGER.recoverTicks ? to(e, 'idle') : e);
+    default:
+      return out(e);
+  }
+}
+
+/**
+ * Courier: stands at his post. Every COURIER.intervalTicks, if his orders are not already piled up
+ * and a belt will take one (`ready`), he raises the order for the tier-1 telegraph and throws it
+ * onto the belt; the box itself is placed by game.ts. He faces the belt, never the operator, and
+ * has no attack: the warning is for the box, so the operator can be at the belt to stamp it back.
+ */
+function stepCourier(e: EnemyState, target: Vec, ready: boolean, out: Out): EnemyStep {
+  switch (e.phase) {
+    case 'idle':
+      if (!ready || e.phaseTicks < COURIER.intervalTicks) return out(e);
+      return out(to(e, 'windup', { strikeDir: cardinal(target.x - e.x, target.y - e.y), strikeSpent: false }), { telegraph: true });
+    case 'windup':
+      return e.phaseTicks >= COURIER.windupTicks ? out(to(e, 'strike'), { order: true }) : out(e);
+    case 'strike':
+      return out(e.phaseTicks >= COURIER.throwTicks ? to(e, 'idle') : e);
     default:
       return out(e);
   }

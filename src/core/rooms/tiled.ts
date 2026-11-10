@@ -157,6 +157,10 @@ export type RoomProblemCode =
   | 'mixer-outlet'
   /** A Port that takes only parcels in a room with no Mixer to make them. */
   | 'port-parcel'
+  /** A courier spawn in a room with no Conveyor outside the variant layers: he has no belt to throw onto and would stand idle. */
+  | 'courier-belt'
+  /** A courier spawn in a room with a factory Line, which would take his orders for acetaldehyde crates. */
+  | 'courier-factory'
   /** A nap bed with `sleepSeconds` set: only a sleep bed has a sleep bar, so the number is never read. */
   | 'bed-seconds'
   /** A Port with only one of `openSeconds` and `closedSeconds` above 0: it needs both to be a timed gate. */
@@ -452,6 +456,10 @@ export function readRoom(id: string, map: TiledMap, dict: TagDictionary): ReadRe
     if (sure < need) problems.push({ code: 'port-need', object: p.id, args: { need, boxes: sure } });
   }
   if (mixers.length > 1) problems.push({ code: 'mixer-multiple', object: mixers[1]!.id });
+  // The courier is named by the enemy id his Spawn uses; his orders need a belt that is always there, and a room without a factory.
+  const courier = objects.find((o) => o.kind === 'Spawn' && o.props['enemyType'] === 'courier');
+  if (courier && !objects.some((o) => o.kind === 'Conveyor' && o.variant === undefined)) problems.push({ code: 'courier-belt', object: courier.id });
+  if (courier && objects.some((o) => o.kind === 'Line')) problems.push({ code: 'courier-factory', object: courier.id });
   for (const b of objects.filter((o) => o.kind === 'Bed' && o.props['bedType'] === 'nap' && Number(o.props['sleepSeconds']) > 0)) {
     problems.push({ code: 'bed-seconds', object: b.id });
   }

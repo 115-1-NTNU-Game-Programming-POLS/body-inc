@@ -15,6 +15,8 @@ export const SKINS: Readonly<Record<string, string>> = {
   // Greybox: the sugar salesman wears the energy drink seller's look until it has art of its own.
   sugar_seller: 'energy-seller',
   cheers: 'cheers',
+  // Greybox: the late-night courier wears the flyer's look until he has art of his own.
+  courier: 'flyer',
   // Greybox: the prologue's training dummy wears the salesman's suit until it has art of its own.
   dummy: 'suit-base',
   flyer: 'flyer',

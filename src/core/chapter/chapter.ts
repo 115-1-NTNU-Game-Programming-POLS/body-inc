@@ -736,6 +736,13 @@ function stepRoom(ctx: ChapterContent, state: ChapterState, input: TickInput): C
         extra.push(...out.events);
         break;
       }
+      case 'orderReturned': {
+        // Counted at once, like a crate. The outer layer reads the count as the design doc's social -1 per return (design doc 7.5); a letting go leaves no mark but the mixer's overtime.
+        const out = applyEffects(ctx.dict, run.tags, game.clock, [{ kind: 'amount', name: 'returned_orders', mode: 'add', value: 1 }], { kind: 'choice', key: 'return.courier' }, ctx.params);
+        run = { ...run, tags: out.tags };
+        extra.push(...out.events);
+        break;
+      }
       case 'caseClosed': {
         // A closed case that the chapter remembers is settled for good: Spawns gated on the flag stay empty on later visits.
         const flagName = ctx.chapter.closedCases?.[e.enemy];
