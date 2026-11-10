@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { BOSSES, DIALOGUES, ENEMIES, PARAMS, TAGS } from '../../src/app/content.ts';
 import { tagsFromQuery } from '../../src/app/session.ts';
 import {
-  amount, chairmanSpirit, CLING, CONVEYOR_TICKS, createGame, DODGE, FLYER, GLUCOSE, metabolise, MIST, MOVE, NO_INPUT, parseRoom,
+  amount, chairmanSpirit, CLING, CONVEYOR_TICKS, createGame, DODGE, FLYER, GLUCOSE, MANAGER, metabolise, MIST, MOVE, NO_INPUT, parseRoom,
   SALESMAN, senseCap, sleepFactor, startChapter, step, stepChapter, STAPLER, TELEGRAPH, TICK_HZ,
   type ChapterContent, type ChapterState, type EnteredRoom, type GameState, type TickInput, type TiledMap,
 } from '../../src/core/index.ts';
@@ -113,6 +113,8 @@ describe('frame data (design doc 5.2, 5.3)', () => {
     expect(observedWindup('salesman', 190)).toBe(TELEGRAPH.tier1Ticks);
     expect(observedWindup('flyer', 160 + (FLYER.nearPx + FLYER.farPx) / 2)).toBe(TELEGRAPH.tier1Ticks);
     expect(observedWindup('energy_seller', 160 + (FLYER.nearPx + FLYER.farPx) / 2)).toBe(TELEGRAPH.tier1Ticks);
+    // The manager turns to face the operator first, so the count starts at his telegraph and not at his arrival.
+    expect(observedWindup('large_seller', 190)).toBe(TELEGRAPH.tier1Ticks);
   });
 
   it('a flyer can reach the operator from anywhere in the band it keeps', () => {
@@ -125,7 +127,8 @@ describe('hits on the operator (design doc 5.3)', () => {
   it('a regular attack costs half a heart, and no single hit anywhere takes more than a heart and a half', () => {
     expect(SALESMAN.damageHalves).toBe(1);
     expect(FLYER.damageHalves).toBe(1);
-    const hits: number[] = [SALESMAN.damageHalves, FLYER.damageHalves, MIST.halves];
+    expect(MANAGER.damageHalves).toBe(1);
+    const hits: number[] = [SALESMAN.damageHalves, FLYER.damageHalves, MANAGER.damageHalves, MIST.halves];
     for (const def of BOSSES.values()) {
       if ('moves' in def) hits.push(...def.moves.map((m) => m.halves));
     }

@@ -1,11 +1,11 @@
 import { boxAt, centeredBox, overlaps, type Box } from './collision/boxes.ts';
 import { isSolid, moveAndCollide } from './collision/grid.ts';
-import { backOff, ENEMY_BODY, enemyCenter, enemyFrom, enemyHurtbox, isBound, isHittable, isMelee, stepEnemy, strikeBox, type EnemyState } from './combat/actors.ts';
+import { backOff, ENEMY_BODY, enemyCenter, enemyFrom, enemyHurtbox, isBound, isHittable, isMelee, recoverTicksOf, reshield, shieldCovers, stepEnemy, strikeBox, type EnemyState } from './combat/actors.ts';
 import { newBossState, type BossDef, type BossTable, type ToastState } from './combat/bosses/boss.ts';
 import { proposalOpen, stepCaffeine } from './combat/bosses/caffeine.ts';
 import { breathing, stepToast } from './combat/bosses/toast.ts';
 import type { EnemyTable } from './combat/enemies.ts';
-import { BASE_HALVES, BIND, BOSS, CLING, DODGE, ENEMY_HIT_FREEZE, FOLDER, GAUGE, heartCap, HURT, PARRY_BOOST, SALESMAN, STAMP, STAPLER, SUGAR_FOG } from './combat/frames.ts';
+import { BASE_HALVES, BIND, BOSS, CLING, DODGE, ENEMY_HIT_FREEZE, FOLDER, GAUGE, heartCap, HURT, MANAGER, PARRY_BOOST, SALESMAN, STAMP, STAPLER, SUGAR_FOG } from './combat/frames.ts';
 import { guardCovers, parryOpen, swingBox } from './combat/folder.ts';
 import { chip, NO_ASSISTS, owing } from './combat/assists.ts';
 import { BASE_PERKS, type Perks } from './combat/perks.ts';
@@ -57,6 +57,13 @@ export interface Projectile {
   readonly damage?: number;
   /** Sent back by a parry: it charges no gauge (the parry already did) and throws no lever. */
   readonly reflected?: true;
+}
+
+/** How a weapon reaches an enemy, for the shield of a manager: where it comes from, and what it can break. */
+interface Strike {
+  /** A vector from the target towards the attacker; for a shot, against its velocity. */
+  readonly from: Vec;
+  readonly breaks: 'reflect' | 'folder' | undefined;
 }
 
 export interface GameState {
@@ -193,6 +200,10 @@ export type DomainEvent =
   | { readonly type: 'refused'; readonly source: number; readonly parry: boolean }
   /** A weapon landed on a cheers kid, who only backs off (design doc 7.7). */
   | { readonly type: 'backedOff'; readonly target: number; readonly enemy: string }
+  /** A staple or a light swing met a manager's shield from the front and did nothing (design doc 5.3). */
+  | { readonly type: 'shieldBlocked'; readonly target: number; readonly enemy: string }
+  /** 破防: a sent-back shot or the folder's heavy hit got through a manager's shield. It landed, and he is stunned with the shield down. */
+  | { readonly type: 'shieldBroken'; readonly target: number; readonly enemy: string; readonly by: 'reflect' | 'folder' }
   | { readonly type: 'dodge' }
   /** `assisted` is set when only the automatic-perfect assist made the dodge perfect; it is absent otherwise, so a plain run is unchanged. */
   | { readonly type: 'perfectDodge'; readonly source: number; readonly assisted?: true }
@@ -555,7 +566,7 @@ function forcedLeave(before: GameState): GameState {
       return own;
     }
     const { shooed: _, ...fresh } = e;
-    const reset: EnemyState = { ...fresh, x: e.homeX, y: e.homeY, hp: e.maxHp, phase: 'idle', phaseTicks: 0, frozen: 0 };
+    const reset: EnemyState = reshield({ ...fresh, x: e.homeX, y: e.homeY, hp: e.maxHp, phase: 'idle', phaseTicks: 0, frozen: 0 });
     return e.boss ? { ...reset, boss: newBossState(state.bosses[e.boss.def]!) } : reset;
   });
   // The tool in hand stays in hand: a retry takes nothing away (design doc 5.6).
@@ -1053,7 +1064,9 @@ export function step(state: GameState, pressed: TickInput): StepResult {
   // A weapon landing on a hittable enemy. The flag decides what it does, not a large health pool
   // (design doc 5.1, 5.5): immune ones bounce it with no hit-stop and no damage, reforming ones
   // scatter, the rest lose `amount`. `gain` is the gauge the hit charges before P, 0 for none.
-  const hitEnemy = (target: EnemyState, amount: number, freeze: number, gain: number, binds = 0): void => {
+  // `strike` says where the weapon comes from (a vector from the target towards the attacker) and
+  // whether it can break a manager's shield; the rest of the weapons never reach a shield.
+  const hitEnemy = (target: EnemyState, amount: number, freeze: number, gain: number, binds = 0, strike?: Strike): void => {
     if (target.archetype === 'cheers') {
       shoo(target);
     } else if (target.category === 'immune') {
@@ -1063,9 +1076,22 @@ export function step(state: GameState, pressed: TickInput): StepResult {
       events.push({ type: 'dispersed', target: target.id, enemy: target.type });
       if (gain > 0) op = charge(op, gain, state.p, events);
     } else {
+      const shielded = strike !== undefined && shieldCovers(target, strike.from);
+      if (shielded && strike.breaks === undefined) {
+        events.push({ type: 'shieldBlocked', target: target.id, enemy: target.type });
+        return;
+      }
       if (gain > 0) op = charge(op, gain, state.p, events);
       const wasBound = isBound(target);
-      const hit = damage(target, amount, freeze, events, state.bosses);
+      let hit = damage(target, amount, freeze, events, state.bosses);
+      if (shielded && hit.phase !== 'closed') {
+        // The hit landed and the bash he was winding up is off: he wakes into the last tick of his pause, so the stun is all of it.
+        events.push({ type: 'shieldBroken', target: target.id, enemy: target.type, by: strike.breaks! });
+        hit = {
+          ...hit, broken: MANAGER.breakTicks, frozen: Math.max(hit.frozen, MANAGER.breakStunTicks),
+          phase: 'recover', phaseTicks: recoverTicksOf(hit) - 1, strikeSpent: true,
+        };
+      }
       enemies.set(target.id, binds > 0 ? bindHit(hit, binds) : hit);
       if (wasBound && perks.bindSplash > 0) splash(target);
     }
@@ -1102,7 +1128,10 @@ export function step(state: GameState, pressed: TickInput): StepResult {
     // Read each enemy afresh: an earlier hit's splash (裝訂大師) may have changed the ones beside it.
     for (const { id } of byId()) {
       const e = enemies.get(id)!;
-      if (isHittable(e) && overlaps(box, enemyHurtbox(e))) hitEnemy(e, FOLDER.damage[s.swingHit]!, FOLDER.hitFreeze[s.swingHit]!, GAUGE.folder);
+      if (isHittable(e) && overlaps(box, enemyHurtbox(e))) {
+        const heavy = s.swingHit === FOLDER.finisher;
+        hitEnemy(e, FOLDER.damage[s.swingHit]!, FOLDER.hitFreeze[s.swingHit]!, GAUGE.folder, 0, { from: { x: op.x - e.x, y: op.y - e.y }, breaks: heavy ? 'folder' : undefined });
+      }
     }
     const f = state.factory;
     if (f && crateTiles(room, f.waiting).some((t) => overlaps(box, tileBox(t)))) {
@@ -1143,7 +1172,8 @@ export function step(state: GameState, pressed: TickInput): StepResult {
     if (isSolid(grid, col, row)) continue;
     const target = byId().find((e) => isHittable(e) && overlaps(box, enemyHurtbox(e)));
     if (!target) { flying.push(p); continue; }
-    hitEnemy(target, p.damage ?? STAPLER.damage, ENEMY_HIT_FREEZE, p.reflected ? 0 : GAUGE.staple, p.reflected ? perks.parryBind : 1);
+    hitEnemy(target, p.damage ?? STAPLER.damage, ENEMY_HIT_FREEZE, p.reflected ? 0 : GAUGE.staple, p.reflected ? perks.parryBind : 1,
+      { from: { x: -p.vx, y: -p.vy }, breaks: p.reflected ? 'reflect' : undefined });
   }
 
   // A closed boss stops attacking at once: its shots and areas go with it. A closed ordinary
@@ -1203,7 +1233,7 @@ export function step(state: GameState, pressed: TickInput): StepResult {
     if (c) {
       events.push({ type: c === 'parry' ? 'parry' : 'blocked', source: e.id, kind: 'strike' });
       // The stunned enemy wakes into the last tick of its recovery, so the stun is the whole pause.
-      const stunned = c === 'parry' ? { frozen: FOLDER.parryStunTicks, phase: 'recover' as const, phaseTicks: SALESMAN.recoverTicks - 1 } : {};
+      const stunned = c === 'parry' ? { frozen: FOLDER.parryStunTicks, phase: 'recover' as const, phaseTicks: recoverTicksOf(e) - 1 } : {};
       enemies.set(e.id, { ...e, strikeSpent: true, ...stunned });
       if (c === 'parry') {
         op = charge(op, GAUGE.parry, state.p, events);
@@ -1211,7 +1241,8 @@ export function step(state: GameState, pressed: TickInput): StepResult {
       }
       continue;
     }
-    if (absorb(e.id, 1, { x: e.x, y: e.y }, e.type) !== 'ignored') enemies.set(e.id, { ...e, strikeSpent: true });
+    const halves = e.archetype === 'manager' ? MANAGER.damageHalves : SALESMAN.damageHalves;
+    if (absorb(e.id, halves, { x: e.x, y: e.y }, e.type) !== 'ignored') enemies.set(e.id, { ...e, strikeSpent: true });
   }
 
   // 婉拒 (design doc 7.7): a cheers kid's performance counts refusals, not hits, and the last one

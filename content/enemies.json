@@ -13,6 +13,7 @@
     { "id": "flyer", "category": "defeatable", "archetype": "flyer", "performance": 3 },
     { "id": "energy_seller", "category": "defeatable", "archetype": "flyer", "performance": 4, "throws": "can" },
     { "id": "sugar_seller", "category": "defeatable", "archetype": "flyer", "performance": 4, "throws": "tea" },
+    { "id": "large_seller", "category": "defeatable", "archetype": "manager", "performance": 12 },
     { "id": "cheers", "category": "defeatable", "archetype": "cheers", "performance": 3 },
     { "id": "dummy", "category": "defeatable", "performance": 6 },
     { "id": "deadline_imp", "category": "defeatable" },

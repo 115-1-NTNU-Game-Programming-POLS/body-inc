@@ -2,6 +2,8 @@
   "version": 1,
   "id": "stomach",
   "start": "stomach/mixer-lab",
+  "closedCases": { "sugar_seller": "sugar_seller_closed" },
+  "caseDrops": { "sugar_seller": "sugar_fatigue" },
   "links": [
     { "a": "stomach/mixer-lab#door-e", "b": "stomach/night-lab#door-w" }
   ]

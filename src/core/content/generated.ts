@@ -693,6 +693,14 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
           "pattern": "^[a-z][a-z0-9_]*$"
         }
       },
+      "caseDrops": {
+        "description": "Enemy types that leave a handbook page when their case is closed, as enemy id to page id (design doc 7.5: the sugar salesman drops 〈糖分與疲倦〉). The page is kept like any unlocked page, so a forced leave does not take it back.",
+        "type": "object",
+        "additionalProperties": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        }
+      },
       "climax": {
         "description": "The choice an event card offers before the boss (design doc 7.4): a boolean tag it sets, and what that costs. With the flag on, the boss summons `summonFactor` times as many enemies at once and may keep that many times as many alive, and going to bed files only `archiveFactor` of the desk.",
         "type": "object",
@@ -3507,6 +3515,8 @@ export interface ChapterFile {
   };
   /** Enemy types whose closed case the chapter remembers, as enemy id to the boolean tag it sets. A Spawn gated on `!tag` then stays empty on every later visit, so a refused salesman never comes back (design doc 7.4). */
   readonly closedCases?: Readonly<Record<string, string>>;
+  /** Enemy types that leave a handbook page when their case is closed, as enemy id to page id (design doc 7.5: the sugar salesman drops 〈糖分與疲倦〉). The page is kept like any unlocked page, so a forced leave does not take it back. */
+  readonly caseDrops?: Readonly<Record<string, string>>;
   /** The choice an event card offers before the boss (design doc 7.4): a boolean tag it sets, and what that costs. With the flag on, the boss summons `summonFactor` times as many enemies at once and may keep that many times as many alive, and going to bed files only `archiveFactor` of the desk. */
   readonly climax?: {
     /** Boolean tag the choice sets. */

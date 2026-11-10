@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { motionOf, tagKey, type ManifestEntry } from '../../app/assets.ts';
-import { isBound, REFORM_TICKS, TICK_HZ, type EnemyState } from '../../core/index.ts';
+import { isBound, MANAGER, REFORM_TICKS, shielded, TICK_HZ, type EnemyState } from '../../core/index.ts';
 import { FlashPainter } from '../fx/FlashPainter.ts';
 import { warningAt } from '../fx/telegraph.ts';
 import { REFORM_STAGES } from '../fx/textures.ts';
@@ -9,6 +9,8 @@ import { puppetSway } from './puppet.ts';
 /** Logical enemy id to manifest key; the view owns this, core only knows `salesman`. */
 export const SKINS: Readonly<Record<string, string>> = {
   salesman: 'suit-base',
+  // Greybox: the large-portion salesman wears the salesman's suit, and the view adds the shield.
+  large_seller: 'suit-base',
   energy_seller: 'energy-seller',
   // Greybox: the sugar salesman wears the energy drink seller's look until it has art of its own.
   sugar_seller: 'energy-seller',
@@ -21,6 +23,10 @@ export const SKINS: Readonly<Record<string, string>> = {
   adenosine: 'adenosine',
   alcohol_barrel: 'alcohol-barrel',
 };
+
+const SHIELD_INK = 0x0c2d5e;
+const SHIELD_PAPER = 0xf4efe4;
+const SHIELD_RADIUS = 15;
 
 /** Attached and pinned enemies are drawn as minis on the operator or the boss instead. */
 const isHidden = (e: Readonly<EnemyState>): boolean =>
@@ -35,6 +41,7 @@ export class EnemyView {
   private readonly flasher: FlashPainter;
   private flashUntil = 0;
   private walkSince: number | undefined;
+  private shield: Phaser.GameObjects.Graphics | undefined;
 
   constructor(scene: Phaser.Scene, entry: ManifestEntry) {
     this.entry = entry;
@@ -62,6 +69,7 @@ export class EnemyView {
     const x = p.x + (cur.x - p.x) * alpha;
     const y = p.y + (cur.y - p.y) * alpha;
     this.sprite.setVisible(!hidden);
+    this.drawShield(cur, x, y, hidden);
     this.ring.setVisible(cur.phase === 'dispersed');
     if (cur.phase === 'dispersed') {
       const stage = Math.min(REFORM_STAGES, 1 + Math.floor((cur.phaseTicks / REFORM_TICKS) * REFORM_STAGES));
@@ -74,7 +82,8 @@ export class EnemyView {
       return;
     }
 
-    const dir = windup || cur.phase === 'strike' ? cur.strikeDir : { x: cur.x - p.x, y: cur.y - p.y };
+    // A manager stands the way his shield faces, also while he turns in place or rests with his back to the operator.
+    const dir = windup || cur.phase === 'strike' ? cur.strikeDir : cur.facing ?? { x: cur.x - p.x, y: cur.y - p.y };
     const side = Math.abs(dir.x) > Math.abs(dir.y);
     const d = side ? 'side' : dir.y < 0 ? 'up' : 'down';
     const moving = cur.x !== p.x || cur.y !== p.y;
@@ -102,6 +111,22 @@ export class EnemyView {
     if (!this.flasher.paint(tick < this.flashUntil, warningAt(windup, cur.phaseTicks), tick)) this.sprite.clearTint();
   }
 
+  /** A manager's shield is an arc over the 120 degrees he faces, and it is gone while it is broken (design doc 5.3). */
+  private drawShield(cur: Readonly<EnemyState>, x: number, y: number, hidden: boolean): void {
+    if (cur.archetype !== 'manager') return;
+    this.shield ??= this.sprite.scene.add.graphics();
+    const g = this.shield.clear();
+    if (hidden || !shielded(cur) || !cur.facing) return;
+    const a = Math.atan2(cur.facing.y, cur.facing.x);
+    const half = (MANAGER.shieldHalfAngleDeg * Math.PI) / 180;
+    const cx = Math.round(x);
+    const cy = Math.round(y) - 8;
+    // Behind the body when it faces away from the camera, in front of it otherwise.
+    g.setDepth(cur.facing.y < -0.3 ? y - 0.5 : y + 0.5);
+    g.lineStyle(5, SHIELD_INK).beginPath().arc(cx, cy, SHIELD_RADIUS, a - half, a + half).strokePath();
+    g.lineStyle(2, SHIELD_PAPER).beginPath().arc(cx, cy, SHIELD_RADIUS, a - half, a + half).strokePath();
+  }
+
   /** Soft bounce for immune objects: no hit-stop, only a squash (art direction 9.2). */
   bounce(): void {
     // Held fire bounces every 167 ms but the squash lasts 200 ms; restart from scale 1 so
@@ -124,6 +149,7 @@ export class EnemyView {
 
   destroy(): void {
     this.flasher.destroy();
+    this.shield?.destroy();
     this.sprite.destroy();
     this.bubble.destroy();
     this.ring.destroy();

@@ -3,15 +3,16 @@ import { moveAndCollide, type Body, type SolidGrid } from '../collision/grid.ts'
 import type { Enemy } from '../content/generated.ts';
 import type { BossState } from './bosses/boss.ts';
 import type { Archetype, Category } from './enemies.ts';
-import { CHEERS, CLING, FLYER, REFORM_TICKS, SALESMAN } from './frames.ts';
+import { CHEERS, CLING, FLYER, MANAGER, REFORM_TICKS, SALESMAN } from './frames.ts';
+import { guardCovers } from './folder.ts';
 import type { Drink, ShotSpec } from './hazards.ts';
 import type { Vec } from './movement.ts';
 
 /**
  * Enemy runtime state. Behaviour is a pure function of (state, what it perceives). Archetypes
- * with behaviour: salesman (approach, tier-1 telegraph, melee strike), flyer (keep range,
- * tier-1 telegraph, one thrown sheet) and the cheers kid (circle, tier-1 telegraph, one toast
- * wave); the others stand still until their packages. A boss is
+ * with behaviour: salesman (approach, tier-1 telegraph, melee strike), manager (the same bash
+ * behind a shield), flyer (keep range, tier-1 telegraph, one thrown sheet) and the cheers kid
+ * (circle, tier-1 telegraph, one toast wave); the others stand still until their packages. A boss is
  * an enemy with `boss` set, stepped by its controller in combat/bosses instead.
  *
  * Phases: idle, windup (telegraph), strike (melee hitbox live or throw pose), recover; dispersed
@@ -55,6 +56,10 @@ export interface EnemyState {
   readonly pin?: number;
   /** Exam test case: its drift in pixels per tick, turned back by walls (core/exam/fight.ts). */
   readonly drift?: Vec;
+  /** Manager: the unit vector his shield faces. It turns only while he is idle and is locked from windup to the end of his pause. */
+  readonly facing?: Vec;
+  /** Manager: ticks the shield stays down after a break; absent while it is up. */
+  readonly broken?: number;
 }
 
 export function enemyFrom(def: Enemy, id: number, x: number, y: number, respawnTicks: number, extra: Partial<EnemyState> = {}): EnemyState {
@@ -66,6 +71,7 @@ export function enemyFrom(def: Enemy, id: number, x: number, y: number, respawnT
     ...(def.throws ? { throws: def.throws } : {}),
     x, y, homeX: x, homeY: y, hp, maxHp: hp, phase: 'idle', phaseTicks: 0, frozen: 0,
     strikeDir: { x: 0, y: 1 }, strikeSpent: false, respawnTicks, clings: def.clings === true,
+    ...(def.archetype === 'manager' ? { facing: { x: 0, y: 1 } } : {}),
     ...extra,
   };
 }
@@ -93,7 +99,24 @@ export const enemyHurtbox = (e: EnemyState): Box => boxAt(e.boss ? BOSS_HURT : E
 export const enemyCenter = (e: EnemyState): Vec => ({ x: e.x, y: e.y - (e.boss ? BOSS_HURT : ENEMY_HURT).height / 2 });
 
 /** Only melee archetypes have a strike box; a flyer's strike phase is its throwing pose. */
-export const isMelee = (e: EnemyState): boolean => e.archetype === 'salesman' && e.boss === undefined;
+export const isMelee = (e: EnemyState): boolean => (e.archetype === 'salesman' || e.archetype === 'manager') && e.boss === undefined;
+
+/** How long a melee enemy rests after a strike, which a parry's stun replaces. */
+export const recoverTicksOf = (e: EnemyState): number => (e.archetype === 'manager' ? MANAGER.recoverTicks : SALESMAN.recoverTicks);
+
+/** A manager whose shield is up. */
+export const shielded = (e: EnemyState): boolean => e.archetype === 'manager' && e.facing !== undefined && (e.broken ?? 0) === 0;
+
+/** A manager sent back to his post (a forced leave, a respawn) has his shield up and facing down the room again. */
+export function reshield(e: EnemyState): EnemyState {
+  if (e.archetype !== 'manager') return e;
+  const { broken: _, ...rest } = e;
+  return { ...rest, facing: { x: 0, y: 1 } };
+}
+
+/** Whether his shield meets an attack that comes from `from`, a vector pointing from him towards the attacker. */
+export const shieldCovers = (e: EnemyState, from: Vec): boolean =>
+  shielded(e) && guardCovers(e.facing!, from, MANAGER.shieldHalfAngleDeg);
 
 /** The strike lands in front of the enemy on the ground plane, along the direction locked at windup. */
 export function strikeBox(e: EnemyState): Box {
@@ -102,6 +125,21 @@ export function strikeBox(e: EnemyState): Box {
 
 const to = (e: EnemyState, phase: EnemyPhase, extra: Partial<EnemyState> = {}): EnemyState =>
   ({ ...e, ...extra, phase, phaseTicks: 0 });
+
+/** A broken shield counts down every tick, through hit-stop and stun alike, and is gone after the last one. */
+function mend(e: EnemyState): EnemyState {
+  if (e.broken === undefined) return e;
+  const { broken, ...rest } = e;
+  return broken > 1 ? { ...rest, broken: broken - 1 } : rest;
+}
+
+/** Turns the unit vector `from` towards `to` by at most `max` radians; lands on it exactly once it is in reach. */
+function turnToward(from: Vec, to: Vec, max: number): Vec {
+  const diff = Math.atan2(from.x * to.y - from.y * to.x, from.x * to.x + from.y * to.y);
+  if (Math.abs(diff) <= max) return to;
+  const a = Math.atan2(from.y, from.x) + Math.sign(diff) * max;
+  return { x: Math.cos(a), y: Math.sin(a) };
+}
 
 /** Four-way, so the telegraph pose (drawn down or side) matches where the hit lands. */
 function cardinal(dx: number, dy: number): Vec {
@@ -125,21 +163,21 @@ export function stepEnemy(grid: SolidGrid, enemy: EnemyState, target: Vec, sense
   const e0 = enemy.frozen === 0 && (enemy.pin ?? 0) > 0 ? { ...enemy, pin: 0 } : enemy;
   if (e0.frozen > 0) {
     if (isBound(e0) || (e0.phase !== 'windup' && e0.phase !== 'strike')) {
-      return out({ ...e0, frozen: e0.frozen - 1, ...(isBound(e0) ? { pin: e0.pin! - 1 } : {}) });
+      return out(mend({ ...e0, frozen: e0.frozen - 1, ...(isBound(e0) ? { pin: e0.pin! - 1 } : {}) }));
     }
     // Hit-stop is a pose (design doc 5.3): an attack keeps its schedule, and the rest of the pose
     // is dropped when it moves on.
     const r = stepEnemy(grid, { ...e0, frozen: 0 }, target, senseRangePx);
     return { ...r, enemy: { ...r.enemy, frozen: r.enemy.phase === e0.phase ? e0.frozen - 1 : 0 } };
   }
-  const e = { ...e0, phaseTicks: e0.phaseTicks + 1 };
+  const e = mend({ ...e0, phaseTicks: e0.phaseTicks + 1 });
 
   switch (e.phase) {
     case 'dispersed':
       return e.phaseTicks >= REFORM_TICKS ? out(to(e, 'idle'), { reformed: true }) : out(e);
     case 'closed':
       if (e.respawnTicks > 0 && e.phaseTicks >= e.respawnTicks) {
-        return out(to(e, 'idle', { x: e.homeX, y: e.homeY, hp: e.maxHp }), { respawned: true });
+        return out(to(reshield(e), 'idle', { x: e.homeX, y: e.homeY, hp: e.maxHp }), { respawned: true });
       }
       return out(e);
     case 'attached':
@@ -160,6 +198,7 @@ export function stepEnemy(grid: SolidGrid, enemy: EnemyState, target: Vec, sense
   if (e.archetype === 'testcase') return out(stepTestcase(grid, e));
   if (e.archetype === 'flyer') return stepFlyer(grid, e, target, out);
   if (e.archetype === 'cheers') return stepCheers(grid, e, target, out);
+  if (e.archetype === 'manager') return stepManager(grid, e, target, out);
   if (e.archetype !== 'salesman') return out(e);
 
   switch (e.phase) {
@@ -183,6 +222,45 @@ export function stepEnemy(grid: SolidGrid, enemy: EnemyState, target: Vec, sense
 }
 
 type Out = (enemy: EnemyState, flags?: Partial<Omit<EnemyStep, 'enemy'>>) => EnemyStep;
+
+const COS_AIM = Math.cos((MANAGER.aimHalfAngleDeg * Math.PI) / 180);
+
+/**
+ * Manager: walks at the operator, turning his shield towards them at MANAGER.turnPerTick, and
+ * bashes once he is in reach and faces them to within MANAGER.aimHalfAngleDeg. The bash is the
+ * salesman's: a tier-1 telegraph, a strike box along the cardinal direction locked at windup, then
+ * a pause. His facing is locked from windup to the end of the pause, so a dodge through the strike
+ * leaves his back to the operator for the whole pause. Inside reach but not facing, he only turns.
+ */
+function stepManager(grid: SolidGrid, e: EnemyState, target: Vec, out: Out): EnemyStep {
+  switch (e.phase) {
+    case 'idle': {
+      const dx = target.x - e.x;
+      const dy = target.y - e.y;
+      const d = Math.hypot(dx, dy);
+      const face = e.facing ?? { x: 0, y: 1 };
+      if (d === 0) return out(e);
+      const want = { x: dx / d, y: dy / d };
+      const facing = turnToward(face, want, MANAGER.turnPerTick);
+      if (d <= MANAGER.reachPx) {
+        if (facing.x * want.x + facing.y * want.y >= COS_AIM - 1e-9) {
+          return out(to({ ...e, facing }, 'windup', { strikeDir: cardinal(dx, dy), strikeSpent: false }), { telegraph: true });
+        }
+        return out({ ...e, facing });
+      }
+      const m = moveAndCollide(grid, ENEMY_BODY, e.x, e.y, want.x * MANAGER.speed, want.y * MANAGER.speed);
+      return out({ ...e, x: m.x, y: m.y, facing });
+    }
+    case 'windup':
+      return out(e.phaseTicks >= MANAGER.windupTicks ? to(e, 'strike') : e);
+    case 'strike':
+      return out(e.phaseTicks >= MANAGER.strikeTicks ? to(e, 'recover') : e);
+    case 'recover':
+      return out(e.phaseTicks >= MANAGER.recoverTicks ? to(e, 'idle') : e);
+    default:
+      return out(e);
+  }
+}
 
 /**
  * A weapon on a cheers kid only makes him back off for a while (design doc 7.7: 暫時退開), and

@@ -205,6 +205,10 @@
       { "kind": "tone", "wave": "square", "freq": 523, "dur": 0.08, "gain": 0.1 }, { "kind": "tone", "wave": "square", "freq": 659, "at": 0.1, "dur": 0.08, "gain": 0.1 },
       { "kind": "tone", "wave": "square", "freq": 523, "at": 0.2, "dur": 0.08, "gain": 0.1 }, { "kind": "tone", "wave": "square", "freq": 784, "at": 0.3, "dur": 0.12, "gain": 0.1 } ] },
     "breath": { "trimDb": 13, "voices": [ { "kind": "noise", "cutoff": 1800, "cutoffTo": 600, "dur": 0.5, "gain": 0.22 } ] },
+    "crack": { "trimDb": 4, "caption": "caption.crack", "voices": [
+      { "kind": "noise", "filter": "bandpass", "cutoff": 3200, "dur": 0.04, "gain": 0.45 },
+      { "kind": "tone", "wave": "square", "freq": 330, "to": 110, "dur": 0.16, "gain": 0.18 },
+      { "kind": "tone", "wave": "triangle", "freq": 988, "at": 0.05, "dur": 0.12, "gain": 0.14 } ] },
     "shield": { "trimDb": 9, "voices": [
       { "kind": "noise", "filter": "bandpass", "cutoff": 2000, "dur": 0.05, "gain": 0.2 },
       { "kind": "tone", "freq": 880, "dur": 0.15, "gain": 0.15 } ] }

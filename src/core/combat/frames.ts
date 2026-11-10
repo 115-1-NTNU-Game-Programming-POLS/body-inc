@@ -77,6 +77,8 @@ export const STAMP = {
  */
 export const FOLDER = {
   damage: [2, 2, 4],
+  /** Index of the heavy hit in `damage`: the last swing of the string, the only one that breaks a manager's shield (design doc 5.3). */
+  finisher: 2,
   /** The swing's box exists on this frame; design doc 5.3 caps light-attack startup at 6. */
   hitFrame: 3,
   swingTicks: 10,
@@ -172,6 +174,36 @@ export const SALESMAN = {
   strikeTicks: 6,
   recoverTicks: 40,
   damageHalves: 1,
+} as const;
+
+/**
+ * Manager archetype (design doc 5.3, performance 12), the large-portion salesman of design doc 7.5:
+ * a shield over his front 120 degrees stops every staple and the folder's first two swings. It is
+ * got round three ways, as the design doc lists them: from behind, which is ordinary damage; with a
+ * shot the folder sent back (反彈); or with the folder's heavy hit, the third swing of the string
+ * (重擊). Either of the last two breaks the shield: the hit lands, he is stunned and the shield
+ * stays down for `breakTicks`. The stamp is not a thrown weapon and ignores the shield. He turns
+ * only while idle (walking, or in reach and not yet facing) and his facing is locked through
+ * windup, strike and recovery, so a dodge that ends behind him, or circling close, puts his back
+ * to the operator. His bash is a melee strike,
+ * so it telegraphs for tier 1 like the salesman's. Speeds, the turn rate, reach, the pauses and
+ * the shield-down time are placeholders the design doc does not fix.
+ */
+export const MANAGER = {
+  speed: tilesPerSecond(1),
+  reachPx: 40,
+  windupTicks: TELEGRAPH.tier1Ticks,
+  strikeTicks: 6,
+  recoverTicks: 60,
+  damageHalves: 1,
+  shieldHalfAngleDeg: 60,
+  /** He turns towards the operator at most this far in a tick, in radians: 90 degrees a second. */
+  turnPerTick: ((90 * Math.PI) / 180) / TICK_HZ,
+  /** He only winds up while he faces the operator to within this many degrees. */
+  aimHalfAngleDeg: 30,
+  /** A broken shield stays down this long, counted from the break, hit-stop and stun included. */
+  breakTicks: 3 * TICK_HZ,
+  breakStunTicks: Math.round(1.2 * TICK_HZ),
 } as const;
 
 /**

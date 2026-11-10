@@ -739,8 +739,13 @@ function stepRoom(ctx: ChapterContent, state: ChapterState, input: TickInput): C
       case 'caseClosed': {
         // A closed case that the chapter remembers is settled for good: Spawns gated on the flag stay empty on later visits.
         const flagName = ctx.chapter.closedCases?.[e.enemy];
-        if (flagName === undefined) break;
-        const out = applyEffects(ctx.dict, run.tags, game.clock, [{ kind: 'flag', name: flagName }], { kind: 'event', key: `case.${e.enemy}` }, ctx.params);
+        const page = ctx.chapter.caseDrops?.[e.enemy];
+        const effects: Effect[] = [
+          ...(flagName === undefined ? [] : [{ kind: 'flag', name: flagName } as const]),
+          ...(page === undefined ? [] : [{ kind: 'unlock', id: page } as const]),
+        ];
+        if (effects.length === 0) break;
+        const out = applyEffects(ctx.dict, run.tags, game.clock, effects, { kind: 'event', key: `case.${e.enemy}` }, ctx.params);
         run = { ...run, tags: out.tags };
         extra.push(...out.events);
         break;

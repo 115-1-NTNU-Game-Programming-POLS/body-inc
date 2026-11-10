@@ -5,7 +5,8 @@
  * the small intestine's timed gate (a port that takes parcels only, shut for 20 seconds and then
  * open for 8), and a belt loop along the walls so no box can be pushed into a dead corner. With the
  * gate shut, a third parcel has to wait inside the mixer, so feeding more then jams it. A sugar salesman
- * there hands out tea for the fatigue fog of design doc 7.5. night-lab is for the sleep bar of core/rooms/sleep.ts: a bed that
+ * there hands out tea for the fatigue fog of design doc 7.5, and a large-portion salesman, whose
+ * shield stops staples from the front, waits in the south-east corner. night-lab is for the sleep bar of core/rooms/sleep.ts: a bed that
  * takes 30 seconds to sleep in beside a mixer, so a box fed in just before bed sounds its alarm,
  * and a cold store, where a food box pushed in is chilled until tomorrow instead (the late-night
  * puzzle). It has no belt loop: a box pushed into a corner stays there, but the bed needs no box.
@@ -32,7 +33,7 @@ const food = (id: number, col: number, row: number, portion: string) => ({
 
 writeRoom('stomach/mixer-lab.tmj', {
   type: 'map', version: '1.10', tiledversion: '1.11.0', orientation: 'orthogonal', renderorder: 'right-down',
-  infinite: false, width: W, height: 12, tilewidth: T, tileheight: T, nextlayerid: 4, nextobjectid: 17, class: 'Room',
+  infinite: false, width: W, height: 12, tilewidth: T, tileheight: T, nextlayerid: 4, nextobjectid: 18, class: 'Room',
   properties: [
     { name: 'organ', type: 'string', value: 'stomach' },
     { name: 'role', type: 'string', value: 'puzzle' },
@@ -67,8 +68,12 @@ writeRoom('stomach/mixer-lab.tmj', {
         rect(14, 'loop-east', 'Conveyor', 18, 4, 1, 7, [str('direction', 'Direction', 'N')]),
         rect(15, 'door-e', 'Door', 19, 6, 1, 2, [str('socket', 'Socket', 'E'), str('lock', 'Lock', 'switch')]),
         // Greybox: the sugar salesman of design doc 7.5 stands inside the loop to try the fatigue fog on; its tea costs no heart.
+        // Once his case is closed (chapter file closedCases) he stays out, and his page 〈糖分與疲倦〉 comes with the closing (caseDrops).
         { id: 16, name: 'sugar-seller', type: 'Spawn', x: 15 * T + 16, y: 8 * T + 16, width: 0, height: 0, rotation: 0, visible: true, point: true,
-          properties: [str('enemyType', 'EnemyType', 'sugar_seller')] },
+          properties: [str('enemyType', 'EnemyType', 'sugar_seller'), str('when', undefined, '!sugar_seller_closed')] },
+        // Greybox: the large-portion salesman of design doc 7.5 (the manager archetype, shield and all) in the south-east corner.
+        { id: 17, name: 'large-seller', type: 'Spawn', x: 17 * T + 16, y: 9 * T + 16, width: 0, height: 0, rotation: 0, visible: true, point: true,
+          properties: [str('enemyType', 'EnemyType', 'large_seller')] },
       ],
     },
   ],
