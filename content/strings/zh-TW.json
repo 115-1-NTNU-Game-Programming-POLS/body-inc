@@ -48,6 +48,7 @@
     "hud.unload.up": { "text": "強制卸貨　酸液 {seconds} 秒", "fact": "" },
     "hud.unload.cooling": { "text": "L／右鍵 強制卸貨　冷卻 {seconds} 秒", "fact": "" },
     "unload.raised": { "text": "強制卸貨！", "fact": "" },
+    "stomach.chunk_gone": { "text": "食物塊被融掉了，路通了", "fact": "" },
     "pie.raised.false": { "text": "畫大餅！", "fact": "" },
     "pie.raised.true": { "text": "我們的願景是……那個……", "fact": "17" },
     "hud.tool.stapler": { "text": "釘書機", "fact": "" },

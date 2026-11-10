@@ -26,6 +26,7 @@ import {
 } from './rooms/boxes.ts';
 import { boxTypeOf, EMPTY_MIXER, PORTION_SECONDS, stepMixer, type MixerEvent, type MixerState, type Portion } from './stomach/mixer.ts';
 import { isOrder, newOrder, orderSpot } from './stomach/orders.ts';
+import { CHUNK, chunksOf, chunksUnder, withoutChunks } from './stomach/chunks.ts';
 import type { EnteredRoom } from './rooms/entry.ts';
 import { asleep, stepSleep, type SleepEvent, type SleepState } from './rooms/sleep.ts';
 import { leverAt, objectBox, platesUnder, reachableObject, touchedObjects } from './rooms/interact.ts';
@@ -117,6 +118,8 @@ export interface GameState {
   readonly delivered: readonly number[];
   /** Food boxes a cold store has taken, in id order: gone from the room for good, counted by no port. */
   readonly chilled: readonly number[];
+  /** Food chunks the logistics chief's acid has dissolved, in id order: gone from this room's grid for good (core/stomach/chunks.ts). */
+  readonly dissolved: readonly number[];
   /** Orders the courier has thrown on this visit, so each gets an id of its own (core/stomach/orders.ts); absent before the first. */
   readonly orderSerial?: number;
   /** Set until the chairman hands over the stamp (design doc 5.4): the stamp key does nothing. */
@@ -264,6 +267,8 @@ export type DomainEvent =
   | { readonly type: 'boxDelivered'; readonly object: number; readonly port: number; readonly count: number; readonly need: number }
   /** A food box came to rest on a cold store, which chilled it until tomorrow (design doc 7.5). */
   | { readonly type: 'boxChilled'; readonly object: number; readonly store: number }
+  /** The acid has lain on a food chunk long enough: its tiles are floor from the next tick, for good. */
+  | { readonly type: 'chunkDissolved'; readonly object: number }
   /** A Port took its last needed box: it now counts as a switch that is on, for good. */
   | { readonly type: 'portFilled'; readonly object: number }
   /** A timed Port opened or shut (design doc 7.5); a filled one stays open and says nothing more. */
@@ -376,6 +381,8 @@ export interface GameOptions {
   readonly delivered?: readonly number[];
   /** Food boxes a cold store took on an earlier visit, as box ids of the whole map like `delivered`. */
   readonly chilled?: readonly number[];
+  /** Food chunks the acid dissolved on an earlier visit; ids that are not chunks of this room are ignored. */
+  readonly dissolved?: readonly number[];
   /** The stamp is not handed over yet. */
   readonly stampLocked?: boolean;
   /** The folder is not handed over yet. */
@@ -468,7 +475,9 @@ function openDoors(room: EnteredRoom, switches: readonly number[], unlocked: rea
  * The enemy table is required: rooms with Spawns cannot start without it. The room must have
  * gone through enterRoom, so a caller cannot forget the tags and silently get the base room.
  */
-export function createGame(room: EnteredRoom, seed: number, table: EnemyTable, options: GameOptions = {}): GameState {
+export function createGame(entered: EnteredRoom, seed: number, table: EnemyTable, options: GameOptions = {}): GameState {
+  const dissolved = ascending((options.dissolved ?? []).filter((id) => chunksOf(entered).some((c) => c.object.id === id)));
+  const room = withoutChunks(entered, dissolved);
   const p = options.p ?? 1;
   const gauge = options.gauge ?? 0;
   if (!(p > 0 && p <= 1)) throw new GameSetupError(`P must be in (0, 1], got ${p}`);
@@ -535,6 +544,7 @@ export function createGame(room: EnteredRoom, seed: number, table: EnemyTable, o
     push: null,
     delivered,
     chilled,
+    dissolved,
     ...(options.stampLocked ? { stampLocked: true as const } : {}),
     ...(options.folderLocked ? { folderLocked: true as const } : {}),
     ...(options.pie ? { pie: PIE_READY } : {}),
@@ -885,6 +895,8 @@ export function step(state: GameState, pressed: TickInput): StepResult {
   }
   // The acid is spat on the same rules: any state but a hurt one, and the operator's own action goes on.
   let unload = state.unload;
+  let dissolved = state.dissolved;
+  let roomNow = state.room;
   if (unload) {
     const r = stepUnload(unload, input.partnerPressed === true && op.action.kind !== 'hurt', { x: op.x, y: op.y }, op.aim);
     unload = r.unload;
@@ -1211,6 +1223,15 @@ export function step(state: GameState, pressed: TickInput): StepResult {
       const shoved: EnemyState = { ...e, x: m.x, y: m.y };
       enemies.set(id, bite ? damage(shoved, UNLOAD.damage, 0, events, state.bosses) : shoved);
     }
+    // The acid is a fixed rectangle, so a chunk it covers is covered for as long as it lies and only the clock matters. The tiles open at the end of the tick.
+    if (unloadAge(unload) === CHUNK.dissolveTicks) {
+      const gone = chunksUnder(state.room, state.dissolved, area).map((c) => c.object.id);
+      if (gone.length > 0) {
+        dissolved = ascending([...dissolved, ...gone]);
+        roomNow = withoutChunks(state.room, dissolved);
+        for (const object of gone) events.push({ type: 'chunkDissolved', object });
+      }
+    }
   }
 
   // Staples: move, pin a lever they reach (design doc 6.1 shoots far switches), stop at walls,
@@ -1478,6 +1499,7 @@ export function step(state: GameState, pressed: TickInput): StepResult {
     // What the door check saw, not a fresh count: a lever pinned by a staple after the check must
     // still count as newly opened next tick for an operator already pressed against its door.
     touching: onNow.map((o) => o.id), carried, switches, doorsOpen: doorsOpenNow, taken, boxes, push, delivered: moved.delivered, chilled: moved.chilled,
+    ...(roomNow === state.room ? {} : { room: roomNow, dissolved }),
     ...(pie ? { pie } : {}),
     ...(unload ? { unload } : {}),
     ...(factory ? { factory } : {}),
@@ -1558,6 +1580,13 @@ export function selectPie(s: GameState): { readonly phase: 'ready' | 'up' | 'coo
   const scale = sleepOfSpirit(s.p);
   if (p.ticksLeft > 0) return { phase: 'up', seconds: Math.ceil(p.ticksLeft / TICK_HZ), scale };
   return p.cooldown > 0 ? { phase: 'cooling', seconds: Math.ceil(p.cooldown / TICK_HZ), scale } : { phase: 'ready', seconds: 0, scale };
+}
+/** The room's food chunks for the view: each with whether the acid has dissolved it, and how far the acid lying on it has got (0 to 1; 0 when none lies on it). */
+export function selectChunks(s: GameState): readonly { readonly object: number; readonly dissolved: boolean; readonly melting: number }[] {
+  const acid = s.unload && s.unload.ticksLeft > 0 ? unloadBox(s.unload) : undefined;
+  const under = acid ? new Set(chunksUnder(s.room, s.dissolved, acid).map((c) => c.object.id)) : new Set<number>();
+  const progress = s.unload ? Math.min(1, unloadAge(s.unload) / CHUNK.dissolveTicks) : 0;
+  return chunksOf(s.room).map((c) => ({ object: c.object.id, dissolved: s.dissolved.includes(c.object.id), melting: under.has(c.object.id) ? progress : 0 }));
 }
 /** The partner's acid for the HUD: whether it lies, cools or is ready, and the seconds left on that. Absent without a partner that has it. */
 export function selectUnload(s: GameState): { readonly phase: 'ready' | 'up' | 'cooling'; readonly seconds: number } | undefined {

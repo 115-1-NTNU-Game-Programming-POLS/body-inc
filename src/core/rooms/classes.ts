@@ -131,6 +131,13 @@ export const OBJECT_CLASSES: Readonly<Record<string, ClassSpec>> = {
    */
   ColdStore: {},
   /**
+   * A food chunk that blocks a passage (design doc 6.2, 7.5), not in design doc 13.3's table: a
+   * rectangle of tiles that is solid like a wall until the logistics chief's acid has lain on it for
+   * 1.5 seconds, and then gone for the rest of the chapter. Not on a variant layer; the rules are in
+   * core/stomach/chunks.ts.
+   */
+  Chunk: {},
+  /**
    * The liver factory's lines (design doc 7.7), not in design doc 13.3's table: `receiving` is the
    * dock where alcohol crates wait (a rectangle, solid like a counter), `outlet` the point where the
    * first line puts out acetaldehyde crates, and `intake` the second line's rectangle, which takes

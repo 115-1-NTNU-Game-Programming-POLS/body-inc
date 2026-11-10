@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import {
-  conveyorTiles, directionOf, dockTiles, hopperTiles, isSpawnedCrate, MIST, objectBox, outletTile, PARCEL, portCycle, selectBoxes, selectConveyors, selectDoorLocks, selectFactory,
+  chunksOf, conveyorTiles, directionOf, dockTiles, hopperTiles, isSpawnedCrate, MIST, objectBox, outletTile, PARCEL, portCycle, selectBoxes, selectChunks, selectConveyors, selectDoorLocks, selectFactory,
   selectMixer, selectPickups, selectPort, selectSwitches, TILE, type BoxState, type GameState, type RoomObject,
 } from '../../core/index.ts';
 import { fillStr, str } from '../../app/content.ts';
@@ -11,6 +11,8 @@ const PAPER = 0xf4efe4;
 const BLUE = 0x2f5fa8;
 const GREY = 0x8a8780;
 const COLD = 0x9cc7de;
+const CHUNK_FOOD = 0xc9a066;
+const CHUNK_ACID = 0x8fb339;
 
 /**
  * Placeholder pictures for switches, pickups and door locks, redrawn only when their state changes. A
@@ -25,6 +27,8 @@ export class Mechanisms {
   private readonly boxes = new Map<number, { g: Phaser.GameObjects.Graphics; type: string }>();
   private mixer: { gauge: Phaser.GameObjects.Graphics; o: RoomObject; drawn?: string } | undefined;
   private readonly belts = new Map<number, { g: Phaser.GameObjects.Graphics; o: RoomObject; drawn?: string }>();
+  /** Food chunks stand like counters, so each is drawn at its feet line; the acid lying on one tints it step by step. */
+  private readonly chunks = new Map<number, { g: Phaser.GameObjects.Graphics; tiles: readonly { col: number; row: number }[]; drawn?: number }>();
   private port: { g: Phaser.GameObjects.Graphics; label: Phaser.GameObjects.Text; o: RoomObject; drawn?: string; text?: string } | undefined;
   private factory: { dock: Phaser.GameObjects.Graphics; fog: Phaser.GameObjects.Graphics; dockDrawn?: number; fogDrawn?: readonly BoxState[] } | undefined;
   private readonly scene: Phaser.Scene;
@@ -55,6 +59,10 @@ export class Mechanisms {
       const dock = dockTiles(state.room);
       const bottom = Math.max(...dock.map((t) => (t.row + 1) * TILE));
       this.factory = { dock: scene.add.graphics().setDepth(bottom), fog: scene.add.graphics().setDepth(2) };
+    }
+    for (const c of chunksOf(state.room)) {
+      const bottom = Math.max(...c.tiles.map((t) => (t.row + 1) * TILE));
+      this.chunks.set(c.object.id, { g: scene.add.graphics().setDepth(bottom), tiles: c.tiles });
     }
     // Cold stores never change, so they are drawn once, on the floor with a name plate.
     for (const o of state.room.objects.filter((x) => x.kind === 'ColdStore')) {
@@ -100,6 +108,16 @@ export class Mechanisms {
       else drawLever(v.g, v.o, s.on);
     }
     for (const d of selectDoorLocks(state)) this.plates.get(d.object)?.setVisible(!d.open);
+    for (const c of selectChunks(state)) {
+      const v = this.chunks.get(c.object);
+      if (!v) continue;
+      v.g.setVisible(!c.dissolved);
+      // Redrawn in eighths: the picture only changes while the acid is working on it.
+      const step = Math.round(c.melting * 8);
+      if (c.dissolved || v.drawn === step) continue;
+      v.drawn = step;
+      drawChunk(v.g.clear(), v.tiles, step / 8);
+    }
     for (const p of selectPickups(state)) this.items.get(p.object)?.setVisible(p.present);
     // A box is drawn at its feet line like an actor, so the operator walks behind or in front of it.
     // Acetaldehyde crates come out of the line while the room is open, so pictures are made on first sight.
@@ -216,6 +234,20 @@ function drawDock(g: Phaser.GameObjects.Graphics, tiles: readonly { col: number;
     g.fillStyle(0xc98a3a).fillRoundedRect(x + 6, y - 6, 20, 26, 5).lineStyle(1.5, INK, 1).strokeRoundedRect(x + 6, y - 6, 20, 26, 5);
     g.lineBetween(x + 6, y + 1, x + 26, y + 1).lineBetween(x + 6, y + 13, x + 26, y + 13);
   });
+}
+
+/** A placeholder food chunk: a lump of grey-tan food on every tile that goes green as the acid works on it. */
+function drawChunk(g: Phaser.GameObjects.Graphics, tiles: readonly { col: number; row: number }[], melting: number): void {
+  const tint = Phaser.Display.Color.Interpolate.ColorWithColor(
+    Phaser.Display.Color.ValueToColor(CHUNK_FOOD), Phaser.Display.Color.ValueToColor(CHUNK_ACID), 8, Math.round(melting * 8),
+  );
+  const fill = Phaser.Display.Color.GetColor(tint.r, tint.g, tint.b);
+  for (const t of tiles) {
+    const x = t.col * TILE;
+    const y = t.row * TILE;
+    g.fillStyle(fill).fillRoundedRect(x + 1, y + 4, TILE - 2, TILE - 5, 6).lineStyle(1.5, INK, 0.9).strokeRoundedRect(x + 1, y + 4, TILE - 2, TILE - 5, 6);
+    g.fillStyle(PAPER, 0.5).fillCircle(x + 9, y + 12, 2).fillCircle(x + 21, y + 20, 2).fillCircle(x + 14, y + 24, 1.5);
+  }
 }
 
 /** The second line's mouth: a dark bay with an arrow in. */

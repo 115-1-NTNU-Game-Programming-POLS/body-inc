@@ -42,6 +42,7 @@ export * from './tags/causal.ts';
 export * from './tags/store.ts';
 export * from './combat/frames.ts';
 export { UNLOAD, unloadBox, type UnloadState } from './combat/unload.ts';
+export { CHUNK, chunksOf, type Chunk } from './stomach/chunks.ts';
 export * from './combat/enemies.ts';
 export { boxAt, centeredBox, overlaps, type Box } from './collision/boxes.ts';
 export { BOSS_BODY, BOSS_HURT, ENEMY_BODY, ENEMY_HURT, enemyCenter, enemyHurtbox, isBound, isHittable, isMelee, recoverTicksOf, shieldCovers, shielded, strikeBox } from './combat/actors.ts';

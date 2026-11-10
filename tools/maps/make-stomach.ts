@@ -12,7 +12,8 @@
  * puzzle). A late-night courier stands by the head of the in-belt and throws an order (a food box)
  * onto it every few seconds: let go, it rides into the mixer, which works overtime; stamped, it is
  * returned and counted (design doc 7.5). It has no belt loop: a box pushed into a corner stays
- * there, but the bed needs no box.
+ * there, but the bed needs no box. A spare food box sits in the north-east corner behind two food chunks
+ * (design doc 6.2): the logistics chief's acid, on L, dissolves them after 1.5 seconds and the way is open for good.
  * Open them with ?room=stomach/mixer-lab and ?room=stomach/night-lab. The chapter's real rooms
  * (esophagus lift, warehouse, cold store, intestine corridor, night dock) come in later steps.
  *
@@ -85,7 +86,7 @@ writeRoom('stomach/mixer-lab.tmj', {
 
 writeRoom('stomach/night-lab.tmj', {
   type: 'map', version: '1.10', tiledversion: '1.11.0', orientation: 'orthogonal', renderorder: 'right-down',
-  infinite: false, width: W, height: 12, tilewidth: T, tileheight: T, nextlayerid: 4, nextobjectid: 12, class: 'Room',
+  infinite: false, width: W, height: 12, tilewidth: T, tileheight: T, nextlayerid: 4, nextobjectid: 15, class: 'Room',
   properties: [
     { name: 'organ', type: 'string', value: 'stomach' },
     { name: 'role', type: 'string', value: 'puzzle' },
@@ -111,6 +112,10 @@ writeRoom('stomach/night-lab.tmj', {
         // The late-night courier of design doc 7.5 stands beside the head of the in-belt. Once his case is closed (chapter file closedCases) he stays out.
         { id: 11, name: 'courier', type: 'Spawn', x: 3 * T + 16, y: 5 * T + 16, width: 0, height: 0, rotation: 0, visible: true, point: true,
           properties: [str('enemyType', 'EnemyType', 'courier'), str('when', undefined, '!courier_closed')] },
+        // A spare portion in the north-east corner, walled in by two chunks round a 2 x 2 pocket. The corner tile (16, 5) stays open: a body cannot slip through the diagonal gap, and the gate's count label sits above it.
+        food(12, 17, 3, 'normal'),
+        rect(13, 'chunk-south', 'Chunk', 17, 5, 2, 1, []),
+        rect(14, 'chunk-west', 'Chunk', 16, 3, 1, 2, []),
       ],
     },
   ],
