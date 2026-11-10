@@ -47,7 +47,7 @@ function fire(c: ChapterContent, s: ChapterState, ticks = 60): { state: ChapterS
 
 describe('the sugar salesman\'s closed case (design doc 7.5)', () => {
   it('is wired in the chapter file: his flag is a chapter boolean and his page is in the handbook', () => {
-    expect(CHAPTER.closedCases).toEqual({ sugar_seller: 'sugar_seller_closed' });
+    expect(CHAPTER.closedCases?.['sugar_seller']).toBe('sugar_seller_closed');
     expect(CHAPTER.caseDrops).toEqual({ sugar_seller: 'sugar_fatigue' });
     expect(HANDBOOK.pages.map((p) => p.id)).toContain('sugar_fatigue');
     expect(TAGS.tags.get('sugar_seller_closed')?.sources).toEqual(['chapter']);

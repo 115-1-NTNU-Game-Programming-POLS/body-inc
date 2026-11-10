@@ -3,6 +3,7 @@ import {
   canEnter, coldStoreAt, hopperTiles, mixerOf, mixerOutlet, nearest, onConveyor, onHopper, onPort, PARCEL, portOf, type BoxState, type Occupants, type Tile,
 } from '../rooms/boxes.ts';
 import type { RoomModel } from '../rooms/tiled.ts';
+import { isOrder } from './orders.ts';
 
 /**
  * The stomach's mixer (design doc 7.5). A food box that comes to rest on the hopper is taken in
@@ -33,6 +34,8 @@ export interface Batch {
   readonly portion: Portion;
   /** Ticks of digesting still to run; 0 once done and waiting for a free tile at the outlet. */
   readonly left: number;
+  /** A courier's order (core/stomach/orders.ts): digested like any box, but it leaves no parcel behind. */
+  readonly order?: true;
 }
 
 export interface MixerState {
@@ -87,7 +90,9 @@ export function stepMixer(room: RoomModel, state: MixerState, boxes: readonly Bo
   if (!mixer) return { mixer: state, boxes, events: [] };
   const events: (MixerEvent | MixerMove)[] = [];
   let all = [...boxes];
-  let batches = state.batches.map((b) => (b.left > 0 ? { ...b, left: b.left - 1 } : b));
+  // A finished order is gone at once: only the boxes the puzzle fed come out as parcels, so a
+  // courier's deliveries load the mixer (its capacity, its alarm) and never count at the gate.
+  let batches = state.batches.map((b) => (b.left > 0 ? { ...b, left: b.left - 1 } : b)).filter((b) => !(b.order && b.left === 0));
   const port = portOf(room);
   // A thrown box lands nowhere that would take it straight back: not on the hopper, not on a port,
   // not on a belt, running or not, which could carry it in again, and not on a cold store, which
@@ -115,7 +120,7 @@ export function stepMixer(room: RoomModel, state: MixerState, boxes: readonly Bo
     all = all.filter((x) => x.id !== b.id);
     if (batches.length < capacity) {
       const portion = portionOf(room, b.id);
-      batches = [...batches, { box: b.id, portion, left: portionTicks(portion) }];
+      batches = [...batches, { box: b.id, portion, left: portionTicks(portion), ...(isOrder(b) ? { order: true as const } : {}) }];
       events.push({ type: 'mixerFed', object: b.id, mixer: mixer.id, portion, count: batches.length, capacity });
       continue;
     }
@@ -128,7 +133,8 @@ export function stepMixer(room: RoomModel, state: MixerState, boxes: readonly Bo
       const t = nearest(room, from, free);
       // Only a room whose every free floor tile is taken has nowhere to put it; it is back home on the next visit.
       if (!t) continue;
-      all.push(resting(id, t));
+      // An order is no Tiled object, so it has to carry the type the map would have given it.
+      all.push(isOrder({ id }) ? { ...resting(id, t), boxType: 'food' } : resting(id, t));
       moves.push({ type: 'boxMoved', object: id, col: t.col, row: t.row, by: 'mixer' });
     }
     batches = [];

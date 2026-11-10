@@ -207,6 +207,22 @@ export const MANAGER = {
 } as const;
 
 /**
+ * Late-night courier (宵夜外送員, design doc 7.5): stands at his post and, after a tier-1 telegraph,
+ * throws one food box onto the nearest running belt, never at the operator. He hurts no one. The
+ * box is an order: let go, the belt carries it into the mixer, which works overtime; stamped, it is
+ * sent back and the chapter counts one return (the design doc's outer social -1). Both are legal.
+ * The pause, the throw pose and the cap on orders afloat are placeholders the design doc does not fix.
+ */
+export const COURIER = {
+  /** Ticks at his post between one throw and the telegraph of the next. */
+  intervalTicks: 8 * TICK_HZ,
+  windupTicks: TELEGRAPH.tier1Ticks,
+  throwTicks: 8,
+  /** He waits while this many of his orders are on the floor, so an ignored belt cannot be flooded. */
+  maxOrders: 2,
+} as const;
+
+/**
  * Flyer archetype (design doc 5.3, performance 3): keeps 3 to 6 tiles away and throws one sheet
  * after a tier-1 telegraph. Speeds, range and the pause are placeholders the design doc does not
  * fix. The folder's parry sends the sheet back (FOLDER).

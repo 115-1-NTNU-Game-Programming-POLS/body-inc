@@ -5,7 +5,7 @@ import { newBossState, type BossDef, type BossTable, type ToastState } from './c
 import { proposalOpen, stepCaffeine } from './combat/bosses/caffeine.ts';
 import { breathing, stepToast } from './combat/bosses/toast.ts';
 import type { EnemyTable } from './combat/enemies.ts';
-import { BASE_HALVES, BIND, BOSS, CLING, DODGE, ENEMY_HIT_FREEZE, FOLDER, GAUGE, heartCap, HURT, MANAGER, PARRY_BOOST, SALESMAN, STAMP, STAPLER, SUGAR_FOG } from './combat/frames.ts';
+import { BASE_HALVES, BIND, BOSS, CLING, COURIER, DODGE, ENEMY_HIT_FREEZE, FOLDER, GAUGE, heartCap, HURT, MANAGER, PARRY_BOOST, SALESMAN, STAMP, STAPLER, SUGAR_FOG } from './combat/frames.ts';
 import { guardCovers, parryOpen, swingBox } from './combat/folder.ts';
 import { chip, NO_ASSISTS, owing } from './combat/assists.ts';
 import { BASE_PERKS, type Perks } from './combat/perks.ts';
@@ -24,6 +24,7 @@ import {
   coldStoreAt, liveGate, nearest, onPort, portOf, portOpenAt, portTakes, portTicksLeft, PUSH, pushDirection, settleBoxes, startSlide, tileAt, tileBox, withBoxes, type BoxState, type Occupants, type Tile,
 } from './rooms/boxes.ts';
 import { boxTypeOf, EMPTY_MIXER, PORTION_SECONDS, stepMixer, type MixerEvent, type MixerState, type Portion } from './stomach/mixer.ts';
+import { isOrder, newOrder, orderSpot } from './stomach/orders.ts';
 import type { EnteredRoom } from './rooms/entry.ts';
 import { asleep, stepSleep, type SleepEvent, type SleepState } from './rooms/sleep.ts';
 import { leverAt, objectBox, platesUnder, reachableObject, touchedObjects } from './rooms/interact.ts';
@@ -115,6 +116,8 @@ export interface GameState {
   readonly delivered: readonly number[];
   /** Food boxes a cold store has taken, in id order: gone from the room for good, counted by no port. */
   readonly chilled: readonly number[];
+  /** Orders the courier has thrown on this visit, so each gets an id of its own (core/stomach/orders.ts); absent before the first. */
+  readonly orderSerial?: number;
   /** Set until the chairman hands over the stamp (design doc 5.4): the stamp key does nothing. */
   readonly stampLocked?: true;
   /** Set until the general affairs office hands over the folder (design doc 7.4): the swap key does nothing. */
@@ -196,6 +199,10 @@ export type DomainEvent =
   | { readonly type: 'canTaken'; readonly source: number }
   /** The sugar salesman's tea landed (design doc 7.5): no heart is lost, and the fatigue fog starts over at its full 45 seconds. */
   | { readonly type: 'teaTaken'; readonly source: number }
+  /** The courier threw an order onto the belt whose head is this tile (design doc 7.5). */
+  | { readonly type: 'orderThrown'; readonly source: number; readonly object: number; readonly col: number; readonly row: number }
+  /** The stamp sent an order back (design doc 7.5): the chapter counts one return, the design doc's outer social -1. */
+  | { readonly type: 'orderReturned'; readonly object: number; readonly col: number; readonly row: number }
   /** 婉拒: the guard met a toast wave, on any of its frames; `parry` when it was inside the parry window. */
   | { readonly type: 'refused'; readonly source: number; readonly parry: boolean }
   /** A weapon landed on a cheers kid, who only backs off (design doc 7.7). */
@@ -880,7 +887,9 @@ export function step(state: GameState, pressed: TickInput): StepResult {
   }
 
   const moved = moveBoxes(state, op, input);
-  const { boxes, push } = moved;
+  // Orders come and go inside the tick: the courier throws one on, the stamp takes them off.
+  let boxes = moved.boxes;
+  const push = moved.push;
   events.push(...moved.events);
   grid = withBoxes(room.grid, boxes);
 
@@ -949,6 +958,8 @@ export function step(state: GameState, pressed: TickInput): StepResult {
   const zones = new Map<number, Zone>(state.zones.map((z) => [z.id, { ...z, age: z.age + 1 }]));
   const newShots: ShotSpec[] = [];
   const newZones: ZoneSpec[] = [];
+  let orderSerial = state.orderSerial ?? 0;
+  const throws: { readonly source: number; readonly x: number; readonly y: number }[] = [];
   const target = { x: op.x, y: op.y };
   const enemies = new Map<number, EnemyState>();
   const ordered = [...state.enemies].sort((a, b) => a.id - b.id);
@@ -989,12 +1000,36 @@ export function step(state: GameState, pressed: TickInput): StepResult {
       continue;
     }
     if (enemies.has(e.id)) continue;
-    const r = stepEnemy(grid, e, target, senseRange);
+    // A courier throws at a belt, not at the operator, and only winds up while one will take the order.
+    let aim: Vec = target;
+    let ready = true;
+    if (e.archetype === 'courier' && e.phase === 'idle') {
+      const spot = orderSpot(room, boxes, occupantsOf(op, state.enemies), switches, e.x, e.y);
+      ready = spot !== undefined && boxes.filter(isOrder).length < COURIER.maxOrders;
+      if (spot) aim = { x: (spot.col + 0.5) * TILE, y: (spot.row + 0.5) * TILE };
+    }
+    const r = stepEnemy(grid, e, aim, senseRange, ready);
     enemies.set(e.id, r.enemy);
     newShots.push(...r.shots);
+    if (r.order) throws.push({ source: e.id, x: r.enemy.x, y: r.enemy.y });
     if (r.telegraph) events.push({ type: 'telegraph', source: e.id, tier: 1 });
     if (r.reformed) events.push({ type: 'reformed', target: e.id, enemy: e.type });
     if (r.respawned) events.push({ type: 'respawned', target: e.id, enemy: e.type });
+  }
+  // Orders land once every enemy has moved, in id order. The cap and the head tile are judged on what
+  // the floor and the bodies are now: a windup began on a floor that other couriers are filling in this
+  // same tick, and a walker may have stepped onto the head after the courier's turn in the loop. An
+  // order that finds no room is lost, as when the head was taken during the windup.
+  if (throws.length > 0) {
+    for (const t of throws) {
+      if (boxes.filter(isOrder).length >= COURIER.maxOrders) break;
+      const spot = orderSpot(room, boxes, occupantsOf(op, enemies.values()), switches, t.x, t.y);
+      if (!spot) continue;
+      const box = newOrder(orderSerial++, spot);
+      boxes = [...boxes, box].sort((a, b) => a.id - b.id);
+      events.push({ type: 'orderThrown', source: t.source, object: box.id, col: spot.col, row: spot.row });
+    }
+    grid = withBoxes(room.grid, boxes);
   }
   for (const z of newZones) zones.set(nextId, { ...z, id: nextId++, age: 1, spent: false });
   // The rest area locks what drifts into it: the answer to adenosine that cannot be beaten (design doc 8.5).
@@ -1053,6 +1088,13 @@ export function step(state: GameState, pressed: TickInput): StepResult {
         events.push({ type: 'proposalRejected', target: e.id });
       }
       enemies.set(e.id, hit);
+    }
+    // An order within the radius is sent back to the courier (退貨); the others are on their way to the mixer.
+    const sent = boxes.filter((b) => isOrder(b) && Math.hypot(boxCentre(b).x - op.x, boxCentre(b).y - op.y) <= STAMP.radiusPx);
+    if (sent.length > 0) {
+      const gone = new Set(sent.map((b) => b.id));
+      boxes = boxes.filter((b) => !gone.has(b.id));
+      for (const b of sent) events.push({ type: 'orderReturned', object: b.id, col: b.col, row: b.row });
     }
     // Alcohol crates in reach take the grey stamp like any immune object; one note for the dock.
     const f = state.factory;
@@ -1407,6 +1449,7 @@ export function step(state: GameState, pressed: TickInput): StepResult {
     ...(pie ? { pie } : {}),
     ...(factory ? { factory } : {}),
     ...(moved.mixer ? { mixer: moved.mixer } : {}),
+    ...(orderSerial > 0 ? { orderSerial } : {}),
     ...(sleep ? { sleep } : {}),
     ...(bind ? { bind } : {}),
     ...(boostUntil !== undefined ? { boostUntil } : {}),

@@ -59,7 +59,7 @@
 | `locked` | 門鎖住的兩聲；限時閘門關上時也用它，因為閘門關上就是一扇鎖住的門 | `doorLocked`, `portClosed` |
 | `pick` | 撿起東西的上行音 | `canTaken`, `teaTaken`, `pickedUp`, `parcelOut` |
 | `click` | 開關 | `switchChanged` |
-| `thunk` | 箱子或貨物落位 | `boxDelivered`, `boxChilled`, `portFilled`, `crateTaken`, `mixerFed` |
+| `thunk` | 箱子或貨物落位 | `boxDelivered`, `boxChilled`, `portFilled`, `crateTaken`, `mixerFed`, `orderThrown` |
 | `punch` | 打卡 | `checkpointSaved` |
 | `unlock` | 解鎖：四個上行音 | `handbookUnlocked`, `toolGranted`, `bonusShown`, `portOpened` |
 | `card` | 翻開卡牌 | `cardOpened` |
@@ -167,7 +167,7 @@
 | `move` | 標題、暫停選單、選課的游標移動 |
 | `choose` | 確定一項、改變一個設定值（改音效音量時在改完之後播放，所以聽到的是新的音量） |
 | `back` | 離開暫停選單的上一頁、返回 |
-| `page` | 員工手冊開啟、翻頁與關閉；也是 `examBreak` |
+| `page` | 員工手冊開啟、翻頁與關閉；也是 `examBreak` 與 `orderReturned`（退貨：翻紙退回去） |
 | `blip` | 對話逐句前進與選定回覆（第一句由 `dialogueOpened` 的嗶聲負責） |
 
 ## 音量與響度

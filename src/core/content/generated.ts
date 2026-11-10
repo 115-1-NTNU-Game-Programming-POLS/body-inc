@@ -902,7 +902,7 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
             "type": "string"
           },
           "archetype": {
-            "description": "One of the five shared behaviours of design doc 5.3, the cheers kid of design doc 7.7, who is closed by refusals and not by hits, or an exam test case (design doc 7.6), which drifts and is answered by one hit.",
+            "description": "One of the five shared behaviours of design doc 5.3, the cheers kid of design doc 7.7, who is closed by refusals and not by hits, the late-night courier of design doc 7.5, who throws food boxes onto a belt and hurts no one, or an exam test case (design doc 7.6), which drifts and is answered by one hit.",
             "enum": [
               "salesman",
               "flyer",
@@ -910,6 +910,7 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
               "convener",
               "contractor",
               "cheers",
+              "courier",
               "testcase"
             ]
           },
@@ -3575,8 +3576,8 @@ export interface Enemy {
   readonly category: "defeatable" | "reforming" | "immune";
   /** Key into solutions; required for reforming and immune enemies, absent for defeatable ones. */
   readonly solution?: string;
-  /** One of the five shared behaviours of design doc 5.3, the cheers kid of design doc 7.7, who is closed by refusals and not by hits, or an exam test case (design doc 7.6), which drifts and is answered by one hit. */
-  readonly archetype?: "salesman" | "flyer" | "manager" | "convener" | "contractor" | "cheers" | "testcase";
+  /** One of the five shared behaviours of design doc 5.3, the cheers kid of design doc 7.7, who is closed by refusals and not by hits, the late-night courier of design doc 7.5, who throws food boxes onto a belt and hurts no one, or an exam test case (design doc 7.6), which drifts and is answered by one hit. */
+  readonly archetype?: "salesman" | "flyer" | "manager" | "convener" | "contractor" | "cheers" | "courier" | "testcase";
   /** Hits to close the case, or for the cheers kid the refusals; defeatable enemies only. */
   readonly performance?: number;
   /** Drifts toward the operator and clings on contact, one slow stack each (design doc 5.5); reforming enemies only. */
