@@ -3,7 +3,7 @@ import { FOLDER } from './frames.ts';
 import type { Vec } from './movement.ts';
 import type { OperatorAction, OperatorState } from './operator.ts';
 
-const COS_GUARD = Math.cos((FOLDER.guardHalfAngleDeg * Math.PI) / 180);
+const cosOf = (halfAngleDeg: number): number => Math.cos((halfAngleDeg * Math.PI) / 180);
 
 /** Where a swing lands: a box in front of the operator on the ground plane, along the aim. */
 export function swingBox(op: Pick<OperatorState, 'x' | 'y' | 'aim'>): Box {
@@ -16,14 +16,14 @@ export function swingBox(op: Pick<OperatorState, 'x' | 'y' | 'aim'>): Box {
 }
 
 /**
- * Whether the guard faces an attack that comes from `from`, a vector pointing from the operator
- * towards the attacker (for a shot, against its velocity). The guard covers 120 degrees around
- * the aim; the limit itself is covered.
+ * Whether a guard facing `aim` covers an attack that comes from `from`, a vector pointing from
+ * the guard towards the attacker (for a shot, against its velocity). The operator's guard covers
+ * 120 degrees around the aim; a manager's shield is the same cone. The limit itself is covered.
  */
-export function guardCovers(aim: Vec, from: Vec): boolean {
+export function guardCovers(aim: Vec, from: Vec, halfAngleDeg: number = FOLDER.guardHalfAngleDeg): boolean {
   const len = Math.hypot(from.x, from.y);
   if (len === 0) return true;
-  return (from.x * aim.x + from.y * aim.y) / len >= COS_GUARD - 1e-9;
+  return (from.x * aim.x + from.y * aim.y) / len >= cosOf(halfAngleDeg) - 1e-9;
 }
 
 /** The guard's frame counts from 1 on the tick it is raised; frames up to FOLDER.parryFrames parry. */

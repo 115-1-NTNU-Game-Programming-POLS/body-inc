@@ -51,6 +51,8 @@
     "teaTaken": { "sound": "pick", "note": "stomach.tea" },
     "palpitation": { "sound": "heartbeat", "note": "can.palpitation" },
     "canDisco": { "sound": "disco", "note": "can.disco" },
+    "shieldBlocked": { "sound": "blocked", "bounce": true, "particles": [{ "preset": "paper", "count": 3 }], "note": "shield.blocked" },
+    "shieldBroken": { "sound": "crack", "flashTarget": 4, "shake": { "px": 3, "seconds": 0.1 }, "particles": [{ "preset": "paper", "count": 8 }, { "preset": "ink", "count": 4 }], "note": "shield.broken" },
     "backedOff": { "sound": "boing", "bounce": true, "note": "cheers.backed_off" },
     "stampLanded": { "sound": "stampDown", "shake": { "px": 6, "seconds": 0.15 }, "particles": [{ "preset": "ink", "count": 10 }], "note": "stamp.rejected" },
     "stampVoid": { "sound": "nope", "bounce": true, "note": "stamp_void.{solution}" },
