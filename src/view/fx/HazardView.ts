@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { unloadBox, zoneFill, type GameState, type Shot } from '../../core/index.ts';
+import { DELIVERY_HALF, unloadBox, zoneFill, type GameState, type Shot } from '../../core/index.ts';
 import { dashedCircle } from './telegraph.ts';
 
 const RED = 0xc8372d;
@@ -59,8 +59,8 @@ export class HazardView {
       const x = q.x + (s.x - q.x) * alpha;
       const y = q.y + (s.y - q.y) * alpha;
       // Lifted like staples: the core position is the shadow on the ground plane.
-      // The large portion of the stomach boss is a box one and a half times the size.
-      img.setPosition(Math.round(x), Math.round(y - 12)).setDepth(y).setAlpha(s.spent ? 0.5 : 1).setScale(s.delivery === 'large' ? 1.5 : 1);
+      // A delivery is drawn as large as its hitbox: the default sheet shows the normal box.
+      img.setPosition(Math.round(x), Math.round(y - 12)).setDepth(y).setAlpha(s.spent ? 0.5 : 1).setScale(s.delivery ? s.half / DELIVERY_HALF.normal : 1);
     }
     for (const [id, img] of this.shots) {
       if (alive.has(id)) continue;

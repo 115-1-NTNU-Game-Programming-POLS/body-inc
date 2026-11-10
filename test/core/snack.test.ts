@@ -9,6 +9,7 @@ import { EMPTY_TAGS } from '../../src/core/tags/store.ts';
 import { readRoom } from '../../src/core/rooms/tiled.ts';
 import { docksOf, mouthOf } from '../../src/core/stomach/docks.ts';
 import { takeDelivery, EMPTY_MIXER, portionTicks, slotsUsed, stepMixer, DELIVERY_SLOTS } from '../../src/core/stomach/mixer.ts';
+import { STAPLER } from '../../src/core/combat/frames.ts';
 import { DELIVERY_HALF, stepSnack } from '../../src/core/combat/bosses/snack.ts';
 import { bossStringKeys, type SnackDef, type SnackState } from '../../src/core/combat/bosses/boss.ts';
 
@@ -146,7 +147,7 @@ describe('the arena as data', () => {
 
   it('spawns the boss with his full budget standing at the north and nothing in the air', () => {
     const g = fight();
-    expect(boss(g)).toMatchObject({ type: 'snack', hp: 100, maxHp: 100, boss: { behaviour: 'snack', stage: 1, ticks: 0, dock: 0, thrown: 0, stageThrown: 0, move: null } });
+    expect(boss(g)).toMatchObject({ type: 'snack', hp: 100, maxHp: 100, boss: { behaviour: 'snack', stage: 1, ticks: 0, dock: 0, stageThrown: 0, move: null } });
     expect(g.shots).toEqual([]);
     expect(selectBoss(g)).toMatchObject({ type: 'snack', budget: 100, maxBudget: 100, stage: 1, defeated: false });
   });
@@ -168,7 +169,7 @@ describe('the rhythm: a telegraph, then a box from the next dock', () => {
     const r = run(away(fight()), FIRST_THROW + 5 * DEF.everyTicks);
     expect(ticksOf(r, 'deliveryThrown')).toEqual([0, 1, 2, 3, 4, 5].map((i) => FIRST_THROW - 1 + i * DEF.everyTicks));
     expect(ofType(r, 'deliveryThrown').map((e) => e.dock)).toEqual([0, 1, 2, 3, 0, 1]);
-    expect(boss(r.state).boss.thrown).toBe(6);
+    expect(ofType(r, 'deliveryThrown')).toHaveLength(6);
   });
 
   it('shows the telegraph for exactly the tier-1 length, on the dock about to be used', () => {
@@ -288,8 +289,8 @@ describe('the folder\'s parry sends a box back at him', () => {
   /** The guard is held by keeping the attack key down, as the player does. */
   const hold: TickInput = { ...NO_INPUT, attack: true };
   /** The operator guarding, facing the dock, in the path of the first box, which reaches them within the parry window. */
-  function parried(): { start: GameState; shot: Shot } {
-    const start = run(away(fight()), FIRST_THROW).state;
+  function parried(dock = 0): { start: GameState; shot: Shot } {
+    const start = run(away(withBoss(fight(), { dock })), FIRST_THROW).state;
     const sh = deliveries(start)[0]!;
     // Stand where the box will be in 4 ticks, aiming back up its path (toward the dock).
     const at = { x: sh.x + sh.vx * 4, y: sh.y + sh.vy * 4 };
@@ -313,6 +314,24 @@ describe('the folder\'s parry sends a box back at him', () => {
     expect(back.vx * toBoss.x + back.vy * toBoss.y).toBeGreaterThan(0);
     expect(deliveries(r.state)).toEqual([]);
     expect(r.state.mixer!.batches).toEqual([]);
+  });
+
+  it('reaches him from every dock, the far ones in the south too', () => {
+    for (const dock of [0, 1, 2, 3]) {
+      const r = run(parried(dock).start, 12 + 200, () => hold);
+      expect(boss(r.state).hp, `a parry at dock ${dock}`).toBe(80);
+    }
+  });
+
+  it('stretches only a box of his: a shot of anyone else sent back keeps the staple range', () => {
+    const { start } = parried(2);
+    const plain = start.shots.map((x) => (x.kind === 'delivery'
+      ? { id: x.id, owner: x.owner, kind: 'sheet', x: x.x, y: x.y, vx: x.vx, vy: x.vy, ticksLeft: x.ticksLeft, halves: x.halves, half: x.half, spent: false } : x));
+    const other = run({ ...start, shots: plain }, 12, () => hold).state.projectiles[0]!;
+    expect(other).toMatchObject({ reflected: true, damage: FOLDER.reflectDamage });
+    expect(other.ticksLeft).toBeLessThanOrEqual(Math.ceil(STAPLER.rangePx / Math.hypot(other.vx, other.vy)));
+    const mine = run(start, 12, () => hold).state.projectiles[0]!;
+    expect(mine.ticksLeft).toBeGreaterThan(Math.ceil(STAPLER.rangePx / Math.hypot(mine.vx, mine.vy)));
   });
 
   it('takes 20 off his budget when it lands, five returns to close the fight', () => {
@@ -455,8 +474,11 @@ describe('the fight as a whole', () => {
     const g = away(withBoss(fight(), { stage: 2 }, { hp: 20 }));
     const start = run(g, FIRST_THROW).state;
     const sh = deliveries(start)[0]!;
+    // A protest still warning when the case closes; its warning is long so it cannot run out by itself on the way.
+    const protest = { id: 900, owner: boss(start).id, move: 'protest', tier: 3 as const, x: 320, y: 240, radius: 3 * TILE, telegraphTicks: 400, activeTicks: 8, halves: 2, age: 1, spent: false };
     const guard: GameState = {
       ...start,
+      zones: [protest],
       operator: {
         ...start.operator, x: sh.x + sh.vx * 4, y: sh.y + sh.vy * 4 + 8, tool: 'folder',
         aim: { x: -sh.vx / Math.hypot(sh.vx, sh.vy), y: -sh.vy / Math.hypot(sh.vx, sh.vy) }, action: { kind: 'guard', frame: 0 }, held: FOLDER.holdTicks,
@@ -465,15 +487,32 @@ describe('the fight as a whole', () => {
     const r = run(guard, 200, () => ({ ...NO_INPUT, attack: true }));
     expect(ofType(r, 'bossDefeated')).toMatchObject([{ enemy: 'snack' }]);
     expect(boss(r.state)).toMatchObject({ hp: 0, phase: 'closed' });
+    expect(r.states[0]!.zones).toHaveLength(1);
+    expect(r.state.zones).toEqual([]);
     expect(selectBoss(r.state)).toMatchObject({ defeated: true });
   });
 
   it('puts him back with a full budget and a fresh rhythm after a forced leave', () => {
-    const g = away(withBoss(fight(), { stage: 2, ticks: 100, dock: 2, thrown: 3, stageThrown: 2 }, { hp: 40 }));
+    const g = away(withBoss(fight(), { stage: 2, ticks: 100, dock: 2, stageThrown: 2 }, { hp: 40 }));
     const dead: GameState = { ...g, operator: { ...g.operator, halves: 0 } };
     const r = run(dead, 1);
     expect(ofType(r, 'forcedLeave')).toHaveLength(1);
-    expect(boss(r.state)).toMatchObject({ hp: 100, boss: { stage: 1, ticks: 0, dock: 0, thrown: 0, stageThrown: 0, move: null } });
+    expect(boss(r.state)).toMatchObject({ hp: 100, boss: { stage: 1, ticks: 0, dock: 0, stageThrown: 0, move: null } });
+  });
+
+  it('takes nothing from a held stapler: only a box sent back hurts him', () => {
+    const g = away(fight({ tool: 'stapler' }), 320, 272);
+    const r = run({ ...g, operator: { ...g.operator, aim: { x: 0, y: -1 } } }, 200, () => ({ ...NO_INPUT, attack: true }));
+    expect(ofType(r, 'snackShrugged').length).toBeGreaterThan(10);
+    expect(ofType(r, 'hit')).toEqual([]);
+    expect(boss(r.state).hp).toBe(100);
+  });
+
+  it('takes nothing from a swing of the folder either', () => {
+    const g = away(fight(), 320, 168);
+    const r = run({ ...g, operator: { ...g.operator, aim: { x: 0, y: -1 } } }, 60, (t) => ({ ...NO_INPUT, attack: t % 20 === 0, attackPressed: t % 20 === 0 }));
+    expect(ofType(r, 'snackShrugged').length).toBeGreaterThan(0);
+    expect(boss(r.state).hp).toBe(100);
   });
 
   it('is not hurt by the stamp more than any boss: 40 of his 100', () => {
@@ -508,11 +547,11 @@ describe('stage 2: 加大份量', () => {
   });
 
   it('resets his rhythm: a pause of 3 s from the start of the stage, then the first large box', () => {
-    const g = withBoss(atSixty(), { ticks: 200, thrown: 4, stageThrown: 4 });
+    const g = withBoss(atSixty(), { ticks: 200, stageThrown: 4 });
     const r = run(g, FIRST_THROW_2 + 1);
     expect(ticksOf(r, 'telegraph')).toEqual([DEF.stage2.startTicks]);
     expect(ticksOf(r, 'deliveryThrown')).toEqual([FIRST_THROW_2]);
-    expect(boss(r.state).boss).toMatchObject({ stage: 2, thrown: 5, stageThrown: 1 });
+    expect(boss(r.state).boss).toMatchObject({ stage: 2, stageThrown: 1 });
   });
 
   it('throws a large box every 6 s from then on, round the docks from where stage 1 left them', () => {
@@ -606,6 +645,14 @@ describe('the map check (Dock)', () => {
     expect(codes(mapOf([boss, mixer], [], [variant]))).toEqual(['snack-dock', 'dock-variant']);
   });
 
+  it('reports a mixer that cannot hold a large portion, only in a boss room', () => {
+    const small = (capacity: number) => ({ ...mixer, properties: [p('capacity', capacity)] });
+    expect(codes(mapOf([boss, small(1), dock(4, 2, 4)]))).toEqual(['mixer-capacity']);
+    expect(readRoom('lab/a', mapOf([boss, small(1), dock(4, 2, 4)]), TAGS).problems[0]).toMatchObject({ object: 3, args: { capacity: 1, need: 2 } });
+    expect(codes(mapOf([boss, small(2), dock(4, 2, 4)]))).toEqual([]);
+    expect(codes(mapOf([small(1), dock(4, 2, 4)]))).toEqual([]);
+  });
+
   it('reports a boss with no mixer', () => {
     expect(codes(mapOf([boss, dock(4, 2, 4)]))).toEqual(['snack-mixer']);
   });
@@ -625,6 +672,12 @@ describe('the map check (Dock)', () => {
     const result = codes(mapOf([boss, mixer, dock(4, 2, 4), dock(5, 17, 4)], wall));
     expect(result).toEqual(['dock-path']);
     expect(readRoom('lab/a', mapOf([boss, mixer, dock(4, 2, 4), dock(5, 17, 4)], wall), TAGS).problems[0]!.object).toBe(4);
+  });
+
+  it('sees a wall corner the line only clips: a box flying 5 tiles a second would be lost on it', () => {
+    // The line from the dock in tile (1, 1) to the hopper cuts a few pixels off the corner of tile (5, 3).
+    expect(codes(mapOf([boss, mixer, dock(4, 1, 1)], [[5, 3]]))).toEqual(['dock-path']);
+    expect(codes(mapOf([boss, mixer, dock(4, 1, 1)], [[5, 5]]))).toEqual([]);
   });
 
   it('is part of the chapter: the arena is joined to the night lab and passes the map check as built', () => {

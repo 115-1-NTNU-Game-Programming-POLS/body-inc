@@ -47,7 +47,6 @@ export interface Batch {
  */
 export const DELIVERY_SLOTS: Readonly<Record<Portion, number>> = { small: 1, normal: 1, large: 2 };
 
-/** How much of the capacity the batches take. */
 export const slotsUsed = (state: MixerState): number => state.batches.reduce((n, b) => n + (b.slots ?? 1), 0);
 
 export interface MixerState {

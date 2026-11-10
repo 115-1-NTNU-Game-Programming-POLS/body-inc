@@ -359,8 +359,6 @@ export interface SnackState {
   readonly stage: 1 | 2 | 3;
   readonly ticks: number;
   readonly dock: number;
-  /** Boxes thrown so far in the fight. */
-  readonly thrown: number;
   /** Boxes thrown in this stage; the first of a stage waits `startTicks`, the rest `everyTicks`. */
   readonly stageThrown: number;
   readonly move: { readonly id: 'deliver'; readonly frame: number } | null;
@@ -370,7 +368,7 @@ export type BossState = CaffeineState | ToastState | SnackState;
 
 /** The caffeine fight opens with a cup (design doc 7.4: each cup he drinks adds 100); the toast fight with him waiting. */
 export function newBossState(def: BossDef): BossState {
-  if (def.behaviour === 'snack') return { behaviour: 'snack', def: def.id, stage: 1, ticks: 0, dock: 0, thrown: 0, stageThrown: 0, move: null };
+  if (def.behaviour === 'snack') return { behaviour: 'snack', def: def.id, stage: 1, ticks: 0, dock: 0, stageThrown: 0, move: null };
   if (def.behaviour === 'toast') return { behaviour: 'toast', def: def.id, stage: 1, part: 'wait', line: 0, ticks: 0, waves: 0, move: null };
   return {
     behaviour: 'caffeine', def: def.id, stage: 1, residue: 0, cups: 0, burst: 1, boosted: false, lowTicks: 0, move: null,

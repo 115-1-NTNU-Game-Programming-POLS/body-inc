@@ -265,6 +265,8 @@ export type DomainEvent =
   | { readonly type: 'bossRound'; readonly target: number; readonly round: 1 | 2 | 3 }
   /** The stomach boss moved to his second stage; he has a line of his own, unlike the caffeine boss's bossStage. */
   | { readonly type: 'snackStage'; readonly target: number; readonly stage: 2 }
+  /** A staple or a swing of the folder met the stomach boss: it does nothing, only a box sent back hurts him. */
+  | { readonly type: 'snackShrugged'; readonly target: number }
   /** The toast boss's budget ran out: he is not beaten but gives up toasting (design doc 7.7). */
   | { readonly type: 'bossConceded'; readonly target: number; readonly enemy: string }
   /** The operator stepped onto an unlocked door; the chapter decides where it leads. */
@@ -1168,6 +1170,8 @@ export function step(state: GameState, pressed: TickInput): StepResult {
   const hitEnemy = (target: EnemyState, amount: number, freeze: number, gain: number, binds = 0, strike?: Strike): void => {
     if (target.archetype === 'cheers') {
       shoo(target);
+    } else if (target.boss?.behaviour === 'snack' && strike?.breaks !== 'reflect') {
+      events.push({ type: 'snackShrugged', target: target.id });
     } else if (target.category === 'immune') {
       events.push({ type: 'immuneBounce', target: target.id, enemy: target.type, solution: target.solution ?? '' });
     } else if (target.category === 'reforming') {
@@ -1444,8 +1448,10 @@ export function step(state: GameState, pressed: TickInput): StepResult {
           const toOwner = owner ? unit({ x: owner.x - sh.x, y: owner.y - 8 - sh.y }) : { x: 0, y: 0 };
           const back = toOwner.x !== 0 || toOwner.y !== 0 ? toOwner : unit({ x: -sh.vx, y: -sh.vy });
           const speed = Math.hypot(sh.vx, sh.vy);
+          // A box sent back is not a staple with a range: from a far dock it must still reach the one who threw it.
+          const reach = sh.returnDamage !== undefined && owner ? Math.max(STAPLER.rangePx, Math.hypot(owner.x - sh.x, owner.y - 8 - sh.y) + 16) : STAPLER.rangePx;
           flying.push({
-            id: nextId++, x: sh.x, y: sh.y, vx: back.x * speed, vy: back.y * speed, ticksLeft: Math.ceil(STAPLER.rangePx / speed),
+            id: nextId++, x: sh.x, y: sh.y, vx: back.x * speed, vy: back.y * speed, ticksLeft: Math.ceil(reach / speed),
             damage: sh.returnDamage ?? FOLDER.reflectDamage, reflected: true,
           });
         }
@@ -1472,8 +1478,8 @@ export function step(state: GameState, pressed: TickInput): StepResult {
   // The mixer takes the deliveries in. One box over its capacity makes it protest: it empties and
   // throws an area round the hopper that warns for a tier-3 telegraph first (design doc 7.5, 胃抗議).
   let mixerNow = moved.mixer;
-  const hopper = mixerOf(room);
-  const mouth = mouthOf(room);
+  const hopper = arrivals.length > 0 ? mixerOf(room) : undefined;
+  const mouth = arrivals.length > 0 ? mouthOf(room) : undefined;
   for (const sh of arrivals) {
     if (!mixerNow || !hopper || !mouth) break;
     const boxId = orderId(orderSerial++);

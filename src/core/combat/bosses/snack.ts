@@ -6,15 +6,6 @@ import type { Vec } from '../movement.ts';
 import type { SnackDef, SnackDelivery, SnackState } from './boss.ts';
 import type { Portion } from '../../stomach/mixer.ts';
 
-/**
- * The snack boss, boss.snack.name in the strings (design doc 7.5, 午夜外送). He stands still and calls
- * the docks of the room one after another, in id order: a tier-1 telegraph, then a food box leaves
- * the dock and flies straight at the mixer's hopper. A box nobody stops lands and is digested
- * (game.ts); the folder's parry sends it back at him, which is how he is worn down. He hurts no one
- * himself: a box that meets the operator is an ordinary tier-1 shot. Stage 2 (加大份量) starts when his
- * budget has fallen to the stage's budget: the boxes are large portions from then on, which the mixer
- * counts as two places each, so the player has to pick which ones to return.
- */
 export interface SnackTick {
   readonly enemy: EnemyState;
   readonly shots: readonly ShotSpec[];
@@ -24,7 +15,6 @@ export interface SnackTick {
 /** Half the side of a delivery's box, in pixels; the large portion is a bigger box. */
 export const DELIVERY_HALF: Readonly<Record<Portion, number>> = { small: 6, normal: 6, large: 9 };
 
-/** The delivery numbers of the stage he is in. */
 export const deliveryOfStage = (def: SnackDef, stage: number): SnackDelivery => (stage >= 2 ? def.stage2 : def);
 
 /** A delivery from `dock` to `mouth`: it flies until `ticksLeft` runs out, which is when it reaches the hopper. */
@@ -40,6 +30,10 @@ export function deliveryFrom(e: EnemyState, def: SnackDelivery, dock: Vec, mouth
   };
 }
 
+/**
+ * One tick of the stomach boss (design doc 7.5): he calls the docks one after another and a food box
+ * flies from each at the mixer's hopper. The rules and the numbers are in docs/authoring/rooms-and-dialogue.md.
+ */
 export function stepSnack(e: EnemyState, def: SnackDef, docks: readonly Vec[], mouth: Vec): SnackTick {
   let b = e.boss as SnackState;
   const shots: ShotSpec[] = [];
@@ -62,7 +56,7 @@ export function stepSnack(e: EnemyState, def: SnackDef, docks: readonly Vec[], m
     if (frame > TELEGRAPH.tier1Ticks) {
       shots.push(deliveryFrom(e, d, docks[b.dock % docks.length]!, mouth));
       events.push({ type: 'deliveryThrown', source: e.id, dock: b.dock % docks.length });
-      b = { ...b, ticks: 0, dock: (b.dock + 1) % docks.length, thrown: b.thrown + 1, stageThrown: b.stageThrown + 1, move: null };
+      b = { ...b, ticks: 0, dock: (b.dock + 1) % docks.length, stageThrown: b.stageThrown + 1, move: null };
     } else b = { ...b, move: { id: 'deliver', frame } };
     return done();
   }

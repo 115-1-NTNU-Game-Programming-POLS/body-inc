@@ -5,7 +5,8 @@ import { compileCondition, type TagDictionary } from '../tags/dictionary.ts';
 import { TILE } from '../time.ts';
 import { OBJECT_CLASSES, ROOM_CLASS, VARIANT_PREFIX, type ClassSpec, type RefKind, type Scalar } from './classes.ts';
 import { conveyorTiles, isFork, KEEP_CLEAR, mixerOutlet, tileBox, tileOf } from './boxes.ts';
-import { mouthOf } from '../stomach/docks.ts';
+import { dockCentre, mouthOf } from '../stomach/docks.ts';
+import { DELIVERY_SLOTS } from '../stomach/mixer.ts';
 import { canMeet } from './entry.ts';
 import { objectBox } from './interact.ts';
 import { keyOf, keysFor, parseClockWindow, SWITCH_KINDS, switchesFor } from './locks.ts';
@@ -173,6 +174,8 @@ export type RoomProblemCode =
   | 'snack-dock'
   /** A snack boss spawn in a room with no Mixer: his boxes would have nowhere to go. */
   | 'snack-mixer'
+  /** A snack boss room whose Mixer holds fewer places than a large portion takes: every box of his second stage would make it protest. */
+  | 'mixer-capacity'
   /** A Dock on a variant layer: the boss calls the docks the room has, in a fixed order, so a dock cannot come and go. */
   | 'dock-variant'
   /** A Dock whose centre is a wall or off the map: the box would start inside it. */
@@ -504,14 +507,17 @@ export function readRoom(id: string, map: TiledMap, dict: TagDictionary): ReadRe
   const docks = objects.filter((o) => o.kind === 'Dock').sort((a, b) => a.id - b.id);
   if (snack && !docks.some((d) => d.variant === undefined)) problems.push({ code: 'snack-dock', object: snack.id });
   if (snack && mixers.length === 0) problems.push({ code: 'snack-mixer', object: snack.id });
+  if (snack && mixers.length > 0 && Number(mixers[0]!.props['capacity']) < DELIVERY_SLOTS.large) {
+    problems.push({ code: 'mixer-capacity', object: mixers[0]!.id, args: { capacity: Number(mixers[0]!.props['capacity']), need: DELIVERY_SLOTS.large } });
+  }
   const mouth = mixers.length > 0 ? mouthOf({ objects: [mixers[0]!] }) : undefined;
   for (const d of docks) {
     if (d.variant !== undefined) { problems.push({ code: 'dock-variant', object: d.id }); continue; }
-    const b = objectBox(d);
-    const [x, y] = [(b.left + b.right) / 2, (b.top + b.bottom) / 2];
+    const { x, y } = dockCentre(d);
     if (isSolid(grid, Math.floor(x / TILE), Math.floor(y / TILE))) { problems.push({ code: 'dock-wall', object: d.id }); continue; }
     if (!mouth) continue;
-    const steps = Math.ceil(Math.hypot(mouth.x - x, mouth.y - y) / 4);
+    // A box is tested at a point every tick, so a step finer than any flight speed leaves no wall corner between two samples.
+    const steps = Math.ceil(Math.hypot(mouth.x - x, mouth.y - y));
     const blocked = Array.from({ length: steps + 1 }, (_, i) => i / Math.max(steps, 1))
       .some((f) => isSolid(grid, Math.floor((x + (mouth.x - x) * f) / TILE), Math.floor((y + (mouth.y - y) * f) / TILE)));
     if (blocked) problems.push({ code: 'dock-path', object: d.id });

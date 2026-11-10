@@ -226,6 +226,7 @@ function problemMessage(p: RoomProblem): string {
     case 'courier-belt': return '宵夜外送員（enemyType 為 courier 的 Spawn）所在的房間沒有輸送帶（Conveyor，變體圖層裡的不算）；他要把訂單丟上輸送帶，沒有帶子就只會站著';
     case 'snack-dock': return '報復性宵夜部長（enemyType 為 snack 的 Spawn）所在的房間沒有外送口（Dock，變體圖層裡的不算）；他要從外送口把箱子丟向攪拌機，沒有外送口就只會站著';
     case 'snack-mixer': return '報復性宵夜部長（enemyType 為 snack 的 Spawn）所在的房間沒有攪拌機（Mixer）；他丟出的箱子沒有地方可去';
+    case 'mixer-capacity': return `攪拌機（Mixer）的 capacity 是 ${a['capacity']}，容不下部長的加大份（要 ${a['need']} 格）；第二階段的每一箱都會讓它抗議，Boss 戰請寫 4`;
     case 'dock-variant': return '外送口（Dock）不能放在變體圖層；部長依編號順序輪流叫外送口，外送口不能隨狀態出現或消失';
     case 'dock-wall': return '外送口（Dock）的中心是牆或在地圖外；箱子會從牆裡出發，請移到地板上';
     case 'dock-path': return '外送口到攪拌機投料口中心的直線上有牆；從這個外送口丟出的每個箱子都會撞牆消失，請移開外送口或把牆讓出來';

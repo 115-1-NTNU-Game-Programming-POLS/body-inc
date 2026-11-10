@@ -70,6 +70,7 @@
     "bossBreath": { "sound": "breath", "note": "boss.toast.breathing" },
     "bossRound": { "sound": "stage", "note": "boss.toast.next_round" },
     "snackStage": { "sound": "stage", "note": "boss.snack.next_stage" },
+    "snackShrugged": { "sound": "boing", "bounce": true },
     "bossConceded": { "sound": "done", "particles": [{ "preset": "paper", "count": 12 }], "note": "boss.toast.conceded" },
     "doorLocked": { "sound": "locked", "note": "door.locked.{lock}" },
     "pickedUp": { "sound": "pick", "note": "pickup.{itemType}" },

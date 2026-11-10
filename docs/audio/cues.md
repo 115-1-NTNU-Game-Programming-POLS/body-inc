@@ -45,7 +45,7 @@
 | `reform` | 重組：倒過來的散開聲，輕輕漸強的氣音，中間冒出幾顆往上滑的泡泡聲 | `reformed` |
 | `respawn` | 重生：一聲紙張的沙，接兩個不高的上行音，比換文具低 | `respawned` |
 | `bump` | 撞牆：一聲輕的悶響，只在剛碰到牆時響一次 | `bumpWall` |
-| `boing` | 彈開 | `immuneBounce`, `backedOff` |
+| `boing` | 彈開 | `immuneBounce`, `backedOff`, `snackShrugged` |
 | `nope` | 不行：兩個下行短音 | `stampVoid`, `handsFull`, `switchCooling` |
 | `heart` | 受擊的低音：失去一顆心，或在考試裡被打中 | `heartLost`, `examHit` |
 | `tick` | 時鐘的滴答，有字幕；見下節 | 剩一顆心時由場景每秒播一次 |
