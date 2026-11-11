@@ -63,6 +63,8 @@ export interface Projectile {
   readonly damage?: number;
   /** Sent back by a parry: it charges no gauge (the parry already did) and throws no lever. */
   readonly reflected?: true;
+  /** Half the side of the box a parried delivery was, so it is drawn as that box. Its hitbox stays a staple's: it flies straight at the boss. */
+  readonly boxHalf?: number;
 }
 
 /** How a weapon reaches an enemy, for the shield of a manager: where it comes from, and what it can break. */
@@ -1453,6 +1455,7 @@ export function step(state: GameState, pressed: TickInput): StepResult {
           flying.push({
             id: nextId++, x: sh.x, y: sh.y, vx: back.x * speed, vy: back.y * speed, ticksLeft: Math.ceil(reach / speed),
             damage: sh.returnDamage ?? FOLDER.reflectDamage, reflected: true,
+            ...(sh.delivery !== undefined ? { boxHalf: sh.half } : {}),
           });
         }
         continue;
@@ -1499,6 +1502,8 @@ export function step(state: GameState, pressed: TickInput): StepResult {
       id, owner: sh.owner, move: 'protest', tier: 3, x: mouth.x, y: mouth.y, radius: def.protest.radius,
       telegraphTicks: def.protest.telegraphTicks, activeTicks: def.protest.activeTicks, halves: def.protest.halves, age: 1, spent: false,
     });
+    // Announced as an area and not as tier 3, whose caption says the move can be stamped back; this one cannot.
+    events.push({ type: 'telegraph', source: sh.owner, tier: 2, move: 'protest' });
   }
 
   for (const z of [...zones.values()].sort((a, b) => a.id - b.id)) {

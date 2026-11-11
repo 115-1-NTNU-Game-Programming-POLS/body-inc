@@ -307,7 +307,7 @@ describe('the folder\'s parry sends a box back at him', () => {
     expect(ofType(r, 'parry')).toMatchObject([{ kind: 'shot' }]);
     expect(r.state.projectiles).toHaveLength(1);
     const back = r.state.projectiles[0]!;
-    expect(back).toMatchObject({ reflected: true, damage: 20 });
+    expect(back).toMatchObject({ reflected: true, damage: 20, boxHalf: 6 });
     const b = boss(r.state);
     // It heads for the boss (a little above his feet), not back up the way it came.
     const toBoss = { x: b.x - back.x, y: b.y - 8 - back.y };
@@ -382,6 +382,7 @@ describe('the mixer takes in a delivery and protests at one too many', () => {
     const r = run(landing(full(4)), 1);
     expect(ofType(r, 'mixerFed')).toEqual([]);
     expect(ofType(r, 'mixerProtest')).toMatchObject([{ x: 320, y: 240 }]);
+    expect(ofType(r, 'telegraph')).toMatchObject([{ tier: 2, move: 'protest', source: boss(r.state).id }]);
     expect(r.state.mixer!.batches).toEqual([]);
     expect(r.state.zones).toHaveLength(1);
     expect(r.state.zones[0]).toMatchObject({ move: 'protest', tier: 3, x: 320, y: 240, radius: 3 * TILE, telegraphTicks: 84, activeTicks: 8, halves: 2, owner: boss(r.state).id, age: 1, spent: false });
@@ -672,6 +673,19 @@ describe('the map check (Dock)', () => {
     const result = codes(mapOf([boss, mixer, dock(4, 2, 4), dock(5, 17, 4)], wall));
     expect(result).toEqual(['dock-path']);
     expect(readRoom('lab/a', mapOf([boss, mixer, dock(4, 2, 4), dock(5, 17, 4)], wall), TAGS).problems[0]!.object).toBe(4);
+  });
+
+  it('reports a pushable Box on the line from a dock to the hopper', () => {
+    const crate = (x: number, y: number) => ({ id: 6, type: 'Box', x, y, properties: [p('boxType', 'glucose')] });
+    expect(codes(mapOf([boss, mixer, dock(4, 2, 4), crate(208, 200)]))).toEqual(['dock-box']);
+    expect(codes(mapOf([boss, mixer, dock(4, 2, 4), crate(208, 104)]))).toEqual([]);
+  });
+
+  it('reports a dock none of whose flight line can see the boss, and accepts a pillar that hides only part of it', () => {
+    const ring: (readonly [number, number])[] = [];
+    for (let col = 9; col <= 11; col++) for (let row = 3; row <= 5; row++) if (col !== 10 || row !== 4) ring.push([col, row]);
+    expect(codes(mapOf([boss, mixer, dock(4, 2, 4)], ring))).toEqual(['dock-return']);
+    expect(codes(mapOf([boss, mixer, dock(4, 2, 4)], [[9, 4]]))).toEqual([]);
   });
 
   it('sees a wall corner the line only clips: a box flying 5 tiles a second would be lost on it', () => {

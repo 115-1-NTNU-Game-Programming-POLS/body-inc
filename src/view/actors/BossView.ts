@@ -49,7 +49,14 @@ export class BossView implements ActorFx {
     this.flashUntil = now + ticks;
   }
 
-  bounce(): void {}
+  bounce(): void {
+    if (this.gone) return;
+    // Held fire bounces faster than the squash lasts; restart from scale 1 so overlapping tweens cannot leave him shrunk.
+    const tweens = this.scene.tweens;
+    tweens.killTweensOf(this.sprite);
+    this.sprite.setScale(1);
+    tweens.add({ targets: this.sprite, scaleX: 0.92, scaleY: 0.92, duration: 100, yoyo: true });
+  }
 
   /** Budget at zero: he shrinks to 0.6 and slides out sideways (art direction 5.5). */
   closeOut(): void {

@@ -182,6 +182,10 @@ export type RoomProblemCode =
   | 'dock-wall'
   /** A wall tile on the straight line from a Dock to the mixer's hopper, which would stop every box thrown from it. */
   | 'dock-path'
+  /** A pushable Box on that line: it is solid in the game, so every box thrown from the Dock is lost until the Box is pushed away. */
+  | 'dock-box'
+  /** No point of a Dock's flight line has a clear line to the snack boss, so a box from that Dock can never be parried back into him. */
+  | 'dock-return'
   /** A nap bed with `sleepSeconds` set: only a sleep bed has a sleep bar, so the number is never read. */
   | 'bed-seconds'
   /** A Port with only one of `openSeconds` and `closedSeconds` above 0: it needs both to be a timed gate. */
@@ -516,11 +520,19 @@ export function readRoom(id: string, map: TiledMap, dict: TagDictionary): ReadRe
     const { x, y } = dockCentre(d);
     if (isSolid(grid, Math.floor(x / TILE), Math.floor(y / TILE))) { problems.push({ code: 'dock-wall', object: d.id }); continue; }
     if (!mouth) continue;
-    // A box is tested at a point every tick, so a step finer than any flight speed leaves no wall corner between two samples.
-    const steps = Math.ceil(Math.hypot(mouth.x - x, mouth.y - y));
-    const blocked = Array.from({ length: steps + 1 }, (_, i) => i / Math.max(steps, 1))
-      .some((f) => isSolid(grid, Math.floor((x + (mouth.x - x) * f) / TILE), Math.floor((y + (mouth.y - y) * f) / TILE)));
-    if (blocked) problems.push({ code: 'dock-path', object: d.id });
+    const dockAt = { x, y };
+    const wall = (col: number, row: number) => isSolid(grid, col, row);
+    if (lineMeets(dockAt, mouth, wall)) { problems.push({ code: 'dock-path', object: d.id }); continue; }
+    // A pushable Box is solid in the game too, so it stops every delivery until someone pushes it off the line.
+    const crates = new Set(boxes.map((b) => { const t = tileOf(b); return `${t.col},${t.row}`; }));
+    if (lineMeets(dockAt, mouth, (col, row) => crates.has(`${col},${row}`))) problems.push({ code: 'dock-box', object: d.id });
+    if (!snack) continue;
+    // A parried box flies straight at him from where it was caught, aimed 8 px above his feet as in the game; his only ordinary damage must be reachable from each lane.
+    const aim = { x: snack.x, y: snack.y - 8 };
+    const samples = Math.ceil(Math.hypot(mouth.x - x, mouth.y - y) / RETURN_SAMPLE_PX);
+    const returnable = Array.from({ length: samples + 1 }, (_, i) => i / Math.max(samples, 1))
+      .some((f) => !lineMeets({ x: x + (mouth.x - x) * f, y: y + (mouth.y - y) * f }, aim, wall));
+    if (!returnable) problems.push({ code: 'dock-return', object: d.id });
   }
   for (const m of mixers) {
     if (m.variant !== undefined) problems.push({ code: 'mixer-variant', object: m.id });
@@ -560,6 +572,21 @@ export function readRoom(id: string, map: TiledMap, dict: TagDictionary): ReadRe
     problems,
     refs,
   };
+}
+
+/** How far apart along a Dock's flight line the return to the boss is tested, in pixels. */
+const RETURN_SAMPLE_PX = 8;
+
+type LinePoint = { readonly x: number; readonly y: number };
+
+/** Whether a straight line crosses a tile `blocks` accepts. A step of 1 px, finer than any flight speed, leaves no wall corner between two samples. */
+function lineMeets(from: LinePoint, to: LinePoint, blocks: (col: number, row: number) => boolean): boolean {
+  const steps = Math.max(Math.ceil(Math.hypot(to.x - from.x, to.y - from.y)), 1);
+  for (let i = 0; i <= steps; i++) {
+    const f = i / steps;
+    if (blocks(Math.floor((from.x + (to.x - from.x) * f) / TILE), Math.floor((from.y + (to.y - from.y) * f) / TILE))) return true;
+  }
+  return false;
 }
 
 /**

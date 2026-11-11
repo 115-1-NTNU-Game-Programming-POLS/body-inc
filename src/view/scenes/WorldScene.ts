@@ -12,7 +12,7 @@ import type { FixedStepLoop } from '../../app/loop.ts';
 import type { SaveStore } from '../../app/storage.ts';
 import { WallContact } from '../../app/wallContact.ts';
 import {
-  carriedTags, CELL_COLS, listProps, selectBoss, selectEnemies, selectOperator, selectProjectiles, storyAtEnd, storyOf, TILE, visibleProps,
+  carriedTags, CELL_COLS, DELIVERY_HALF, listProps, selectBoss, selectEnemies, selectOperator, selectProjectiles, storyAtEnd, storyOf, TILE, visibleProps,
   type ChapterContent, type ChapterState, type EnemyState, type GameEvent, type GameState, type PatrolResult, type ProgressData, type Settings, type TiledMapFile,
 } from '../../core/index.ts';
 import type { CardsData } from './OpeningScene.ts';
@@ -434,7 +434,10 @@ export class WorldScene extends Phaser.Scene {
       const q = before.get(p.id) ?? p;
       let img = this.staples.get(p.id);
       if (!img) {
-        img = this.add.image(0, 0, 'fx-staple').setRotation(Math.atan2(p.vy, p.vx));
+        // A parried delivery flies back as the box it was, drawn like the box on its way in.
+        img = p.boxHalf !== undefined
+          ? this.add.image(0, 0, 'fx-shot-sheet').setScale(p.boxHalf / DELIVERY_HALF.normal)
+          : this.add.image(0, 0, 'fx-staple').setRotation(Math.atan2(p.vy, p.vx));
         this.staples.set(p.id, img);
       }
       const px = q.x + (p.x - q.x) * alpha;
