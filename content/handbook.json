@@ -11,6 +11,7 @@
     { "id": "alcohol_metabolism", "body": ["handbook.alcohol_metabolism.1", "handbook.alcohol_metabolism.2", "handbook.alcohol_metabolism.3", "handbook.alcohol_metabolism.4"] },
     { "id": "eating_before_sleep", "body": ["handbook.eating_before_sleep.1", "handbook.eating_before_sleep.2"] },
     { "id": "sugar_fatigue", "body": ["handbook.sugar_fatigue.1"] },
+    { "id": "digestion", "body": ["handbook.digestion.1", "handbook.digestion.2"] },
     { "id": "refusing_drinks", "body": ["handbook.refusing_drinks.1", "handbook.refusing_drinks.2", "handbook.refusing_drinks.3"] },
     { "id": "fasting_alcohol", "body": ["handbook.fasting_alcohol.1", "handbook.fasting_alcohol.2"] },
     { "id": "alcohol_poisoning", "body": ["handbook.alcohol_poisoning.1", "handbook.alcohol_poisoning.2", "handbook.alcohol_poisoning.3", "handbook.alcohol_poisoning.4"] }

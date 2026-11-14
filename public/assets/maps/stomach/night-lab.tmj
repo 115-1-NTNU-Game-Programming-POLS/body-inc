@@ -10,7 +10,7 @@
  "tilewidth": 32,
  "tileheight": 32,
  "nextlayerid": 4,
- "nextobjectid": 16,
+ "nextobjectid": 17,
  "class": "Room",
  "properties": [
   {
@@ -853,6 +853,30 @@
        "type": "string",
        "propertytype": "Socket",
        "value": "E"
+      }
+     ]
+    },
+    {
+     "id": 16,
+     "name": "chief",
+     "type": "NPC",
+     "x": 400,
+     "y": 304,
+     "width": 0,
+     "height": 0,
+     "rotation": 0,
+     "visible": true,
+     "point": true,
+     "properties": [
+      {
+       "name": "npcId",
+       "type": "string",
+       "value": "stomach"
+      },
+      {
+       "name": "dialogueId",
+       "type": "string",
+       "value": "stomach.chief.night"
       }
      ]
     }

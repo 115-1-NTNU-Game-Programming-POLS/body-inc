@@ -706,9 +706,9 @@ function stepRoom(ctx: ChapterContent, state: ChapterState, input: TickInput): C
     opening = { kind: 'dialogue', id, spent: key };
   };
   /**
-   * The toast boss's concession (design doc 7.7) is owed like a filled port's conversation: asked
-   * for on every tick a given-up toast boss stands in the room until it is shown, since that
-   * conversation is what lets the chapter go on.
+   * A boss's concession (design doc 7.5, 7.7) is owed like a filled port's conversation: asked
+   * for on every tick a given-up boss with a concedeDialogue stands in the room until it is shown,
+   * since that conversation is where his contract is rewritten and what lets the chapter go on.
    */
   const claimConcession = () => {
     if (opening) return;
