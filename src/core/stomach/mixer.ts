@@ -36,7 +36,18 @@ export interface Batch {
   readonly left: number;
   /** A courier's order (core/stomach/orders.ts): digested like any box, but it leaves no parcel behind. */
   readonly order?: true;
+  /** Places the batch takes of the capacity; only a boss delivery sets it (DELIVERY_SLOTS), every other box takes one. */
+  readonly slots?: number;
 }
+
+/**
+ * Places a boss delivery takes of the mixer's capacity (design doc 7.5, stage 2: the large portion is
+ * "2 格大"). A box fed by hand takes one whatever its portion, since the design doc asks for the
+ * doubling only in the boss fight.
+ */
+export const DELIVERY_SLOTS: Readonly<Record<Portion, number>> = { small: 1, normal: 1, large: 2 };
+
+export const slotsUsed = (state: MixerState): number => state.batches.reduce((n, b) => n + (b.slots ?? 1), 0);
 
 export interface MixerState {
   /** In the order they were taken in, which is the order they come out when two finish together. */
@@ -63,6 +74,22 @@ export interface MixerStep {
   readonly mixer: MixerState;
   readonly boxes: readonly BoxState[];
   readonly events: readonly (MixerEvent | MixerMove)[];
+}
+
+/**
+ * A box the stomach boss threw lands on the hopper (design doc 7.5). It is taken in like a fed box
+ * while the mixer has room, and digested like an order: it leaves no parcel. The box after the
+ * capacity makes the mixer protest instead: everything it held is lost with it and the caller raises
+ * the area attack. `id` is an order id, so it cannot clash with a box of the map.
+ */
+export function takeDelivery(
+  state: MixerState, capacity: number, id: number, portion: Portion,
+): { readonly mixer: MixerState; readonly jammed: boolean; readonly count: number } {
+  const slots = DELIVERY_SLOTS[portion];
+  const count = slotsUsed(state) + slots;
+  if (count > capacity) return { mixer: EMPTY_MIXER, jammed: true, count };
+  const batches = [...state.batches, { box: id, portion, left: portionTicks(portion), order: true as const, slots }];
+  return { mixer: { batches }, jammed: false, count };
 }
 
 /** A box's type as drawn now: a parcel or acetaldehyde crate carries its own, a map box takes the map's. */
@@ -119,10 +146,10 @@ export function stepMixer(room: RoomModel, state: MixerState, boxes: readonly Bo
   const fed = all.filter((b) => b.left === 0 && onHopper(room, b) && boxTypeOf(room, b) === 'food').sort((a, b) => a.id - b.id);
   for (const [i, b] of fed.entries()) {
     all = all.filter((x) => x.id !== b.id);
-    if (batches.length < capacity) {
+    if (slotsUsed({ batches }) < capacity) {
       const portion = portionOf(room, b.id);
       batches = [...batches, { box: b.id, portion, left: portionTicks(portion), ...(isOrder(b) ? { order: true as const } : {}) }];
-      events.push({ type: 'mixerFed', object: b.id, mixer: mixer.id, portion, count: batches.length, capacity });
+      events.push({ type: 'mixerFed', object: b.id, mixer: mixer.id, portion, count: slotsUsed({ batches }), capacity });
       continue;
     }
     // Jammed: everything inside, this box and any still on the hopper come back out undigested.

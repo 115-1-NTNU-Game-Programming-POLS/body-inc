@@ -3,6 +3,7 @@ import { isSolid, moveAndCollide } from './collision/grid.ts';
 import { backOff, ENEMY_BODY, enemyCenter, enemyFrom, enemyHurtbox, isBound, isHittable, isMelee, recoverTicksOf, reshield, shieldCovers, stepEnemy, strikeBox, type EnemyState } from './combat/actors.ts';
 import { newBossState, type BossDef, type BossTable, type ToastState } from './combat/bosses/boss.ts';
 import { proposalOpen, stepCaffeine } from './combat/bosses/caffeine.ts';
+import { stepSnack } from './combat/bosses/snack.ts';
 import { breathing, stepToast } from './combat/bosses/toast.ts';
 import type { EnemyTable } from './combat/enemies.ts';
 import { BASE_HALVES, BIND, BOSS, CLING, COURIER, DODGE, ENEMY_HIT_FREEZE, FOLDER, GAUGE, heartCap, HURT, MANAGER, PARRY_BOOST, SALESMAN, STAMP, STAPLER, SUGAR_FOG } from './combat/frames.ts';
@@ -24,8 +25,9 @@ import {
   advanceSlide, beltAt, boxAhead, boxPixel, canEnter, CONVEYOR_TICKS, conveyorRunning, conveyorsOf, conveyorTiles, filledPorts, flowName, flowOf, mixerOf, mixerOutlet,
   coldStoreAt, liveGate, nearest, onPort, portOf, portOpenAt, portTakes, portTicksLeft, PUSH, pushDirection, settleBoxes, startSlide, tileAt, tileBox, withBoxes, type BoxState, type Occupants, type Tile,
 } from './rooms/boxes.ts';
-import { boxTypeOf, EMPTY_MIXER, PORTION_SECONDS, portionOf, stepMixer, type MixerEvent, type MixerState, type Portion } from './stomach/mixer.ts';
-import { isOrder, newOrder, orderSpot } from './stomach/orders.ts';
+import { boxTypeOf, EMPTY_MIXER, PORTION_SECONDS, portionOf, stepMixer, takeDelivery, type MixerEvent, type MixerState, type Portion } from './stomach/mixer.ts';
+import { docksOf, mouthOf } from './stomach/docks.ts';
+import { isOrder, newOrder, orderId, orderSpot } from './stomach/orders.ts';
 import { CHUNK, chunksOf, chunksUnder, withoutChunks } from './stomach/chunks.ts';
 import type { EnteredRoom } from './rooms/entry.ts';
 import { coolDown, cooldownTicks, coolingLeft, startCooling, type Cooling } from './rooms/cooling.ts';
@@ -61,6 +63,8 @@ export interface Projectile {
   readonly damage?: number;
   /** Sent back by a parry: it charges no gauge (the parry already did) and throws no lever. */
   readonly reflected?: true;
+  /** Half the side of the box a parried delivery was, so it is drawn as that box. Its hitbox stays a staple's: it flies straight at the boss. */
+  readonly boxHalf?: number;
 }
 
 /** How a weapon reaches an enemy, for the shield of a manager: where it comes from, and what it can break. */
@@ -225,7 +229,8 @@ export type DomainEvent =
   | { readonly type: 'dodge' }
   /** `assisted` is set when only the automatic-perfect assist made the dodge perfect; it is absent otherwise, so a plain run is unchanged. */
   | { readonly type: 'perfectDodge'; readonly source: number; readonly assisted?: true }
-  | { readonly type: 'telegraph'; readonly source: number; readonly tier: 1 | 2 | 3; readonly move?: string }
+  /** `ticks` is set only when the warning does not last its tier's usual time, so its caption can stay as long. */
+  | { readonly type: 'telegraph'; readonly source: number; readonly tier: 1 | 2 | 3; readonly move?: string; readonly ticks?: number }
   | { readonly type: 'hit'; readonly target: number; readonly enemy: string; readonly hpLeft: number }
   | { readonly type: 'caseClosed'; readonly target: number; readonly enemy: string }
   /** 裝訂: enough staple hits in a row pinned the enemy for BIND.pinTicks. */
@@ -252,11 +257,19 @@ export type DomainEvent =
   | { readonly type: 'bossSummon'; readonly target: number; readonly count: number }
   | { readonly type: 'powerCut'; readonly target: number; readonly seconds: number }
   | { readonly type: 'proposalRejected'; readonly target: number }
+  /** The snack boss threw a box from dock number `dock` (design doc 7.5); the telegraph came before it. */
+  | { readonly type: 'deliveryThrown'; readonly source: number; readonly dock: number }
+  /** A delivery landed on a full mixer (design doc 7.5, 胃抗議): it emptied and raised an area round the hopper at (`x`, `y`). */
+  | { readonly type: 'mixerProtest'; readonly mixer: number; readonly x: number; readonly y: number }
   | { readonly type: 'bossDefeated'; readonly target: number; readonly enemy: string }
   /** The toast boss finished a round and breathes: his weak point (design doc 7.7). */
   | { readonly type: 'bossBreath'; readonly target: number; readonly seconds: number }
   /** The toast boss starts the next round of the song, at a quicker beat (乾杯三巡). */
   | { readonly type: 'bossRound'; readonly target: number; readonly round: 1 | 2 | 3 }
+  /** The stomach boss moved to his second stage; he has a line of his own, unlike the caffeine boss's bossStage. */
+  | { readonly type: 'snackStage'; readonly target: number; readonly stage: 2 }
+  /** A staple or a swing of the folder met the stomach boss: it does nothing, only a box sent back hurts him. */
+  | { readonly type: 'snackShrugged'; readonly target: number }
   /** The toast boss's budget ran out: he is not beaten but gives up toasting (design doc 7.7). */
   | { readonly type: 'bossConceded'; readonly target: number; readonly enemy: string }
   /** The operator stepped onto an unlocked door; the chapter decides where it leads. */
@@ -666,6 +679,7 @@ function bossFactor(e: EnemyState, bosses: Readonly<Record<string, BossDef>>): n
   const b = e.boss;
   if (!b) return 1;
   if (b.behaviour === 'caffeine') return b.review > 0 ? BOSS.reviewDamageFactor : 1;
+  if (b.behaviour !== 'toast') return 1;
   const def = bosses[b.def]!;
   return def.behaviour === 'toast' && breathing(b) ? def.breathDamageFactor : 1;
 }
@@ -1013,6 +1027,14 @@ export function step(state: GameState, pressed: TickInput): StepResult {
         newShots.push(...r.shots);
         continue;
       }
+      if (def.behaviour === 'snack') {
+        const mouth = mouthOf(room);
+        const r = stepSnack(e, def, docksOf(room), mouth ?? target);
+        enemies.set(e.id, r.enemy);
+        events.push(...r.events);
+        newShots.push(...r.shots);
+        continue;
+      }
       const summoned = ordered.filter((x) => x.summoner === e.id).length;
       const r = stepCaffeine(e, { grid, def, target, rng, summoned, summonScale: state.summonScale ?? 1 });
       rng = r.rng;
@@ -1151,6 +1173,8 @@ export function step(state: GameState, pressed: TickInput): StepResult {
   const hitEnemy = (target: EnemyState, amount: number, freeze: number, gain: number, binds = 0, strike?: Strike): void => {
     if (target.archetype === 'cheers') {
       shoo(target);
+    } else if (target.boss?.behaviour === 'snack' && strike?.breaks !== 'reflect') {
+      events.push({ type: 'snackShrugged', target: target.id });
     } else if (target.category === 'immune') {
       events.push({ type: 'immuneBounce', target: target.id, enemy: target.type, solution: target.solution ?? '' });
     } else if (target.category === 'reforming') {
@@ -1370,6 +1394,8 @@ export function step(state: GameState, pressed: TickInput): StepResult {
   };
 
   const movedShots: Shot[] = [];
+  // Deliveries that flew to the end of their range: the mixer takes them in after the loop, in id order.
+  const arrivals: Shot[] = [];
   // A ring is one wave: once any of its shots is refused or lands, the rest of it is spent.
   const settled = new Set<string>();
   const waveKey = (sh: Shot): string | undefined => (sh.wave === undefined ? undefined : `${sh.owner}:${sh.wave}`);
@@ -1379,6 +1405,11 @@ export function step(state: GameState, pressed: TickInput): StepResult {
   };
   for (const sh0 of shots.sort((a, b) => a.id - b.id)) {
     const sh = { ...sh0, x: sh0.x + sh0.vx, y: sh0.y + sh0.vy, ticksLeft: sh0.ticksLeft - 1 };
+    // A delivery that has flown its whole way is at the hopper: dodged through or not, it lands.
+    if (sh.ticksLeft < 0 && sh0.delivery !== undefined) {
+      arrivals.push(sh0);
+      continue;
+    }
     if (sh.ticksLeft < 0 || isSolid(grid, Math.floor(sh.x / TILE), Math.floor(sh.y / TILE))) continue;
     // The pie stops any shot that has come inside it; areas and strikes are not shots and pass.
     if (!sh.spent && pieCovers(pie, op, sh)) {
@@ -1420,9 +1451,12 @@ export function step(state: GameState, pressed: TickInput): StepResult {
           const toOwner = owner ? unit({ x: owner.x - sh.x, y: owner.y - 8 - sh.y }) : { x: 0, y: 0 };
           const back = toOwner.x !== 0 || toOwner.y !== 0 ? toOwner : unit({ x: -sh.vx, y: -sh.vy });
           const speed = Math.hypot(sh.vx, sh.vy);
+          // A box sent back is not a staple with a range: from a far dock it must still reach the one who threw it.
+          const reach = sh.returnDamage !== undefined && owner ? Math.max(STAPLER.rangePx, Math.hypot(owner.x - sh.x, owner.y - 8 - sh.y) + 16) : STAPLER.rangePx;
           flying.push({
-            id: nextId++, x: sh.x, y: sh.y, vx: back.x * speed, vy: back.y * speed, ticksLeft: Math.ceil(STAPLER.rangePx / speed),
-            damage: FOLDER.reflectDamage, reflected: true,
+            id: nextId++, x: sh.x, y: sh.y, vx: back.x * speed, vy: back.y * speed, ticksLeft: Math.ceil(reach / speed),
+            damage: sh.returnDamage ?? FOLDER.reflectDamage, reflected: true,
+            ...(sh.delivery !== undefined ? { boxHalf: sh.half } : {}),
           });
         }
         continue;
@@ -1443,6 +1477,34 @@ export function step(state: GameState, pressed: TickInput): StepResult {
       if (r === 'dodged') { movedShots.push({ ...sh, spent: true }); continue; }
     }
     movedShots.push(sh);
+  }
+
+  // The mixer takes the deliveries in. One box over its capacity makes it protest: it empties and
+  // throws an area round the hopper that warns for a tier-3 telegraph first (design doc 7.5, 胃抗議).
+  let mixerNow = moved.mixer;
+  const hopper = arrivals.length > 0 ? mixerOf(room) : undefined;
+  const mouth = arrivals.length > 0 ? mouthOf(room) : undefined;
+  for (const sh of arrivals) {
+    if (!mixerNow || !hopper || !mouth) break;
+    const boxId = orderId(orderSerial++);
+    const capacity = Number(hopper.props['capacity']);
+    const taken = takeDelivery(mixerNow, capacity, boxId, sh.delivery!);
+    mixerNow = taken.mixer;
+    if (!taken.jammed) {
+      events.push({ type: 'mixerFed', object: boxId, mixer: hopper.id, portion: sh.delivery!, count: taken.count, capacity });
+      continue;
+    }
+    events.push({ type: 'mixerProtest', mixer: hopper.id, x: mouth.x, y: mouth.y });
+    const owner = enemies.get(sh.owner)?.boss;
+    const def = owner ? state.bosses[owner.def] : undefined;
+    if (def?.behaviour !== 'snack') continue;
+    const id = nextId++;
+    zones.set(id, {
+      id, owner: sh.owner, move: 'protest', tier: 3, x: mouth.x, y: mouth.y, radius: def.protest.radius,
+      telegraphTicks: def.protest.telegraphTicks, activeTicks: def.protest.activeTicks, halves: def.protest.halves, age: 1, spent: false,
+    });
+    // Announced as an area and not as tier 3, whose caption says the move can be stamped back; this one cannot.
+    events.push({ type: 'telegraph', source: sh.owner, tier: 2, move: 'protest', ticks: def.protest.telegraphTicks });
   }
 
   for (const z of [...zones.values()].sort((a, b) => a.id - b.id)) {
@@ -1499,7 +1561,7 @@ export function step(state: GameState, pressed: TickInput): StepResult {
   if (sleep) {
     // Anything that lands on the operator wakes them, not only a heart lost: a sleeper cannot dodge, so clinging would otherwise run up to a forced nap.
     const struck = events.some((e) => e.type === 'heartLost' || e.type === 'clung' || e.type === 'toasted' || e.type === 'canTaken' || e.type === 'teaTaken');
-    const r = stepSleep(sleep, moved.mixer?.batches.some((b) => b.left > 0) === true, struck);
+    const r = stepSleep(sleep, mixerNow?.batches.some((b) => b.left > 0) === true, struck);
     sleep = r.sleep;
     events.push(...r.events);
   }
@@ -1516,7 +1578,7 @@ export function step(state: GameState, pressed: TickInput): StepResult {
     ...(pie ? { pie } : {}),
     ...(unload ? { unload } : {}),
     ...(factory ? { factory } : {}),
-    ...(moved.mixer ? { mixer: moved.mixer } : {}),
+    ...(mixerNow ? { mixer: mixerNow } : {}),
     ...(orderSerial > 0 ? { orderSerial } : {}),
     ...(cooling.length > 0 ? { cooling } : {}),
     ...(sleep ? { sleep } : {}),
@@ -1670,13 +1732,13 @@ export function selectPort(s: GameState): {
 /** The room's mixer for drawing it: what it digests, each with the share done, and where parcels come out. */
 export function selectMixer(s: GameState): {
   readonly mixer: RoomObject; readonly capacity: number; readonly outlet: Tile | undefined;
-  readonly batches: readonly { readonly box: number; readonly portion: Portion; readonly done: number }[];
+  readonly batches: readonly { readonly box: number; readonly portion: Portion; readonly done: number; readonly slots: number }[];
 } | undefined {
   const m = mixerOf(s.room);
   if (!m || !s.mixer) return undefined;
   return {
     mixer: m, capacity: Number(m.props['capacity']), outlet: mixerOutlet(s.room),
-    batches: s.mixer.batches.map((b) => ({ box: b.box, portion: b.portion, done: 1 - b.left / (PORTION_SECONDS[b.portion] * TICK_HZ) })),
+    batches: s.mixer.batches.map((b) => ({ box: b.box, portion: b.portion, done: 1 - b.left / (PORTION_SECONDS[b.portion] * TICK_HZ), slots: b.slots ?? 1 })),
   };
 }
 /** The sleep bar for the HUD: the share slept, and whether the operator is up and has to lie down again. */

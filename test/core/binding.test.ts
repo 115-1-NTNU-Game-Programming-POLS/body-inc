@@ -118,7 +118,7 @@ describe('binding (裝訂, design doc 8.8)', () => {
   });
 
   it('never pins a boss: his hit-stop is none, and the run goes on without a pin', () => {
-    const bosses = loadBossTable([JSON.parse(readFileSync('content/bosses/caffeine.json', 'utf8')), JSON.parse(readFileSync('content/bosses/toast.json', 'utf8'))], TABLE, PARAMS);
+    const bosses = loadBossTable([JSON.parse(readFileSync('content/bosses/caffeine.json', 'utf8')), JSON.parse(readFileSync('content/bosses/toast.json', 'utf8')), JSON.parse(readFileSync('content/bosses/snack.json', 'utf8'))], TABLE, PARAMS);
     const home = { x: 320, y: 168 };
     const g = createGame(room([{ type: 'caffeine', ...home }]), 1, TABLE, { bosses });
     const arena = { ...g, operator: { ...g.operator, x: home.x, y: home.y + 4 * TILE, aim: { x: 0, y: -1 } } };

@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { unloadBox, zoneFill, type GameState, type Shot } from '../../core/index.ts';
+import { DELIVERY_HALF, unloadBox, zoneFill, type GameState, type Shot } from '../../core/index.ts';
 import { dashedCircle } from './telegraph.ts';
 
 const RED = 0xc8372d;
@@ -14,7 +14,8 @@ const SHOT_TEXTURES: Readonly<Record<string, string>> = { cup: 'fx-shot-cup', sh
  * Tier-2 areas and thrown shots, drawn from core state each frame. A tier-2 area is the
  * attack's real shape: a dashed red outline at full size from the first tick and 45-degree red
  * hatching that fills from the rim inward, complete on the tick it goes live (art direction
- * 9.2). Tier-3 areas are not drawn on the ground; their warning is the proposal on the boss.
+ * 9.2). Tier-3 areas are not drawn on the ground, since their warning is the proposal on the boss;
+ * the mixer's protest is the exception, as it is centred on the hopper and not on a boss.
  */
 export class HazardView {
   private readonly scene: Phaser.Scene;
@@ -30,7 +31,8 @@ export class HazardView {
   render(prev: GameState, cur: GameState, alpha: number): void {
     const g = this.ground.clear();
     for (const z of cur.zones) {
-      if (z.tier !== 2) continue;
+      // The mixer's protest is a tier-3 move, but its centre is the hopper and not the boss, so it has no proposal to warn by: it is drawn on the ground.
+      if (z.tier !== 2 && z.move !== 'protest') continue;
       dashedCircle(g, z.x, z.y, z.radius, RED);
       const inner = z.radius * (1 - zoneFill(z));
       hatchRing(g, z.x, z.y, z.radius, inner);
@@ -57,7 +59,8 @@ export class HazardView {
       const x = q.x + (s.x - q.x) * alpha;
       const y = q.y + (s.y - q.y) * alpha;
       // Lifted like staples: the core position is the shadow on the ground plane.
-      img.setPosition(Math.round(x), Math.round(y - 12)).setDepth(y).setAlpha(s.spent ? 0.5 : 1);
+      // A delivery is drawn as large as its hitbox: the default sheet shows the normal box.
+      img.setPosition(Math.round(x), Math.round(y - 12)).setDepth(y).setAlpha(s.spent ? 0.5 : 1).setScale(s.delivery ? s.half / DELIVERY_HALF.normal : 1);
     }
     for (const [id, img] of this.shots) {
       if (alive.has(id)) continue;

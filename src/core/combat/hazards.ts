@@ -1,4 +1,5 @@
 import { centeredBox, type Box } from '../collision/boxes.ts';
+import type { Portion } from '../stomach/mixer.ts';
 
 /**
  * Enemy attacks that outlive the tick they start on. A shot is a thrown object (flyer sheet,
@@ -24,6 +25,14 @@ export interface Shot {
    * or the sugar salesman's tea (7.5). The guard still catches it, and a dodge refuses it.
    */
   readonly drink?: Drink;
+  /**
+   * A food box the stomach boss threw at the mixer (design doc 7.5). It flies to the hopper and, once
+   * `ticksLeft` has run out, is taken in there unless something stopped it on the way: the operator's
+   * guard, a wall or a hit. Dodged through, it still lands.
+   */
+  readonly delivery?: Portion;
+  /** A delivery the folder's parry sends back takes this much off the boss instead of the folder's own reflect damage. */
+  readonly returnDamage?: number;
   /** The shots of one ring share this, so the ring lands at most one cup or one refusal however many of it touch the operator. */
   readonly wave?: number;
   /** Half the side of the shot's box. */

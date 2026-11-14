@@ -14,6 +14,7 @@ import { compileCondition } from '../../src/core/tags/dictionary.ts';
 const PARAMS_C = JSON.parse(readFileSync('content/params.json', 'utf8')).defaults as CaffeineParams;
 const RAW = JSON.parse(readFileSync('content/bosses/toast.json', 'utf8'));
 const CAFFEINE_RAW = JSON.parse(readFileSync('content/bosses/caffeine.json', 'utf8'));
+const SNACK_RAW = JSON.parse(readFileSync('content/bosses/snack.json', 'utf8'));
 const DEF = BOSSES.get('toast') as ToastDef;
 const HOME = { x: 320, y: 168 };
 /** Four tiles straight below him, so the aimed shot of each ring comes straight down. */
@@ -76,7 +77,7 @@ describe('the toast boss definition (design doc 7.7)', () => {
   const load = (edit: (raw: typeof RAW) => void, caffeine = CAFFEINE_RAW) => {
     const raw = structuredClone(RAW);
     edit(raw);
-    return () => loadBossTable([caffeine, raw], ENEMIES, PARAMS_C);
+    return () => loadBossTable([caffeine, raw, SNACK_RAW], ENEMIES, PARAMS_C);
   };
 
   it('loads the song in ticks: three rounds quickening, a 3 s breath, a ring of twelve', () => {

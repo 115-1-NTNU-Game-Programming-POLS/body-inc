@@ -183,14 +183,15 @@ export class Mechanisms {
 
   /**
    * One slot per box the mixer can hold, above the hopper: an empty slot is an outline, a full one
-   * fills from the left as the box is digested. Redrawn in sixteenths, so not on every tick.
+   * fills from the left as the box is digested. A boss's large portion takes two slots and fills
+   * across both. Redrawn in sixteenths, so not on every tick.
    */
   private renderMixer(state: GameState): void {
     const m = selectMixer(state);
     const v = this.mixer;
     if (!m || !v) return;
     const steps = m.batches.map((b) => Math.floor(b.done * 16));
-    const key = `${m.capacity}|${steps.join(',')}`;
+    const key = `${m.capacity}|${steps.join(',')}|${m.batches.map((b) => b.slots).join(',')}`;
     if (v.drawn === key) return;
     v.drawn = key;
     const b = objectBox(v.o);
@@ -199,10 +200,19 @@ export class Mechanisms {
     const left = (b.left + b.right) / 2 - (m.capacity * w + (m.capacity - 1) * gap) / 2;
     const g = v.gauge.clear();
     for (let i = 0; i < m.capacity; i++) {
-      const x = left + i * (w + gap);
-      g.fillStyle(PAPER, 0.9).fillRect(x, b.top - 12, w, 8);
-      if (i < steps.length) g.fillStyle(BLUE).fillRect(x, b.top - 12, (w * steps[i]!) / 16, 8);
-      g.lineStyle(1.5, INK, 1).strokeRect(x, b.top - 12, w, 8);
+      g.fillStyle(PAPER, 0.9).fillRect(left + i * (w + gap), b.top - 12, w, 8);
+      g.lineStyle(1.5, INK, 1).strokeRect(left + i * (w + gap), b.top - 12, w, 8);
+    }
+    // A batch is a bar over the slots it takes, from the first free slot on.
+    let at = 0;
+    for (const [i, batch] of m.batches.entries()) {
+      const span = Math.min(batch.slots, m.capacity - at);
+      if (span <= 0) break;
+      const x = left + at * (w + gap);
+      const full = span * w + (span - 1) * gap;
+      g.fillStyle(BLUE).fillRect(x, b.top - 12, (full * steps[i]!) / 16, 8);
+      g.lineStyle(1.5, INK, 1).strokeRect(x, b.top - 12, full, 8);
+      at += span;
     }
   }
 
