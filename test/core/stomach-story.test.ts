@@ -7,6 +7,8 @@ import {
   type ChapterContent, type ChapterState, type GameEvent, type TickInput, type TiledMap,
 } from '../../src/core/index.ts';
 import { compileCondition } from '../../src/core/tags/dictionary.ts';
+import { STAMP } from '../../src/core/combat/frames.ts';
+import type { SnackDef } from '../../src/core/combat/bosses/boss.ts';
 
 /**
  * The stomach chapter's story layer (design doc 7.5): the intro, the logistics chief who unlocks
@@ -22,6 +24,7 @@ const STOMACH: ChapterContent = {
   rooms: new Map(roomsOf(CHAPTER).map((p) => [p, parseRoom(p, loadMap(p), TAGS)])),
   dialogues: DIALOGUES, dict: TAGS, enemies: ENEMIES, bosses: BOSSES, params: PARAMS, rescues: RESCUES,
 };
+const SNACK = BOSSES.get('snack') as SnackDef;
 const tags = (q: string) => tagsFromQuery(`?tags=${q}`, TAGS);
 const has = (s: ChapterState, cond: string) => holds(s.run.tags, TAGS, compileCondition(TAGS, cond));
 
@@ -138,8 +141,30 @@ describe('the snack boss gives up (design doc 7.5)', () => {
     const talked = talk(first.state);
     expect(has(talked.state, 'snack_settled')).toBe(true);
     expect(unlockedPages(talked.events)).toEqual(['eating_before_sleep']);
+    expect(talked.said[0]).toContain('你很累是真的啊');
+    // He admits the reasonable use himself (design doc 11.2), before the sign says it.
+    expect(talked.said.at(-2)).toContain('偶爾跟室友吃宵夜是社交');
     expect(talked.said.at(-1)).toContain('室友聚會照常歡迎');
     expect(go(talked.state, NONE, 5).state.dialogue).toBeNull();
+  });
+
+  it('the stamp that closes his case in the lights out is what opens it', () => {
+    const s0 = at(ARENA);
+    const sleepy = s0.game.enemies.map((e) => (e.boss?.behaviour === 'snack'
+      ? { ...e, hp: SNACK.stage3.budget, boss: { ...e.boss, stage: 3 as const, sleep: { slept: SNACK.stage3.sleepTicks, hold: 0, wakes: 0 } } }
+      : e));
+    const ready: ChapterState = { ...s0, game: { ...s0.game, enemies: sleepy, operator: { ...s0.game.operator, x: 320, y: 184, gauge: STAMP.gaugeMax } } };
+    const events: GameEvent[] = [];
+    let s = ready;
+    for (let i = 0; i < 30 && !s.dialogue; i++) {
+      const r = stepChapter(STOMACH, s, { ...NONE, stampPressed: i === 0 });
+      s = r.state;
+      events.push(...r.events);
+    }
+    const types = events.map((e) => e.type);
+    expect(types).toContain('bossDefeated');
+    expect(types.indexOf('dialogueOpened')).toBeGreaterThan(types.indexOf('bossDefeated'));
+    expect(s.dialogue?.id).toBe('stomach.snack.concede');
   });
 
   it('every way through his replies ends on the same contract', () => {
