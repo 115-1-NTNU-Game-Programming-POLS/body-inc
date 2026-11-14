@@ -1,4 +1,5 @@
 import caffeineJson from '../../content/bosses/caffeine.json';
+import snackJson from '../../content/bosses/snack.json';
 import toastJson from '../../content/bosses/toast.json';
 import brainChapter from '../../content/chapters/brain.json';
 import greyboxChapter from '../../content/chapters/greybox.json';
@@ -45,7 +46,7 @@ export const fillStr = (key: string, values: Readonly<Record<string, string | nu
   Object.entries(values).reduce((s, [k, v]) => s.replaceAll(`{${k}}`, String(v)), str(key));
 export const PARAMS = readContent('params', paramsJson).defaults;
 /** Every file in content/bosses. One left out stops startup: its enemy then names a boss with no file. */
-export const BOSS_FILES: readonly unknown[] = [caffeineJson, toastJson];
+export const BOSS_FILES: readonly unknown[] = [caffeineJson, toastJson, snackJson];
 export const BOSSES: BossTable = loadBossTable(BOSS_FILES, ENEMIES, PARAMS);
 
 /** Every file in content/exams, found by pattern; check-content words the problems this load throws on. */

@@ -49,7 +49,14 @@ export class BossView implements ActorFx {
     this.flashUntil = now + ticks;
   }
 
-  bounce(): void {}
+  bounce(): void {
+    if (this.gone) return;
+    // Held fire bounces faster than the squash lasts; restart from scale 1 so overlapping tweens cannot leave him shrunk.
+    const tweens = this.scene.tweens;
+    tweens.killTweensOf(this.sprite);
+    this.sprite.setScale(1);
+    tweens.add({ targets: this.sprite, scaleX: 0.92, scaleY: 0.92, duration: 100, yoyo: true });
+  }
 
   /** Budget at zero: he shrinks to 0.6 and slides out sideways (art direction 5.5). */
   closeOut(): void {
@@ -88,6 +95,10 @@ export class BossView implements ActorFx {
     }
     const b = cur.boss;
     const p = prev ?? cur;
+    if (b.behaviour === 'snack' || def.behaviour === 'snack') {
+      this.renderSnack(p, cur, alpha, tick);
+      return;
+    }
     if (b.behaviour === 'toast' || def.behaviour === 'toast') {
       this.renderToast(p, cur, alpha, tick);
       return;
@@ -144,6 +155,26 @@ export class BossView implements ActorFx {
       if (b.stunned > 0) this.sprite.setTint(0x9aa0ab);
       else this.sprite.clearTint();
     }
+  }
+
+  /**
+   * The snack boss stands and calls the docks: the bubble and the tier-1 flash before each box,
+   * and the surprised pose once he is beaten. He wears the toast boss's art until he has his own.
+   */
+  private renderSnack(p: Readonly<EnemyState>, cur: Readonly<EnemyState>, alpha: number, tick: number): void {
+    const b = cur.boss;
+    if (b?.behaviour !== 'snack') return;
+    const x = Math.round(p.x + (cur.x - p.x) * alpha);
+    const y = Math.round(p.y + (cur.y - p.y) * alpha);
+    this.sprite.setPosition(x, y).setDepth(y);
+    this.marks.clear();
+    const telegraphing = b.move !== null && cur.phase !== 'closed';
+    this.bubble.setVisible(telegraphing).setPosition(x, y - this.entry.frame[1] + 4);
+    if (cur.phase === 'closed') this.pose('surprised_down');
+    else if (telegraphing) this.pose('wave_down');
+    else this.pose('idle_down', true);
+    const warning = warningAt(telegraphing, telegraphing ? b.move!.frame - 1 : 0);
+    if (!this.flasher.paint(tick < this.flashUntil, warning, tick)) this.sprite.clearTint();
   }
 
   /**

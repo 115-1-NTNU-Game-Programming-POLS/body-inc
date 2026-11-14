@@ -106,7 +106,9 @@ export class FeedbackPlayer {
     const fb = this.table.events[event.type];
     if (!fb) return;
     const enemy = 'target' in event ? this.targets.enemy(event.target) : undefined;
-    const at = enemy
+    const at = fb.atEvent && 'x' in event
+      ? { x: event.x, y: event.y }
+      : enemy
       ? { x: enemy.sprite.x, y: enemy.sprite.y - (enemy.effectLift ?? 12) }
       : { x: this.targets.operator.position.x, y: this.targets.operator.position.y - 20 };
 

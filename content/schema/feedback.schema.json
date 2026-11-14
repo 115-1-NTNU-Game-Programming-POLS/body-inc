@@ -61,6 +61,7 @@
         },
         "bounce": { "type": "boolean" },
         "closeOut": { "type": "boolean" },
+        "atEvent": { "description": "Draw the particles and the note at the event's own x and y, for an event that happens somewhere other than at an enemy or the operator.", "type": "boolean" },
         "note": { "description": "Key into content/strings; \"{field}\" is filled from the event.", "type": "string", "minLength": 1 },
         "sound": { "description": "A cue of content/audio.json; \"{field}\" is filled from the event, as in a note.", "type": "string", "minLength": 1 }
       }

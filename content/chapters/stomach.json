@@ -7,6 +7,7 @@
   "caseDrops": { "sugar_seller": "sugar_fatigue" },
   "links": [
     { "a": "stomach/mixer-lab#door-e", "b": "stomach/sorting-lab#door-w" },
-    { "a": "stomach/sorting-lab#door-e", "b": "stomach/night-lab#door-w" }
+    { "a": "stomach/sorting-lab#door-e", "b": "stomach/night-lab#door-w" },
+    { "a": "stomach/night-lab#door-e", "b": "stomach/boss-arena#door-w" }
   ]
 }

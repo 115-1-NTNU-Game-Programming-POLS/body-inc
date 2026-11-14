@@ -45,7 +45,7 @@
 | `reform` | 重組：倒過來的散開聲，輕輕漸強的氣音，中間冒出幾顆往上滑的泡泡聲 | `reformed` |
 | `respawn` | 重生：一聲紙張的沙，接兩個不高的上行音，比換文具低 | `respawned` |
 | `bump` | 撞牆：一聲輕的悶響，只在剛碰到牆時響一次 | `bumpWall` |
-| `boing` | 彈開 | `immuneBounce`, `backedOff` |
+| `boing` | 彈開 | `immuneBounce`, `backedOff`, `snackShrugged` |
 | `nope` | 不行：兩個下行短音 | `stampVoid`, `handsFull`, `switchCooling` |
 | `heart` | 受擊的低音：失去一顆心，或在考試裡被打中 | `heartLost`, `examHit` |
 | `tick` | 時鐘的滴答，有字幕；見下節 | 剩一顆心時由場景每秒播一次 |
@@ -59,7 +59,7 @@
 | `locked` | 門鎖住的兩聲；限時閘門關上時也用它，因為閘門關上就是一扇鎖住的門 | `doorLocked`, `portClosed` |
 | `pick` | 撿起東西的上行音 | `canTaken`, `teaTaken`, `pickedUp`, `parcelOut` |
 | `click` | 開關 | `switchChanged` |
-| `thunk` | 箱子或貨物落位 | `boxDelivered`, `boxChilled`, `portFilled`, `crateTaken`, `mixerFed`, `orderThrown` |
+| `thunk` | 箱子或貨物落位 | `boxDelivered`, `boxChilled`, `portFilled`, `crateTaken`, `mixerFed`, `orderThrown`, `deliveryThrown` |
 | `punch` | 打卡 | `checkpointSaved` |
 | `unlock` | 解鎖：四個上行音 | `handbookUnlocked`, `toolGranted`, `bonusShown`, `portOpened`, `chunkDissolved` |
 | `card` | 翻開卡牌 | `cardOpened` |
@@ -71,12 +71,12 @@
 | `exam.time` | 時間到：兩個下行短音 | `examAnswered`，`how` 為 `time` |
 | `exam.stacks` | 腺苷黏滿，本題失敗：兩個下行短音 | `examAnswered`，`how` 為 `stacks` |
 | `done` | 完成：四個上行音 | `rescueDone`, `examResult`, `bossDefeated`, `bossConceded` |
-| `bad` | 失敗：三個下行音 | `bedRefused`, `mixerJammed` |
+| `bad` | 失敗：三個下行音 | `bedRefused`, `mixerJammed`, `mixerProtest` |
 | `proof.true` | 證明為真的蓋章加上行雙音 | `proofStamped`（`ok` 為真） |
 | `proof.false` | 證明為假的蓋章加下行雙音 | `proofStamped`（`ok` 為假） |
 | `blip` | 對話的短嗶 | `talk`, `dialogueOpened`；對話逐句前進時由對話畫面播放（見下方介面音效） |
 | `gulp` | Boss 喝飲料 | `bossDrink` |
-| `stage` | Boss 換階段或換回合的三個音 | `bossStage`, `bossRound` |
+| `stage` | Boss 換階段或換回合的三個音 | `bossStage`, `bossRound`, `snackStage` |
 | `powerdown` | 斷電 | `powerCut` |
 | `woke.mixer` | 鬧鐘：高低交替的四聲方波短嗶，胃的攪拌機在睡眠中響起的警報 | `sleepInterrupted`（cause 為 `mixer`） |
 | `woke.hurt` | 驚醒：一聲短促上揚的三角波，挨打的受傷音之外只提示「醒了」，不放鬧鐘 | `sleepInterrupted`（cause 為 `hurt`） |
