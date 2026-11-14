@@ -231,7 +231,7 @@ function problemMessage(p: RoomProblem): string {
     case 'dock-wall': return '外送口（Dock）的中心是牆或在地圖外；箱子會從牆裡出發，請移到地板上';
     case 'dock-path': return '外送口到攪拌機投料口中心的直線上有牆；從這個外送口丟出的每個箱子都會撞牆消失，請移開外送口或把牆讓出來';
     case 'dock-box': return '外送口到攪拌機投料口中心的直線上有推箱子（Box）；箱子被推開之前，從這個外送口丟出的每個箱子都會撞上它消失，請移開推箱子或外送口';
-    case 'dock-return': return '外送口的飛行路線上，沒有任何一點能以直線看到部長；從這個外送口丟出的箱子退件時都會撞牆，打不到他，請移開牆或調整外送口與部長的位置';
+    case 'dock-return': return '外送口的飛行路線上，沒有任何一點能以直線看到部長；從這個外送口丟出的箱子退件時都會撞上牆或推箱子，打不到他，請移開它們或調整外送口與部長的位置';
     case 'courier-factory': return '宵夜外送員（enemyType 為 courier 的 Spawn）不能放在有產線（Line）的房間；他的訂單箱會被工廠當成乙醛箱';
     case 'port-parcel': return '調度口的 accepts 是 parcel（只收小包裹），但房間裡沒有攪拌機（Mixer）做小包裹，永遠收不滿';
     case 'slot-count': return `證據牆的${slotCell(String(a['cell']))}要剛好 ${a['want']} 個槽（EvidenceSlot），order 從 1 排到 ${a['want']}，目前有 ${a['have']} 個`;

@@ -184,7 +184,7 @@ export type RoomProblemCode =
   | 'dock-path'
   /** A pushable Box on that line: it is solid in the game, so every box thrown from the Dock is lost until the Box is pushed away. */
   | 'dock-box'
-  /** No point of a Dock's flight line has a clear line to the snack boss, so a box from that Dock can never be parried back into him. */
+  /** No point of a Dock's flight line has a line to the snack boss clear of walls and pushable Boxes, so a box from that Dock can never be parried back into him. */
   | 'dock-return'
   /** A nap bed with `sleepSeconds` set: only a sleep bed has a sleep bar, so the number is never read. */
   | 'bed-seconds'
@@ -515,6 +515,9 @@ export function readRoom(id: string, map: TiledMap, dict: TagDictionary): ReadRe
     problems.push({ code: 'mixer-capacity', object: mixers[0]!.id, args: { capacity: Number(mixers[0]!.props['capacity']), need: DELIVERY_SLOTS.large } });
   }
   const mouth = mixers.length > 0 ? mouthOf({ objects: [mixers[0]!] }) : undefined;
+  // A pushable Box is solid in the game too: it stops a delivery, or a parried box, until someone pushes it away.
+  const crates = new Set(boxes.map((b) => { const t = tileOf(b); return `${t.col},${t.row}`; }));
+  const crate = (col: number, row: number) => crates.has(`${col},${row}`);
   for (const d of docks) {
     if (d.variant !== undefined) { problems.push({ code: 'dock-variant', object: d.id }); continue; }
     const { x, y } = dockCentre(d);
@@ -523,15 +526,13 @@ export function readRoom(id: string, map: TiledMap, dict: TagDictionary): ReadRe
     const dockAt = { x, y };
     const wall = (col: number, row: number) => isSolid(grid, col, row);
     if (lineMeets(dockAt, mouth, wall)) { problems.push({ code: 'dock-path', object: d.id }); continue; }
-    // A pushable Box is solid in the game too, so it stops every delivery until someone pushes it off the line.
-    const crates = new Set(boxes.map((b) => { const t = tileOf(b); return `${t.col},${t.row}`; }));
-    if (lineMeets(dockAt, mouth, (col, row) => crates.has(`${col},${row}`))) problems.push({ code: 'dock-box', object: d.id });
+    if (lineMeets(dockAt, mouth, crate)) problems.push({ code: 'dock-box', object: d.id });
     if (!snack) continue;
     // A parried box flies straight at him from where it was caught, aimed 8 px above his feet as in the game; his only ordinary damage must be reachable from each lane.
     const aim = { x: snack.x, y: snack.y - 8 };
     const samples = Math.ceil(Math.hypot(mouth.x - x, mouth.y - y) / RETURN_SAMPLE_PX);
     const returnable = Array.from({ length: samples + 1 }, (_, i) => i / Math.max(samples, 1))
-      .some((f) => !lineMeets({ x: x + (mouth.x - x) * f, y: y + (mouth.y - y) * f }, aim, wall));
+      .some((f) => !lineMeets({ x: x + (mouth.x - x) * f, y: y + (mouth.y - y) * f }, aim, (col, row) => wall(col, row) || crate(col, row)));
     if (!returnable) problems.push({ code: 'dock-return', object: d.id });
   }
   for (const m of mixers) {

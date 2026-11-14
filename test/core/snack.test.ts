@@ -382,7 +382,7 @@ describe('the mixer takes in a delivery and protests at one too many', () => {
     const r = run(landing(full(4)), 1);
     expect(ofType(r, 'mixerFed')).toEqual([]);
     expect(ofType(r, 'mixerProtest')).toMatchObject([{ x: 320, y: 240 }]);
-    expect(ofType(r, 'telegraph')).toMatchObject([{ tier: 2, move: 'protest', source: boss(r.state).id }]);
+    expect(ofType(r, 'telegraph')).toMatchObject([{ tier: 2, move: 'protest', source: boss(r.state).id, ticks: 84 }]);
     expect(r.state.mixer!.batches).toEqual([]);
     expect(r.state.zones).toHaveLength(1);
     expect(r.state.zones[0]).toMatchObject({ move: 'protest', tier: 3, x: 320, y: 240, radius: 3 * TILE, telegraphTicks: 84, activeTicks: 8, halves: 2, owner: boss(r.state).id, age: 1, spent: false });
@@ -686,6 +686,14 @@ describe('the map check (Dock)', () => {
     for (let col = 9; col <= 11; col++) for (let row = 3; row <= 5; row++) if (col !== 10 || row !== 4) ring.push([col, row]);
     expect(codes(mapOf([boss, mixer, dock(4, 2, 4)], ring))).toEqual(['dock-return']);
     expect(codes(mapOf([boss, mixer, dock(4, 2, 4)], [[9, 4]]))).toEqual([]);
+  });
+
+  it('counts pushable Boxes round the boss as blocking a return, as the game does', () => {
+    const crates = [];
+    for (let col = 9; col <= 11; col++) for (let row = 3; row <= 5; row++) {
+      if (col !== 10 || row !== 4) crates.push({ id: 10 + crates.length, type: 'Box', x: col * TILE + 8, y: row * TILE + 8, properties: [p('boxType', 'glucose')] });
+    }
+    expect(codes(mapOf([boss, mixer, dock(4, 2, 4), ...crates]))).toEqual(['dock-return']);
   });
 
   it('sees a wall corner the line only clips: a box flying 5 tiles a second would be lost on it', () => {

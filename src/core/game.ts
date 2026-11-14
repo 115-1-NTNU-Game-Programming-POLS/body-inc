@@ -229,7 +229,8 @@ export type DomainEvent =
   | { readonly type: 'dodge' }
   /** `assisted` is set when only the automatic-perfect assist made the dodge perfect; it is absent otherwise, so a plain run is unchanged. */
   | { readonly type: 'perfectDodge'; readonly source: number; readonly assisted?: true }
-  | { readonly type: 'telegraph'; readonly source: number; readonly tier: 1 | 2 | 3; readonly move?: string }
+  /** `ticks` is set only when the warning does not last its tier's usual time, so its caption can stay as long. */
+  | { readonly type: 'telegraph'; readonly source: number; readonly tier: 1 | 2 | 3; readonly move?: string; readonly ticks?: number }
   | { readonly type: 'hit'; readonly target: number; readonly enemy: string; readonly hpLeft: number }
   | { readonly type: 'caseClosed'; readonly target: number; readonly enemy: string }
   /** 裝訂: enough staple hits in a row pinned the enemy for BIND.pinTicks. */
@@ -1503,7 +1504,7 @@ export function step(state: GameState, pressed: TickInput): StepResult {
       telegraphTicks: def.protest.telegraphTicks, activeTicks: def.protest.activeTicks, halves: def.protest.halves, age: 1, spent: false,
     });
     // Announced as an area and not as tier 3, whose caption says the move can be stamped back; this one cannot.
-    events.push({ type: 'telegraph', source: sh.owner, tier: 2, move: 'protest' });
+    events.push({ type: 'telegraph', source: sh.owner, tier: 2, move: 'protest', ticks: def.protest.telegraphTicks });
   }
 
   for (const z of [...zones.values()].sort((a, b) => a.id - b.id)) {
