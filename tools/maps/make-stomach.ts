@@ -34,6 +34,11 @@ const int = (name: string, value: number) => ({ name, type: 'int', value });
 const obj = (name: string, value: number) => ({ name, type: 'object', value });
 const rect = (id: number, name: string, type: string, col: number, row: number, cols: number, rows: number, properties: object[]) =>
   ({ id, name, type, x: col * T, y: row * T, width: cols * T, height: rows * T, rotation: 0, visible: true, properties });
+/** The logistics chief (design doc 7.5), one in each lab, with that lab's conversation; see stomach.csv. */
+const chief = (id: number, lab: string, col: number, row: number) => ({
+  id, name: 'chief', type: 'NPC', x: col * T + 16, y: row * T + 16, width: 0, height: 0, rotation: 0, visible: true, point: true,
+  properties: [str('npcId', undefined, 'stomach'), str('dialogueId', undefined, `stomach.chief.${lab}`)],
+});
 const food = (id: number, col: number, row: number, portion: string) => ({
   id, name: `food-${portion}`, type: 'Box', x: col * T + 16, y: row * T + 16, width: 0, height: 0, rotation: 0, visible: true, point: true,
   properties: [str('boxType', 'BoxType', 'food'), str('portion', 'Portion', portion)],
@@ -41,7 +46,7 @@ const food = (id: number, col: number, row: number, portion: string) => ({
 
 writeRoom('stomach/mixer-lab.tmj', {
   type: 'map', version: '1.10', tiledversion: '1.11.0', orientation: 'orthogonal', renderorder: 'right-down',
-  infinite: false, width: W, height: 12, tilewidth: T, tileheight: T, nextlayerid: 4, nextobjectid: 18, class: 'Room',
+  infinite: false, width: W, height: 12, tilewidth: T, tileheight: T, nextlayerid: 4, nextobjectid: 19, class: 'Room',
   properties: [
     { name: 'organ', type: 'string', value: 'stomach' },
     { name: 'role', type: 'string', value: 'puzzle' },
@@ -82,6 +87,8 @@ writeRoom('stomach/mixer-lab.tmj', {
         // Greybox: the large-portion salesman of design doc 7.5 (the manager archetype, shield and all) in the south-east corner.
         { id: 17, name: 'large-seller', type: 'Spawn', x: 17 * T + 16, y: 9 * T + 16, width: 0, height: 0, rotation: 0, visible: true, point: true,
           properties: [str('enemyType', 'EnemyType', 'large_seller')] },
+        // Off every box's lane and the sellers' corner.
+        chief(18, 'mixer', 11, 9),
       ],
     },
   ],
@@ -103,7 +110,7 @@ const belt = (id: number, name: string, col: number, row: number, cols: number, 
 // is already running on entry.
 writeRoom('stomach/sorting-lab.tmj', {
   type: 'map', version: '1.10', tiledversion: '1.11.0', orientation: 'orthogonal', renderorder: 'right-down',
-  infinite: false, width: W, height: 12, tilewidth: T, tileheight: T, nextlayerid: 4, nextobjectid: 21, class: 'Room',
+  infinite: false, width: W, height: 12, tilewidth: T, tileheight: T, nextlayerid: 4, nextobjectid: 22, class: 'Room',
   properties: [
     { name: 'organ', type: 'string', value: 'stomach' },
     { name: 'role', type: 'string', value: 'puzzle' },
@@ -141,6 +148,8 @@ writeRoom('stomach/sorting-lab.tmj', {
         belt(18, 'slow-c', 18, 9, 1, 2, 'N', 'slow'),
         belt(19, 'slow-d', 13, 8, 6, 1, 'W', 'slow'),
         belt(20, 'slow-e', 12, 7, 1, 2, 'N', 'slow'),
+        // Up in the open floor by the levers, clear of the belts below.
+        chief(21, 'sorting', 14, 4),
       ],
     },
   ],
@@ -149,7 +158,7 @@ writeRoom('stomach/sorting-lab.tmj', {
 
 writeRoom('stomach/night-lab.tmj', {
   type: 'map', version: '1.10', tiledversion: '1.11.0', orientation: 'orthogonal', renderorder: 'right-down',
-  infinite: false, width: W, height: 12, tilewidth: T, tileheight: T, nextlayerid: 4, nextobjectid: 16, class: 'Room',
+  infinite: false, width: W, height: 12, tilewidth: T, tileheight: T, nextlayerid: 4, nextobjectid: 17, class: 'Room',
   properties: [
     { name: 'organ', type: 'string', value: 'stomach' },
     { name: 'role', type: 'string', value: 'puzzle' },
@@ -181,6 +190,8 @@ writeRoom('stomach/night-lab.tmj', {
         rect(14, 'chunk-west', 'Chunk', 16, 3, 1, 2, []),
         // The way on to the boss arena, open from the start: the lab has no rule that gates it yet.
         rect(15, 'door-e', 'Door', 19, 6, 1, 2, [str('socket', 'Socket', 'E')]),
+        // West of the bed; row 10 still leads a box past him to the cold store.
+        chief(16, 'night', 12, 9),
       ],
     },
   ],
