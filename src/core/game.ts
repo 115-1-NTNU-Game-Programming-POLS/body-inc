@@ -25,7 +25,7 @@ import {
   advanceSlide, beltAt, boxAhead, boxPixel, canEnter, CONVEYOR_TICKS, conveyorRunning, conveyorsOf, conveyorTiles, filledPorts, flowName, flowOf, mixerOf, mixerOutlet,
   coldStoreAt, liveGate, nearest, onPort, portOf, portOpenAt, portTakes, portTicksLeft, PUSH, pushDirection, settleBoxes, startSlide, tileAt, tileBox, withBoxes, type BoxState, type Occupants, type Tile,
 } from './rooms/boxes.ts';
-import { boxTypeOf, EMPTY_MIXER, PORTION_SECONDS, portionOf, stepMixer, takeDelivery, type MixerEvent, type MixerState, type Portion } from './stomach/mixer.ts';
+import { boxTypeOf, EMPTY_MIXER, isDelivery, PORTION_SECONDS, portionOf, stepMixer, takeDelivery, type MixerEvent, type MixerState, type Portion } from './stomach/mixer.ts';
 import { docksOf, mouthOf } from './stomach/docks.ts';
 import { isOrder, newOrder, orderId, orderSpot } from './stomach/orders.ts';
 import { CHUNK, chunksOf, chunksUnder, withoutChunks } from './stomach/chunks.ts';
@@ -700,6 +700,11 @@ function damage(e: EnemyState, amount: number, freeze: number, events: DomainEve
   // Before his lights out the stomach boss holds at its budget, so every fight reaches the stage the stamp ends.
   const floor = def?.behaviour === 'snack' && e.boss?.behaviour === 'snack' ? snackFloor(def, e.boss) : 0;
   const hp = Math.max(floor, Math.round((e.hp - amount * bossFactor(e, bosses)) * 1e6) / 1e6);
+  // Already at the floor, waiting for a telegraph to finish before his next stage: the blow takes nothing, so it is no hit.
+  if (floor > 0 && amount > 0 && hp >= e.hp) {
+    events.push({ type: 'snackShrugged', target: e.id });
+    return e;
+  }
   if (hp <= 0) {
     if (e.boss?.behaviour === 'toast') {
       events.push({ type: 'bossConceded', target: e.id, enemy: e.type });
@@ -1039,7 +1044,8 @@ export function step(state: GameState, pressed: TickInput): StepResult {
       if (def.behaviour === 'snack') {
         const mouth = mouthOf(room);
         // His boxes digest like an order and leave no parcel: one on its last tick went out in this tick's mixer step.
-        const digested = (state.mixer?.batches ?? []).filter((b) => b.order && b.left === 1).length;
+        // Only his own wake him; a courier's order is digested too but is not his overtime.
+        const digested = (state.mixer?.batches ?? []).filter((b) => isDelivery(b) && b.left === 1).length;
         const r = stepSnack(e, def, docksOf(room), mouth ?? target, digested);
         enemies.set(e.id, r.enemy);
         events.push(...r.events);
@@ -1760,16 +1766,20 @@ export function selectMixer(s: GameState): {
 }
 /**
  * The stomach boss's sleep bar in his last stage (design doc 7.5, 熄燈), for the HUD: the share filled,
- * whether the mixer is holding it, and whether the stamp would close the case now. Undefined before the
+ * whether the mixer is holding it, whether the stamp would close the case now, and whether the gauge lets it be pressed. Undefined before the
  * stage and once he is beaten.
  */
-export function selectFightSleep(s: GameState): { readonly share: number; readonly held: boolean; readonly full: boolean; readonly exposed: boolean } | undefined {
+export function selectFightSleep(s: GameState): {
+  readonly share: number; readonly held: boolean; readonly full: boolean; readonly exposed: boolean; readonly stampReady: boolean;
+} | undefined {
   const e = s.enemies.find((x) => x.boss?.behaviour === 'snack' && x.phase !== 'closed');
   const b = e?.boss;
   const def = b ? s.bosses[b.def] : undefined;
   if (b?.behaviour !== 'snack' || !b.sleep || def?.behaviour !== 'snack') return undefined;
   const share = sleepShare(def, b.sleep);
-  return { share, held: b.sleep.hold > 0, full: share >= 1, exposed: snackExposed(def, b, s.mixer) };
+  const exposed = snackExposed(def, b, s.mixer);
+  // The weak spot can be open with the gauge spent on an early stamp; the HUD must not call for a stamp that cannot be pressed.
+  return { share, held: b.sleep.hold > 0, full: share >= 1, exposed, stampReady: exposed && gaugeFull(s.operator) };
 }
 
 /** The sleep bar for the HUD: the share slept, and whether the operator is up and has to lie down again. */
