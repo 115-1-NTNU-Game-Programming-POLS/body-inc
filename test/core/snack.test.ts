@@ -74,6 +74,8 @@ const STAMP_LANDS = STAMP.startupTicks + 2;
 /** The operator just south of him, in the stamp's reach. */
 const nextToHim = (s: GameState): GameState => away(s, 320, 168 + 16);
 /** One of his boxes in the mixer, on its last tick of digesting. */
+/** How many ticks of the run the bar stood at `at`. */
+const stillTicks = (r: Run, at: number): number => r.states.filter((s) => boss(s).boss.sleep!.slept === at).length;
 const lastTick = (s: GameState): GameState => ({ ...s, mixer: { batches: [{ box: 9001, portion: 'normal', left: 1, order: true, slots: 1 }] } });
 /** The operator guarding, facing back up the path of the first box in the air, where it will be in 4 ticks: the parry catches it. */
 function guarding(s: GameState): GameState {
@@ -696,14 +698,38 @@ describe('stage 3: 熄燈', () => {
 
   it('stands the bar still for 3 s each time the mixer finishes one of his boxes, and never takes it back', () => {
     const g = away(lastTick(inStage3(fight(), { slept: 100, hold: 0, wakes: 0 })));
-    const r = run(g, DEF.stage3.interruptTicks + 2);
+    const r = run(g, DEF.stage3.interruptTicks + 1);
     expect(ofType(r, 'snackWoken')).toEqual([{ type: 'snackWoken', target: boss(r.state).id, wakes: 1 }]);
     expect(ticksOf(r, 'snackWoken')).toEqual([0]);
     expect(r.state.mixer!.batches).toEqual([]);
-    const slept = r.states.map((s) => boss(s).boss.sleep!.slept);
-    expect(slept.slice(0, DEF.stage3.interruptTicks + 1).every((n) => n === 100)).toBe(true);
-    expect(slept.at(-1)).toBe(101);
+    expect(stillTicks(r, 100)).toBe(DEF.stage3.interruptTicks);
+    expect(boss(r.state).boss.sleep!.slept).toBe(101);
     expect(selectFightSleep(r.states[0]!)).toMatchObject({ held: true, full: false, exposed: false });
+  });
+
+  it('adds up the stops of boxes that finish together or while the bar already stands still', () => {
+    const two = (lefts: [number, number]): GameState => ({
+      ...inStage3(fight(), { slept: 100, hold: 0, wakes: 0 }),
+      mixer: { batches: lefts.map((left, i) => ({ box: 9001 + i, portion: 'normal' as const, left, order: true, slots: 1 })) },
+    });
+    const together = run(away(two([1, 1])), 2 * DEF.stage3.interruptTicks + 1);
+    expect(ofType(together, 'snackWoken')).toMatchObject([{ wakes: 2 }]);
+    expect(stillTicks(together, 100)).toBe(2 * DEF.stage3.interruptTicks);
+    const apart = run(away(two([1, 61])), 2 * DEF.stage3.interruptTicks + 1);
+    expect(ofType(apart, 'snackWoken').map((e) => e.wakes)).toEqual([1, 2]);
+    expect(ticksOf(apart, 'snackWoken')).toEqual([0, 60]);
+    expect(stillTicks(apart, 100)).toBe(2 * DEF.stage3.interruptTicks);
+  });
+
+  it('is woken by his own boxes on the real way in: thrown, taken by the mixer, digested', () => {
+    const n = FIRST_THROW_3 + 1500;
+    const r = run(away(inStage3(fight())), n);
+    const woken = ofType(r, 'snackWoken');
+    expect(woken.length).toBeGreaterThan(0);
+    expect(ofType(r, 'mixerProtest')).toEqual([]);
+    const last = ticksOf(r, 'snackWoken').at(-1)!;
+    expect(n - 1 - last).toBeGreaterThan(DEF.stage3.interruptTicks);
+    expect(boss(r.state).boss.sleep!.slept).toBe(n - woken.length * DEF.stage3.interruptTicks);
   });
 
   it('keeps filling while a box digests: only its end interrupts', () => {
@@ -742,6 +768,16 @@ describe('stage 3: 熄燈', () => {
     expect(ofType(r, 'snackStampRefused')).toHaveLength(1);
     expect(boss(r.state)).toMatchObject({ hp: 20, phase: 'idle' });
     expect(selectFightSleep(r.state)).toMatchObject({ full: true, exposed: false });
+  });
+
+  it('reads the mixer as it is after the digestion of this tick: a box finishing as the stamp lands does not stop it', () => {
+    const lands = ticksOf(run(nextToHim(rested(fight({ gauge: STAMP.gaugeMax }))), STAMP_LANDS + 2, stamp), 'bossDefeated')[0]!;
+    expect(lands).toBeGreaterThan(0);
+    const finishing = (left: number): GameState => ({ ...rested(fight({ gauge: STAMP.gaugeMax })), mixer: { batches: [{ box: 9001, portion: 'normal', left, order: true, slots: 1 }] } });
+    // A batch with `left` 1 at the start of a tick finishes in it, so left = t + 1 finishes on tick t.
+    expect(ofType(run(nextToHim(finishing(lands + 1)), STAMP_LANDS + 2, stamp), 'bossDefeated')).toHaveLength(1);
+    const late = run(nextToHim(finishing(lands + 2)), STAMP_LANDS + 2, stamp);
+    expect([ofType(late, 'bossDefeated').length, ofType(late, 'snackStampRefused').length]).toEqual([0, 1]);
   });
 
   it('shows no fight bar before the stage or after the case is closed', () => {

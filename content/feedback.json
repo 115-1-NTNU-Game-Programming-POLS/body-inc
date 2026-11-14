@@ -72,7 +72,7 @@
     "snackStage": { "sound": "stage", "note": "boss.snack.next_stage.{stage}" },
     "snackShrugged": { "sound": "boing", "bounce": true },
     "snackWoken": { "sound": "woke.mixer", "note": "sleep.woke.mixer" },
-    "snackRested": { "sound": "ready", "note": "boss.snack.rested" },
+    "snackRested": { "sound": "unlock", "note": "boss.snack.rested" },
     "snackStampRefused": { "sound": "nope", "bounce": true, "note": "boss.snack.stamp_refused" },
     "bossConceded": { "sound": "done", "particles": [{ "preset": "paper", "count": 12 }], "note": "boss.toast.conceded" },
     "doorLocked": { "sound": "locked", "note": "door.locked.{lock}" },

@@ -52,7 +52,7 @@
 | `heartbeat` | 心悸的三聲心跳；心跳只給能量飲料 | `palpitation` |
 | `stampUp` | 蓋章舉起 | `stampRaised` |
 | `stampDown` | 碰：蓋章落下，有字幕 | `stampLanded` |
-| `ready` | 駁回量表滿的喀聲，有字幕 | `gaugeFull`, `snackRested` |
+| `ready` | 駁回量表滿的喀聲，有字幕 | `gaugeFull` |
 | `cling` | 黏住 | `bound`, `clung`, `examStacked` |
 | `yawn` | 下行的哈欠 | `forcedLeave`, `bedUse`, `forcedNap`, `napped` |
 | `door` | 進門 | `doorEntered` |
@@ -61,7 +61,7 @@
 | `click` | 開關 | `switchChanged` |
 | `thunk` | 箱子或貨物落位 | `boxDelivered`, `boxChilled`, `portFilled`, `crateTaken`, `mixerFed`, `orderThrown`, `deliveryThrown` |
 | `punch` | 打卡 | `checkpointSaved` |
-| `unlock` | 解鎖：四個上行音 | `handbookUnlocked`, `toolGranted`, `bonusShown`, `portOpened`, `chunkDissolved` |
+| `unlock` | 解鎖：四個上行音 | `handbookUnlocked`, `toolGranted`, `bonusShown`, `portOpened`, `chunkDissolved`, `snackRested` |
 | `card` | 翻開卡牌 | `cardOpened` |
 | `choose` | 選定一個選項 | `cardChosen`，選單確認 |
 | `rescue.step` | 救援一步做對：三個上行音 | `rescueStep`，`outcome` 為 `step` |

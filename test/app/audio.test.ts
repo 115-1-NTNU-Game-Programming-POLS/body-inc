@@ -24,6 +24,17 @@ describe('the audio content', () => {
     expect(problems()).toEqual([]);
   });
 
+  it('a cue with a caption is played only by the events its caption describes', () => {
+    // A caption names what happened, so an event borrowing a captioned cue tells a deaf player something else.
+    const captioned = Object.entries(FEEDBACK.events).flatMap(([type, e]) => {
+      const sound = e.sound;
+      if (!sound) return [];
+      const cues = Object.keys(AUDIO.cues).filter((c) => c === sound || (sound.includes('{') && c.startsWith(sound.split('{')[0]!)));
+      return cues.some((c) => AUDIO.cues[c]!.caption !== undefined) ? [type] : [];
+    });
+    expect(captioned.sort()).toEqual(['gaugeFull', 'parry', 'refused', 'shieldBroken', 'stampLanded', 'telegraph']);
+  });
+
   it('the three telegraph tiers are three different cues with their own captions', () => {
     const ids = [1, 2, 3].map((tier) => soundFor(FEEDBACK, AUDIO, { type: 'telegraph', source: 1, tier: tier as 1 | 2 | 3 })!);
     expect(new Set(ids.map((s) => s.cue)).size).toBe(3);

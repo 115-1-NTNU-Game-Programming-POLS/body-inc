@@ -32,16 +32,18 @@ export function snackExposed(def: SnackDef, b: SnackState, mixer: MixerState | u
 export const snackFloor = (def: SnackDef, b: SnackState): number => (b.stage < 3 ? def.stage3.budget : 0);
 
 /**
- * One tick of the stage-3 bar. An interruption wins over filling on the same tick, and a full bar stays
- * full: the doc only lets the stomach wake him, never undo the sleep (7.5).
+ * One tick of the stage-3 bar. Each box digested stands it still for exactly interruptTicks, counting
+ * the tick it finished on, and boxes that overlap add up: the doc's stop is per box (7.5). A full bar
+ * stays full: the doc only lets the stomach wake him, never undo the sleep.
  */
 function stepSleepBar(def: SnackDef, sleep: SnackSleep, digested: number, e: EnemyState, events: DomainEvent[]): SnackSleep {
   const need = def.stage3.sleepTicks;
   if (sleep.slept >= need) return sleep;
   if (digested > 0) {
-    const wakes = sleep.wakes + 1;
+    const wakes = sleep.wakes + digested;
     events.push({ type: 'snackWoken', target: e.id, wakes });
-    return { ...sleep, hold: def.stage3.interruptTicks, wakes };
+    // `hold` counts the still ticks after this one; this tick is still either way.
+    return { ...sleep, hold: Math.max(0, sleep.hold + digested * def.stage3.interruptTicks - 1), wakes };
   }
   if (sleep.hold > 0) return { ...sleep, hold: sleep.hold - 1 };
   const slept = sleep.slept + 1;
