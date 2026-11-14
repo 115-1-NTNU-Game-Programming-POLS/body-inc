@@ -84,7 +84,8 @@ export class BossView implements ActorFx {
     if (frame) this.sprite.setFrame(frame.textureFrame);
   }
 
-  render(prev: Readonly<EnemyState> | undefined, cur: Readonly<EnemyState>, def: BossDef, pinned: number, alpha: number, tick: number): void {
+  /** `exposed`: the stomach boss's weak spot is open, so the stamp would close the case (selectFightSleep). */
+  render(prev: Readonly<EnemyState> | undefined, cur: Readonly<EnemyState>, def: BossDef, pinned: number, alpha: number, tick: number, exposed = false): void {
     if (!cur.boss) return;
     if (this.gone) {
       // A forced leave brings a defeated boss back with a fresh budget.
@@ -96,7 +97,7 @@ export class BossView implements ActorFx {
     const b = cur.boss;
     const p = prev ?? cur;
     if (b.behaviour === 'snack' || def.behaviour === 'snack') {
-      this.renderSnack(p, cur, alpha, tick);
+      this.renderSnack(p, cur, alpha, tick, exposed);
       return;
     }
     if (b.behaviour === 'toast' || def.behaviour === 'toast') {
@@ -161,7 +162,7 @@ export class BossView implements ActorFx {
    * The snack boss stands and calls the docks: the bubble and the tier-1 flash before each box,
    * and the surprised pose once he is beaten. He wears the toast boss's art until he has his own.
    */
-  private renderSnack(p: Readonly<EnemyState>, cur: Readonly<EnemyState>, alpha: number, tick: number): void {
+  private renderSnack(p: Readonly<EnemyState>, cur: Readonly<EnemyState>, alpha: number, tick: number, exposed: boolean): void {
     const b = cur.boss;
     if (b?.behaviour !== 'snack') return;
     const x = Math.round(p.x + (cur.x - p.x) * alpha);
@@ -173,6 +174,8 @@ export class BossView implements ActorFx {
     if (cur.phase === 'closed') this.pose('surprised_down');
     else if (telegraphing) this.pose('wave_down');
     else this.pose('idle_down', true);
+    // His weak spot in the lights out: the stamp's red ring round him while it would close the case.
+    if (exposed && cur.phase !== 'closed') dashedCircle(this.marks, x, y - BOSS_HURT.height / 2, BOSS_HURT.halfW + 10, RED, tick / 40);
     const warning = warningAt(telegraphing, telegraphing ? b.move!.frame - 1 : 0);
     if (!this.flasher.paint(tick < this.flashUntil, warning, tick)) this.sprite.clearTint();
   }

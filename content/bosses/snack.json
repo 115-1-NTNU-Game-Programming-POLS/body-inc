@@ -22,6 +22,19 @@
       "returnDamage": 20
     }
   },
+  "stage3": {
+    "budget": 20,
+    "deliveries": {
+      "startSeconds": 3,
+      "everySeconds": 5,
+      "speedTiles": 5,
+      "portion": "normal",
+      "halves": 1,
+      "returnDamage": 20
+    },
+    "sleepSeconds": 30,
+    "interruptSeconds": 3
+  },
   "protest": {
     "telegraphSeconds": 1.4,
     "radiusTiles": 3,
@@ -29,9 +42,10 @@
     "halves": 2
   },
   "notes": {
-    "budget": "ASSUME: five returned boxes at returnDamage 20; the design doc gives no budget and calls the folder's return his main damage (7.5); here it is the only ordinary attack that hurts him, since a plain staple or a swing of the folder does nothing to him (a held stapler would otherwise close the case in about 17 s without touching a box); the stamp still takes its usual 40. Stage 3 is not built, so a budget of 0 ends the fight for now",
+    "budget": "ASSUME: five returned boxes at returnDamage 20; the design doc gives no budget and calls the folder's return his main damage (7.5); here it is the only ordinary attack that hurts him, since a plain staple or a swing of the folder does nothing to him (a held stapler would otherwise close the case in about 17 s without touching a box); the stamp still takes its usual 40. No damage takes him below stage3.budget before stage 3, so the fight always reaches the lights out, and the case closes only by the stamp there",
     "deliveries": "DOC the boss throws fried boxes from the dock at the mixer, one capacity of 4 in the fight (7.5), which the room's Mixer states; the pace (a box every 4 s, 3 s before the first), the flight speed, the normal 20 s portion and the 20 per returned box are ASSUME. At one box every 4 s and 20 s per box, a fifth box lands before the first is done, so the fight protests by itself unless the player stops or returns at least one box in five",
     "stage2": "DOC from stage 2 on the boxes are large portions that take 2 places and double the time (7.5: 加大份量, 40 s in the table of starting values), so the player has to pick which to return to keep the mixer within its capacity; the start at a budget of 60 (two returns), the 6 s pace, the pause of 3 s before the first large box and the 20 per returned box are ASSUME. With capacity 4 only two large boxes fit and one digests in 40 s, so the third box in a row protests unless one of the three is returned or stopped",
+    "stage3": "DOC from stage 3 on the arena goes dark, a sleep bar runs at the bottom, the mixer interrupts it once per box it processes, his weak spot shows only while the mixer is empty, and the player must keep the mixer empty and last until the bar is full to stamp him (7.5: 熄燈). Read here as: the bar fills on its own and stands still for interruptSeconds for each of his boxes the mixer finishes, the stops of boxes that overlap adding up (it never goes back, as the night lab's bar never does, 7.5: 只做中斷，不做睡不著); once it is full, a stamp landing while the mixer holds nothing closes the case, and a stamp at any other time is spent on him for nothing. A returned box no longer hurts him in this stage, since his budget is no longer what keeps him up; it still keeps a box out of the mixer. The start at a budget of 20 (four returns), the 30 s bar (the night lab's bed), the 3 s interruption, a normal box every 5 s and the 3 s pause are ASSUME. A box let in digests for 20 s, so each one costs the bar 3 s and keeps the stamp out for 20 s",
     "protest": "DOC an area that hurts friend and foe when the mixer takes more than its capacity, named 胃抗議 (7.5); it hurts the operator only for now, since every area of the rules is tested against the operator alone. Telegraph 1.4 s (tier 3), radius 3 tiles, 8 live ticks and a whole heart are ASSUME within the fairness rules of 5.3"
   }
 }

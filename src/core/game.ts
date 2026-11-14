@@ -3,7 +3,7 @@ import { isSolid, moveAndCollide } from './collision/grid.ts';
 import { backOff, ENEMY_BODY, enemyCenter, enemyFrom, enemyHurtbox, isBound, isHittable, isMelee, recoverTicksOf, reshield, shieldCovers, stepEnemy, strikeBox, type EnemyState } from './combat/actors.ts';
 import { newBossState, type BossDef, type BossTable, type ToastState } from './combat/bosses/boss.ts';
 import { proposalOpen, stepCaffeine } from './combat/bosses/caffeine.ts';
-import { stepSnack } from './combat/bosses/snack.ts';
+import { sleepShare, snackExposed, snackFloor, stepSnack } from './combat/bosses/snack.ts';
 import { breathing, stepToast } from './combat/bosses/toast.ts';
 import type { EnemyTable } from './combat/enemies.ts';
 import { BASE_HALVES, BIND, BOSS, CLING, COURIER, DODGE, ENEMY_HIT_FREEZE, FOLDER, GAUGE, heartCap, HURT, MANAGER, PARRY_BOOST, SALESMAN, STAMP, STAPLER, SUGAR_FOG } from './combat/frames.ts';
@@ -25,7 +25,7 @@ import {
   advanceSlide, beltAt, boxAhead, boxPixel, canEnter, CONVEYOR_TICKS, conveyorRunning, conveyorsOf, conveyorTiles, filledPorts, flowName, flowOf, mixerOf, mixerOutlet,
   coldStoreAt, liveGate, nearest, onPort, portOf, portOpenAt, portTakes, portTicksLeft, PUSH, pushDirection, settleBoxes, startSlide, tileAt, tileBox, withBoxes, type BoxState, type Occupants, type Tile,
 } from './rooms/boxes.ts';
-import { boxTypeOf, EMPTY_MIXER, PORTION_SECONDS, portionOf, stepMixer, takeDelivery, type MixerEvent, type MixerState, type Portion } from './stomach/mixer.ts';
+import { boxTypeOf, EMPTY_MIXER, isDelivery, PORTION_SECONDS, portionOf, stepMixer, takeDelivery, type MixerEvent, type MixerState, type Portion } from './stomach/mixer.ts';
 import { docksOf, mouthOf } from './stomach/docks.ts';
 import { isOrder, newOrder, orderId, orderSpot } from './stomach/orders.ts';
 import { CHUNK, chunksOf, chunksUnder, withoutChunks } from './stomach/chunks.ts';
@@ -266,10 +266,16 @@ export type DomainEvent =
   | { readonly type: 'bossBreath'; readonly target: number; readonly seconds: number }
   /** The toast boss starts the next round of the song, at a quicker beat (乾杯三巡). */
   | { readonly type: 'bossRound'; readonly target: number; readonly round: 1 | 2 | 3 }
-  /** The stomach boss moved to his second stage; he has a line of his own, unlike the caffeine boss's bossStage. */
-  | { readonly type: 'snackStage'; readonly target: number; readonly stage: 2 }
-  /** A staple or a swing of the folder met the stomach boss: it does nothing, only a box sent back hurts him. */
+  /** The stomach boss moved to his next stage; he has a line of his own per stage, unlike the caffeine boss's bossStage. */
+  | { readonly type: 'snackStage'; readonly target: number; readonly stage: 2 | 3 }
+  /** A staple or a swing of the folder met the stomach boss, or a box sent back in his last stage: it does nothing to him. */
   | { readonly type: 'snackShrugged'; readonly target: number }
+  /** In the stomach boss's last stage the mixer finished one of his boxes and held the sleep bar (design doc 7.5, 熄燈). */
+  | { readonly type: 'snackWoken'; readonly target: number; readonly wakes: number }
+  /** His sleep bar is full: from now on the stamp closes the case whenever the mixer is empty. */
+  | { readonly type: 'snackRested'; readonly target: number }
+  /** The stamp landed on him in his last stage while the bar was not full or the mixer was not empty: it is spent for nothing. */
+  | { readonly type: 'snackStampRefused'; readonly target: number }
   /** The toast boss's budget ran out: he is not beaten but gives up toasting (design doc 7.7). */
   | { readonly type: 'bossConceded'; readonly target: number; readonly enemy: string }
   /** The operator stepped onto an unlocked door; the chapter decides where it leads. */
@@ -690,7 +696,15 @@ function bossFactor(e: EnemyState, bosses: Readonly<Record<string, BossDef>>): n
  * The toast boss is not beaten when his budget runs out: he gives up (design doc 7.7).
  */
 function damage(e: EnemyState, amount: number, freeze: number, events: DomainEvent[], bosses: Readonly<Record<string, BossDef>>): EnemyState {
-  const hp = Math.round((e.hp - amount * bossFactor(e, bosses)) * 1e6) / 1e6;
+  const def = e.boss ? bosses[e.boss.def] : undefined;
+  // Before his lights out the stomach boss holds at its budget, so every fight reaches the stage the stamp ends.
+  const floor = def?.behaviour === 'snack' && e.boss?.behaviour === 'snack' ? snackFloor(def, e.boss) : 0;
+  const hp = Math.max(floor, Math.round((e.hp - amount * bossFactor(e, bosses)) * 1e6) / 1e6);
+  // Already at the floor, waiting for a telegraph to finish before his next stage: the blow takes nothing, so it is no hit.
+  if (floor > 0 && amount > 0 && hp >= e.hp) {
+    events.push({ type: 'snackShrugged', target: e.id });
+    return e;
+  }
   if (hp <= 0) {
     if (e.boss?.behaviour === 'toast') {
       events.push({ type: 'bossConceded', target: e.id, enemy: e.type });
@@ -1029,7 +1043,10 @@ export function step(state: GameState, pressed: TickInput): StepResult {
       }
       if (def.behaviour === 'snack') {
         const mouth = mouthOf(room);
-        const r = stepSnack(e, def, docksOf(room), mouth ?? target);
+        // His boxes digest like an order and leave no parcel: one on its last tick went out in this tick's mixer step.
+        // Only his own wake him; a courier's order is digested too but is not his overtime.
+        const digested = (state.mixer?.batches ?? []).filter((b) => isDelivery(b) && b.left === 1).length;
+        const r = stepSnack(e, def, docksOf(room), mouth ?? target, digested);
         enemies.set(e.id, r.enemy);
         events.push(...r.events);
         newShots.push(...r.shots);
@@ -1141,6 +1158,12 @@ export function step(state: GameState, pressed: TickInput): StepResult {
         continue;
       }
       const def = state.bosses[e.boss.def]!;
+      if (def.behaviour === 'snack' && e.boss.behaviour === 'snack' && e.boss.stage === 3) {
+        // In the lights out only the stamp ends him, and only once he has slept and the stomach is quiet (design doc 7.5).
+        if (snackExposed(def, e.boss, moved.mixer)) enemies.set(e.id, damage(e, BOSS.stampDamage, 0, events, state.bosses));
+        else events.push({ type: 'snackStampRefused', target: e.id });
+        continue;
+      }
       const rejected = def.behaviour === 'caffeine' && e.boss.behaviour === 'caffeine' && proposalOpen(def, e.boss);
       let hit = damage(e, BOSS.stampDamage, 0, events, state.bosses);
       if (rejected && hit.phase !== 'closed' && hit.boss?.behaviour === 'caffeine') {
@@ -1173,7 +1196,7 @@ export function step(state: GameState, pressed: TickInput): StepResult {
   const hitEnemy = (target: EnemyState, amount: number, freeze: number, gain: number, binds = 0, strike?: Strike): void => {
     if (target.archetype === 'cheers') {
       shoo(target);
-    } else if (target.boss?.behaviour === 'snack' && strike?.breaks !== 'reflect') {
+    } else if (target.boss?.behaviour === 'snack' && (strike?.breaks !== 'reflect' || target.boss.stage === 3)) {
       events.push({ type: 'snackShrugged', target: target.id });
     } else if (target.category === 'immune') {
       events.push({ type: 'immuneBounce', target: target.id, enemy: target.type, solution: target.solution ?? '' });
@@ -1741,6 +1764,24 @@ export function selectMixer(s: GameState): {
     batches: s.mixer.batches.map((b) => ({ box: b.box, portion: b.portion, done: 1 - b.left / (PORTION_SECONDS[b.portion] * TICK_HZ), slots: b.slots ?? 1 })),
   };
 }
+/**
+ * The stomach boss's sleep bar in his last stage (design doc 7.5, 熄燈), for the HUD: the share filled,
+ * whether the mixer is holding it, whether the stamp would close the case now, and whether the gauge lets it be pressed. Undefined before the
+ * stage and once he is beaten.
+ */
+export function selectFightSleep(s: GameState): {
+  readonly share: number; readonly held: boolean; readonly full: boolean; readonly exposed: boolean; readonly stampReady: boolean;
+} | undefined {
+  const e = s.enemies.find((x) => x.boss?.behaviour === 'snack' && x.phase !== 'closed');
+  const b = e?.boss;
+  const def = b ? s.bosses[b.def] : undefined;
+  if (b?.behaviour !== 'snack' || !b.sleep || def?.behaviour !== 'snack') return undefined;
+  const share = sleepShare(def, b.sleep);
+  const exposed = snackExposed(def, b, s.mixer);
+  // The weak spot can be open with the gauge spent on an early stamp; the HUD must not call for a stamp that cannot be pressed.
+  return { share, held: b.sleep.hold > 0, full: share >= 1, exposed, stampReady: exposed && gaugeFull(s.operator) };
+}
+
 /** The sleep bar for the HUD: the share slept, and whether the operator is up and has to lie down again. */
 export function selectSleep(s: GameState): { readonly bed: number; readonly share: number; readonly awake: boolean; readonly wakes: number } | undefined {
   const z = s.sleep;

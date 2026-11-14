@@ -4,7 +4,7 @@ import { schemaProblemText } from '../../content/schema.ts';
 import { TICK_HZ, TILE, tilesPerSecond } from '../../time.ts';
 import type { Portion } from '../../stomach/mixer.ts';
 import type { EnemyTable } from '../enemies.ts';
-import { TELEGRAPH, ZONE_MAX_ACTIVE } from '../frames.ts';
+import { BOSS, TELEGRAPH, ZONE_MAX_ACTIVE } from '../frames.ts';
 
 /**
  * Boss definitions from content/bosses/*.json, resolved into ticks and pixels. The checks here
@@ -98,12 +98,27 @@ export interface SnackDelivery {
   readonly returnDamage: number;
 }
 
-/** Stage 1 is the fields of the def itself, stage 2 (加大份量) is `stage2`, which starts when his budget is at most `budget`. */
+/**
+ * The third stage (熄燈): the deliveries go on, and a sleep bar of `sleepTicks` fills, standing still for
+ * `interruptTicks` each time the mixer finishes one of his boxes. Once it is full, the stamp closes the case
+ * while the mixer is empty; nothing else hurts him in this stage.
+ */
+export interface SnackLightsOut extends SnackDelivery {
+  readonly budget: number;
+  readonly sleepTicks: number;
+  readonly interruptTicks: number;
+}
+
+/**
+ * Stage 1 is the fields of the def itself, stage 2 (加大份量) is `stage2` and stage 3 (熄燈) is `stage3`; each
+ * starts when his budget is at most its `budget`. Before stage 3 no damage takes him below `stage3.budget`.
+ */
 export interface SnackDef extends SnackDelivery {
   readonly behaviour: 'snack';
   readonly id: string;
   readonly budget: number;
   readonly stage2: SnackDelivery & { readonly budget: number };
+  readonly stage3: SnackLightsOut;
   readonly protest: { readonly telegraphTicks: number; readonly activeTicks: number; readonly radius: number; readonly halves: number };
   /** Opened by the chapter once his case is closed; optional, like the caffeine boss's. */
   readonly concedeDialogue?: string;
@@ -130,7 +145,7 @@ const CAFFEINE_FIELDS = ['stage2Budget', 'speedTiles', 'rangeTiles', 'restSecond
 const TOAST_FIELDS = ['song', 'workOrder', 'concedeDialogue'] as const;
 /** A caffeine boss may also carry concedeDialogue; only these are refused on it. */
 const TOAST_ONLY_FIELDS = ['song', 'workOrder'] as const;
-const SNACK_FIELDS = ['deliveries', 'stage2', 'protest'] as const;
+const SNACK_FIELDS = ['deliveries', 'stage2', 'stage3', 'protest'] as const;
 
 function moveProblems(where: string, m: NonNullable<BossFile['moves']>[string]): string[] {
   const out: string[] = [];
@@ -256,7 +271,11 @@ function snackDef(f: BossFile, where: string, problems: string[]): SnackDef {
   const p = f.protest!;
   const one = deliveryOf(f.deliveries!, 'deliveries', where, problems);
   const two = deliveryOf(f.stage2!.deliveries, 'stage2.deliveries', where, problems);
+  const three = deliveryOf(f.stage3!.deliveries, 'stage3.deliveries', where, problems);
   if (f.stage2!.budget >= f.budget) problems.push(`${where}: stage2.budget must be below budget`);
+  if (f.stage3!.budget >= f.stage2!.budget) problems.push(`${where}: stage3.budget must be below stage2.budget`);
+  // The stamp is what closes the case in stage 3, so it has to take the whole of what is left.
+  if (f.stage3!.budget > BOSS.stampDamage) problems.push(`${where}: stage3.budget must be at most the stamp's ${BOSS.stampDamage}, or the stamp could not close the case`);
   const telegraphTicks = ticks(p.telegraphSeconds);
   if (telegraphTicks < TELEGRAPH.tier3MinTicks || telegraphTicks > TELEGRAPH.tier3MaxTicks) {
     problems.push(`${where}: protest.telegraphSeconds is a tier-3 telegraph of 1.2 to 1.5 s, got ${p.telegraphSeconds} s`);
@@ -271,6 +290,7 @@ function snackDef(f: BossFile, where: string, problems: string[]): SnackDef {
     budget: f.budget,
     ...one,
     stage2: { budget: f.stage2!.budget, ...two },
+    stage3: { budget: f.stage3!.budget, ...three, sleepTicks: ticks(f.stage3!.sleepSeconds), interruptTicks: ticks(f.stage3!.interruptSeconds) },
     protest: { telegraphTicks, activeTicks: p.activeTicks, radius: p.radiusTiles * TILE, halves: p.halves },
     ...(f.concedeDialogue !== undefined ? { concedeDialogue: f.concedeDialogue } : {}),
   };
@@ -362,6 +382,17 @@ export interface SnackState {
   /** Boxes thrown in this stage; the first of a stage waits `startTicks`, the rest `everyTicks`. */
   readonly stageThrown: number;
   readonly move: { readonly id: 'deliver'; readonly frame: number } | null;
+  /** The sleep bar of stage 3, absent before it. */
+  readonly sleep?: SnackSleep;
+}
+
+export interface SnackSleep {
+  /** Ticks filled, up to the def's `stage3.sleepTicks`; it never goes back. */
+  readonly slept: number;
+  /** Ticks the bar still stands still after the mixer finished a box. */
+  readonly hold: number;
+  /** Times the mixer has interrupted it. */
+  readonly wakes: number;
 }
 
 export type BossState = CaffeineState | ToastState | SnackState;
@@ -378,7 +409,7 @@ export function newBossState(def: BossDef): BossState {
 
 /** Strings the nameplate shows for a boss enemy: its name, a label per stage and, for toast, the breath. */
 export function bossStringKeys(enemyType: string, def: BossDef): string[] {
-  const stages = def.behaviour === 'toast' ? def.rounds.length : def.behaviour === 'snack' ? 2 : 3;
+  const stages = def.behaviour === 'toast' ? def.rounds.length : 3;
   return [
     `boss.${enemyType}.name`,
     ...Array.from({ length: stages }, (_, i) => `boss.${enemyType}.stage.${i + 1}`),

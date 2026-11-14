@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { BOSSES, CHAPTERS, ENEMIES, TAGS } from '../../src/app/content.ts';
 import {
-  BossTableError, createGame, enterRoom, FOLDER, loadBossTable, NO_INPUT, parseRoom, selectBoss, selectMixer, STAMP, step, stateHash, TELEGRAPH, TICK_HZ, TILE,
+  BossTableError, createGame, enterRoom, FOLDER, loadBossTable, NO_INPUT, parseRoom, selectBoss, selectFightSleep, selectMixer, STAMP, step, stateHash, TELEGRAPH, TICK_HZ, TILE,
   type CaffeineParams, type DomainEvent, type EnemyState, type GameState, type Shot, type TickInput, type TiledMap,
 } from '../../src/core/index.ts';
 import { EMPTY_TAGS } from '../../src/core/tags/store.ts';
@@ -63,6 +63,27 @@ const ofType = <T extends DomainEvent['type']>(r: Run, type: T) =>
   r.events.flat().filter((e): e is Extract<DomainEvent, { type: T }> => e.type === type);
 const deliveries = (s: GameState) => s.shots.filter((x) => x.kind === 'delivery');
 
+/** A fight already in stage 3 (熄燈) at its budget, the sleep bar as given; his rhythm starts over as on entering it. */
+const inStage3 = (s: GameState, sleep = { slept: 0, hold: 0, wakes: 0 }): GameState => withBoss(s, { stage: 3, sleep }, { hp: DEF.stage3.budget });
+/** Stage 3 with the sleep bar full. */
+const rested = (s: GameState): GameState => inStage3(s, { slept: DEF.stage3.sleepTicks, hold: 0, wakes: 0 });
+/** From a fight already in stage 3 to its first throw. */
+const FIRST_THROW_3 = DEF.stage3.startTicks + WINDUP;
+/** Ticks from pressing the stamp at tick 0 to past its landing. */
+const STAMP_LANDS = STAMP.startupTicks + 2;
+/** The operator just south of him, in the stamp's reach. */
+const nextToHim = (s: GameState): GameState => away(s, 320, 168 + 16);
+/** One of his boxes in the mixer, on its last tick of digesting. */
+/** How many ticks of the run the bar stood at `at`. */
+const stillTicks = (r: Run, at: number): number => r.states.filter((s) => boss(s).boss.sleep!.slept === at).length;
+const lastTick = (s: GameState): GameState => ({ ...s, mixer: { batches: [{ box: 9001, portion: 'normal', left: 1, order: true, slots: 1 }] } });
+/** The operator guarding, facing back up the path of the first box in the air, where it will be in 4 ticks: the parry catches it. */
+function guarding(s: GameState): GameState {
+  const sh = deliveries(s)[0]!;
+  const toDock = { x: -sh.vx / Math.hypot(sh.vx, sh.vy), y: -sh.vy / Math.hypot(sh.vx, sh.vy) };
+  return { ...s, operator: { ...s.operator, x: sh.x + sh.vx * 4, y: sh.y + sh.vy * 4 + 8, tool: 'folder', aim: toDock, action: { kind: 'guard', frame: 0 }, held: FOLDER.holdTicks } };
+}
+
 describe('the snack boss definition (design doc 7.5)', () => {
   const load = (edit: (raw: typeof RAW) => void) => {
     const raw = structuredClone(RAW);
@@ -80,8 +101,8 @@ describe('the snack boss definition (design doc 7.5)', () => {
     expect(DEF.stage2.speed).toBeCloseTo((5 * TILE) / TICK_HZ, 9);
   });
 
-  it('names his stages for the nameplate: the boss and the two stages he has', () => {
-    expect(bossStringKeys('snack', DEF)).toEqual(['boss.snack.name', 'boss.snack.stage.1', 'boss.snack.stage.2']);
+  it('names his stages for the nameplate: the boss and his three stages', () => {
+    expect(bossStringKeys('snack', DEF)).toEqual(['boss.snack.name', 'boss.snack.stage.1', 'boss.snack.stage.2', 'boss.snack.stage.3']);
   });
 
   it('is the enemy snack, a defeatable boss with no archetype', () => {
@@ -92,6 +113,7 @@ describe('the snack boss definition (design doc 7.5)', () => {
     expect(load((r) => { delete r.deliveries; })).toThrow(/a snack boss needs deliveries/);
     expect(load((r) => { delete r.protest; })).toThrow(/a snack boss needs protest/);
     expect(load((r) => { delete r.stage2; })).toThrow(/a snack boss needs stage2/);
+    expect(load((r) => { delete r.stage3; })).toThrow(/a snack boss needs stage3/);
     expect(load((r) => { r.song = TOAST_RAW.song; })).toThrow(/song belongs to another behaviour; a snack boss does not read it/);
     expect(load((r) => { r.summon = CAFFEINE_RAW.summon; })).toThrow(/summon belongs to another behaviour; a snack boss does not read it/);
   });
@@ -471,25 +493,17 @@ describe('the fight as a whole', () => {
     expect(stateHash(a)).toBe(stateHash(b));
   });
 
-  it('closes the case when his budget runs out, and removes his zones with him', () => {
-    const g = away(withBoss(fight(), { stage: 2 }, { hp: 20 }));
-    const start = run(g, FIRST_THROW).state;
-    const sh = deliveries(start)[0]!;
+  it('closes the case when the stamp lands on his open weak spot, and removes his zones and boxes with him', () => {
+    const start = run(away(rested(fight({ gauge: 100 }))), FIRST_THROW_3).state;
+    expect(deliveries(start)).toHaveLength(1);
     // A protest still warning when the case closes; its warning is long so it cannot run out by itself on the way.
     const protest = { id: 900, owner: boss(start).id, move: 'protest', tier: 3 as const, x: 320, y: 240, radius: 3 * TILE, telegraphTicks: 400, activeTicks: 8, halves: 2, age: 1, spent: false };
-    const guard: GameState = {
-      ...start,
-      zones: [protest],
-      operator: {
-        ...start.operator, x: sh.x + sh.vx * 4, y: sh.y + sh.vy * 4 + 8, tool: 'folder',
-        aim: { x: -sh.vx / Math.hypot(sh.vx, sh.vy), y: -sh.vy / Math.hypot(sh.vx, sh.vy) }, action: { kind: 'guard', frame: 0 }, held: FOLDER.holdTicks,
-      },
-    };
-    const r = run(guard, 200, () => ({ ...NO_INPUT, attack: true }));
+    const r = run(nextToHim({ ...start, zones: [protest] }), 1 + STAMP_LANDS, (t) => (t === 0 ? { ...NO_INPUT, stampPressed: true } : idle));
     expect(ofType(r, 'bossDefeated')).toMatchObject([{ enemy: 'snack' }]);
     expect(boss(r.state)).toMatchObject({ hp: 0, phase: 'closed' });
     expect(r.states[0]!.zones).toHaveLength(1);
     expect(r.state.zones).toEqual([]);
+    expect(deliveries(r.state)).toEqual([]);
     expect(selectBoss(r.state)).toMatchObject({ defeated: true });
   });
 
@@ -612,6 +626,189 @@ describe('stage 2: 加大份量', () => {
     expect(ofType(r, 'mixerFed')).toEqual([]);
     expect(boss(r.state).hp).toBe(40);
     expect(ofType(r, 'hit')).toMatchObject([{ enemy: 'snack', hpLeft: 40 }]);
+  });
+});
+
+describe('stage 3: 熄燈', () => {
+  const stamp = (t: number): TickInput => (t === 0 ? { ...NO_INPUT, stampPressed: true } : idle);
+  const hold: TickInput = { ...NO_INPUT, attack: true };
+  const load = (edit: (raw: typeof RAW) => void) => () => {
+    const raw = structuredClone(RAW);
+    edit(raw);
+    return loadBossTable([CAFFEINE_RAW, TOAST_RAW, raw], ENEMIES, PARAMS_C);
+  };
+
+  it('loads: a normal box every 5 s after a 3 s pause, a 30 s bar held 3 s per box digested', () => {
+    expect(DEF.stage3).toMatchObject({ budget: 20, startTicks: 180, everyTicks: 300, portion: 'normal', halves: 1, sleepTicks: 30 * TICK_HZ, interruptTicks: 3 * TICK_HZ });
+  });
+
+  it('refuses a stage 3 at or above stage 2, or above what the stamp takes', () => {
+    expect(load((r) => { r.stage3.budget = 60; })).toThrow(/stage3\.budget must be below stage2\.budget/);
+    expect(load((r) => { r.stage3.budget = 50; })).toThrow(/stage3\.budget must be at most the stamp's 40/);
+    expect(load((r) => { r.stage3.budget = 40; })).not.toThrow();
+  });
+
+  it('starts on the first tick of stage 2 his budget is at most 20, with an empty bar, and its own line', () => {
+    const r = run(away(withBoss(fight(), { stage: 2 }, { hp: 20 })), 3);
+    expect(ofType(r, 'snackStage')).toEqual([{ type: 'snackStage', target: boss(r.state).id, stage: 3 }]);
+    expect(ticksOf(r, 'snackStage')).toEqual([0]);
+    expect(boss(r.states[0]!).boss).toMatchObject({ stage: 3, ticks: 0, stageThrown: 0, sleep: { slept: 0, hold: 0, wakes: 0 } });
+    expect(boss(r.state).boss.sleep!.slept).toBe(2);
+  });
+
+  it('finishes a box already announced in stage 2 before the lights go out', () => {
+    const g = away(withBoss(fight(), { stage: 2, move: { id: 'deliver', frame: 3 } }, { hp: 20 }));
+    const r = run(g, WINDUP);
+    expect(ofType(r, 'deliveryThrown')).toHaveLength(1);
+    expect(deliveries(r.state)[0]).toMatchObject({ delivery: 'large' });
+    expect(ticksOf(r, 'snackStage')[0]).toBeGreaterThan(ticksOf(r, 'deliveryThrown')[0]!);
+  });
+
+  it('is never taken below 20 before it: the stamp at 40 leaves him at 20 and the stages follow', () => {
+    const g = nextToHim(withBoss(fight({ gauge: STAMP.gaugeMax }), {}, { hp: 40 }));
+    const r = run(g, STAMP_LANDS + 3, stamp);
+    expect(ofType(r, 'bossDefeated')).toEqual([]);
+    expect(ofType(r, 'hit')).toMatchObject([{ hpLeft: 20 }]);
+    expect(ofType(r, 'snackStage').map((e) => e.stage)).toEqual([2, 3]);
+    expect(boss(r.state)).toMatchObject({ hp: 20, phase: 'idle' });
+  });
+
+  it('also holds a returned box at the floor in stage 2', () => {
+    // At 30 he is still in stage 2; the return would take 20 and leaves him at 20, where the next stage starts.
+    const start = run(away(withBoss(fight(), { stage: 2 }, { hp: 30 })), FIRST_THROW_2).state;
+    const r = run(guarding(start), 12 + 200, () => hold);
+    expect(ofType(r, 'parry')).toMatchObject([{ kind: 'shot' }]);
+    expect(ofType(r, 'hit')).toMatchObject([{ hpLeft: 20 }]);
+    expect(ofType(r, 'snackStage').map((e) => e.stage)).toEqual([3]);
+  });
+
+  it('shrugs off a blow at the floor while the stage waits for a telegraph: no hit without damage', () => {
+    // At 20 in stage 2 with a box announced, the lights out waits for the throw; the stamp landing meanwhile takes nothing.
+    const g = nextToHim(withBoss(fight({ gauge: STAMP.gaugeMax }), { stage: 2, move: { id: 'deliver', frame: 1 } }, { hp: 20 }));
+    const r = run(g, STAMP_LANDS, stamp);
+    expect(boss(r.state).boss.stage).toBe(2);
+    expect(ofType(r, 'hit')).toEqual([]);
+    expect(ofType(r, 'snackShrugged')).toHaveLength(1);
+    expect(boss(r.state).hp).toBe(20);
+  });
+
+  it('throws a normal box every 5 s', () => {
+    const r = run(away(inStage3(fight())), FIRST_THROW_3 + DEF.stage3.everyTicks);
+    expect(ticksOf(r, 'deliveryThrown')).toEqual([FIRST_THROW_3 - 1, FIRST_THROW_3 - 1 + DEF.stage3.everyTicks]);
+    expect(deliveries(r.state)[0]).toMatchObject({ delivery: 'normal', half: DELIVERY_HALF.normal });
+  });
+
+  it('fills the bar one tick a tick and says so once when it is full', () => {
+    const g = away(inStage3(fight(), { slept: DEF.stage3.sleepTicks - 3, hold: 0, wakes: 0 }));
+    const r = run(g, 6);
+    expect(r.states.map((s) => boss(s).boss.sleep!.slept)).toEqual([1, 2, 3, 3, 3, 3].map((n) => DEF.stage3.sleepTicks - 3 + n));
+    expect(ticksOf(r, 'snackRested')).toEqual([2]);
+    expect(selectFightSleep(r.state)).toEqual({ share: 1, held: false, full: true, exposed: true, stampReady: false });
+  });
+
+  it('stands the bar still for 3 s each time the mixer finishes one of his boxes, and never takes it back', () => {
+    const g = away(lastTick(inStage3(fight(), { slept: 100, hold: 0, wakes: 0 })));
+    const r = run(g, DEF.stage3.interruptTicks + 1);
+    expect(ofType(r, 'snackWoken')).toEqual([{ type: 'snackWoken', target: boss(r.state).id, wakes: 1 }]);
+    expect(ticksOf(r, 'snackWoken')).toEqual([0]);
+    expect(r.state.mixer!.batches).toEqual([]);
+    expect(stillTicks(r, 100)).toBe(DEF.stage3.interruptTicks);
+    expect(boss(r.state).boss.sleep!.slept).toBe(101);
+    expect(selectFightSleep(r.states[0]!)).toMatchObject({ held: true, full: false, exposed: false });
+  });
+
+  it('adds up the stops of boxes that finish together or while the bar already stands still', () => {
+    const two = (lefts: [number, number]): GameState => ({
+      ...inStage3(fight(), { slept: 100, hold: 0, wakes: 0 }),
+      mixer: { batches: lefts.map((left, i) => ({ box: 9001 + i, portion: 'normal' as const, left, order: true, slots: 1 })) },
+    });
+    const together = run(away(two([1, 1])), 2 * DEF.stage3.interruptTicks + 1);
+    expect(ofType(together, 'snackWoken')).toMatchObject([{ wakes: 2 }]);
+    expect(stillTicks(together, 100)).toBe(2 * DEF.stage3.interruptTicks);
+    const apart = run(away(two([1, 61])), 2 * DEF.stage3.interruptTicks + 1);
+    expect(ofType(apart, 'snackWoken').map((e) => e.wakes)).toEqual([1, 2]);
+    expect(ticksOf(apart, 'snackWoken')).toEqual([0, 60]);
+    expect(stillTicks(apart, 100)).toBe(2 * DEF.stage3.interruptTicks);
+  });
+
+  it('is woken by his own boxes on the real way in: thrown, taken by the mixer, digested', () => {
+    const n = FIRST_THROW_3 + 1500;
+    const r = run(away(inStage3(fight())), n);
+    const woken = ofType(r, 'snackWoken');
+    expect(woken.length).toBeGreaterThan(0);
+    expect(ofType(r, 'mixerProtest')).toEqual([]);
+    const last = ticksOf(r, 'snackWoken').at(-1)!;
+    expect(n - 1 - last).toBeGreaterThan(DEF.stage3.interruptTicks);
+    expect(boss(r.state).boss.sleep!.slept).toBe(n - woken.length * DEF.stage3.interruptTicks);
+  });
+
+  it('is not woken by a courier’s order: only his own boxes are his overtime', () => {
+    const courier: GameState = { ...inStage3(fight(), { slept: 100, hold: 0, wakes: 0 }), mixer: { batches: [{ box: 9001, portion: 'normal', left: 1, order: true }] } };
+    const r = run(away(courier), 3);
+    expect(ofType(r, 'snackWoken')).toEqual([]);
+    expect(r.state.mixer!.batches).toEqual([]);
+    expect(boss(r.state).boss.sleep!.slept).toBe(103);
+  });
+
+  it('calls for the stamp on the HUD only when the gauge is full as well', () => {
+    expect(selectFightSleep(rested(fight({ gauge: STAMP.gaugeMax })))).toMatchObject({ exposed: true, stampReady: true });
+    expect(selectFightSleep(rested(fight({ gauge: STAMP.gaugeMax - 1 })))).toMatchObject({ exposed: true, stampReady: false });
+    const busy: GameState = { ...rested(fight({ gauge: STAMP.gaugeMax })), mixer: { batches: [{ box: 9001, portion: 'normal', left: 600, order: true, slots: 1 }] } };
+    expect(selectFightSleep(busy)).toMatchObject({ exposed: false, stampReady: false });
+  });
+
+  it('keeps filling while a box digests: only its end interrupts', () => {
+    const busy: GameState = { ...inStage3(fight(), { slept: 100, hold: 0, wakes: 0 }), mixer: { batches: [{ box: 9001, portion: 'normal', left: 600, order: true, slots: 1 }] } };
+    const r = run(away(busy), 10);
+    expect(ofType(r, 'snackWoken')).toEqual([]);
+    expect(boss(r.state).boss.sleep!.slept).toBe(110);
+  });
+
+  it('is not woken once the bar is full: a box digested then only kept the stamp out while it was in', () => {
+    const r = run(away(lastTick(rested(fight()))), 2);
+    expect(ofType(r, 'snackWoken')).toEqual([]);
+    expect(boss(r.state).boss.sleep).toEqual({ slept: DEF.stage3.sleepTicks, hold: 0, wakes: 0 });
+  });
+
+  it('takes nothing from a box sent back: the return only keeps it out of the mixer', () => {
+    const start = run(away(inStage3(fight())), FIRST_THROW_3).state;
+    const r = run(guarding(start), 12 + 200, () => hold);
+    expect(ofType(r, 'parry')).toMatchObject([{ kind: 'shot' }]);
+    expect(ofType(r, 'snackShrugged')).toHaveLength(1);
+    expect(boss(r.state).hp).toBe(20);
+    expect(r.state.mixer!.batches).toEqual([]);
+  });
+
+  it('spends the stamp on him for nothing while the bar is not full', () => {
+    const r = run(nextToHim(inStage3(fight({ gauge: STAMP.gaugeMax }), { slept: 100, hold: 0, wakes: 0 })), STAMP_LANDS, stamp);
+    expect(ofType(r, 'snackStampRefused')).toEqual([{ type: 'snackStampRefused', target: boss(r.state).id }]);
+    expect(ofType(r, 'hit')).toEqual([]);
+    expect(boss(r.state)).toMatchObject({ hp: 20, phase: 'idle' });
+    expect(r.state.operator.gauge).toBe(0);
+  });
+
+  it('spends it for nothing with the bar full while the mixer still digests a box', () => {
+    const busy: GameState = { ...rested(fight({ gauge: STAMP.gaugeMax })), mixer: { batches: [{ box: 9001, portion: 'normal', left: 600, order: true, slots: 1 }] } };
+    const r = run(nextToHim(busy), STAMP_LANDS, stamp);
+    expect(ofType(r, 'snackStampRefused')).toHaveLength(1);
+    expect(boss(r.state)).toMatchObject({ hp: 20, phase: 'idle' });
+    expect(selectFightSleep(r.state)).toMatchObject({ full: true, exposed: false });
+  });
+
+  it('reads the mixer as it is after the digestion of this tick: a box finishing as the stamp lands does not stop it', () => {
+    const lands = ticksOf(run(nextToHim(rested(fight({ gauge: STAMP.gaugeMax }))), STAMP_LANDS + 2, stamp), 'bossDefeated')[0]!;
+    expect(lands).toBeGreaterThan(0);
+    const finishing = (left: number): GameState => ({ ...rested(fight({ gauge: STAMP.gaugeMax })), mixer: { batches: [{ box: 9001, portion: 'normal', left, order: true, slots: 1 }] } });
+    // A batch with `left` 1 at the start of a tick finishes in it, so left = t + 1 finishes on tick t.
+    expect(ofType(run(nextToHim(finishing(lands + 1)), STAMP_LANDS + 2, stamp), 'bossDefeated')).toHaveLength(1);
+    const late = run(nextToHim(finishing(lands + 2)), STAMP_LANDS + 2, stamp);
+    expect([ofType(late, 'bossDefeated').length, ofType(late, 'snackStampRefused').length]).toEqual([0, 1]);
+  });
+
+  it('shows no fight bar before the stage or after the case is closed', () => {
+    expect(selectFightSleep(fight())).toBeUndefined();
+    expect(selectFightSleep(withBoss(fight(), { stage: 2 }, { hp: 30 }))).toBeUndefined();
+    expect(selectFightSleep(withBoss(rested(fight()), {}, { hp: 0, phase: 'closed' }))).toBeUndefined();
   });
 });
 

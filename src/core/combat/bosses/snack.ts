@@ -3,8 +3,8 @@ import type { EnemyState } from '../actors.ts';
 import { TELEGRAPH } from '../frames.ts';
 import type { ShotSpec } from '../hazards.ts';
 import type { Vec } from '../movement.ts';
-import type { SnackDef, SnackDelivery, SnackState } from './boss.ts';
-import type { Portion } from '../../stomach/mixer.ts';
+import type { SnackDef, SnackDelivery, SnackSleep, SnackState } from './boss.ts';
+import type { MixerState, Portion } from '../../stomach/mixer.ts';
 
 export interface SnackTick {
   readonly enemy: EnemyState;
@@ -15,7 +15,41 @@ export interface SnackTick {
 /** Half the side of a delivery's box, in pixels; the large portion is a bigger box. */
 export const DELIVERY_HALF: Readonly<Record<Portion, number>> = { small: 6, normal: 6, large: 9 };
 
-export const deliveryOfStage = (def: SnackDef, stage: number): SnackDelivery => (stage >= 2 ? def.stage2 : def);
+export const deliveryOfStage = (def: SnackDef, stage: number): SnackDelivery => (stage >= 3 ? def.stage3 : stage === 2 ? def.stage2 : def);
+
+/** How far the stage-3 sleep bar has filled, 0 to 1. */
+export const sleepShare = (def: SnackDef, sleep: SnackSleep): number => Math.min(1, sleep.slept / def.stage3.sleepTicks);
+
+/**
+ * His weak spot (design doc 7.5, 熄燈): in stage 3, with the sleep bar full and nothing in the mixer, he
+ * is no longer kept up by the stomach's overtime and the stamp closes the case.
+ */
+export function snackExposed(def: SnackDef, b: SnackState, mixer: MixerState | undefined): boolean {
+  return b.stage === 3 && b.sleep !== undefined && b.sleep.slept >= def.stage3.sleepTicks && (mixer?.batches.length ?? 0) === 0;
+}
+
+/** The lowest his budget may fall in his present stage: before the lights out, never past the start of it. */
+export const snackFloor = (def: SnackDef, b: SnackState): number => (b.stage < 3 ? def.stage3.budget : 0);
+
+/**
+ * One tick of the stage-3 bar. Each box digested stands it still for exactly interruptTicks, counting
+ * the tick it finished on, and boxes that overlap add up: the doc's stop is per box (7.5). A full bar
+ * stays full: the doc only lets the stomach wake him, never undo the sleep.
+ */
+function stepSleepBar(def: SnackDef, sleep: SnackSleep, digested: number, e: EnemyState, events: DomainEvent[]): SnackSleep {
+  const need = def.stage3.sleepTicks;
+  if (sleep.slept >= need) return sleep;
+  if (digested > 0) {
+    const wakes = sleep.wakes + digested;
+    events.push({ type: 'snackWoken', target: e.id, wakes });
+    // `hold` counts the still ticks after this one; this tick is still either way.
+    return { ...sleep, hold: Math.max(0, sleep.hold + digested * def.stage3.interruptTicks - 1), wakes };
+  }
+  if (sleep.hold > 0) return { ...sleep, hold: sleep.hold - 1 };
+  const slept = sleep.slept + 1;
+  if (slept >= need) events.push({ type: 'snackRested', target: e.id });
+  return { ...sleep, slept };
+}
 
 /** A delivery from `dock` to `mouth`: it flies until `ticksLeft` runs out, which is when it reaches the hopper. */
 export function deliveryFrom(e: EnemyState, def: SnackDelivery, dock: Vec, mouth: Vec): ShotSpec {
@@ -32,9 +66,11 @@ export function deliveryFrom(e: EnemyState, def: SnackDelivery, dock: Vec, mouth
 
 /**
  * One tick of the stomach boss (design doc 7.5): he calls the docks one after another and a food box
- * flies from each at the mixer's hopper. The rules and the numbers are in docs/authoring/rooms-and-dialogue.md.
+ * flies from each at the mixer's hopper. `digested` is how many of his boxes the mixer finished this
+ * tick, which interrupt the sleep bar of stage 3. The rules and the numbers are in
+ * docs/authoring/rooms-and-dialogue.md.
  */
-export function stepSnack(e: EnemyState, def: SnackDef, docks: readonly Vec[], mouth: Vec): SnackTick {
+export function stepSnack(e: EnemyState, def: SnackDef, docks: readonly Vec[], mouth: Vec, digested = 0): SnackTick {
   let b = e.boss as SnackState;
   const shots: ShotSpec[] = [];
   const events: DomainEvent[] = [];
@@ -49,6 +85,12 @@ export function stepSnack(e: EnemyState, def: SnackDef, docks: readonly Vec[], m
     events.push({ type: 'snackStage', target: e.id, stage: 2 });
     return done();
   }
+  if (b.stage === 2 && !b.move && e.hp <= def.stage3.budget) {
+    b = { ...b, stage: 3, ticks: 0, stageThrown: 0, sleep: { slept: 0, hold: 0, wakes: 0 } };
+    events.push({ type: 'snackStage', target: e.id, stage: 3 });
+    return done();
+  }
+  if (b.sleep) b = { ...b, sleep: stepSleepBar(def, b.sleep, digested, e, events) };
   const d = deliveryOfStage(def, b.stage);
 
   if (b.move) {
