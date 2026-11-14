@@ -63,6 +63,7 @@ export interface Sounding {
  */
 export function captionTicks(event?: GameEvent): number {
   if (event?.type === 'telegraph') {
+    if (event.ticks !== undefined) return event.ticks;
     return event.tier === 1 ? TELEGRAPH.tier1Ticks : event.tier === 2 ? TELEGRAPH.tier2Ticks : Math.round((TELEGRAPH.tier3MinTicks + TELEGRAPH.tier3MaxTicks) / 2);
   }
   return TICK_HZ;

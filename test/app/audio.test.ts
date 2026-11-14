@@ -50,6 +50,10 @@ describe('what an event sounds like', () => {
     expect(captionTicks()).toBe(TICK_HZ);
   });
 
+  it('a warning that states its own length keeps its caption that long', () => {
+    expect(soundFor(FEEDBACK, AUDIO, { type: 'telegraph', source: 1, tier: 2, move: 'protest', ticks: 84 })!.caption!.ticks).toBe(84);
+  });
+
   it('an event with no sound, or one naming a cue that does not exist, is silent', () => {
     const table = { ...FEEDBACK, events: { swing: { sound: 'nothing-like-this' }, parry: {} } } as unknown as FeedbackTable;
     expect(soundFor(table, AUDIO, { type: 'swing', combo: 0 })).toBeUndefined();

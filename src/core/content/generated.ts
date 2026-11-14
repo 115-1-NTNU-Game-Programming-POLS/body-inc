@@ -1470,6 +1470,10 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
           "closeOut": {
             "type": "boolean"
           },
+          "atEvent": {
+            "description": "Draw the particles and the note at the event's own x and y, for an event that happens somewhere other than at an enemy or the operator.",
+            "type": "boolean"
+          },
           "note": {
             "description": "Key into content/strings; \"{field}\" is filled from the event.",
             "type": "string",
@@ -3847,6 +3851,8 @@ export interface Feedback {
   }[];
   readonly bounce?: boolean;
   readonly closeOut?: boolean;
+  /** Draw the particles and the note at the event's own x and y, for an event that happens somewhere other than at an enemy or the operator. */
+  readonly atEvent?: boolean;
   /** Key into content/strings; "{field}" is filled from the event. */
   readonly note?: string;
   /** A cue of content/audio.json; "{field}" is filled from the event, as in a note. */
