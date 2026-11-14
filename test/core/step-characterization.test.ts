@@ -3,8 +3,8 @@ import { describe, expect, it } from 'vitest';
 import { BOSSES, DECKS, DIALOGUES, ENEMIES, EXAMS, PARAMS, RESCUES, TAGS } from '../../src/app/content.ts';
 import { tagsFromQuery } from '../../src/app/session.ts';
 import {
-  BASE_PERKS, createGame, LOCK_TICKS, parseRoom, proposalOpen, readContent, roomsOf, selectGauge, startChapter, stateHash, step, stepChapter, TILE,
-  type Assists, type ChapterContent, type ChapterState, type EnteredRoom, type GameState, type Perks, type TickInput, type TiledMap,
+  BASE_PERKS, createGame, FOLDER, LOCK_TICKS, parseRoom, proposalOpen, readContent, roomsOf, selectGauge, startChapter, stateHash, step, stepChapter, TILE,
+  type Assists, type ChapterContent, type Shot, type ChapterState, type EnteredRoom, type GameState, type Perks, type TickInput, type TiledMap,
 } from '../../src/core/index.ts';
 
 /**
@@ -169,6 +169,8 @@ interface Style {
   readonly stampProposals?: boolean;
   /** Keep the stamp for a boss with shots or areas of his in play: walk to him then, and stamp in reach. */
   readonly stampMidAttack?: boolean;
+  /** Step into the path of the snack boss's nearest box in the air and raise the folder's guard as it comes: parries, blocks and misses. */
+  readonly guardDeliveries?: boolean;
 }
 
 const STYLE: Style = { seed: 1, fire: 0.08, dodge: 0.015, react: 0.08, stamp: 0.05, swap: 0.004, partner: 0.01, interact: 0.02 };
@@ -241,6 +243,29 @@ function bot(style: Style): (s: GameState, t: number) => TickInput {
       if (busy && gauge.value >= gauge.max) {
         move = unit(boss.x - op.x, boss.y - op.y);
         stamp = Math.hypot(boss.x - op.x, boss.y - op.y) < 3 * TILE;
+      }
+    }
+    if (style.guardDeliveries) {
+      const box = s.shots.filter((sh) => sh.delivery !== undefined && !sh.spent)
+        .reduce<Shot | undefined>((a, sh) => (a === undefined || Math.hypot(sh.x - op.x, sh.y - op.y) < Math.hypot(a.x - op.x, a.y - op.y) ? sh : a), undefined);
+      if (box) {
+        const speed = Math.hypot(box.vx, box.vy);
+        const along = { x: box.vx / speed, y: box.vy / speed };
+        // The operator's body is 8 px below the point the box is tested at, as in the snack tests.
+        const ahead = (op.x - box.x) * along.x + (op.y - 8 - box.y) * along.y;
+        const aside = Math.abs((op.x - box.x) * along.y - (op.y - 8 - box.y) * along.x);
+        // Meet it at least 3 tiles ahead and 2 tiles short of the hopper, where it lands.
+        const far = box.ticksLeft * speed - 2 * TILE;
+        const at = Math.min(Math.max(ahead, 3 * TILE), Math.max(far, 0));
+        const meet = { x: box.x + along.x * at, y: box.y + along.y * at + 8 };
+        const eta = ahead / speed;
+        if (ahead > 0 && aside < 6 && eta <= FOLDER.holdTicks + 12) {
+          move = unit(-along.x, -along.y);
+          if (!holding) holding = true;
+        } else {
+          move = Math.hypot(meet.x - op.x, meet.y - op.y) < 3 ? { x: 0, y: 0 } : unit(meet.x - op.x, meet.y - op.y);
+          holding = false;
+        }
       }
     }
     return {
@@ -339,6 +364,12 @@ const SCENARIOS: readonly Scenario[] = [
     start: () => bossAt({ chapter: 'liver', room: 'liver/rooftop', gauge: 100 }, 12),
     ticks: 2400, style: { seed: 31, fire: 0, react: 0.02, stampMidAttack: true, assists: { halfDamage: false, neverEmpty: true, autoPerfect: false } },
   },
+  {
+    name: 'snack boss: deliveries, parries and blocks, both stages and the protest',
+    start: () => open({ chapter: 'stomach', room: 'stomach/boss-arena' }), ticks: 5400, style: { seed: 32, folderFirst: true, guardDeliveries: true, fire: 0.02, swap: 0, react: 0.02 },
+  },
+  { name: 'snack boss left alone and stapled: shrugs and the protest', start: () => open({ chapter: 'stomach', room: 'stomach/boss-arena' }), ticks: 3000, style: { seed: 33, fire: 0.15, swap: 0, modes: [0, 2, 4] } },
+  { name: 'snack boss in his second stage: large portions', start: () => bossAt({ chapter: 'stomach', room: 'stomach/boss-arena' }, 60), ticks: 3600, style: { seed: 34, folderFirst: true, guardDeliveries: true, fire: 0.02, swap: 0 } },
   { name: 'night lab with a full gauge: stamps among orders and crates', start: () => open({ chapter: 'stomach', room: 'stomach/night-lab', gauge: 100 }), ticks: 3000, style: { seed: 27, stamp: 0.02, fire: 0.1 } },
   { name: 'liver factory with a full gauge: stamps by the crates', start: () => open({ chapter: 'liver', room: 'liver/factory', tags: 'alcohol:3', gauge: 100 }), ticks: 1500, style: { seed: 28, stamp: 0.05, modes: [5], goals: ['Line', 'Conveyor'] } },
 ];
