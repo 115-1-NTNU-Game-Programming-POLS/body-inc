@@ -1758,7 +1758,6 @@ export function selectMixer(s: GameState): {
     batches: s.mixer.batches.map((b) => ({ box: b.box, portion: b.portion, done: 1 - b.left / (PORTION_SECONDS[b.portion] * TICK_HZ), slots: b.slots ?? 1 })),
   };
 }
-/** The sleep bar for the HUD: the share slept, and whether the operator is up and has to lie down again. */
 /**
  * The stomach boss's sleep bar in his last stage (design doc 7.5, 熄燈), for the HUD: the share filled,
  * whether the mixer is holding it, and whether the stamp would close the case now. Undefined before the
@@ -1773,6 +1772,7 @@ export function selectFightSleep(s: GameState): { readonly share: number; readon
   return { share, held: b.sleep.hold > 0, full: share >= 1, exposed: snackExposed(def, b, s.mixer) };
 }
 
+/** The sleep bar for the HUD: the share slept, and whether the operator is up and has to lie down again. */
 export function selectSleep(s: GameState): { readonly bed: number; readonly share: number; readonly awake: boolean; readonly wakes: number } | undefined {
   const z = s.sleep;
   return z ? { bed: z.bed, share: z.slept / z.need, awake: z.awake, wakes: z.wakes } : undefined;
