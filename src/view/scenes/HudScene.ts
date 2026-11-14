@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import type { FixedStepLoop } from '../../app/loop.ts';
 import {
   acetaldehydeCrates, BASE_HALVES, debtOfSpirit, GLUCOSE as METER, glucoseOf, isDizzy, MINUTES_PER_DAY, questionOf, selectBoss, selectClock, selectExam, selectFactory, selectGauge, selectHearts,
-  selectDoorLocks, selectFatigue, selectInteractable, selectPie, selectSleep, selectTick, selectTool, selectUnload, stepAt, TICK_HZ, waitingCrates, workOrders,
+  selectDoorLocks, selectFatigue, selectInteractable, selectFightSleep, selectPie, selectSleep, selectTick, selectTool, selectUnload, stepAt, TICK_HZ, waitingCrates, workOrders,
   type BossSummary, type ChapterState, type GameEvent, type GameState,
 } from '../../core/index.ts';
 import type { WorldCaption } from '../../app/audio.ts';
@@ -342,11 +342,18 @@ export class HudScene extends Phaser.Scene {
     updateText(this.glucoseLabel, str('hud.glucose').replace('{value}', key));
   }
 
-  /** The sleep bar while a bed's sleep is under way in this room, and whether the operator has to lie down again. */
+  /**
+   * The sleep bar while a bed's sleep is under way in this room, and whether the operator has to lie down
+   * again; in the stomach boss's lights out, his fight's bar instead, with what the stamp waits for.
+   */
   private renderSleep(game: GameState): void {
-    const sleep = selectSleep(game);
+    const bed = selectSleep(game);
+    const fight = bed ? undefined : selectFightSleep(game);
+    const sleep = bed ? { share: bed.share, dim: bed.awake, label: bed.awake ? 'hud.sleep.awake' : 'hud.sleep' }
+      : fight ? { share: fight.share, dim: fight.held, label: fight.exposed ? 'hud.sleep.stamp' : fight.full ? 'hud.sleep.wait' : fight.held ? 'hud.sleep.held' : 'hud.sleep' }
+      : undefined;
     const pct = sleep ? Math.floor(sleep.share * 100) : 0;
-    const key = sleep ? `${pct}/${sleep.awake}` : '';
+    const key = sleep ? `${pct}/${sleep.dim}/${sleep.label}` : '';
     if (key === this.shownSleep) return;
     this.shownSleep = key;
     const g = this.sleepBar.clear();
@@ -355,9 +362,9 @@ export class HudScene extends Phaser.Scene {
     const x = (this.scale.width - SLEEP.w) / 2;
     const y = this.scale.height - SLEEP.bottom - SLEEP.h;
     g.fillStyle(INK, 0.82).fillRect(x - 2, y - 2, SLEEP.w + 4, SLEEP.h + 4);
-    g.fillStyle(PAPER, sleep.awake ? 0.5 : 1).fillRect(x, y, SLEEP.w, SLEEP.h);
+    g.fillStyle(PAPER, sleep.dim ? 0.5 : 1).fillRect(x, y, SLEEP.w, SLEEP.h);
     g.fillStyle(SLEEP_FILL).fillRect(x, y, Math.round(SLEEP.w * sleep.share), SLEEP.h);
-    updateText(this.sleepLabel, str(sleep.awake ? 'hud.sleep.awake' : 'hud.sleep').replace('{value}', String(pct)));
+    updateText(this.sleepLabel, str(sleep.label).replace('{value}', String(pct)));
   }
 
   /** Nameplate of the room's boss; made on first sight, since the Hud can start before World. */
@@ -574,9 +581,9 @@ export class HudScene extends Phaser.Scene {
     // Design doc 7.5 has the fog's icon name it 全糖倦怠, so the dimmed view is not read as a bug.
     const fatigue = selectFatigue(state.game);
     if (fatigue !== undefined) lines.push(str('hud.fatigue').replace('{seconds}', String(fatigue)));
-    // Lights out while the operator sleeps (design doc 7.5, 熄燈), as dark as the dizzy haze.
+    // Lights out while the operator sleeps, and through the stomach boss's last stage (design doc 7.5, 熄燈), as dark as the dizzy haze.
     const sleep = selectSleep(state.game);
-    this.haze.setVisible(dizzy || (sleep !== undefined && !sleep.awake));
+    this.haze.setVisible(dizzy || (sleep !== undefined && !sleep.awake) || selectFightSleep(state.game) !== undefined);
     const text = lines.join('\n');
     const above = this.clock.visible ? this.clock : this.controls;
     this.status.setY(above.y + above.displayHeight + 2);

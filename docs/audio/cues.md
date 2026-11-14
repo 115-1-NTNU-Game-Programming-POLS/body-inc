@@ -46,13 +46,13 @@
 | `respawn` | 重生：一聲紙張的沙，接兩個不高的上行音，比換文具低 | `respawned` |
 | `bump` | 撞牆：一聲輕的悶響，只在剛碰到牆時響一次 | `bumpWall` |
 | `boing` | 彈開 | `immuneBounce`, `backedOff`, `snackShrugged` |
-| `nope` | 不行：兩個下行短音 | `stampVoid`, `handsFull`, `switchCooling` |
+| `nope` | 不行：兩個下行短音 | `stampVoid`, `handsFull`, `switchCooling`, `snackStampRefused` |
 | `heart` | 受擊的低音：失去一顆心，或在考試裡被打中 | `heartLost`, `examHit` |
 | `tick` | 時鐘的滴答，有字幕；見下節 | 剩一顆心時由場景每秒播一次 |
 | `heartbeat` | 心悸的三聲心跳；心跳只給能量飲料 | `palpitation` |
 | `stampUp` | 蓋章舉起 | `stampRaised` |
 | `stampDown` | 碰：蓋章落下，有字幕 | `stampLanded` |
-| `ready` | 駁回量表滿的喀聲，有字幕 | `gaugeFull` |
+| `ready` | 駁回量表滿的喀聲，有字幕 | `gaugeFull`, `snackRested` |
 | `cling` | 黏住 | `bound`, `clung`, `examStacked` |
 | `yawn` | 下行的哈欠 | `forcedLeave`, `bedUse`, `forcedNap`, `napped` |
 | `door` | 進門 | `doorEntered` |
@@ -78,7 +78,7 @@
 | `gulp` | Boss 喝飲料 | `bossDrink` |
 | `stage` | Boss 換階段或換回合的三個音 | `bossStage`, `bossRound`, `snackStage` |
 | `powerdown` | 斷電 | `powerCut` |
-| `woke.mixer` | 鬧鐘：高低交替的四聲方波短嗶，胃的攪拌機在睡眠中響起的警報 | `sleepInterrupted`（cause 為 `mixer`） |
+| `woke.mixer` | 鬧鐘：高低交替的四聲方波短嗶，胃的攪拌機在睡眠中響起的警報 | `sleepInterrupted`（cause 為 `mixer`）, `snackWoken` |
 | `woke.hurt` | 驚醒：一聲短促上揚的三角波，挨打的受傷音之外只提示「醒了」，不放鬧鐘 | `sleepInterrupted`（cause 為 `hurt`） |
 | `dizzy.true` | 暈眩：下行的搖晃音 | `dizzyChanged`，`dizzy` 為真 |
 | `dizzy.false` | 恢復：上行雙音 | `dizzyChanged`，`dizzy` 為假 |
