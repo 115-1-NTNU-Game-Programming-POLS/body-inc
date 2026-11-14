@@ -469,6 +469,7 @@
     "hud.sleep.held": { "text": "睡眠 {value}%　胃還在加班", "fact": "14" },
     "hud.sleep.wait": { "text": "睡飽了：等攪拌機清空再蓋章", "fact": "" },
     "hud.sleep.stamp": { "text": "睡飽了：現在蓋章！", "fact": "" },
+    "hud.sleep.gauge": { "text": "睡飽了：集滿駁回量表再蓋章", "fact": "" },
     "sleep.woke.mixer": { "text": "胃還在加班，半夜醒來了", "fact": "14" },
     "sleep.woke.hurt": { "text": "被打醒了", "fact": "" },
     "hud.dizzy": { "text": "頭暈冒冷汗：空腹喝酒，肝醣倉庫暫停出貨，移速 −15%", "fact": "31" },

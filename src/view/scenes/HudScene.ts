@@ -350,7 +350,7 @@ export class HudScene extends Phaser.Scene {
     const bed = selectSleep(game);
     const fight = bed ? undefined : selectFightSleep(game);
     const sleep = bed ? { share: bed.share, dim: bed.awake, label: bed.awake ? 'hud.sleep.awake' : 'hud.sleep' }
-      : fight ? { share: fight.share, dim: fight.held, label: fight.exposed ? 'hud.sleep.stamp' : fight.full ? 'hud.sleep.wait' : fight.held ? 'hud.sleep.held' : 'hud.sleep' }
+      : fight ? { share: fight.share, dim: fight.held, label: fight.stampReady ? 'hud.sleep.stamp' : fight.exposed ? 'hud.sleep.gauge' : fight.full ? 'hud.sleep.wait' : fight.held ? 'hud.sleep.held' : 'hud.sleep' }
       : undefined;
     const pct = sleep ? Math.floor(sleep.share * 100) : 0;
     const key = sleep ? `${pct}/${sleep.dim}/${sleep.label}` : '';
