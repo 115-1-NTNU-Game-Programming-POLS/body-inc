@@ -153,6 +153,7 @@ describe('feedback table', () => {
       'pieRaised: note "pie.raised.{sleepy}" uses unknown placeholder "{sleepy}"',
       'stampVoid: note "stamp_void.{solution}" uses unknown placeholder "{solution}"',
       'bossStage: note "boss_stage.{stage}" uses unknown placeholder "{stage}"',
+      'snackStage: note "boss.snack.next_stage.{stage}" uses unknown placeholder "{stage}"',
       'doorLocked: note "door.locked.{lock}" uses unknown placeholder "{lock}"',
       'pickedUp: note "pickup.{itemType}" uses unknown placeholder "{itemType}"',
       'bedRefused: note "bed.refused.{bedType}" uses unknown placeholder "{bedType}"',

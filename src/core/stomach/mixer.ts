@@ -40,6 +40,9 @@ export interface Batch {
   readonly slots?: number;
 }
 
+/** A box the stomach boss threw, as opposed to a courier's order or a box fed by hand: only his carry `slots`. */
+export const isDelivery = (b: Batch): boolean => b.slots !== undefined;
+
 /**
  * Places a boss delivery takes of the mixer's capacity (design doc 7.5, stage 2: the large portion is
  * "2 格大"). A box fed by hand takes one whatever its portion, since the design doc asks for the

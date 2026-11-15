@@ -7,7 +7,8 @@
  *
  * Two things wake the operator for now: the stomach's mixer, which sounds its alarm after every
  * `ALARM_SECONDS` of the sleep during which it was digesting, and a hit. The liver's third puzzle
- * (7.7) and the stomach boss's third stage wake it by other rules, which come with them. The state
+ * (7.7) will wake it by a rule of its own. The stomach boss's third stage has a bar of its own, kept
+ * on him (core/combat/bosses/snack.ts), since the operator fights through it instead of lying in bed. The state
  * is the room's, like the mixer's: a door, a forced leave or a return to a checkpoint drops it, so
  * the bar starts over on the next try.
  */

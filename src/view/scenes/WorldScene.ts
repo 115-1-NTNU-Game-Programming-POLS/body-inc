@@ -12,7 +12,7 @@ import type { FixedStepLoop } from '../../app/loop.ts';
 import type { SaveStore } from '../../app/storage.ts';
 import { WallContact } from '../../app/wallContact.ts';
 import {
-  carriedTags, CELL_COLS, DELIVERY_HALF, listProps, selectBoss, selectEnemies, selectOperator, selectProjectiles, storyAtEnd, storyOf, TILE, visibleProps,
+  carriedTags, CELL_COLS, DELIVERY_HALF, listProps, selectBoss, selectFightSleep, selectEnemies, selectOperator, selectProjectiles, storyAtEnd, storyOf, TILE, visibleProps,
   type ChapterContent, type ChapterState, type EnemyState, type GameEvent, type GameState, type PatrolResult, type ProgressData, type Settings, type TiledMapFile,
 } from '../../core/index.ts';
 import type { CardsData } from './OpeningScene.ts';
@@ -234,7 +234,7 @@ export class WorldScene extends Phaser.Scene {
     for (const e of selectEnemies(state)) {
       if (e.boss) {
         const pinned = state.enemies.filter((x) => x.summoner === e.id && x.phase === 'pinned').length;
-        this.bossViews.get(e.id)?.render(before.get(e.id), e, state.bosses[e.boss.def]!, pinned, alpha, tick);
+        this.bossViews.get(e.id)?.render(before.get(e.id), e, state.bosses[e.boss.def]!, pinned, alpha, tick, selectFightSleep(state)?.exposed === true);
       } else this.enemyViews.get(e.id)?.render(before.get(e.id), e, alpha, tick, time);
     }
 
