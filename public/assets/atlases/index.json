@@ -2,7 +2,7 @@
  "operator": "assets/atlases/operator",
  "suit-base": "assets/atlases/suit-base",
  "energy-seller": "assets/atlases/stopgap/energy-seller",
- "cheers": "assets/atlases/stopgap/cheers",
+ "cheers": "assets/atlasescheers",
  "consultant": "assets/atlases/consultant",
  "flyer": "assets/atlases/flyer",
  "phone-sprite": "assets/atlases/placeholder/phone-sprite",
