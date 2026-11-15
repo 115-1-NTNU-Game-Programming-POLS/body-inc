@@ -11,7 +11,6 @@
     { "name": "sugar_fatigue", "type": "boolean", "sources": ["card", "event"], "duration": "hours", "hours": 2, "facts": ["13"] },
     { "name": "late_snack", "type": "boolean", "sources": ["card", "event"], "duration": "nextDay", "facts": ["14"] },
     { "name": "light_dinner", "type": "boolean", "sources": ["card"], "duration": "untilWake", "facts": ["general"] },
-    { "name": "heavy_dinner", "type": "boolean", "sources": ["card"], "duration": "untilWake", "facts": ["13"] },
     { "name": "snack_run", "type": "boolean", "sources": ["event"], "duration": "persistent", "facts": ["14"] },
     { "name": "snack_saved", "type": "boolean", "sources": ["event"], "duration": "persistent", "facts": ["14"] },
     { "name": "early_night", "type": "boolean", "sources": ["event"], "duration": "persistent", "facts": ["14"] },

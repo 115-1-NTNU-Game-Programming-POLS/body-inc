@@ -32,9 +32,9 @@ import { amount, EMPTY_TAGS, flag, holds, setAmount, setFlag, type TagState } fr
 import { TICK_HZ } from '../time.ts';
 import { isTool, TOOLS, type Tool } from '../tools.ts';
 import { caffeineOf, senseCap, type MetabolismParams } from '../outer/caffeine.ts';
-import type { Deck } from '../outer/deck.ts';
+import type { Deck, Opening } from '../outer/deck.ts';
 import { openCard, stepCard, type CardState } from './cards.ts';
-import { applyEffects } from './effects.ts';
+import { applyEffects, raisedGauge } from './effects.ts';
 import { GLUCOSE, isDizzy, openGlucose, stepGlucose, type GlucoseEvent } from './glucose.ts';
 import { onCan, type CanEvent } from './can.ts';
 import { onRefusal, onToast, type RefusalEvent } from './refusal.ts';
@@ -353,6 +353,11 @@ export function startChapter(ctx: ChapterContent, options: StartOptions = {}): C
   // Only a start at the chapter's own start room is the story's start; a dev build may open anywhere.
   const intro = run.roomId === ctx.chapter.start ? ctx.chapter.intro : undefined;
   return { run: remember(run, game), game, dialogue: null, card: null, ...(intro !== undefined ? { pending: intro } : {}) };
+}
+
+/** A new chapter after its opening cards: their tags and clock, and the gauge their `gauge:` effects raised. */
+export function startOpened(ctx: ChapterContent, opening: Opening, tools: readonly Tool[] = []): ChapterState {
+  return startChapter(ctx, { tags: opening.tags, clock: opening.clock, tools, gauge: raisedGauge(0, opening.events) });
 }
 
 /** Continue from a saved checkpoint: its room and place, its tags and clock, full hearts. The intro is not played again. */

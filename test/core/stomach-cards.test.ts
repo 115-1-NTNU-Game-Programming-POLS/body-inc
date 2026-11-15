@@ -3,12 +3,12 @@ import { describe, expect, it } from 'vitest';
 import { BOSSES, CHAPTERS, DECKS, DIALOGUES, ENEMIES, PARAMS, RESCUES, TAGS } from '../../src/app/content.ts';
 import { tagsFromQuery } from '../../src/app/session.ts';
 import {
-  amount, arrivalPoint, CHAPTER_OPENS, EMPTY_TAGS, holds, LOCK_TICKS, parseRoom, playOpening, raisedGauge, readDeck, roomsOf, startChapter, stepChapter, TICK_HZ, TILE,
+  amount, arrivalPoint, CHAPTER_OPENS, EMPTY_TAGS, holds, LOCK_TICKS, parseRoom, playOpening, raisedGauge, readDeck, roomsOf, startChapter, startOpened, stepChapter, TICK_HZ, TILE,
   type ChapterContent, type ChapterState, type GameEvent, type TickInput, type TiledMap,
 } from '../../src/core/index.ts';
 import { applyEffects } from '../../src/core/chapter/effects.ts';
 import { stepSnack } from '../../src/core/combat/bosses/snack.ts';
-import type { SnackDef, SnackState } from '../../src/core/combat/bosses/boss.ts';
+import { PACE_MAX, type SnackDef, type SnackState } from '../../src/core/combat/bosses/boss.ts';
 import type { EnemyState } from '../../src/core/combat/actors.ts';
 import { STAMP, SUGAR_FOG } from '../../src/core/combat/frames.ts';
 import { OPERATOR_BODY } from '../../src/core/combat/operator.ts';
@@ -102,9 +102,9 @@ describe('the gauge effect', () => {
 describe('the opening cards (design doc 7.5: what dinner, and bed at what time)', () => {
   const open = (dinner: string, bedtime: string) =>
     playOpening(DECK, TAGS, [option('dinner', dinner), option('bedtime', bedtime)], CHAPTER_OPENS, PARAMS);
+  // The opening scene starts the chapter with startOpened, so this is the game's own path from the cards to the room.
   const enter = (dinner: string, bedtime = 'fix_only') => {
-    const o = open(dinner, bedtime);
-    const { pending: _, ...s } = startChapter(STOMACH, { tags: o.tags, clock: o.clock, gauge: raisedGauge(0, o.events) });
+    const { pending: _, ...s } = startOpened(STOMACH, open(dinner, bedtime));
     return s;
   };
 
@@ -130,13 +130,12 @@ describe('the opening cards (design doc 7.5: what dinner, and bed at what time)'
     expect([small!.props['portion'], small!.x, small!.y]).toEqual(['small', large!.x, large!.y]);
   });
 
-  it('fried chicken adds a large portion that rides straight into the hopper, the sugar fog, and 25 on the gauge', () => {
+  it('fried chicken opens in the full sugar fog with 25 on the gauge, and adds no box, which would be a free parcel', () => {
     const s = enter('fried');
     expect(s.game.operator.gauge).toBe(25);
-    expect(boxIds(s)).toEqual([2, 3, 4, 5, 6, 20]);
-    expect(has(s, 'sugar_fatigue')).toBe(true);
-    const fed = until(s, NONE, ['mixerFed'], 4 * TICK_HZ);
-    expect(fed.hit).toMatchObject({ type: 'mixerFed', object: 20 });
+    expect(s.game.operator.fatigue).toBe(SUGAR_FOG.ticks);
+    expect(boxIds(s)).toEqual([2, 3, 4, 5, 6]);
+    expect(enter('bento').game.operator.fatigue).toBeUndefined();
   });
 
   it('staying up for the past papers adds to the computer-test readiness and lowers the chairman\'s spirit', () => {
@@ -206,7 +205,7 @@ describe('the night lab after the roommate card', () => {
     const base = boxIds(at(ROOM));
     expect(boxIds(at(ROOM, 'snack_run'))).toEqual(base);
     expect(boxIds(at(ROOM, 'snack_saved'))).toEqual(base);
-    expect(boxIds(at(ROOM, 'snack_run,snack_settled'))).toEqual([...base, 19, 20].sort((a, b) => a - b));
+    expect(boxIds(at(ROOM, 'snack_run,snack_settled'))).toEqual([...base, 20, 23].sort((a, b) => a - b));
     expect(boxIds(at(ROOM, 'snack_saved,snack_settled'))).toEqual([...base, 21].sort((a, b) => a - b));
   });
 
@@ -218,15 +217,16 @@ describe('the night lab after the roommate card', () => {
   });
 
   /**
-   * Walks back in from the arena with the case closed and the courier's too, goes straight to bed
-   * after `wait` ticks and lies down, then sleeps up to 40 seconds. Whether the mixer's alarm woke
-   * the operator and whether the chapter ended.
+   * Walks back in from the arena with the case closed (and the courier's too, unless told not),
+   * takes the boxes `without` away, goes to bed after `wait` ticks and lies down, then sleeps up to 40 seconds. How many
+   * times the operator was woken and whether the chapter ended.
    */
-  function bedtime(q: string, wait = 0): { woke: boolean; ended: boolean } {
-    const arena = at('stomach/boss-arena', ['snack_settled', 'courier_closed', q].filter(Boolean).join(','));
+  function bedtime(q: string, wait = 0, courierClosed = true, without: readonly number[] = []): { wakes: number; ended: boolean } {
+    const arena = at('stomach/boss-arena', ['snack_settled', courierClosed ? 'courier_closed' : '', q].filter(Boolean).join(','));
     let s = until({ ...arena, game: { ...arena.game, enemies: [] } }, { move: { x: -1, y: 0 } }, ['roomChanged']).state;
     expect(s.run.roomId).toBe(ROOM);
     expect(arrivalPoint(door(ROOM, 'door-e'), OPERATOR_BODY).x).toBeCloseTo(s.game.operator.x, 0);
+    s = { ...s, game: { ...s.game, boxes: s.game.boxes.filter((b) => !without.includes(b.id)) } };
     s = go(s, NONE, wait).state;
     const bed = STOMACH.rooms.get(ROOM)!.objects.find((o) => o.kind === 'Bed')!;
     const target = { x: bed.x + bed.width / 2, y: bed.y - 6 };
@@ -240,17 +240,29 @@ describe('the night lab after the roommate card', () => {
     expect(lay.events.map((e) => e.type)).toContain('fellAsleep');
     const night = go(lay.state, NONE, 40 * TICK_HZ);
     const types = night.events.map((e) => e.type);
-    return { woke: types.includes('sleepInterrupted'), ended: types.includes('chapterEnded') };
+    return { wakes: types.filter((t) => t === 'sleepInterrupted').length, ended: types.includes('chapterEnded') };
   }
 
-  it('going along keeps the mixer running into the sleep, so lying down at once is woken once', () => {
-    expect(bedtime('snack_run')).toEqual({ woke: true, ended: false });
+  it('going along keeps the mixer digesting into the sleep, so waiting by the door up to 19 seconds before bed is woken once', () => {
+    for (const s of [0, 10, 19]) expect([s, bedtime('snack_run', s * TICK_HZ)]).toEqual([s, { wakes: 1, ended: false }]);
+  });
+
+  it('needs both boxes the roommate run leaves: without the feeder one, lying down at once sleeps through; without the other, waiting 10 seconds does', () => {
+    expect(bedtime('snack_run', 0, true, [20])).toEqual({ wakes: 0, ended: true });
+    expect(bedtime('snack_run', 10 * TICK_HZ, true, [23])).toEqual({ wakes: 0, ended: true });
   });
 
   it('waiting for the mixer to empty first, or having stayed in, lets the operator sleep through', () => {
-    expect(bedtime('snack_run', 30 * TICK_HZ)).toEqual({ woke: false, ended: true });
-    expect(bedtime('early_night')).toEqual({ woke: false, ended: true });
-    expect(bedtime('')).toEqual({ woke: false, ended: true });
+    expect(bedtime('snack_run', 20 * TICK_HZ)).toEqual({ wakes: 0, ended: true });
+    expect(bedtime('snack_saved')).toEqual({ wakes: 0, ended: true });
+    expect(bedtime('')).toEqual({ wakes: 0, ended: true });
+  });
+
+  // His orders keep the mixer busy a few seconds at a time, short of the 20-second alarm, so what an early night spares is his
+  // orders on the floor and at the stamp, not the sleep.
+  it('the courier and his orders do not wake the operator, with or without an early night', () => {
+    expect(bedtime('', 0, false)).toEqual({ wakes: 0, ended: true });
+    expect(bedtime('early_night', 0, false)).toEqual({ wakes: 0, ended: true });
   });
 });
 
@@ -296,6 +308,29 @@ describe('the climax card (design doc 7.5: before the 1 a.m. delivery)', () => {
     return (thrown[2]! - thrown[1]!) / TICK_HZ;
   }
 
+  it('reaches him through the game step: in the arena his stage-2 boxes come every 4 seconds after eating, 6 without', () => {
+    const gap = (q: string) => {
+      let s = at('stomach/boss-arena', q);
+      s = { ...s, game: { ...s.game, enemies: s.game.enemies.map((e) => (e.boss
+        ? { ...e, hp: SNACK.stage2.budget, boss: { ...(e.boss as SnackState), stage: 2 as const, ticks: 0, stageThrown: 1, move: null } } : e)) } };
+      const thrown: number[] = [];
+      for (let t = 0; t < 20 * TICK_HZ && thrown.length < 3; t++) {
+        const r = stepChapter(STOMACH, s, NONE);
+        if (r.events.some((e) => e.type === 'deliveryThrown')) thrown.push(t);
+        s = r.state;
+      }
+      expect(thrown).toHaveLength(3);
+      return (thrown[2]! - thrown[1]!) / TICK_HZ;
+    };
+    expect(gap('late_snack')).toBeCloseTo(4, 1);
+    expect(gap('')).toBeCloseTo(SNACK.stage2.everyTicks / TICK_HZ, 1);
+  });
+
+  it('the schema lets a climax speed him up no more than the boss loader checks his stage 2 at', () => {
+    const schema = JSON.parse(readFileSync('content/schema/chapter.schema.json', 'utf8'));
+    expect(schema.properties.climax.properties.paceFactor.maximum).toBe(PACE_MAX);
+  });
+
   it('the late snack makes his stage-2 large boxes come every 4 seconds instead of 6, and leaves the other stages alone', () => {
     expect(rhythm(2, 1)).toBeCloseTo(SNACK.stage2.everyTicks / TICK_HZ, 1);
     expect(rhythm(2, 1.5)).toBeCloseTo(4, 1);
@@ -305,16 +340,6 @@ describe('the climax card (design doc 7.5: before the 1 a.m. delivery)', () => {
 });
 
 describe('what the review of the cards found', () => {
-  it('fried chicken opens the chapter in the full sugar fog, which a bento does not', () => {
-    const open = (dinner: string) => {
-      const o = playOpening(DECK, TAGS, [option('dinner', dinner), 0], CHAPTER_OPENS, PARAMS);
-      const { pending: _, ...s } = startChapter(STOMACH, { tags: o.tags, clock: o.clock });
-      return s;
-    };
-    expect(open('fried').game.operator.fatigue).toBe(SUGAR_FOG.ticks);
-    expect(open('bento').game.operator.fatigue).toBeUndefined();
-  });
-
   it('a card that fills the gauge sounds it full, reports only what it added, and raises nothing on a full gauge', () => {
     const ROOM = 'stomach/sorting-lab';
     const east = door(ROOM, 'door-e');

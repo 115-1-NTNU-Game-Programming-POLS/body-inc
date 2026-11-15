@@ -147,7 +147,9 @@ describe('the snack boss definition (design doc 7.5)', () => {
     expect(load((r) => { r.stage2.budget = 99; })).not.toThrow();
     expect(load((r) => { r.stage2.deliveries.halves = 2; })).toThrow(/stage2\.deliveries\.halves: a delivery is a tier-1 hit/);
     expect(load((r) => { r.stage2.deliveries.everySeconds = 0.5; })).toThrow(/stage2\.deliveries\.everySeconds must be longer than the 0\.5 s tier-1 telegraph/);
-    expect(load((r) => { r.stage2.deliveries.everySeconds = 0.52; })).not.toThrow();
+    // A climax may divide stage 2's rhythm by up to PACE_MAX (2), so its telegraph has to fit in half of it.
+    expect(load((r) => { r.stage2.deliveries.everySeconds = 1; })).toThrow(/stage2\.deliveries\.everySeconds must be longer than the 0\.5 s tier-1 telegraph even when a climax divides it by 2/);
+    expect(load((r) => { r.stage2.deliveries.everySeconds = 1.04; })).not.toThrow();
     expect(load((r) => { r.stage2.budget = 0; })).toThrow(/stage2/);
   });
 

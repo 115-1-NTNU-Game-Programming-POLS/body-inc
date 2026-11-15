@@ -66,11 +66,10 @@ writeRoom('stomach/mixer-lab.tmj', {
         { id: 1, name: 'start', type: 'PlayerStart', x: 2 * T + 16, y: 7 * T + 16, width: 0, height: 0, rotation: 0, visible: true, point: true },
         food(2, 4, 4, 'small'),
         food(3, 6, 4, 'normal'),
-        // The dinner card (design doc 7.5) sets how full the warehouse opens: a buffet dinner is a small portion here
-        // instead of the large one, and fried chicken adds a large portion already riding into the hopper.
+        // The dinner card (design doc 7.5): a buffet dinner is a small portion here instead of the large one. Fried chicken
+        // adds no box, since any box the mixer takes in comes out as one of the gate's parcels and would make the lab easier.
         food(4, 8, 4, 'large', '!light_dinner'),
         food(19, 8, 4, 'small', 'light_dinner'),
-        food(20, 7, 6, 'large', 'heavy_dinner'),
         food(5, 4, 9, 'normal'),
         food(6, 6, 9, 'small'),
         rect(7, 'belt-in', 'Conveyor', 2, 6, 8, 1, [str('direction', 'Direction', 'E')]),
@@ -169,7 +168,7 @@ writeRoom('stomach/sorting-lab.tmj', {
 
 writeRoom('stomach/night-lab.tmj', {
   type: 'map', version: '1.10', tiledversion: '1.11.0', orientation: 'orthogonal', renderorder: 'right-down',
-  infinite: false, width: W, height: 12, tilewidth: T, tileheight: T, nextlayerid: 4, nextobjectid: 23, class: 'Room',
+  infinite: false, width: W, height: 12, tilewidth: T, tileheight: T, nextlayerid: 6, nextobjectid: 24, class: 'Room',
   properties: [
     { name: 'organ', type: 'string', value: 'stomach' },
     { name: 'role', type: 'string', value: 'puzzle' },
@@ -211,12 +210,29 @@ writeRoom('stomach/night-lab.tmj', {
         // The climax card (design doc 7.5: before the 1 a.m. delivery) on the arena door's own rows.
         card(18, 'climax', 'climax', 18, 6, 1, 2),
         // What the roommate card left for the walk back to bed (design doc 7.5, the late-night puzzle). Going with him puts a
-        // small portion at the hopper and a normal one on the feeder, so the mixer runs on through the first 20 seconds of
-        // sleep and its alarm wakes the operator once, unless they wait for it or push the normal one off into the cold store.
-        food(19, 8, 6, 'small', 'snack_run,snack_settled'),
+        // normal portion on the feeder, and the variant layer below a second one on a slow belt along the north wall, so the
+        // mixer digests the two back to back: waiting by the east door up to 19 seconds before going the few tiles to bed is
+        // woken by its alarm, 20 or more sleeps through (measured in test/core/stomach-cards.test.ts). A box riding a belt cannot be pushed, so the answer
+        // is to wait. It needs snack_settled, or the belts would feed it in on the way out.
         food(20, 2, 3, 'normal', 'snack_run,snack_settled'),
         // His share for breakfast waits by the cold store: one push west keeps it for tomorrow.
         food(21, 9, 9, 'normal', 'snack_saved,snack_settled'),
+      ],
+    },
+    // The roommate run's second box, on a slow belt into the feeder that exists only on the walk back to bed, so the
+    // first visit's puzzle is untouched. 12 tiles at a tile a second, then the feeder and the in-belt: it reaches the
+    // hopper about 20 seconds in, as the feeder's box is still digesting.
+    {
+      id: 4, name: 'variant:snack-run', type: 'group', class: 'Variant', x: 0, y: 0, opacity: 1, visible: true,
+      properties: [{ name: 'when', type: 'string', value: 'snack_run,snack_settled' }],
+      layers: [
+        {
+          id: 5, name: 'objects', type: 'objectgroup', x: 0, y: 0, opacity: 1, visible: true, draworder: 'topdown',
+          objects: [
+            belt(22, 'roommate-belt', 3, 3, 13, 1, 'W', 'slow'),
+            food(23, 15, 3, 'normal'),
+          ],
+        },
       ],
     },
   ],

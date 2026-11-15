@@ -7,7 +7,7 @@
       "options": [
         { "id": "bento", "effect": "gauge:10" },
         { "id": "buffet", "effect": "tag:light_dinner" },
-        { "id": "fried", "effect": "tag:heavy_dinner;tag:sugar_fatigue;gauge:25" }
+        { "id": "fried", "effect": "tag:sugar_fatigue;gauge:25" }
       ]
     },
     {
