@@ -648,12 +648,25 @@ describe('stage 3: 熄燈', () => {
     expect(load((r) => { r.stage3.budget = 40; })).not.toThrow();
   });
 
+  it('refuses a bar or a pause that rounds to no tick at all', () => {
+    expect(load((r) => { r.stage3.sleepSeconds = 0.001; })).toThrow(/stage3\.sleepSeconds must last at least one tick/);
+    expect(load((r) => { r.stage3.interruptSeconds = 0.001; })).toThrow(/stage3\.interruptSeconds must last at least one tick/);
+  });
+
   it('starts on the first tick of stage 2 his budget is at most 20, with an empty bar, and its own line', () => {
     const r = run(away(withBoss(fight(), { stage: 2 }, { hp: 20 })), 3);
     expect(ofType(r, 'snackStage')).toEqual([{ type: 'snackStage', target: boss(r.state).id, stage: 3 }]);
     expect(ticksOf(r, 'snackStage')).toEqual([0]);
     expect(boss(r.states[0]!).boss).toMatchObject({ stage: 3, ticks: 0, stageThrown: 0, sleep: { slept: 0, hold: 0, wakes: 0 } });
     expect(boss(r.state).boss.sleep!.slept).toBe(2);
+  });
+
+  it('lets a box finished on the tick the lights go out interrupt the new bar', () => {
+    const r = run(away(lastTick(withBoss(fight(), { stage: 2 }, { hp: 20 }))), DEF.stage3.interruptTicks + 1);
+    expect(ticksOf(r, 'snackStage')).toEqual([0]);
+    expect(ofType(r, 'snackWoken')).toMatchObject([{ wakes: 1 }]);
+    expect(ticksOf(r, 'snackWoken')).toEqual([0]);
+    expect(stillTicks(r, 0)).toBe(DEF.stage3.interruptTicks);
   });
 
   it('finishes a box already announced in stage 2 before the lights go out', () => {
@@ -740,6 +753,24 @@ describe('stage 3: 熄燈', () => {
     const last = ticksOf(r, 'snackWoken').at(-1)!;
     expect(n - 1 - last).toBeGreaterThan(DEF.stage3.interruptTicks);
     expect(boss(r.state).boss.sleep!.slept).toBe(n - woken.length * DEF.stage3.interruptTicks);
+  });
+
+  it('is woken by each of his boxes a protest throws out, so taking one is no shortcut to an empty mixer', () => {
+    // Two large boxes left over from stage 2 fill the mixer of 4; the first box of the lights out lands on it.
+    const full: GameState = {
+      ...inStage3(fight(), { slept: 100, hold: 0, wakes: 0 }),
+      mixer: { batches: [9001, 9002].map((box) => ({ box, portion: 'large' as const, left: 2000, order: true, slots: 2 })) },
+    };
+    const r = run(away(full), FIRST_THROW_3 + 200 + 2 * DEF.stage3.interruptTicks);
+    expect(ofType(r, 'mixerProtest')).toHaveLength(1);
+    const protest = ticksOf(r, 'mixerProtest')[0]!;
+    expect(ticksOf(r, 'snackWoken')).toEqual([protest]);
+    expect(ofType(r, 'snackWoken')).toMatchObject([{ wakes: 2 }]);
+    const at = boss(r.states[protest]!).boss.sleep!.slept;
+    expect(stillTicks(r, at)).toBe(1 + 2 * DEF.stage3.interruptTicks);
+    // Once the bar is full a protest wakes no one, as a digested box does not.
+    const rested: GameState = { ...full, enemies: inStage3(fight(), { slept: DEF.stage3.sleepTicks, hold: 0, wakes: 0 }).enemies };
+    expect(ofType(run(away(rested), FIRST_THROW_3 + 200), 'snackWoken')).toEqual([]);
   });
 
   it('is not woken by a courier’s order: only his own boxes are his overtime', () => {

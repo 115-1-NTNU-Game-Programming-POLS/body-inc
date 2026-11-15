@@ -3,7 +3,7 @@ import { isSolid, moveAndCollide } from './collision/grid.ts';
 import { backOff, ENEMY_BODY, enemyCenter, enemyFrom, enemyHurtbox, isBound, isHittable, isMelee, recoverTicksOf, reshield, shieldCovers, stepEnemy, strikeBox, type EnemyState } from './combat/actors.ts';
 import { newBossState, type BossDef, type BossTable, type ToastState } from './combat/bosses/boss.ts';
 import { proposalOpen, stepCaffeine } from './combat/bosses/caffeine.ts';
-import { sleepShare, snackExposed, snackFloor, stepSnack } from './combat/bosses/snack.ts';
+import { sleepShare, snackExposed, snackFloor, snackProtested, stepSnack } from './combat/bosses/snack.ts';
 import { breathing, stepToast } from './combat/bosses/toast.ts';
 import type { EnemyTable } from './combat/enemies.ts';
 import { BASE_HALVES, BIND, BOSS, CLING, COURIER, DODGE, ENEMY_HIT_FREEZE, FOLDER, GAUGE, heartCap, HURT, MANAGER, PARRY_BOOST, SALESMAN, STAMP, STAPLER, SUGAR_FOG } from './combat/frames.ts';
@@ -1511,6 +1511,7 @@ export function step(state: GameState, pressed: TickInput): StepResult {
     if (!mixerNow || !hopper || !mouth) break;
     const boxId = orderId(orderSerial++);
     const capacity = Number(hopper.props['capacity']);
+    const held = mixerNow.batches.filter(isDelivery).length;
     const taken = takeDelivery(mixerNow, capacity, boxId, sh.delivery!);
     mixerNow = taken.mixer;
     if (!taken.jammed) {
@@ -1518,9 +1519,10 @@ export function step(state: GameState, pressed: TickInput): StepResult {
       continue;
     }
     events.push({ type: 'mixerProtest', mixer: hopper.id, x: mouth.x, y: mouth.y });
-    const owner = enemies.get(sh.owner)?.boss;
-    const def = owner ? state.bosses[owner.def] : undefined;
+    const boss = enemies.get(sh.owner);
+    const def = boss?.boss ? state.bosses[boss.boss.def] : undefined;
     if (def?.behaviour !== 'snack') continue;
+    enemies.set(sh.owner, snackProtested(def, boss!, held, events));
     const id = nextId++;
     zones.set(id, {
       id, owner: sh.owner, move: 'protest', tier: 3, x: mouth.x, y: mouth.y, radius: def.protest.radius,

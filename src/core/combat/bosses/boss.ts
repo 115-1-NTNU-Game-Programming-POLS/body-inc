@@ -276,6 +276,9 @@ function snackDef(f: BossFile, where: string, problems: string[]): SnackDef {
   if (f.stage3!.budget >= f.stage2!.budget) problems.push(`${where}: stage3.budget must be below stage2.budget`);
   // The stamp is what closes the case in stage 3, so it has to take the whole of what is left.
   if (f.stage3!.budget > BOSS.stampDamage) problems.push(`${where}: stage3.budget must be at most the stamp's ${BOSS.stampDamage}, or the stamp could not close the case`);
+  // Under half a tick rounds to none: a bar of 0 ticks is full at once, and a pause of 0 does not interrupt.
+  if (ticks(f.stage3!.sleepSeconds) < 1) problems.push(`${where}: stage3.sleepSeconds must last at least one tick`);
+  if (ticks(f.stage3!.interruptSeconds) < 1) problems.push(`${where}: stage3.interruptSeconds must last at least one tick`);
   const telegraphTicks = ticks(p.telegraphSeconds);
   if (telegraphTicks < TELEGRAPH.tier3MinTicks || telegraphTicks > TELEGRAPH.tier3MaxTicks) {
     problems.push(`${where}: protest.telegraphSeconds is a tier-3 telegraph of 1.2 to 1.5 s, got ${p.telegraphSeconds} s`);

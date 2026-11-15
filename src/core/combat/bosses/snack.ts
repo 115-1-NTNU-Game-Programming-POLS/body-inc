@@ -51,6 +51,20 @@ function stepSleepBar(def: SnackDef, sleep: SnackSleep, digested: number, e: Ene
   return { ...sleep, slept };
 }
 
+/**
+ * The mixer protested in stage 3 and threw out `dumped` of his boxes. Each wakes the operator as a
+ * finished box would, or a protest taken on purpose would empty the mixer with no pause at all.
+ * The bar has already moved this tick, so the pause starts on the next one.
+ */
+export function snackProtested(def: SnackDef, e: EnemyState, dumped: number, events: DomainEvent[]): EnemyState {
+  const b = e.boss as SnackState;
+  const sleep = b.sleep;
+  if (!sleep || dumped === 0 || sleep.slept >= def.stage3.sleepTicks) return e;
+  const wakes = sleep.wakes + dumped;
+  events.push({ type: 'snackWoken', target: e.id, wakes });
+  return { ...e, boss: { ...b, sleep: { ...sleep, hold: sleep.hold + dumped * def.stage3.interruptTicks, wakes } } };
+}
+
 /** A delivery from `dock` to `mouth`: it flies until `ticksLeft` runs out, which is when it reaches the hopper. */
 export function deliveryFrom(e: EnemyState, def: SnackDelivery, dock: Vec, mouth: Vec): ShotSpec {
   const dx = mouth.x - dock.x;
@@ -86,8 +100,10 @@ export function stepSnack(e: EnemyState, def: SnackDef, docks: readonly Vec[], m
     return done();
   }
   if (b.stage === 2 && !b.move && e.hp <= def.stage3.budget) {
-    b = { ...b, stage: 3, ticks: 0, stageThrown: 0, sleep: { slept: 0, hold: 0, wakes: 0 } };
+    const fresh: SnackSleep = { slept: 0, hold: 0, wakes: 0 };
     events.push({ type: 'snackStage', target: e.id, stage: 3 });
+    // A box finished on the very tick the lights go out still interrupts the new bar.
+    b = { ...b, stage: 3, ticks: 0, stageThrown: 0, sleep: digested > 0 ? stepSleepBar(def, fresh, digested, e, events) : fresh };
     return done();
   }
   if (b.sleep) b = { ...b, sleep: stepSleepBar(def, b.sleep, digested, e, events) };
