@@ -28,6 +28,7 @@
     "cardOpened": { "sound": "card" },
     "cardChosen": { "sound": "choose" },
     "toolGranted": { "sound": "unlock" },
+    "gaugeRaised": { "sound": "unlock" },
     "rescueStep": { "sound": "rescue.{outcome}" },
     "rescueDone": { "sound": "done" },
     "examResult": { "sound": "done" },

@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { BOSSES, CHAPTERS, DIALOGUES, ENEMIES, PARAMS, RESCUES, TAGS } from '../../src/app/content.ts';
+import { BOSSES, CHAPTERS, DECKS, DIALOGUES, ENEMIES, PARAMS, RESCUES, TAGS } from '../../src/app/content.ts';
 import {
   CHUNK, chunksOf, parseRoom, roomsOf, selectChunks, startChapter, stepChapter, UNLOAD,
   type ChapterContent, type ChapterState, type GameEvent, type TickInput, type TiledMap,
@@ -271,7 +271,7 @@ describe("the stomach chapter's night lab", () => {
   const content: ChapterContent = {
     chapter: chapterFile,
     rooms: new Map(roomsOf(chapterFile).map((path) => [path, parseRoom(path, loadMap(path), TAGS)])),
-    dialogues: DIALOGUES, dict: TAGS, enemies: ENEMIES, bosses: BOSSES, params: PARAMS, rescues: RESCUES,
+    dialogues: DIALOGUES, dict: TAGS, enemies: ENEMIES, bosses: BOSSES, params: PARAMS, rescues: RESCUES, deck: DECKS.get('stomach')!,
   };
   const POCKET_WALLS: readonly (readonly [number, number])[] = [[16, 3], [16, 4], [17, 5], [18, 5]];
 

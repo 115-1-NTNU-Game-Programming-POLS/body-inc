@@ -2,7 +2,7 @@ import { advance, startClock, wholeMinutes, type RuleClock } from '../clock.ts';
 import { owing } from '../combat/assists.ts';
 import type { BossTable } from '../combat/bosses/boss.ts';
 import type { EnemyTable } from '../combat/enemies.ts';
-import { BASE_HALVES } from '../combat/frames.ts';
+import { BASE_HALVES, SUGAR_FOG } from '../combat/frames.ts';
 import { OPERATOR_BODY, type TickInput } from '../combat/operator.ts';
 import type { Perks } from '../combat/perks.ts';
 import type { ChapterFile } from '../content/generated.ts';
@@ -124,6 +124,9 @@ export type ChapterEvent =
   | { readonly type: 'returnedToCheckpoint'; readonly room: string }
   /** A conversation handed the operator a tool; the HUD shows it from now on. */
   | { readonly type: 'toolGranted'; readonly tool: Tool }
+  | { readonly type: 'gaugeRaised'; readonly points: number }
+  /** The same cue as the room's own gaugeFull, for a gauge an effect filled (talk.ts withTools). */
+  | { readonly type: 'gaugeFull' }
   | GlucoseEvent
   | { readonly type: 'rescueOpened'; readonly rescue: string }
   /** An action on the rescue panel; `done` is how many correct steps are done after it. */
@@ -341,8 +344,11 @@ export function startChapter(ctx: ChapterContent, options: StartOptions = {}): C
     tools: toolsAtStart(ctx.chapter, options.tools),
     ...(options.perks ? { perks: options.perks } : {}),
   };
+  // The fog is the operator's, not the tag's (the sugar salesman's tea starts it in the room), so a chapter
+  // that opens with the tag, as after the stomach chapter's fried-chicken dinner, opens in it.
+  const fogged = ctx.dict.tags.has('sugar_fatigue') && flag(run.tags, ctx.dict, 'sugar_fatigue');
   const game = build(ctx, run, { kind: 'start' }, {
-    clock, gauge: options.gauge ?? 0, halves: options.halves ?? BASE_HALVES, stacks: 0,
+    clock, gauge: options.gauge ?? 0, halves: options.halves ?? BASE_HALVES, stacks: 0, ...(fogged ? { fatigue: SUGAR_FOG.ticks } : {}),
   });
   // Only a start at the chapter's own start room is the story's start; a dev build may open anywhere.
   const intro = run.roomId === ctx.chapter.start ? ctx.chapter.intro : undefined;
@@ -465,10 +471,10 @@ function onTrigger(ctx: ChapterContent, run: Run, game: GameState, e: Extract<Do
 }
 
 /** What the climax choice costs right now: the factors of the chapter's `climax` while its flag is on, otherwise 1. */
-function climax(ctx: ChapterContent, run: Run): { readonly summon: number; readonly archive: number } {
+function climax(ctx: ChapterContent, run: Run): { readonly summon: number; readonly archive: number; readonly pace: number } {
   const c = ctx.chapter.climax;
-  if (c === undefined || !flag(run.tags, ctx.dict, c.flag)) return { summon: 1, archive: 1 };
-  return { summon: c.summonFactor ?? 1, archive: c.archiveFactor ?? 1 };
+  if (c === undefined || !flag(run.tags, ctx.dict, c.flag)) return { summon: 1, archive: 1, pace: 1 };
+  return { summon: c.summonFactor ?? 1, archive: c.archiveFactor ?? 1, pace: c.paceFactor ?? 1 };
 }
 
 /**
@@ -597,19 +603,24 @@ function openPending(ctx: ChapterContent, state: ChapterState): ChapterResult {
 function cloaked(ctx: ChapterContent, run: Run, game: GameState): GameState {
   // In the exam the residue runs on the boss clock (exam/fight.ts), not the chapter's.
   const cap = senseCap(sitting(game.exam) ? game.exam!.residue : caffeineOf(run.tags, ctx.dict));
-  const scaled = summonScaled(ctx, run, game);
+  const scaled = climaxScaled(ctx, run, game);
   if (cap !== undefined) return scaled.senseCapPx === cap ? scaled : { ...scaled, senseCapPx: cap };
   if (scaled.senseCapPx === undefined) return scaled;
   const { senseCapPx: _, ...rest } = scaled;
   return rest;
 }
 
-/** The boss's summons follow the climax choice; the room knows no tags, so the chapter sets the scale. */
-function summonScaled(ctx: ChapterContent, run: Run, game: GameState): GameState {
-  const scale = climax(ctx, run).summon;
-  if (scale === (game.summonScale ?? 1)) return game;
-  if (scale !== 1) return { ...game, summonScale: scale };
-  const { summonScale: _, ...rest } = game;
+/** The boss's summons and pace follow the climax choice; the room knows no tags, so the chapter sets the scales. */
+function climaxScaled(ctx: ChapterContent, run: Run, game: GameState): GameState {
+  const c = climax(ctx, run);
+  return scaled(scaled(game, 'summonScale', c.summon), 'paceScale', c.pace);
+}
+
+/** `game` with `key` at `value`, or without it at 1, so a chapter without a climax keeps the state it had. */
+function scaled(game: GameState, key: 'summonScale' | 'paceScale', value: number): GameState {
+  if (value === (game[key] ?? 1)) return game;
+  if (value !== 1) return { ...game, [key]: value };
+  const { [key]: _, ...rest } = game;
   return rest;
 }
 
