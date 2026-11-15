@@ -12,7 +12,8 @@
  * puzzle). A late-night courier stands by the head of the in-belt and throws an order (a food box)
  * onto it every few seconds: let go, it rides into the mixer, which works overtime; stamped, it is
  * returned and counted (design doc 7.5). It has no belt loop: a box pushed into a corner stays
- * there, but the bed needs no box. A spare food box sits in the north-east corner behind two food chunks
+ * there, but the bed needs no box. The bed is also where the chapter ends, so it refuses the operator until the snack boss's case
+ * is settled and they have walked back from the arena. A spare food box sits in the north-east corner behind two food chunks
  * (design doc 6.2): the logistics chief's acid, on L, dissolves them after 1.5 seconds and the way is open for good.
  * sorting-lab is for the fork of core/rooms/boxes.ts and the lever cooldown of core/rooms/cooling.ts (the sorting
  * center): a line of four portions, a fork on it that a lever turns, a fast way to the hopper and a 22-tile slow way
@@ -178,7 +179,8 @@ writeRoom('stomach/night-lab.tmj', {
         rect(5, 'mixer', 'Mixer', 10, 6, 2, 1, [int('capacity', 3), str('outlet', 'Socket', 'E')]),
         rect(6, 'belt-out', 'Conveyor', 12, 6, 3, 1, [str('direction', 'Direction', 'E'), str('speed', 'ConveyorSpeed', 'slow')]),
         rect(7, 'gate', 'Port', 15, 6, 2, 1, [int('need', 2), str('accepts', 'PortAccepts', 'parcel')]),
-        rect(8, 'bedtime', 'Bed', 15, 8, 2, 2, [str('bedType', 'BedType', 'sleep'), int('sleepSeconds', 30)]),
+        // The chapter's end (design doc 7.2 puts the concession before it): the bed stays refused until the snack boss's case is settled.
+        rect(8, 'bedtime', 'Bed', 15, 8, 2, 2, [str('bedType', 'BedType', 'sleep'), int('sleepSeconds', 30), str('requires', undefined, 'snack_settled')]),
         rect(9, 'door-w', 'Door', 0, 6, 1, 2, [str('socket', 'Socket', 'W')]),
         rect(10, 'cold', 'ColdStore', 6, 9, 3, 2, []),
         // The late-night courier of design doc 7.5 stands beside the head of the in-belt. Once his case is closed (chapter file closedCases) he stays out.
@@ -225,8 +227,9 @@ writeRoom('stomach/boss-arena.tmj', {
         rect(5, 'dock-ne', 'Dock', 17, 4, 1, 1, []),
         rect(6, 'dock-se', 'Dock', 17, 9, 1, 1, []),
         rect(7, 'dock-sw', 'Dock', 2, 9, 1, 1, []),
+        // As in the brain's arena: once his contract is rewritten, a later visit finds the arena empty.
         { id: 8, name: 'snack-boss', type: 'Spawn', x: 10 * T, y: 4 * T + 16, width: 0, height: 0, rotation: 0, visible: true, point: true,
-          properties: [str('enemyType', 'EnemyType', 'snack')] },
+          properties: [str('enemyType', 'EnemyType', 'snack'), str('when', undefined, '!snack_settled')] },
       ],
     },
   ],

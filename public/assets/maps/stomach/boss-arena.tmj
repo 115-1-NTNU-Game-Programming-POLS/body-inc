@@ -671,6 +671,11 @@
        "type": "string",
        "propertytype": "EnemyType",
        "value": "snack"
+      },
+      {
+       "name": "when",
+       "type": "string",
+       "value": "!snack_settled"
       }
      ]
     }

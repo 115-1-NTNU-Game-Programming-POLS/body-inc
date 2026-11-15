@@ -67,7 +67,8 @@ function talk(s: ChapterState, picks: readonly number[] = []): { state: ChapterS
 describe('the brain chapter (design doc 7.4)', () => {
   it('follows the prologue and leads into the midterm, with the folder to be fetched and no stamp of its own', () => {
     expect(CHAPTERS.get('prologue')!.next).toBe('brain');
-    expect(CHAPTER.next).toBe('midterm');
+    // The stomach chapter comes between (design doc 7.1) and hands the readiness tags on to the midterm.
+    expect(CHAPTER.next).toBe('stomach');
     expect(CHAPTER.tools).toEqual([]);
     expect(DIALOGUES.has(CHAPTER.intro!)).toBe(true);
     // The midterm reads these two readiness tags; the rooms set them and the chapter carries them over, with no closing card.

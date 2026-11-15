@@ -11,7 +11,7 @@ import { FixedStepLoop } from '../../src/app/loop.ts';
 import { SETTINGS, TELEGRAPH, TICK_HZ, type Cue, type GameEvent } from '../../src/core/index.ts';
 
 const FIELDS = noteFields(ENEMIES);
-const CHAPTERS = ['prologue', 'brain', 'greybox', 'liver', 'midterm', 'wall', 'patrol-brain', 'patrol-liver'];
+const CHAPTERS = ['prologue', 'brain', 'greybox', 'liver', 'midterm', 'wall', 'patrol-brain', 'patrol-liver', 'stomach'];
 
 const problems = (audio: AudioTable = AUDIO, feedback: FeedbackTable = FEEDBACK): string[] =>
   audioProblems(audio, feedback, STRINGS, FIELDS, Object.values(UI), CHAPTERS);

@@ -3,11 +3,12 @@ import { describe, expect, it } from 'vitest';
 import { BOSSES, CHAPTERS, DIALOGUES, ENEMIES, HANDBOOK, PARAMS, RESCUES, TAGS } from '../../src/app/content.ts';
 import { tagsFromQuery } from '../../src/app/session.ts';
 import {
-  amount, holds, parseRoom, roomsOf, selectDialogue, startChapter, stepChapter,
+  amount, carriedTags, holds, parseRoom, roomsOf, selectDialogue, startChapter, stepChapter,
   type ChapterContent, type ChapterState, type GameEvent, type TickInput, type TiledMap,
 } from '../../src/core/index.ts';
 import { compileCondition } from '../../src/core/tags/dictionary.ts';
 import { STAMP } from '../../src/core/combat/frames.ts';
+import { TICK_HZ } from '../../src/core/index.ts';
 import type { SnackDef } from '../../src/core/combat/bosses/boss.ts';
 
 /**
@@ -172,5 +173,42 @@ describe('the snack boss gives up (design doc 7.5)', () => {
       const talked = talk(go(conceded(at(ARENA)), NONE, 1).state, picks);
       expect([picks, has(talked.state, 'snack_settled'), unlockedPages(talked.events)]).toEqual([picks, true, ['eating_before_sleep']]);
     }
+  });
+});
+
+describe('the chapter ends in the night lab once his case is settled (design doc 7.2, 7.5)', () => {
+  const NIGHT = 'stomach/night-lab';
+  // Beside the bed, which covers tiles (15, 8) to (16, 9).
+  const BY_BED = { x: 15 * 32 + 16, y: 7 * 32 + 20 };
+  const USE: TickInput = { ...NONE, interactPressed: true };
+  const types = (events: readonly GameEvent[]) => events.map((e) => e.type);
+
+  it('refuses the bed before the concession, so the boss cannot be skipped', () => {
+    const r = go(at(NIGHT, '', BY_BED), USE, 1);
+    expect(types(r.events)).toContain('bedRefused');
+    expect(r.state.game.sleep).toBeFalsy();
+    expect(types(go(r.state, NONE, 40 * TICK_HZ).events)).not.toContain('chapterEnded');
+  });
+
+  it('after it, a full night in the bed ends the chapter', () => {
+    const lay = go(at(NIGHT, 'snack_settled', BY_BED), USE, 1);
+    expect(types(lay.events)).toContain('fellAsleep');
+    const night = go(lay.state, NONE, 30 * TICK_HZ);
+    expect(types(night.events)).toContain('sleepFilled');
+    expect(types(night.events)).toContain('chapterEnded');
+  });
+
+  it('the arena stays empty once he is settled', () => {
+    expect(at('stomach/boss-arena', 'snack_settled').game.enemies.some((e) => e.boss)).toBe(false);
+  });
+
+  it('sits between the brain chapter and the midterm and hands the readiness tags on', () => {
+    expect(CHAPTERS.get('brain')!.next).toBe('stomach');
+    expect(CHAPTER.next).toBe('midterm');
+    // What the brain chapter carried into this one reaches the midterm, and this chapter's own tags do not.
+    const ended = at(NIGHT, 'exam_practice:95,exam_archived:72,snack_settled,chief_talks:2');
+    const carried = carriedTags(CHAPTER, ended.run.tags, TAGS);
+    expect(Object.keys(carried.values).sort()).toEqual(['exam_archived', 'exam_practice']);
+    expect([amount(carried, TAGS, 'exam_practice'), amount(carried, TAGS, 'exam_archived')]).toEqual([95, 72]);
   });
 });
