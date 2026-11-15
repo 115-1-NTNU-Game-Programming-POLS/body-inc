@@ -1,0 +1,35 @@
+{
+ "id": "energy-seller",
+ "title": "能量飲料推銷員 9 格像素圖集（身體格沿用顧問西裝範本；罐頭頭與提籃由程式繪製，江兆耘手修）",
+ "batch": "energy-seller-from-suit-base",
+ "tool": "none（身體格來自 suit-base 的 ChatGPT 姿勢底稿，見 suit-base.json；罐頭頭與提籃為程式繪製）",
+ "model": "n/a",
+ "date": "2026-11-15",
+ "template": "suit-base-pose-sheet-v1",
+ "prompt": [
+  "本角色沒有新的 AI 生成：身體格取自 main 上的 suit-base 九格。",
+  "罐頭頭：以 tools 腳本（附於 PR 說明）把 suit-base 的頭去掉，貼上 11 × 約 16 像素的高窄罐頭（上蓋、銀色罐口、冰白標籤、描邊 #0C2D5E），臉為 2 眼 + 微笑，受擊格為圓眼 + O 嘴。",
+  "試喝籃：5 × 5 像素的提籃，走路格由腳本加在角色左手，其餘六格由腳本加在手下；之後由江兆耘手修頭的傾斜與細節。"
+ ],
+ "references": "suit-base 九格；美術指南 §5.4（道具不得蓋住胸前徽章）",
+ "candidates": null,
+ "selected": "n/a",
+ "source_name": "n/a",
+ "post": {
+  "select": true,
+  "outline": "江兆耘手修",
+  "quantize": "全部在 body-inc-pixel.gpl 內（共 14 色）",
+  "remove-text": "n/a",
+  "pixel-cleanup": "江兆耘手修（頭的傾斜、細節）",
+  "style-board-check": "待審"
+ },
+ "hours": null,
+ "status": "hand-finished",
+ "processed": {
+  "outputs": [
+   "public/assets/atlases/energy-seller.png",
+   "public/assets/atlases/energy-seller.json"
+  ],
+  "png_colors": 14
+ }
+}
