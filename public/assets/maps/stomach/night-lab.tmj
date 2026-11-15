@@ -728,6 +728,17 @@
        "name": "sleepSeconds",
        "type": "int",
        "value": 30
+      },
+      {
+       "name": "requires",
+       "type": "string",
+       "value": "snack_settled"
+      },
+      {
+       "name": "refusal",
+       "type": "string",
+       "propertytype": "BedRefusal",
+       "value": "story"
       }
      ]
     },

@@ -94,7 +94,7 @@ export function noteFields(table: EnemyTable): NoteFields {
     stampVoid: { solution: solutions((c) => c !== 'defeatable') },
     bossStage: { stage: ['2', '3'] },
     snackStage: { stage: ['2', '3'] },
-    bedRefused: { bedType: [...BED_TYPES] },
+    bedRefused: { reason: [...BED_TYPES, 'story'] },
     sleepInterrupted: { cause: [...WAKE_CAUSES] },
     doorLocked: { lock: [...LOCKS] },
     pickedUp: { itemType: [...NOTED_ITEMS] },

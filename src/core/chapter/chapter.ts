@@ -108,7 +108,8 @@ export type ChapterEvent =
   | { readonly type: 'dialogueClosed'; readonly dialogueId: string }
   /** A line or a pickup unlocked a handbook page; the app keeps it in the progress slot. */
   | { readonly type: 'handbookUnlocked'; readonly id: string }
-  | { readonly type: 'bedRefused'; readonly object: number; readonly bedType: string }
+  /** `reason` is the bed's type, or `story` for a bed whose `refusal` says the night is not over yet. */
+  | { readonly type: 'bedRefused'; readonly object: number; readonly bedType: string; readonly reason: string }
   | { readonly type: 'napped'; readonly minutes: number }
   /** The operator lay down on a bed with a sleep bar (core/rooms/sleep.ts); `slept` and `need` are ticks, so a resumed bar shows where it stands. */
   | { readonly type: 'fellAsleep'; readonly object: number; readonly slept: number; readonly need: number }
@@ -491,7 +492,8 @@ function fileMemories(ctx: ChapterContent, run: Run, game: GameState): Run {
 function onBed(ctx: ChapterContent, run: Run, game: GameState, e: Extract<DomainEvent, { type: 'bedUse' }>): Applied {
   const o = game.room.objects.find((x) => x.id === e.object);
   if (!o) throw new ChapterError(`${run.roomId}: bed #${e.object} is not in the room`);
-  const refused: Applied = { run, game, events: [{ type: 'bedRefused', object: o.id, bedType: e.bedType }] };
+  const reason = o.props['refusal'] === 'story' ? 'story' : e.bedType;
+  const refused: Applied = { run, game, events: [{ type: 'bedRefused', object: o.id, bedType: e.bedType, reason }] };
   const requires = o.conditions['requires'];
   if (requires && !holds(run.tags, ctx.dict, requires)) return refused;
   if (e.bedType === 'sleep') {

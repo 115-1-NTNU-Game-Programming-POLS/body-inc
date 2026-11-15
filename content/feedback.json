@@ -77,7 +77,7 @@
     "bossConceded": { "sound": "done", "particles": [{ "preset": "paper", "count": 12 }], "note": "boss.toast.conceded" },
     "doorLocked": { "sound": "locked", "note": "door.locked.{lock}" },
     "pickedUp": { "sound": "pick", "note": "pickup.{itemType}" },
-    "bedRefused": { "sound": "bad", "note": "bed.refused.{bedType}" },
+    "bedRefused": { "sound": "bad", "note": "bed.refused.{reason}" },
     "portOpened": { "sound": "unlock" },
     "portClosed": { "sound": "locked" },
     "sleepInterrupted": { "sound": "woke.{cause}", "note": "sleep.woke.{cause}" },

@@ -11,7 +11,7 @@
 | 代號 | 曲名 | 用在哪裡 | 檔案 |
 | --- | --- | --- | --- |
 | `title` | Lobby Time | 標題畫面、輸入宿主名字 | `lobby-time.mp3`，單聲道 56 kbps，1.35 MB |
-| `prologue` | Comfortable Mystery | 序章 | `comfortable-mystery.mp3`，單聲道 48 kbps，1.42 MB |
+| `prologue` | Comfortable Mystery | 序章、胃章（在胃章有自己的曲子前暫用） | `comfortable-mystery.mp3`，單聲道 48 kbps，1.42 MB |
 | `brain` | Monkeys Spinning Monkeys | 大腦章、灰盒測試房、大腦巡視 | `monkeys-spinning-monkeys.mp3`，立體聲 80 kbps，1.25 MB |
 | `liver` | Quirky Dog | 肝臟章、肝臟巡視 | `quirky-dog.mp3`，立體聲 64 kbps，1.19 MB |
 | `boss` | Run Amok | 期中考章、任何 Boss 戰 | `run-amok.mp3`，立體聲 96 kbps，1.29 MB |
