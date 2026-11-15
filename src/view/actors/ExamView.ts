@@ -86,8 +86,8 @@ export class DrawnView implements ActorFx {
 
   closeOut(): void {
     // The exam drops a closed case or bonus as its question or time ends, often within the spin,
-    // and destroying the sprite clears sprite.scene; a throw in a tween callback stops Phaser's
-    // frame loop for good, so the callbacks hold the scene itself.
+    // and destroying the sprite clears sprite.scene; any uncaught throw in a frame stops
+    // Phaser's frame loop for good, so the callbacks hold the scene itself.
     const scene = this.sprite.scene;
     const ghost = scene.add.sprite(this.sprite.x, this.sprite.y, this.sprite.texture.key)
       .setOrigin(this.sprite.originX, this.sprite.originY).setDepth(this.sprite.depth);

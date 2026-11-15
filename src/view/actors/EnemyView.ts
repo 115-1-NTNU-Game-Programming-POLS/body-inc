@@ -143,7 +143,8 @@ export class EnemyView {
 
   /** Case closed: a 0.4 s spin and shrink on a copy, so the rule state can drop the enemy at once. */
   closeOut(): void {
-    // The view may be destroyed during the spin, which clears sprite.scene (see DrawnView.closeOut).
+    // A forced leave drops a boss's closed summons, possibly within the spin, and destroying the
+    // sprite clears sprite.scene; an uncaught throw stops Phaser's frame loop, so the callbacks hold the scene.
     const scene = this.sprite.scene;
     const ghost = scene.add.sprite(this.sprite.x, this.sprite.y, this.sprite.texture.key, this.sprite.frame.name)
       .setOrigin(this.sprite.originX, this.sprite.originY).setAngle(this.sprite.angle).setDepth(this.sprite.depth);
