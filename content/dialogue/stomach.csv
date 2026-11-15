@@ -1,0 +1,36 @@
+dialogueId,order,speaker,expression,text,condition,effect,next,fact
+stomach.intro,1,narrator,normal,期中考前一週，{host}連續三晚寫作業寫到很晚。今晚十點才開始除錯。,,,,
+stomach.intro,2,narrator,normal,凌晨十二點半，程式終於跑起來，終端機卻只印出一行：Segmentation fault (core dumped)。,,,,
+stomach.intro,3,brain,surprised,核心傾印？公司的核心部門被整個倒出來了？全公司緊急盤點！,,,,
+stomach.intro,4,stomach,normal,傾印是我的工作，我每天都在卸貨。,,,,
+stomach.intro,5,narrator,normal,凌晨一點，{host}想著「被 segfault 搞成這樣，吃點好的獎勵自己」，叫了鹹酥雞配大杯手搖飲。,,,,
+stomach.intro,6,stomach,warning,工單標題：hotfix。備註：每天晚上都在 hotfix。,,,,
+stomach.chief.mixer,1,stomach,normal,攪拌機一次三箱，第四箱就全部吐回去。別逼我。,chief_mixer,,end,
+stomach.chief.mixer,2,stomach,warning,讓一讓，你擋到攪拌機的動線了。有事快說。,,,,
+stomach.chief.mixer,3,operator,,你還好嗎？,,,,
+stomach.chief.mixer,4,operator,,沒事，路過。,,,end,
+stomach.chief.mixer,5,stomach,warning,好？慢慢吃好不好！我又不是輸送帶！,,tag:chief_mixer;tag:chief_talks+1,,18
+stomach.chief.mixer,6,stomach,normal,……你是第一個問我好不好的人。這頁拿去，〈消化需要時間〉。,chief_talks>=3,unlock:digestion,end,
+stomach.chief.sorting,1,stomach,normal,小份走快帶，加大份走慢帶。別再問了。,chief_sorting,,end,
+stomach.chief.sorting,2,stomach,warning,別站在分揀線前面擋路。有事快說。,,,,
+stomach.chief.sorting,3,operator,,你還好嗎？,,,,
+stomach.chief.sorting,4,operator,,沒事，路過。,,,end,
+stomach.chief.sorting,5,stomach,warning,好？宵夜箱一進慢帶，就壓到夜班時段。凌晨一點進貨，你知道物流也是有家庭的嗎？,,tag:chief_sorting;tag:chief_talks+1,,
+stomach.chief.sorting,6,stomach,normal,……你是第一個問我好不好的人。這頁拿去，〈消化需要時間〉。,chief_talks>=3,unlock:digestion,end,
+stomach.chief.night,1,stomach,normal,床在那邊。攪拌機沒停，你就別想睡得太安穩。,chief_night,,end,14
+stomach.chief.night,2,stomach,warning,這麼晚還在碼頭晃？別擋路，有事快說。,,,,
+stomach.chief.night,3,operator,,你還好嗎？,,,,
+stomach.chief.night,4,operator,,沒事，路過。,,,end,
+stomach.chief.night,5,stomach,warning,好？半夜還送貨來？我今晚加班，你也別想睡得太安穩。,,tag:chief_night;tag:chief_talks+1,,14
+stomach.chief.night,6,stomach,normal,……你是第一個問我好不好的人。這頁拿去，〈消化需要時間〉。,chief_talks>=3,unlock:digestion,end,
+stomach.snack.concede,1,snack,normal,好啦，不送了。可是你很累是真的啊，吃點好的犒賞自己，不行嗎？,,,,
+stomach.snack.concede,2,operator,,累是真的，所以該補的是睡眠。,,,,general
+stomach.snack.concede,3,operator,,犒賞沒有錯，錯的是時間和份量。,,,,general
+stomach.snack.concede,4,snack,normal,……那營業時間牌，你說要怎麼改？,,,,
+stomach.snack.concede,5,operator,,早一點收單，份量小一點。,,,,14
+stomach.snack.concede,6,operator,,考試前夕暫停營業。,,,,
+stomach.snack.concede,7,snack,normal,那室友揪的鹹酥雞呢？也不准？,,,,
+stomach.snack.concede,8,operator,,照常歡迎，點小份就好。,,,,
+stomach.snack.concede,9,operator,,照常歡迎，留一份明天當早餐。,,,,
+stomach.snack.concede,10,snack,normal,……好吧。偶爾跟室友吃宵夜是社交，本部照常營業，早點收單就是了。,,,,
+stomach.snack.concede,11,narrator,normal,修約完成：營業時間牌改成「本部建議早一點收單、份量小一點；考試前夕暫停營業；室友聚會照常歡迎。」,,tag:snack_settled;unlock:eating_before_sleep,,14

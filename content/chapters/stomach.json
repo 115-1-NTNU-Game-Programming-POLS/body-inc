@@ -2,6 +2,7 @@
   "version": 1,
   "id": "stomach",
   "start": "stomach/mixer-lab",
+  "intro": "stomach.intro",
   "partner": "logistics",
   "closedCases": { "sugar_seller": "sugar_seller_closed", "courier": "courier_closed" },
   "caseDrops": { "sugar_seller": "sugar_fatigue" },

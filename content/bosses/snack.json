@@ -3,6 +3,7 @@
   "id": "snack",
   "behaviour": "snack",
   "budget": 100,
+  "concedeDialogue": "stomach.snack.concede",
   "deliveries": {
     "startSeconds": 3,
     "everySeconds": 4,
@@ -42,6 +43,7 @@
     "halves": 2
   },
   "notes": {
+    "concedeDialogue": "DOC his contract is a new business-hours sign: 本部建議早一點收單、份量小一點；考試前夕暫停營業；室友聚會照常歡迎 (7.5), he admits the reasonable use himself (偶爾跟室友吃宵夜是社交, design doc 11.2, rule 1), and beating him always gives 〈睡前進食與睡眠〉 (7.5, 手冊). The doc puts the operator's reply 所以該補的是睡眠 at the mid-fight turn 你很累是真的啊; ASSUME it is given here instead, with him repeating that line to open the concession, so the fight is never paused for a choice",
     "budget": "ASSUME: five returned boxes at returnDamage 20; the design doc gives no budget and calls the folder's return his main damage (7.5); here it is the only ordinary attack that hurts him, since a plain staple or a swing of the folder does nothing to him (a held stapler would otherwise close the case in about 17 s without touching a box); the stamp still takes its usual 40. No damage takes him below stage3.budget before stage 3, so the fight always reaches the lights out, and the case closes only by the stamp there",
     "deliveries": "DOC the boss throws fried boxes from the dock at the mixer, one capacity of 4 in the fight (7.5), which the room's Mixer states; the pace (a box every 4 s, 3 s before the first), the flight speed, the normal 20 s portion and the 20 per returned box are ASSUME. At one box every 4 s and 20 s per box, a fifth box lands before the first is done, so the fight protests by itself unless the player stops or returns at least one box in five",
     "stage2": "DOC from stage 2 on the boxes are large portions that take 2 places and double the time (7.5: 加大份量, 40 s in the table of starting values), so the player has to pick which to return to keep the mixer within its capacity; the start at a budget of 60 (two returns), the 6 s pace, the pause of 3 s before the first large box and the 20 per returned box are ASSUME. With capacity 4 only two large boxes fit and one digests in 40 s, so the third box in a row protests unless one of the three is returned or stopped",

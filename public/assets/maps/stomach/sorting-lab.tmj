@@ -10,7 +10,7 @@
  "tilewidth": 32,
  "tileheight": 32,
  "nextlayerid": 4,
- "nextobjectid": 21,
+ "nextobjectid": 22,
  "class": "Room",
  "properties": [
   {
@@ -1060,6 +1060,30 @@
        "type": "string",
        "propertytype": "ConveyorSpeed",
        "value": "slow"
+      }
+     ]
+    },
+    {
+     "id": 21,
+     "name": "chief",
+     "type": "NPC",
+     "x": 464,
+     "y": 144,
+     "width": 0,
+     "height": 0,
+     "rotation": 0,
+     "visible": true,
+     "point": true,
+     "properties": [
+      {
+       "name": "npcId",
+       "type": "string",
+       "value": "stomach"
+      },
+      {
+       "name": "dialogueId",
+       "type": "string",
+       "value": "stomach.chief.sorting"
       }
      ]
     }

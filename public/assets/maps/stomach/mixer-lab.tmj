@@ -10,7 +10,7 @@
  "tilewidth": 32,
  "tileheight": 32,
  "nextlayerid": 4,
- "nextobjectid": 18,
+ "nextobjectid": 19,
  "class": "Room",
  "properties": [
   {
@@ -943,6 +943,30 @@
        "type": "string",
        "propertytype": "EnemyType",
        "value": "large_seller"
+      }
+     ]
+    },
+    {
+     "id": 18,
+     "name": "chief",
+     "type": "NPC",
+     "x": 368,
+     "y": 304,
+     "width": 0,
+     "height": 0,
+     "rotation": 0,
+     "visible": true,
+     "point": true,
+     "properties": [
+      {
+       "name": "npcId",
+       "type": "string",
+       "value": "stomach"
+      },
+      {
+       "name": "dialogueId",
+       "type": "string",
+       "value": "stomach.chief.mixer"
       }
      ]
     }
