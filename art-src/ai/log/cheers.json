@@ -1,0 +1,36 @@
+{
+ "id": "cheers",
+ "title": "乾杯小弟 9 格像素圖集（身體格沿用顧問西裝範本；啤酒杯頭、小旗與臂章由程式繪製，江兆耘手修）",
+ "batch": "cheers-from-suit-base",
+ "tool": "none（身體格來自 suit-base 的 ChatGPT 姿勢底稿，見 suit-base.json；杯頭、小旗、臂章為程式繪製）",
+ "model": "n/a",
+ "date": "2026-11-15",
+ "template": "suit-base-pose-sheet-v1",
+ "prompt": [
+  "本角色沒有新的 AI 生成：身體格取自 main 上的 suit-base 九格。",
+  "杯頭：以腳本把 suit-base 的頭去掉，貼上 11 像素寬的啤酒杯（頂上一圈泡沫、琥珀色杯身、一側把手、描邊 #0C2D5E），臉為 2 眼 + 微笑，受擊格為圓眼 + O 嘴；不臉紅、不醉態。",
+  "小旗：預備、攻擊、受擊六格由腳本在角色左手旁加旗桿與空白三角旗（「乾啦」字之後由程式疊上）；走路三格不拿旗。",
+  "臂章：由腳本在近身袖子加一條淺灰藍橫帶（「公關部」字由程式疊上），位置在胸前徽章之外。之後由江兆耘手修。"
+ ],
+ "references": "suit-base 九格；美術指南 §5.4（道具不得蓋住胸前徽章）、§14.4 乾杯小弟規格；concept-cheers（杯頭造型參考）",
+ "candidates": null,
+ "selected": "n/a",
+ "source_name": "n/a",
+ "post": {
+  "select": true,
+  "outline": "江兆耘手修",
+  "quantize": "全部在 body-inc-pixel.gpl 內（共 15 色）",
+  "remove-text": "n/a",
+  "pixel-cleanup": "江兆耘手修（頭的傾斜、旗與臂章位置）",
+  "style-board-check": "待審"
+ },
+ "hours": null,
+ "status": "hand-finished",
+ "processed": {
+  "outputs": [
+   "public/assets/atlases/cheers.png",
+   "public/assets/atlases/cheers.json"
+  ],
+  "png_colors": 15
+ }
+}
