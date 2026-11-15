@@ -147,6 +147,8 @@ export interface GameState {
   readonly senseCapPx?: number;
   /** Multiplier on how many enemies a boss summons and keeps alive; the chapter sets it every tick from the climax choice. */
   readonly summonScale?: number;
+  /** Multiplier on how often the stomach boss throws in his stage 2; the chapter sets it every tick from the climax choice. */
+  readonly paceScale?: number;
   /** The chairman's pie shield (core/combat/pie.ts); present only in a chapter whose partner has it. A new room starts it ready. */
   readonly pie?: PieState;
   /** The stomach logistics chief's acid (core/combat/unload.ts); present only in a chapter whose partner has it. A new room starts it ready. */
@@ -1046,7 +1048,7 @@ export function step(state: GameState, pressed: TickInput): StepResult {
         // His boxes digest like an order and leave no parcel: one on its last tick went out in this tick's mixer step.
         // Only his own wake him; a courier's order is digested too but is not his overtime.
         const digested = (state.mixer?.batches ?? []).filter((b) => isDelivery(b) && b.left === 1).length;
-        const r = stepSnack(e, def, docksOf(room), mouth ?? target, digested);
+        const r = stepSnack(e, def, docksOf(room), mouth ?? target, digested, state.paceScale ?? 1);
         enemies.set(e.id, r.enemy);
         events.push(...r.events);
         newShots.push(...r.shots);

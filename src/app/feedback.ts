@@ -36,7 +36,7 @@ const ALL_EVENTS: Record<GameEvent['type'], true> = {
   fellAsleep: true, sleepInterrupted: true, sleepFilled: true,
   triggerEntered: true, talk: true, bedUse: true,
   roomChanged: true, dialogueOpened: true, dialogueClosed: true, handbookUnlocked: true, bedRefused: true, napped: true, handsFull: true,
-  checkpointSaved: true, clockAdvanced: true, cardOpened: true, cardChosen: true, toolGranted: true, glucoseRefilled: true, dizzyChanged: true,
+  checkpointSaved: true, clockAdvanced: true, cardOpened: true, cardChosen: true, toolGranted: true, gaugeRaised: true, glucoseRefilled: true, dizzyChanged: true,
   rescueOpened: true, rescueStep: true, rescueDone: true,
   examStarted: true, examQuestion: true, examAnswered: true, examBreak: true, examFinished: true, proofStamped: true, bonusShown: true, examHit: true, examStacked: true,
   examForecast: true, examResult: true, examClosed: true,

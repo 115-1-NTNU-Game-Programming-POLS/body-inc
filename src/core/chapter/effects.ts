@@ -5,6 +5,7 @@ import { record, type SourceNodeKind } from '../tags/causal.ts';
 import type { TagDictionary } from '../tags/dictionary.ts';
 import { addAmount, amount, setAmount, setFlag, type TagState } from '../tags/store.ts';
 import type { Tool } from '../tools.ts';
+import { STAMP } from '../combat/frames.ts';
 
 /** What applying effects reports; a subset of the chapter's events. */
 export type EffectEvent =
@@ -12,7 +13,15 @@ export type EffectEvent =
   /** A handbook page was unlocked; the app keeps it in the progress slot. */
   | { readonly type: 'handbookUnlocked'; readonly id: string }
   /** A tool was handed over; the chapter keeps it on the run. */
-  | { readonly type: 'toolGranted'; readonly tool: Tool };
+  | { readonly type: 'toolGranted'; readonly tool: Tool }
+  /** The rejection gauge was raised; the chapter adds it to the operator, the opening scene to the start. */
+  | { readonly type: 'gaugeRaised'; readonly points: number };
+
+/** The gauge after the `gaugeRaised` events among `events`, never past its maximum. */
+export function raisedGauge(gauge: number, events: readonly EffectEvent[]): number {
+  const add = events.reduce((n, e) => n + (e.type === 'gaugeRaised' ? e.points : 0), 0);
+  return Math.min(STAMP.gaugeMax, gauge + add);
+}
 
 export interface EffectSource {
   readonly kind: SourceNodeKind;
@@ -73,6 +82,11 @@ export function applyEffects(
         [log] = record(tags.log, { kind: 'effect', key: `grant.${e.tool}`, at: clock.minute, causes: [cause] });
         tags = { ...tags, log };
         events.push({ type: 'toolGranted', tool: e.tool });
+        break;
+      case 'gauge':
+        [log] = record(tags.log, { kind: 'effect', key: `gauge.${e.points}`, at: clock.minute, causes: [cause] });
+        tags = { ...tags, log };
+        events.push({ type: 'gaugeRaised', points: e.points });
         break;
     }
   }

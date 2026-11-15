@@ -81,10 +81,11 @@ export function deliveryFrom(e: EnemyState, def: SnackDelivery, dock: Vec, mouth
 /**
  * One tick of the stomach boss (design doc 7.5): he calls the docks one after another and a food box
  * flies from each at the mixer's hopper. `digested` is how many of his boxes the mixer finished this
- * tick, which interrupt the sleep bar of stage 3. The rules and the numbers are in
- * docs/authoring/rooms-and-dialogue.md.
+ * tick, which interrupt the sleep bar of stage 3. `pace` divides the time between his stage-2 boxes
+ * (the climax choice 吃完再睡 of design doc 7.5 adds large boxes to that stage). The rules and the
+ * numbers are in docs/authoring/rooms-and-dialogue.md.
  */
-export function stepSnack(e: EnemyState, def: SnackDef, docks: readonly Vec[], mouth: Vec, digested = 0): SnackTick {
+export function stepSnack(e: EnemyState, def: SnackDef, docks: readonly Vec[], mouth: Vec, digested = 0, pace = 1): SnackTick {
   let b = e.boss as SnackState;
   const shots: ShotSpec[] = [];
   const events: DomainEvent[] = [];
@@ -121,7 +122,8 @@ export function stepSnack(e: EnemyState, def: SnackDef, docks: readonly Vec[], m
 
   const t = b.ticks + 1;
   // The wait is measured to the start of the telegraph, so the whole rhythm is `everyTicks` per box.
-  const wait = b.stageThrown === 0 ? d.startTicks : d.everyTicks - TELEGRAPH.tier1Ticks;
+  const every = b.stage === 2 ? Math.round(d.everyTicks / pace) : d.everyTicks;
+  const wait = b.stageThrown === 0 ? d.startTicks : every - TELEGRAPH.tier1Ticks;
   if (t >= wait) {
     b = { ...b, ticks: 0, move: { id: 'deliver', frame: 1 } };
     events.push({ type: 'telegraph', source: e.id, tier: 1, move: 'deliver' });

@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { musicFor } from '../../app/audio.ts';
 import { AUDIO, str } from '../../app/content.ts';
 import {
-  CHAPTER_OPENS, cardText, EMPTY_TAGS, openingFor, playCards, startChapter,
+  CHAPTER_OPENS, cardText, EMPTY_TAGS, openingFor, playCards, startOpened,
   type ChapterContent, type DeckCard, type Settings, type TagState, type Tool,
 } from '../../core/index.ts';
 import { soundIn } from '../audio/installSound.ts';
@@ -135,7 +135,7 @@ export class OpeningScene extends Phaser.Scene {
     const tools = this.data_.tools ?? [];
     if (this.data_.mode !== 'closing') {
       const opening = playCards(this.ctx.chapter.id, this.cards, this.ctx.dict, this.picks, CHAPTER_OPENS, this.ctx.params, this.data_.tags ?? EMPTY_TAGS);
-      beginRun(this, this.ctx, startChapter(this.ctx, { tags: opening.tags, clock: opening.clock, tools }));
+      beginRun(this, this.ctx, startOpened(this.ctx, opening, tools));
       return;
     }
     // A new day: only the tags the chapter lists in `carry` and what the closing cards decide go on, not the ended chapter's own tags.

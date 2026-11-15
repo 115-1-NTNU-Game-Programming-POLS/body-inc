@@ -61,7 +61,7 @@
 | `click` | 開關 | `switchChanged` |
 | `thunk` | 箱子或貨物落位 | `boxDelivered`, `boxChilled`, `portFilled`, `crateTaken`, `mixerFed`, `orderThrown`, `deliveryThrown` |
 | `punch` | 打卡 | `checkpointSaved` |
-| `unlock` | 解鎖：四個上行音 | `handbookUnlocked`, `toolGranted`, `bonusShown`, `portOpened`, `chunkDissolved`, `snackRested` |
+| `unlock` | 解鎖：四個上行音 | `handbookUnlocked`, `toolGranted`, `gaugeRaised`, `bonusShown`, `portOpened`, `chunkDissolved`, `snackRested` |
 | `card` | 翻開卡牌 | `cardOpened` |
 | `choose` | 選定一個選項 | `cardChosen`，選單確認 |
 | `rescue.step` | 救援一步做對：三個上行音 | `rescueStep`，`outcome` 為 `step` |

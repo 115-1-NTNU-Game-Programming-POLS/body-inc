@@ -842,7 +842,7 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
         }
       },
       "climax": {
-        "description": "The choice an event card offers before the boss (design doc 7.4): a boolean tag it sets, and what that costs. With the flag on, the boss summons `summonFactor` times as many enemies at once and may keep that many times as many alive, and going to bed files only `archiveFactor` of the desk.",
+        "description": "The choice an event card offers before the boss (design doc 7.4, 7.5): a boolean tag it sets, and what that costs. With the flag on, the boss summons `summonFactor` times as many enemies at once and may keep that many times as many alive, the stomach boss throws his stage-2 boxes `paceFactor` times as often, and going to bed files only `archiveFactor` of the desk.",
         "type": "object",
         "additionalProperties": false,
         "required": [
@@ -865,6 +865,12 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
             "type": "number",
             "minimum": 0,
             "maximum": 1
+          },
+          "paceFactor": {
+            "description": "Multiplier on how often the stomach boss throws in his stage 2 (加大份量) while the flag is on; the time between boxes is divided by it.",
+            "type": "number",
+            "minimum": 1,
+            "maximum": 2
           }
         }
       }
@@ -3707,7 +3713,7 @@ export interface ChapterFile {
   readonly closedCases?: Readonly<Record<string, string>>;
   /** Enemy types that leave a handbook page when their case is closed, as enemy id to page id (design doc 7.5: the sugar salesman drops 〈糖分與疲倦〉). The page is kept like any unlocked page, so a forced leave does not take it back. */
   readonly caseDrops?: Readonly<Record<string, string>>;
-  /** The choice an event card offers before the boss (design doc 7.4): a boolean tag it sets, and what that costs. With the flag on, the boss summons `summonFactor` times as many enemies at once and may keep that many times as many alive, and going to bed files only `archiveFactor` of the desk. */
+  /** The choice an event card offers before the boss (design doc 7.4, 7.5): a boolean tag it sets, and what that costs. With the flag on, the boss summons `summonFactor` times as many enemies at once and may keep that many times as many alive, the stomach boss throws his stage-2 boxes `paceFactor` times as often, and going to bed files only `archiveFactor` of the desk. */
   readonly climax?: {
     /** Boolean tag the choice sets. */
     readonly flag: string;
@@ -3715,6 +3721,8 @@ export interface ChapterFile {
     readonly summonFactor?: number;
     /** Multiplier on what sleep files while the flag is on. */
     readonly archiveFactor?: number;
+    /** Multiplier on how often the stomach boss throws in his stage 2 (加大份量) while the flag is on; the time between boxes is divided by it. */
+    readonly paceFactor?: number;
   };
 }
 
