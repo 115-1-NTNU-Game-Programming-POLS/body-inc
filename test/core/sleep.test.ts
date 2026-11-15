@@ -110,7 +110,7 @@ describe('the sleep bar', () => {
   it('is refused like any bed whose condition fails', () => {
     const c = chapter([bed([p('bedType', 'sleep'), p('sleepSeconds', SECONDS), p('requires', 'caffeine>=50')])]);
     const r = run(c, startChapter(c), 1, USE);
-    expect(r.events).toContainEqual({ type: 'bedRefused', object: BED_ID, bedType: 'sleep' });
+    expect(r.events).toContainEqual({ type: 'bedRefused', object: BED_ID, bedType: 'sleep', reason: 'sleep' });
     expect(r.state.game.sleep).toBeUndefined();
   });
 });

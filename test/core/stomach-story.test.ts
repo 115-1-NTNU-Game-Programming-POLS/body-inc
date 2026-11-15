@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { BOSSES, CHAPTERS, DIALOGUES, ENEMIES, HANDBOOK, PARAMS, RESCUES, TAGS } from '../../src/app/content.ts';
 import { tagsFromQuery } from '../../src/app/session.ts';
 import {
-  amount, carriedTags, holds, parseRoom, roomsOf, selectDialogue, startChapter, stepChapter,
+  amount, bedAfter, carriedTags, EMPTY_TAGS, holds, parseRoom, roomsOf, selectDialogue, startChapter, stepChapter,
   type ChapterContent, type ChapterState, type GameEvent, type TickInput, type TiledMap,
 } from '../../src/core/index.ts';
 import { compileCondition } from '../../src/core/tags/dictionary.ts';
@@ -185,7 +185,8 @@ describe('the chapter ends in the night lab once his case is settled (design doc
 
   it('refuses the bed before the concession, so the boss cannot be skipped', () => {
     const r = go(at(NIGHT, '', BY_BED), USE, 1);
-    expect(types(r.events)).toContain('bedRefused');
+    // It says the night is not over, not that sleep will not come: the evidence allows only waking (design doc 7.5).
+    expect(r.events).toContainEqual({ type: 'bedRefused', object: 8, bedType: 'sleep', reason: 'story' });
     expect(r.state.game.sleep).toBeFalsy();
     expect(types(go(r.state, NONE, 40 * TICK_HZ).events)).not.toContain('chapterEnded');
   });
@@ -198,8 +199,27 @@ describe('the chapter ends in the night lab once his case is settled (design doc
     expect(types(night.events)).toContain('chapterEnded');
   });
 
+  it('punches in on the way out of the arena only once he is settled, so continuing skips the fight', () => {
+    const WEST: TickInput = { move: { x: -1, y: 0 } };
+    const DOORWAY = { x: 4 * 32 + 16, y: 7 * 32 };
+    const settled = go(at('stomach/boss-arena', 'snack_settled', DOORWAY), WEST, 90);
+    const types_ = settled.events.map((e) => e.type);
+    expect(types_).toContain('checkpointSaved');
+    expect(types_.indexOf('checkpointSaved')).toBeLessThan(types_.indexOf('roomChanged'));
+    expect(settled.state.run.checkpoint).toMatchObject({ roomId: 'stomach/boss-arena' });
+    expect(holds(settled.state.run.checkpoint!.tags, TAGS, compileCondition(TAGS, 'snack_settled'))).toBe(true);
+    // Before the concession it is only a picture: no checkpoint, and no hearts refilled mid-fight.
+    const fighting = go(at('stomach/boss-arena', '', DOORWAY), WEST, 90);
+    expect(fighting.events.map((e) => e.type)).not.toContain('checkpointSaved');
+  });
+
   it('the arena stays empty once he is settled', () => {
     expect(at('stomach/boss-arena', 'snack_settled').game.enemies.some((e) => e.boss)).toBe(false);
+  });
+
+  it('counts its bed as reachable in the check of the opening cards', () => {
+    // snack_settled only comes from the concession, which waiting cannot stand in for.
+    expect(bedAfter(STOMACH, EMPTY_TAGS)).toBe(0);
   });
 
   it('sits between the brain chapter and the midterm and hands the readiness tags on', () => {

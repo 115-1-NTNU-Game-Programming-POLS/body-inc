@@ -88,6 +88,7 @@
     "door.locked.resource": { "text": "條件還沒達成，門打不開", "fact": "" },
     "bed.refused.nap": { "text": "現在不能午睡", "fact": "" },
     "bed.refused.sleep": { "text": "現在還睡不著", "fact": "" },
+    "bed.refused.story": { "text": "今晚的事還沒處理完，還不能睡", "fact": "" },
     "napped": { "text": "午睡片刻：時鐘前進 20 分鐘", "fact": "" },
     "checkpoint.saved": { "text": "已打卡", "fact": "" },
     "checkpoint.returned": { "text": "回到最近的打卡機", "fact": "" },

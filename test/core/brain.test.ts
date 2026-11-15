@@ -65,7 +65,7 @@ function talk(s: ChapterState, picks: readonly number[] = []): { state: ChapterS
 }
 
 describe('the brain chapter (design doc 7.4)', () => {
-  it('follows the prologue and leads into the midterm, with the folder to be fetched and no stamp of its own', () => {
+  it('follows the prologue and leads into the stomach chapter, with the folder to be fetched and no stamp of its own', () => {
     expect(CHAPTERS.get('prologue')!.next).toBe('brain');
     // The stomach chapter comes between (design doc 7.1) and hands the readiness tags on to the midterm.
     expect(CHAPTER.next).toBe('stomach');
@@ -223,8 +223,8 @@ describe('the memory files (design doc 7.4, 7.6)', () => {
     // A fresh log with one entry, so the next chapter does not see this one's cards as answered.
     expect(carried.log.nodes.filter((n) => n.kind !== 'tag').map((n) => n.key)).toEqual(['carry']);
     expect(carriedTags(CHAPTER, sleep('caffeine:20').state.run.tags, TAGS).values).toEqual({});
-    expect(storyAtEnd(ended.run, 'midterm', carried).entry).toEqual({ chapter: 'midterm', tags: carried, tools: ended.run.tools });
-    expect(storyAtEnd(ended.run, 'midterm').entry?.tags.values).toEqual({});
+    expect(storyAtEnd(ended.run, CHAPTER.next, carried).entry).toEqual({ chapter: 'stomach', tags: carried, tools: ended.run.tools });
+    expect(storyAtEnd(ended.run, CHAPTER.next).entry?.tags.values).toEqual({});
   });
 
   it('the group chat sets the practice readiness, and the midterm bars read what the chapter carried', () => {

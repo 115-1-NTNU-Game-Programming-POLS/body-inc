@@ -180,7 +180,7 @@ writeRoom('stomach/night-lab.tmj', {
         rect(6, 'belt-out', 'Conveyor', 12, 6, 3, 1, [str('direction', 'Direction', 'E'), str('speed', 'ConveyorSpeed', 'slow')]),
         rect(7, 'gate', 'Port', 15, 6, 2, 1, [int('need', 2), str('accepts', 'PortAccepts', 'parcel')]),
         // The chapter's end (design doc 7.2 puts the concession before it): the bed stays refused until the snack boss's case is settled.
-        rect(8, 'bedtime', 'Bed', 15, 8, 2, 2, [str('bedType', 'BedType', 'sleep'), int('sleepSeconds', 30), str('requires', undefined, 'snack_settled')]),
+        rect(8, 'bedtime', 'Bed', 15, 8, 2, 2, [str('bedType', 'BedType', 'sleep'), int('sleepSeconds', 30), str('requires', undefined, 'snack_settled'), str('refusal', 'BedRefusal', 'story')]),
         rect(9, 'door-w', 'Door', 0, 6, 1, 2, [str('socket', 'Socket', 'W')]),
         rect(10, 'cold', 'ColdStore', 6, 9, 3, 2, []),
         // The late-night courier of design doc 7.5 stands beside the head of the in-belt. Once his case is closed (chapter file closedCases) he stays out.
@@ -230,6 +230,9 @@ writeRoom('stomach/boss-arena.tmj', {
         // As in the brain's arena: once his contract is rewritten, a later visit finds the arena empty.
         { id: 8, name: 'snack-boss', type: 'Spawn', x: 10 * T, y: 4 * T + 16, width: 0, height: 0, rotation: 0, visible: true, point: true,
           properties: [str('enemyType', 'EnemyType', 'snack'), str('when', undefined, '!snack_settled')] },
+        // The chapter's time clock, in the only way out of the arena. It works once his contract is rewritten, so leaving
+        // punches in with snack_settled and "continue" does not mean fighting him again; during the fight it would refill the hearts.
+        rect(9, 'time-clock', 'Trigger', 1, 6, 2, 2, [str('event', 'TriggerEvent', 'checkpoint'), str('when', undefined, 'snack_settled')]),
       ],
     },
   ],

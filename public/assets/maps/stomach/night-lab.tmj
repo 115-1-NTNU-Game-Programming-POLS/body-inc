@@ -733,6 +733,12 @@
        "name": "requires",
        "type": "string",
        "value": "snack_settled"
+      },
+      {
+       "name": "refusal",
+       "type": "string",
+       "propertytype": "BedRefusal",
+       "value": "story"
       }
      ]
     },

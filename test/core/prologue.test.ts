@@ -389,7 +389,11 @@ describe('the intro and the end of a chapter', () => {
 
   it('the playable check counts an end trigger as a way out, as it does a sleep bed', () => {
     expect(bedAfter(chapter([trigger(5, 'end')]), EMPTY_TAGS)).toBe(0);
-    expect(bedAfter(chapter([trigger(5, 'end', [p('when', 'deadline')])]), EMPTY_TAGS)).toBeUndefined();
+    // A flag the opening cards decide and did not set is never reached by waiting.
+    expect(bedAfter(chapter([trigger(5, 'end', [p('when', 'breakfast')])]), EMPTY_TAGS)).toBeUndefined();
+    // One only the story sets (here an event card's) comes from playing the chapter, which waiting cannot show.
+    expect(bedAfter(chapter([trigger(5, 'end', [p('when', 'deadline')])]), EMPTY_TAGS)).toBe(0);
+    expect(bedAfter(chapter([trigger(5, 'end', [p('when', '!deadline')])]), EMPTY_TAGS)).toBe(0);
     expect(bedAfter(chapter([trigger(5, 'dialogue', [p('eventId', 'lab.hello')])]), EMPTY_TAGS)).toBe('none');
   });
 });
