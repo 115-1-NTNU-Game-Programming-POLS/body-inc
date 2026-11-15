@@ -1,0 +1,34 @@
+{
+ "id": "caffeine",
+ "title": "卡費因 Boss 10 格像素圖集（AI 姿勢表只當造型與姿勢參考；杯頭程式繪製；身體與手由江兆耘手繪修整）",
+ "batch": "caffeine-boss-poses",
+ "tool": "ChatGPT (gpt-image)",
+ "model": "不在憑證中",
+ "date": "2026-11-15",
+ "template": "caffeine-boss-pose-sheet-v1",
+ "prompt": [
+  "造型定稿：一張正面站姿，外帶咖啡杯頭（奶色杯身 F4EBDD、棕色杯蓋 6B4A3A 加圓貼紙、杯套 8B5A3C 加信用卡磁條與晶片）、炭灰西裝、酒紅領帶、左手集點卡；體型約一般小怪的 1.5 倍寬；無文字、無武器、無紅臉。",
+  "姿勢表：8 個姿勢（待機正側、投擲正側、喝咖啡、提案、驚訝、審核中坐地），附造型定稿為參考；各姿勢的完整提示詞原文請作者貼於此處（僅此欄為摘要）。"
+ ],
+ "references": "美術指南 §5.5 與 §14.4（Boss 剪影規則：提案姿勢最高、審核中最矮）",
+ "candidates": null,
+ "selected": "各姿勢各選 1 張（生成圖未入庫）",
+ "source_name": "ChatGPT 下載的 webp",
+ "post": {
+  "select": true,
+  "outline": "程式補成連續的 #0C2D5E 外框後由江兆耘手修",
+  "quantize": "縮成 64×64，西裝統一為 3B3F4A / 2C2F38、鞋 393237、徽章 FFC83D，全部在 body-inc-pixel.gpl 內（共 11 色）",
+  "remove-text": "n/a",
+  "pixel-cleanup": "杯頭由程式繪製；身體、手、集點卡、文件由江兆耘手修",
+  "style-board-check": "待審"
+ },
+ "hours": null,
+ "status": "hand-finished",
+ "processed": {
+  "outputs": [
+   "public/assets/atlases/caffeine.png",
+   "public/assets/atlases/caffeine.json"
+  ],
+  "png_colors": 11
+ }
+}
