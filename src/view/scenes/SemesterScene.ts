@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import {
-  COFFEE_PLANS, daySummary, endSummary, finishSemester, floorChoice, freshSeed, gradePrompt, kitWith, morningPlan, newSemester, NIGHT_PLANS, nightPlan, patrolOffer, patrolResultLine, projectPrompt, REST_PLANS, resumeSemester, semesterCleared, servesAlcohol, settingLines,
+  bloodTestPrompt, COFFEE_PLANS, daySummary, endSummary, finishSemester, floorChoice, freshSeed, gradePrompt, kitWith, morningPlan, newSemester, NIGHT_PLANS, nightPlan, patrolOffer, patrolResultLine, projectPrompt, REST_PLANS, resumeSemester, semesterCleared, servesAlcohol, settingLines,
   TUTORIAL_COURSES, TUTORIAL_SEED, tutorLine, visitReport, walkPrompt, weekdayOf, welfareCaption, welfareText,
   type CoffeePlanId, type NightPlanId, type RestPlanId,
 } from '../../app/semester.ts';
@@ -82,6 +82,8 @@ export class SemesterScene extends Phaser.Scene {
   /** What Enter does when no menu is up: go on from the day or the semester summary. */
   private onContinue: (() => void) | undefined;
   private head: Phaser.GameObjects.Text | undefined;
+  /** The day whose blood test result was shown, so the result comes once, right after the afternoon it was taken. */
+  private testShown: number | undefined;
   private lines: Phaser.GameObjects.GameObject[] = [];
   /** Until this time (scene clock) Esc does not leave the semester: the Esc that closed the wall must not also close this. */
   private escGuardUntil = 0;
@@ -240,6 +242,13 @@ export class SemesterScene extends Phaser.Scene {
   }
 
   private show(ask: Ask): void {
+    const test = ask.view.bloodTest;
+    if (test !== undefined && test.day === ask.view.day && this.testShown !== test.day) {
+      this.testShown = test.day;
+      this.banner(ask.view, 'event');
+      const { title, caption, options } = bloodTestPrompt(test);
+      return this.cards(options, title, caption, () => this.show(ask));
+    }
     switch (ask.kind) {
       case 'plan': return this.askCoffee(ask.view);
       case 'event': return this.askEvent(ask.view, ask.id, ask.options);

@@ -128,6 +128,21 @@ export function walkPrompt(): { title: string; caption: string; options: { label
   };
 }
 
+/**
+ * The health office's report on the liver (design doc 8.6): the load the blood test read, against the floor lines the elevator
+ * would light at if the liver ever lit, and one card to go back to the day.
+ */
+export function bloodTestPrompt(test: { readonly load: number }): { title: string; caption: string; options: { label: string; note: string }[] } {
+  const load = Math.round(test.load);
+  const band = test.load >= PARAMS.floorRedAt ? 'red' : test.load >= PARAMS.floorOrangeAt ? 'orange' : test.load >= PARAMS.floorYellowAt ? 'yellow' : 'ok';
+  return {
+    title: fill('semester.blood_test.result', { value: load, cap: PARAMS.floorRedAt }),
+    caption: `${str(`semester.blood_test.${band}`)}
+${str('semester.blood_test.why')}`,
+    options: [{ label: str('semester.blood_test.back'), note: str('semester.blood_test.back.note') }],
+  };
+}
+
 /** The chairman's line for the morning of `day`, or undefined when the semester is not the tutorial or the day has none. */
 export const tutorLine = (seed: number, day: number): string | undefined =>
   seed === TUTORIAL_SEED && (TUTOR_DAYS as readonly number[]).includes(day) ? str(`semester.tutor.${day}`) : undefined;
