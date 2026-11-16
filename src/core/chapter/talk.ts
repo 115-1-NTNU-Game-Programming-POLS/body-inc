@@ -58,6 +58,8 @@ export function withTools(a: Applied): Applied {
       // It stays in the pocket until the swap key takes it out (design doc 6.1).
       const { folderLocked: _, ...open } = game;
       game = open;
+    } else if (e.tool === 'highlighter') {
+      game = { ...game, highlighter: true };
     }
   }
   return { run, game, events };

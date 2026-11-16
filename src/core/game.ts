@@ -6,7 +6,8 @@ import { proposalOpen, stepCaffeine } from './combat/bosses/caffeine.ts';
 import { sleepShare, snackExposed, snackFloor, snackProtested, stepSnack } from './combat/bosses/snack.ts';
 import { breathing, stepToast } from './combat/bosses/toast.ts';
 import type { EnemyTable } from './combat/enemies.ts';
-import { BASE_HALVES, BIND, BOSS, CLING, COURIER, DODGE, ENEMY_HIT_FREEZE, FOLDER, GAUGE, heartCap, HURT, MANAGER, PARRY_BOOST, SALESMAN, STAMP, STAPLER, SUGAR_FOG } from './combat/frames.ts';
+import { BASE_HALVES, BIND, BOSS, CLING, COURIER, DODGE, ENEMY_HIT_FREEZE, FOLDER, GAUGE, heartCap, HIGHLIGHTER, HURT, MANAGER, PARRY_BOOST, SALESMAN, STAMP, STAPLER, SUGAR_FOG } from './combat/frames.ts';
+import { circleCentre, inCircle, isMarked, lineCrosses } from './combat/highlighter.ts';
 import { guardCovers, parryOpen, swingBox } from './combat/folder.ts';
 import { chip, NO_ASSISTS, owing } from './combat/assists.ts';
 import { BASE_PERKS, type Perks } from './combat/perks.ts';
@@ -42,6 +43,7 @@ import { TICK_HZ, TILE } from './time.ts';
 
 export { NO_INPUT, OPERATOR_BODY, OPERATOR_HURT, type HeldTool, type OperatorAction, type OperatorState, type TickInput } from './combat/operator.ts';
 export { guardCovers, parryOpen, swingBox } from './combat/folder.ts';
+export { circleCentre, isMarked, lineOf } from './combat/highlighter.ts';
 export type { EnemyPhase, EnemyState } from './combat/actors.ts';
 export type { Shot, Zone } from './combat/hazards.ts';
 
@@ -134,6 +136,11 @@ export interface GameState {
   /** Set until the general affairs office hands over the folder (design doc 7.4): the swap key does nothing. */
   readonly folderLocked?: true;
   /**
+   * Set once the liver chapter's general affairs office hands over the highlighter (design doc 7.7): the
+   * swap key cycles to it. Unlike the folder it is absent by default, since only the liver chapter has it.
+   */
+  readonly highlighter?: true;
+  /**
    * Ticks left in which the interact key does nothing. A closing conversation sets it: Enter both
    * advances a line and talks, so a quick press after the last line would reopen it (#81). A press
    * inside the rest starts it over, so it ends only after TALK_REST_TICKS without one.
@@ -200,6 +207,12 @@ export type DomainEvent =
   | { readonly type: 'swing'; readonly combo: number }
   | { readonly type: 'toolSwapped'; readonly tool: HeldTool }
   | { readonly type: 'guardRaised' }
+  /** The highlighter drew a line (design doc 6.1); what it crossed comes as hits. */
+  | { readonly type: 'lineDrawn' }
+  /** The highlighter's circle closed at (x, y); the enemies it marked follow as `marked`. */
+  | { readonly type: 'circleDrawn'; readonly x: number; readonly y: number; readonly radius: number }
+  /** A defeatable enemy took the highlighter's mark: the stapler's and the folder's hits on it count double for a while. */
+  | { readonly type: 'marked'; readonly target: number; readonly enemy: string }
   /** The guard stopped an attack without the parry: shots vanish, a strike is spent. */
   | { readonly type: 'blocked'; readonly source: number; readonly kind: 'shot' | 'strike' }
   /** 退件: the parry window caught an attack. A shot flies back; a strike stuns its thrower. */
@@ -413,6 +426,8 @@ export interface GameOptions {
   readonly stampLocked?: boolean;
   /** The folder is not handed over yet. */
   readonly folderLocked?: boolean;
+  /** The highlighter is handed over. */
+  readonly highlighter?: boolean;
   /** The tool in hand carried in from the last room; the stapler when absent. */
   readonly tool?: HeldTool;
   /** The chapter's partner has the pie shield, ready at entry. */
@@ -519,8 +534,8 @@ export function createGame(entered: EnteredRoom, seed: number, table: EnemyTable
   }
   const start = options.start ?? playerStart(room);
   const spawned = spawnEnemies(room, table, options.bosses, 1);
-  // A tool carried in is only believed while the folder is handed over, so a locked folder is never in hand.
-  const tool: HeldTool = options.tool === 'folder' && !options.folderLocked ? 'folder' : 'stapler';
+  // A tool carried in is only believed while it is handed over, so a locked one is never in hand.
+  const tool: HeldTool = options.tool !== undefined && handOf(options).includes(options.tool) ? options.tool : 'stapler';
   const operator = { ...newOperator(start.x, start.y, cap, gauge), halves, stacks: carried, tool, ...(options.halfCarry ? { halfCarry: options.halfCarry } : {}), ...(options.fatigue ? { fatigue: options.fatigue } : {}) };
   const body = boxAt(OPERATOR_BODY, operator.x, operator.y);
   const delivered = ascending(options.delivered ?? []);
@@ -573,6 +588,7 @@ export function createGame(entered: EnteredRoom, seed: number, table: EnemyTable
     dissolved,
     ...(options.stampLocked ? { stampLocked: true as const } : {}),
     ...(options.folderLocked ? { folderLocked: true as const } : {}),
+    ...(options.highlighter ? { highlighter: true as const } : {}),
     ...(options.pie ? { pie: PIE_READY } : {}),
     ...(options.unload ? { unload: UNLOAD_READY } : {}),
     ...(factory ? { factory } : {}),
@@ -888,12 +904,12 @@ export function step(state: GameState, pressed: TickInput): StepResult {
   const input: TickInput = asleep(state.sleep) ? { move: { x: 0, y: 0 }, ...(pressed.assists ? { assists: pressed.assists } : {}) } : {
     ...pressed,
     ...(state.stampLocked && pressed.stampPressed ? { stampPressed: false } : {}),
-    ...(state.folderLocked && pressed.swapPressed ? { swapPressed: false } : {}),
+    ...(handOf(state).length < 2 && pressed.swapPressed ? { swapPressed: false } : {}),
     ...(state.interactRest && pressed.interactPressed ? { interactPressed: false } : {}),
   };
 
   if (state.freeze > 0) {
-    return { state: { ...state, tick: now + 1, freeze: state.freeze - 1, operator: bufferInput(state.operator, input, now) }, events };
+    return { state: { ...state, tick: now + 1, freeze: state.freeze - 1, operator: bufferInput(state.operator, input, now, handOf(state).length) }, events };
   }
 
   const gate = liveGate(state.room, state.delivered);
@@ -909,7 +925,7 @@ export function step(state: GameState, pressed: TickInput): StepResult {
   const perks = state.perks ?? BASE_PERKS;
   let bind = state.bind;
   let boostUntil = state.boostUntil;
-  const s = stepOperator(grid, state.operator, input, now, boostUntil !== undefined && now < boostUntil ? PARRY_BOOST.factor : 1);
+  const s = stepOperator(grid, state.operator, input, now, boostUntil !== undefined && now < boostUntil ? PARRY_BOOST.factor : 1, handOf(state));
   let op = tire(s.op);
   // A door is passed by walking into it, never by being knocked into it: the knockback step is dropped instead.
   const knocked = state.operator.action.kind === 'hurt' && state.operator.action.frame < HURT.knockbackTicks;
@@ -921,6 +937,7 @@ export function step(state: GameState, pressed: TickInput): StepResult {
   if (s.swapped) events.push({ type: 'toolSwapped', tool: s.swapped });
   if (s.swung !== undefined) events.push({ type: 'swing', combo: s.swung });
   if (s.guardRaised) events.push({ type: 'guardRaised' });
+  if (s.lined) events.push({ type: 'lineDrawn' });
   // The partner's skill can be raised in any state but a hurt one, and does not touch the operator's own action.
   let pie = state.pie;
   if (pie) {
@@ -1195,7 +1212,8 @@ export function step(state: GameState, pressed: TickInput): StepResult {
   // scatter, the rest lose `amount`. `gain` is the gauge the hit charges before P, 0 for none.
   // `strike` says where the weapon comes from (a vector from the target towards the attacker) and
   // whether it can break a manager's shield; the rest of the weapons never reach a shield.
-  const hitEnemy = (target: EnemyState, amount: number, freeze: number, gain: number, binds = 0, strike?: Strike): void => {
+  // `marks` is whether the highlighter's mark doubles the hit: true for the stapler and the folder.
+  const hitEnemy = (target: EnemyState, amount: number, freeze: number, gain: number, binds = 0, strike?: Strike, marks = false): void => {
     if (target.archetype === 'cheers') {
       shoo(target);
     } else if (target.boss?.behaviour === 'snack' && (strike?.breaks !== 'reflect' || target.boss.stage === 3)) {
@@ -1214,7 +1232,7 @@ export function step(state: GameState, pressed: TickInput): StepResult {
       }
       if (gain > 0) op = charge(op, gain, state.p, events);
       const wasBound = isBound(target);
-      let hit = damage(target, amount, freeze, events, state.bosses);
+      let hit = damage(target, marks && isMarked(target, now) ? amount * HIGHLIGHTER.markFactor : amount, freeze, events, state.bosses);
       if (shielded && hit.phase !== 'closed') {
         // The hit landed and the bash he was winding up is off: he wakes into the last tick of his pause, so the stun is all of it.
         events.push({ type: 'shieldBroken', target: target.id, enemy: target.type, by: strike.breaks! });
@@ -1261,12 +1279,49 @@ export function step(state: GameState, pressed: TickInput): StepResult {
       const e = enemies.get(id)!;
       if (isHittable(e) && overlaps(box, enemyHurtbox(e))) {
         const heavy = s.swingHit === FOLDER.finisher;
-        hitEnemy(e, FOLDER.damage[s.swingHit]!, FOLDER.hitFreeze[s.swingHit]!, GAUGE.folder, 0, { from: { x: op.x - e.x, y: op.y - e.y }, breaks: heavy ? 'folder' : undefined });
+        hitEnemy(e, FOLDER.damage[s.swingHit]!, FOLDER.hitFreeze[s.swingHit]!, GAUGE.folder, 0, { from: { x: op.x - e.x, y: op.y - e.y }, breaks: heavy ? 'folder' : undefined }, true);
       }
     }
     const f = state.factory;
     if (f && crateTiles(room, f.waiting).some((t) => overlaps(box, tileBox(t)))) {
       events.push({ type: 'immuneBounce', target: linesOf(room).receiving!.id, enemy: ALCOHOL_CRATE, solution: f.solution });
+    }
+  }
+
+  // The highlighter's line pierces: every hittable enemy it crosses takes the hit, lowest id first,
+  // on the stapler's terms (a manager's shield stops it, immune ones bounce it, reforming ones
+  // scatter). Its own hits are never doubled by a mark (issue #76, decision 3). Alcohol crates only wobble.
+  if (s.lineHit) {
+    for (const { id } of byId()) {
+      const e = enemies.get(id)!;
+      if (isHittable(e) && lineCrosses(op, enemyHurtbox(e))) {
+        hitEnemy(e, HIGHLIGHTER.damage, HIGHLIGHTER.hitFreeze, GAUGE.highlighter, 0, { from: { x: op.x - e.x, y: op.y - e.y }, breaks: undefined });
+      }
+    }
+    const f = state.factory;
+    if (f && crateTiles(room, f.waiting).some((t) => lineCrosses(op, tileBox(t)))) {
+      events.push({ type: 'immuneBounce', target: linesOf(room).receiving!.id, enemy: ALCOHOL_CRATE, solution: f.solution });
+    }
+  }
+
+  // The circle marks the defeatable enemies standing in it; it is no hit, so it charges nothing and
+  // a shield does not stop it. An immune one bounces it and a reforming one scatters, so only an
+  // enemy that can be beaten ever carries a mark. The cheers kid is closed only by refusals and ignores it.
+  if (s.circleLanded) {
+    const centre = circleCentre(op);
+    events.push({ type: 'circleDrawn', x: centre.x, y: centre.y, radius: HIGHLIGHTER.circleRadiusPx });
+    for (const { id } of byId()) {
+      const e = enemies.get(id)!;
+      if (!isHittable(e) || e.archetype === 'cheers' || !inCircle(centre, e)) continue;
+      if (e.category === 'immune') {
+        events.push({ type: 'immuneBounce', target: e.id, enemy: e.type, solution: e.solution ?? '' });
+      } else if (e.category === 'reforming') {
+        enemies.set(e.id, { ...e, phase: 'dispersed', phaseTicks: 0, frozen: 0 });
+        events.push({ type: 'dispersed', target: e.id, enemy: e.type });
+      } else {
+        enemies.set(e.id, { ...e, markedUntil: now + HIGHLIGHTER.markTicks });
+        events.push({ type: 'marked', target: e.id, enemy: e.type });
+      }
     }
   }
 
@@ -1329,7 +1384,7 @@ export function step(state: GameState, pressed: TickInput): StepResult {
     const target = byId().find((e) => isHittable(e) && overlaps(box, enemyHurtbox(e)));
     if (!target) { flying.push(p); continue; }
     hitEnemy(target, p.damage ?? STAPLER.damage, ENEMY_HIT_FREEZE, p.reflected ? 0 : GAUGE.staple, p.reflected ? perks.parryBind : 1,
-      { from: { x: -p.vx, y: -p.vy }, breaks: p.reflected ? 'reflect' : undefined });
+      { from: { x: -p.vx, y: -p.vy }, breaks: p.reflected ? 'reflect' : undefined }, true);
   }
 
   // A closed boss stops attacking at once: its shots and areas go with it. A closed ordinary
@@ -1675,7 +1730,13 @@ export const selectGauge = (s: GameState): { readonly value: number; readonly ma
 export const selectClock = (s: GameState): RuleClock => s.clock;
 /** The tool in hand, and whether a second one is handed over to swap to, for the HUD. */
 export const selectTool = (s: GameState): { readonly tool: HeldTool; readonly canSwap: boolean } =>
-  ({ tool: s.operator.tool, canSwap: s.folderLocked !== true });
+  ({ tool: s.operator.tool, canSwap: handOf(s).length > 1 });
+
+/** The tools the swap key cycles through, in the order it visits them (issue #76, decision 2). */
+export function handOf(s: { readonly folderLocked?: boolean | undefined; readonly highlighter?: boolean | undefined }): readonly HeldTool[] {
+  if (s.highlighter) return s.folderLocked ? ['stapler', 'highlighter'] : ['stapler', 'folder', 'highlighter'];
+  return s.folderLocked ? ['stapler'] : ['stapler', 'folder'];
+}
 /** The partner's pie shield for the HUD: whether it is up, cooling or ready, the seconds left on that, and S. Absent without a partner. */
 export function selectPie(s: GameState): { readonly phase: 'ready' | 'up' | 'cooling'; readonly seconds: number; readonly scale: number } | undefined {
   const p = s.pie;
