@@ -3,6 +3,7 @@
   "id": "liver",
   "start": "liver/party",
   "intro": "liver.intro",
+  "tools": ["stamp", "folder", "highlighter"],
   "glucose": true,
   "links": [
     { "a": "liver/party#door-e", "b": "liver/factory#door-w" },

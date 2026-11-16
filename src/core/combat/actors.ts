@@ -61,6 +61,8 @@ export interface EnemyState {
   readonly facing?: Vec;
   /** Manager: ticks the shield stays down after a break; absent while it is up. */
   readonly broken?: number;
+  /** The highlighter's mark lasts while the tick is below this (core/combat/highlighter.ts); absent when never marked. */
+  readonly markedUntil?: number;
 }
 
 export function enemyFrom(def: Enemy, id: number, x: number, y: number, respawnTicks: number, extra: Partial<EnemyState> = {}): EnemyState {

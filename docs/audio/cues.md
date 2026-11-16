@@ -32,6 +32,8 @@
 | `swing` | 公文夾揮出的風聲：漸強的氣流由低往高掃，比閃身短；隨連擊每步升一個半音 | `swing` |
 | `swap` | 換文具的兩個上行短音 | `toolSwapped` |
 | `guard` | 舉起公文夾的悶響 | `guardRaised` |
+| `stroke` | 螢光筆畫線：暫用 `swing` 的配方（不升半音），日後單獨調 | `lineDrawn` |
+| `circle` | 螢光筆畫圈：暫用 `cling` 的配方，日後單獨調 | `circleDrawn` |
 | `parry` | 退件：啪的一聲加清脆的雙音，有字幕 | `parry` |
 | `blocked` | 擋下攻擊的鈍響；也是主管的盾擋下釘書針與輕揮的聲音 | `blocked`, `shieldBlocked` |
 | `crack` | 破防：短促的碎裂聲加一個下行方波，再補一個 988 Hz 的三角波叮，有字幕 | `shieldBroken` |
@@ -90,7 +92,7 @@
 
 救援、暈眩與考試作答的 cue 以結果命名（`rescue.step`、`dizzy.true`、`exam.time` 等），`content/feedback.json` 用 `{outcome}`、`{dizzy}`、`{how}` 這樣的佔位符依事件的結果選聲音，所以做對和做錯聽起來不同。`rescue.early` 與 `exam.time`、`exam.stacks` 目前共用 `nope` 的配方，`rescue.myth` 共用 `bad`，`dizzy.false` 共用 `pick`；它們各有自己的 id，是為了日後單獨改，不是疏漏。考試結算（`examResult`）不論分數都播 `done`，因為事件本身只帶總分，沒有及格與否，而結算畫面已經顯示分數；要讓不同分數聽起來不同，需要規則層先把及格與否放進事件。蓋章命中 Boss 的提案時會同時發出 `stampLanded` 與 `proposalRejected`，聲音與字幕只由 `stampLanded` 負責，否則同一下蓋章會出現兩行相同的字幕。
 
-目前沒有聲音的事件共 18 個：`refusalSaid`、`freeze`、`proposalRejected`、`boxMoved`、`triggerEntered`、`roomChanged`、`dialogueClosed`、`clockAdvanced`、`glucoseRefilled`、`rescueOpened`、`examStarted`、`examQuestion`、`examFinished`、`examForecast`、`examClosed`、`outerRequested`、`returnedToCheckpoint`、`chapterEnded`。其中換房間、記帳和面板開關這類事件由跟著發生的另一個事件負責聲音（進門有 `doorEntered`），戰鬥相關的幾個已在 #73 決定（見下方「戰鬥音效驗收」），其餘是尚未決定要不要配聲音；要補的話在 `content/feedback.json` 加 `sound` 欄位即可，內容檢查會確認 cue 存在。
+目前沒有聲音的事件共 19 個：`marked`、`refusalSaid`、`freeze`、`proposalRejected`、`boxMoved`、`triggerEntered`、`roomChanged`、`dialogueClosed`、`clockAdvanced`、`glucoseRefilled`、`rescueOpened`、`examStarted`、`examQuestion`、`examFinished`、`examForecast`、`examClosed`、`outerRequested`、`returnedToCheckpoint`、`chapterEnded`。其中換房間、記帳和面板開關這類事件由跟著發生的另一個事件負責聲音（進門有 `doorEntered`，螢光筆的標記有 `circleDrawn`），戰鬥相關的幾個已在 #73 決定（見下方「戰鬥音效驗收」），其餘是尚未決定要不要配聲音；要補的話在 `content/feedback.json` 加 `sound` 欄位即可，內容檢查會確認 cue 存在。
 
 與 issue #13 的差異：該 issue 假設音效是檔案，所以要求的欄位是檔案、長度、來源和負責人。音效改成合成配方之後沒有檔案可列，來源一律是 `content/audio.json` 的配方；音樂的檔案、大小與來源在上方的表和 `docs/art/asset-license.csv`。負責人欄沒有填：設計文件第 15 節把打擊與文具的聲音交給楊成宇，`staple`、`swing`、`hit`、`parry`、`stampDown` 等是否採用要由他確認。
 

@@ -23,6 +23,12 @@
     "swing": { "trimDb": 6.5, "semitoneBy": "combo", "voices": [
       { "kind": "noise", "filter": "bandpass", "cutoff": 600, "cutoffTo": 1800, "q": 1.4, "attack": 0.05, "dur": 0.15, "gain": 0.6 },
       { "kind": "noise", "filter": "lowpass", "cutoff": 1200, "attack": 0.04, "dur": 0.12, "gain": 0.2 } ] },
+    "stroke": { "trimDb": 6.5, "voices": [
+      { "kind": "noise", "filter": "bandpass", "cutoff": 600, "cutoffTo": 1800, "q": 1.4, "attack": 0.05, "dur": 0.15, "gain": 0.6 },
+      { "kind": "noise", "filter": "lowpass", "cutoff": 1200, "attack": 0.04, "dur": 0.12, "gain": 0.2 } ] },
+    "circle": { "trimDb": 10.5, "voices": [
+      { "kind": "noise", "cutoff": 900, "cutoffTo": 300, "dur": 0.18, "gain": 0.3 },
+      { "kind": "tone", "freq": 140, "to": 110, "dur": 0.2, "gain": 0.1 } ] },
     "swap": { "trimDb": 5.5, "voices": [
       { "kind": "tone", "wave": "triangle", "freq": 700, "to": 1000, "dur": 0.06, "gain": 0.14 },
       { "kind": "tone", "wave": "triangle", "freq": 1000, "to": 1400, "at": 0.05, "dur": 0.06, "gain": 0.12 } ] },

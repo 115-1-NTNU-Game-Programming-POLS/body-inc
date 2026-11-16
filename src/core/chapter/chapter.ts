@@ -30,7 +30,7 @@ import { record } from '../tags/causal.ts';
 import type { TagDictionary } from '../tags/dictionary.ts';
 import { amount, EMPTY_TAGS, flag, holds, setAmount, setFlag, type TagState } from '../tags/store.ts';
 import { TICK_HZ } from '../time.ts';
-import { isTool, TOOLS, type Tool } from '../tools.ts';
+import { DEFAULT_TOOLS, isTool, TOOLS, type Tool } from '../tools.ts';
 import { caffeineOf, senseCap, type MetabolismParams } from '../outer/caffeine.ts';
 import type { Deck, Opening } from '../outer/deck.ts';
 import { openCard, stepCard, type CardState } from './cards.ts';
@@ -234,6 +234,7 @@ function build(ctx: ChapterContent, run: Run, place: Place, carry: Carry): GameS
     boxes: boxesHere(run),
     stampLocked: !run.tools.includes('stamp'),
     folderLocked: !run.tools.includes('folder'),
+    highlighter: run.tools.includes('highlighter'),
     pie: ctx.chapter.partner === 'chairman',
     unload: ctx.chapter.partner === 'logistics',
     ...(run.perks ? { perks: run.perks } : {}),
@@ -320,9 +321,9 @@ export interface StartOptions {
   readonly perks?: Perks;
 }
 
-/** The tools a chapter starts with: what was carried in, plus its own list (every tool when it has none). */
+/** The tools a chapter starts with: what was carried in, plus its own list (DEFAULT_TOOLS when it has none). */
 export function toolsAtStart(chapter: ChapterFile, carried: readonly Tool[] = []): Tool[] {
-  const own = (chapter.tools ?? TOOLS).filter(isTool);
+  const own = (chapter.tools ?? DEFAULT_TOOLS).filter(isTool);
   return TOOLS.filter((t) => carried.includes(t) || own.includes(t));
 }
 

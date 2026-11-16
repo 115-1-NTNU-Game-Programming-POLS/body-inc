@@ -102,13 +102,44 @@ export const FOLDER = {
 } as const;
 
 /**
- * Gauge charge per source before the P multiplier (design doc 5.4). Other stationery (+1.5) and
- * folder parries (+15) are joined by the highlighter and the tape when those exist. An immune
- * bounce is not a hit and charges nothing.
+ * Highlighter (螢光筆, design doc 6.1, chapter 3). A tap draws a short line along the aim that
+ * pierces: every hittable enemy in it takes 1.5. Holding the key until `holdTicks` draws a circle
+ * ahead instead, which marks the defeatable enemies in it for 8 seconds; while marked, the
+ * stapler's and the folder's hits do `markFactor` times damage, the highlighter's own do not
+ * (issue #76, decision 3). The line's frames, length and width, the hold, the circle's frames,
+ * reach, size and cooldown are not in the design doc and are placeholders for playtesting.
+ */
+export const HIGHLIGHTER = {
+  damage: 1.5,
+  /** The line exists on this frame; design doc 5.3 caps light-attack startup at 6. */
+  hitFrame: 4,
+  lineTicks: 14,
+  /** Hit-stop on each enemy the line crosses. */
+  hitFreeze: 3,
+  lineLengthPx: 3 * TILE,
+  lineHalfW: 5,
+  /** Counted from the press, like the folder's guard; the line's recovery gives way to the circle on this tick of the hold. */
+  holdTicks: 8,
+  /** The circle marks on this frame of its action and recovers until `circleTicks`. */
+  circleMarkFrame: 12,
+  circleTicks: 20,
+  circleReachPx: 2 * TILE,
+  circleRadiusPx: 1.5 * TILE,
+  /** Counted from the tick the circle is drawn. */
+  circleCooldownTicks: 3 * TICK_HZ,
+  markTicks: 8 * TICK_HZ,
+  markFactor: 2,
+} as const;
+
+/**
+ * Gauge charge per source before the P multiplier (design doc 5.4). Other stationery charges
+ * +1.5 a hit, the folder's parry +15; the tape joins when it exists. An immune bounce is not a
+ * hit and charges nothing, and neither does the highlighter's circle, which marks without hitting.
  */
 export const GAUGE = {
   staple: 0.8,
   folder: 1.5,
+  highlighter: 1.5,
   parry: 15,
   perfectDodge: 10,
 } as const;
