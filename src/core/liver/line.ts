@@ -28,10 +28,11 @@ export const acetaldehydeCrates = (tags: TagState, dict: TagDictionary): number 
 
 /**
  * The liver's hidden overtime (design doc 7.7, fact 20): the game hours the first line still has
- * to work through what is waiting, to a tenth. It never shows unless the highlighter finds it.
+ * to work through what is waiting, up to the next tenth, so a crate still waiting never reads as
+ * none. It never shows unless the highlighter finds it.
  */
 export const overtimeHours = (tags: TagState, dict: TagDictionary, k: LineParams): number =>
-  dict.tags.has('alcohol') ? Math.round((amount(tags, dict, 'alcohol') / k.liverRate) * 10) / 10 : 0;
+  dict.tags.has('alcohol') ? Math.ceil(Math.round((amount(tags, dict, 'alcohol') / k.liverRate) * 1e6) / 1e5) / 10 : 0;
 
 /** How far the crate on the line is processed, 0 to 1; 0 when none is waiting. */
 export function lineProgress(tags: TagState, dict: TagDictionary): number {

@@ -10,7 +10,7 @@
  "tilewidth": 32,
  "tileheight": 32,
  "nextlayerid": 4,
- "nextobjectid": 11,
+ "nextobjectid": 12,
  "class": "Room",
  "properties": [
   {
@@ -623,7 +623,7 @@
       {
        "name": "lockParam",
        "type": "string",
-       "value": "alcohol==0"
+       "value": "alcohol==0,liver_found"
       }
      ]
     },
@@ -750,6 +750,35 @@
        "name": "itemId",
        "type": "string",
        "value": "alcohol_metabolism"
+      }
+     ]
+    },
+    {
+     "id": 11,
+     "name": "queue-note",
+     "type": "Trigger",
+     "x": 512,
+     "y": 96,
+     "width": 32,
+     "height": 192,
+     "rotation": 0,
+     "visible": true,
+     "properties": [
+      {
+       "name": "event",
+       "type": "string",
+       "propertytype": "TriggerEvent",
+       "value": "dialogue"
+      },
+      {
+       "name": "eventId",
+       "type": "string",
+       "value": "liver.factory.queue"
+      },
+      {
+       "name": "when",
+       "type": "string",
+       "value": "!liver_found"
       }
      ]
     }

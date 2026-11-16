@@ -21,7 +21,7 @@
   {
    "name": "role",
    "type": "string",
-   "value": "treasure"
+   "value": "core"
   },
   {
    "name": "estSeconds",

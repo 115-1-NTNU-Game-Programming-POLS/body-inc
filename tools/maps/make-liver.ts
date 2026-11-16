@@ -4,12 +4,13 @@
  *   party      start; the time clock, the three sobering-up myth stalls, two cheers kids, the toast card on the way out
  *   factory    the dock where alcohol crates wait, the outlet of the first line and the second line's
  *              intake fed by a belt along the south wall; the east door opens once receiving is empty
+ *              and the liver has been found out in his office, so the highlighter's rooms are on the way
  *   warehouse  the glycogen warehouse with the liver's sign; the fasting page appears once dizzy; the
- *              general affairs counter in the corner hands over the highlighter
+ *              general affairs counter in the corner hands over the highlighter, and a time clock keeps it
  *   audit      the highlighter's teaching room: a notice says all is well, the east wall hides a passage
  *              that only the health check finds (issue #76), and the health check page lies by it
- *   office     behind it, the liver's office: the overtime the highlighter finds over the liver, the
- *              resignation letter in the drawer, the stack of "I'm fine" reports
+ *   office     behind it, the liver's office, the chapter's turn: the overtime the highlighter finds over
+ *              the liver and his first word, the resignation letter in the drawer, papers signed at midnight
  *   rooftop    the venue where the toast boss sings (乾杯三巡); the east door opens once he gives up
  *   corner     the classmate who will not wake up: the rescue, then the end of the night
  *
@@ -29,8 +30,10 @@ const T = 32;
 const start = (x: number, y: number) => point(1, 'start', 'PlayerStart', x, y);
 const npc = (id: number, npcId: string, dialogueId: string, col: number, row: number) =>
   point(id, npcId, 'NPC', col * T + 16, row * T + 16, [str('npcId', undefined, npcId), str('dialogueId', undefined, dialogueId)]);
-const trigger = (id: number, name: string, event: string, eventId: string, col: number, row: number, cols: number, rows: number) =>
-  rect(id, name, 'Trigger', col * T, row * T, cols * T, rows * T, [str('event', 'TriggerEvent', event), ...(eventId ? [str('eventId', undefined, eventId)] : [])]);
+const trigger = (id: number, name: string, event: string, eventId: string, col: number, row: number, cols: number, rows: number, when = '') =>
+  rect(id, name, 'Trigger', col * T, row * T, cols * T, rows * T, [
+    str('event', 'TriggerEvent', event), ...(eventId ? [str('eventId', undefined, eventId)] : []), ...(when ? [str('when', undefined, when)] : []),
+  ]);
 const spawn = (id: number, enemyType: string, col: number, row: number) =>
   point(id, enemyType, 'Spawn', col * T + 16, row * T + 16, [str('enemyType', 'EnemyType', enemyType)]);
 const handbook = (id: number, page: string, col: number, row: number, when = '') =>
@@ -121,7 +124,8 @@ const room = (s: Shell, role: string, est: number, objects: { id: number }[], ne
     door(2, 'W'),
     door(3, 'S'),
     // The queued door (design doc 7.7): it opens only once receiving is empty, and nothing speeds that up.
-    door(4, 'E', 'resource', 'alcohol==0'),
+    // The health check in the liver's office is the other half, so the turn there is on the main line.
+    door(4, 'E', 'resource', 'alcohol==0,liver_found'),
     line(5, 'receiving', 2, 3, 6, 1),
     line(6, 'outlet', 9, 5, 0, 0),
     // A crate pushed against the south wall rides the belt into the second line; one pushed into a
@@ -130,6 +134,8 @@ const room = (s: Shell, role: string, est: number, objects: { id: number }[], ne
     line(8, 'intake', 15, 9, 3, 2),
     npc(9, 'liver', 'liver.factory.console', 12, 3),
     handbook(10, 'alcohol_metabolism', 14, 3),
+    // Before the queued door, so a player waiting there learns what else it waits for.
+    trigger(11, 'queue-note', 'dialogue', 'liver.factory.queue', 16, 3, 1, 6, '!liver_found'),
   ]));
 }
 
@@ -146,6 +152,8 @@ const room = (s: Shell, role: string, est: number, objects: { id: number }[], ne
     // Off the way to the venue, so the highlighter is a side trip and the main line never needs it.
     npc(5, 'clerk', 'liver.clerk', 17, 4),
     door(6, 'E'),
+    // After the counter: a forced leave goes back to the last punch, and with it the tools held then.
+    trigger(7, 'time-clock', 'checkpoint', '', 15, 8, 2, 2),
   ]));
 }
 
@@ -156,7 +164,8 @@ const room = (s: Shell, role: string, est: number, objects: { id: number }[], ne
   writeRoom('liver/audit.tmj', room(s, 'puzzle', 60, [
     start(64, 224),
     door(2, 'W'),
-    npc(3, 'notice', 'liver.audit.notice', 16, 4),
+    // By the east wall it hints at, clear of the rows the hidden passage takes.
+    npc(3, 'notice', 'liver.audit.notice', 17, 4),
     door(4, 'E', 'switch'),
     // Over the wall where the doorway would be; the line reaches through it from the floor beside.
     reveal(5, 'hidden-passage', W - 1, 6, 1, 2, 4),
@@ -168,7 +177,7 @@ const room = (s: Shell, role: string, est: number, objects: { id: number }[], ne
 {
   const s = shell('liver', 79);
   socket(s, 'W', true);
-  writeRoom('liver/office.tmj', room(s, 'treasure', 60, [
+  writeRoom('liver/office.tmj', room(s, 'core', 60, [
     start(64, 224),
     door(2, 'W'),
     npc(3, 'liver', 'liver.office.desk', 10, 5),
