@@ -112,10 +112,10 @@ function chapterUntil(ctx: ChapterContent, s: ChapterState, input: TickInput, do
   throw new Error('the setup never got there');
 }
 
-/** The night lab with the operator lying in its sleep bed, the bar running. */
+/** The night lab with the operator lying in its sleep bed, the bar running. The bed waits for the snack boss's concession. */
 function asleepInNightLab(): GameState {
   const ctx = chapterContent('stomach');
-  const { pending: _, ...start } = startChapter(ctx, { room: 'stomach/night-lab', seed: 1 });
+  const { pending: _, ...start } = startChapter(ctx, { room: 'stomach/night-lab', seed: 1, tags: tagsFromQuery('?tags=snack_settled', TAGS) });
   const bed = start.game.room.objects.find((o) => o.kind === 'Bed')!;
   const s: ChapterState = { ...start, game: { ...start.game, touching: [], operator: { ...start.game.operator, x: bed.x + bed.width / 2, y: bed.y + bed.height + 8 } } };
   return chapterUntil(ctx, s, { move: { x: 0, y: -1 }, interactPressed: true }, (c) => c.game.sleep !== undefined).game;
