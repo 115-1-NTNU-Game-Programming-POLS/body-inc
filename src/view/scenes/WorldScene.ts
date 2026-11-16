@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { SCENE_ATLASES, type Manifest, type ManifestEntry } from '../../app/assets.ts';
 import { lowHeartBeat, musicFor, secondOf, UI } from '../../app/audio.ts';
-import { AUDIO, FEEDBACK, str, STRINGS } from '../../app/content.ts';
+import { AUDIO, FEEDBACK, fillStr, PARAMS, str, STRINGS, TAGS } from '../../app/content.ts';
 import { releaseKeysOnClose } from '../../app/dialogue.ts';
 import { keepPage, titleKey } from '../../app/handbook.ts';
 import { assistsOf, mayOpenOverlay, panelOpen, speedOf, togglesAttack, withAssists } from '../../app/pause.ts';
@@ -12,7 +12,7 @@ import type { FixedStepLoop } from '../../app/loop.ts';
 import type { SaveStore } from '../../app/storage.ts';
 import { WallContact } from '../../app/wallContact.ts';
 import {
-  carriedTags, CELL_COLS, DELIVERY_HALF, listProps, selectBoss, selectFightSleep, selectEnemies, selectOperator, selectProjectiles, storyAtEnd, storyOf, TILE, visibleProps,
+  carriedTags, CELL_COLS, DELIVERY_HALF, listProps, overtimeHours, selectBoss, selectFightSleep, selectEnemies, selectOperator, selectProjectiles, storyAtEnd, storyOf, TILE, visibleProps,
   type ChapterContent, type ChapterState, type EnemyState, type GameEvent, type GameState, type PatrolResult, type ProgressData, type Settings, type TiledMapFile,
 } from '../../core/index.ts';
 import type { CardsData } from './OpeningScene.ts';
@@ -239,7 +239,8 @@ export class WorldScene extends Phaser.Scene {
     }
 
     this.hazards.render(prevState, state, alpha);
-    this.mechanisms.render(state);
+    const overtime = overtimeHours(chapter.run.tags, TAGS, PARAMS);
+    this.mechanisms.render(state, { liver_overtime: overtime > 0 ? fillStr('liver.overtime', { hours: overtime.toFixed(1) }) : str('liver.overtime_none') });
     this.renderStaples(prevState, alpha);
     this.overlay.render(state);
     const bumps = this.walls.starts(this.pending, tick, cur.action.kind === 'free' || cur.action.kind === 'guard');

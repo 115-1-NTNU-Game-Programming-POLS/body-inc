@@ -60,7 +60,7 @@ export interface Run {
   /** One-time triggers, beds and pickups already used, as `roomId#objectId`. */
   readonly fired: readonly string[];
   /**
-   * Toggle switches that are on, as `roomId#objectId`. A room is rebuilt on every entry, so the
+   * Levers and reveal switches that are on, as `roomId#objectId`. A room is rebuilt on every entry, so the
    * run keeps them; a solved mechanism stays solved, through doors and forced leaves alike.
    */
   readonly switches: readonly string[];
@@ -725,6 +725,22 @@ function stepRoom(ctx: ChapterContent, state: ChapterState, input: TickInput): C
     opening = { kind: 'dialogue', id, spent: key };
   };
   /**
+   * A lit reveal switch's conversation (the liver found out, design doc 7.7) is owed the same way,
+   * lowest id first, one per tick, so a circle that lights two shows both in turn.
+   */
+  const claimReveal = () => {
+    if (opening) return;
+    for (const o of game.room.objects) {
+      if (o.kind !== 'Switch' || o.props['mode'] !== 'reveal' || !game.switches.includes(o.id)) continue;
+      const id = String(o.props['dialogueId'] ?? '').trim();
+      const key = `${run.roomId}#${o.id}`;
+      if (id === '' || run.fired.includes(key)) continue;
+      run = { ...run, fired: [...run.fired, key] };
+      opening = { kind: 'dialogue', id, spent: key };
+      return;
+    }
+  };
+  /**
    * A boss's concession (design doc 7.5, 7.7) is owed like a filled port's conversation: asked
    * for on every tick a given-up boss with a concedeDialogue stands in the room until it is shown,
    * since that conversation is where his contract is rewritten and what lets the chapter go on.
@@ -743,8 +759,8 @@ function stepRoom(ctx: ChapterContent, state: ChapterState, input: TickInput): C
   for (const e of r.events) {
     switch (e.type) {
       case 'switchChanged': {
-        // Only a toggle switch outlives the moment; a plate is down only while stood on.
-        if (e.mode !== 'toggle') break;
+        // A lever and a reveal switch outlive the moment; a plate is down only while stood on.
+        if (e.mode !== 'toggle' && e.mode !== 'reveal') break;
         const key = `${run.roomId}#${e.object}`;
         run = { ...run, switches: e.on ? [...run.switches.filter((k) => k !== key), key] : run.switches.filter((k) => k !== key) };
         break;
@@ -891,6 +907,7 @@ function stepRoom(ctx: ChapterContent, state: ChapterState, input: TickInput): C
     return done(plain(run, game), []);
   }
   claimPort();
+  claimReveal();
   claimConcession();
   // A door crossed on the same tick waits: it is forgotten as touched, so it fires again once the
   // conversation or card is over.

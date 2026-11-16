@@ -214,11 +214,8 @@ describe('the highlighter in the story', () => {
     return { chapter, rooms: new Map(roomsOf(chapter).map((p) => [p, parseRoom(p, load(p), TAGS)])), dialogues: DIALOGUES, dict: TAGS, enemies: ENEMIES, bosses: BOSSES, params: PARAMS };
   };
 
-  it('the liver chapter hands it over, and no chapter before it does', () => {
-    const liver = startChapter(content('liver'));
-    expect(liver.run.tools).toContain('highlighter');
-    expect(liver.game.highlighter).toBe(true);
-    for (const id of ['prologue', 'brain', 'stomach', 'midterm']) {
+  it('no chapter starts with it: the liver chapter hands it over at the general affairs counter (reveal.test.ts)', () => {
+    for (const id of ['prologue', 'brain', 'stomach', 'midterm', 'liver']) {
       const s = startChapter(content(id), { tools: ['stamp', 'folder'] });
       expect(s.run.tools, id).not.toContain('highlighter');
       expect(s.game.highlighter, id).toBeUndefined();
