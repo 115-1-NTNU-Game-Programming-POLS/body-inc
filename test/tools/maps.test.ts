@@ -712,6 +712,25 @@ describe('room parser: forks and lever cooldowns (the stomach sorting center)', 
     expect(codes(map([fork(), lever(1, [prop('cooldownSeconds', 0)], 'hold')]))).toEqual([]);
   });
 
+  it('takes a reveal switch only in a room that needs the highlighter, the one thing that lights it', () => {
+    const needs = { props: [...ROOM_PROPS, prop('needs', 'highlighter')] };
+    const found = (extra: ReturnType<typeof prop>[] = []): Partial<TiledObject> =>
+      ({ id: 2, type: 'Switch', x: 300, y: 300, width: 32, height: 32, properties: [prop('mode', 'reveal'), ...extra] });
+    expect(codes(map([found([prop('dialogueId', 'liver.office.found'), prop('figure', 'liver_overtime')])], needs))).toEqual([]);
+    expect(codes(map([fork(), found([prop('target', 1)])], needs))).toEqual([]);
+    expect(codes(map([found()]))).toEqual(['reveal-needs']);
+    expect(codes(map([found([prop('cooldownSeconds', 5)])], needs))).toEqual(['cooldown-reveal']);
+  });
+
+  it('keeps a target on levers and plates, and the reveal fields off them', () => {
+    const bare = (mode: string, extra: ReturnType<typeof prop>[] = []): Partial<TiledObject> =>
+      ({ id: 2, type: 'Switch', x: 300, y: 300, properties: [prop('mode', mode), ...extra] });
+    expect(codes(map([bare('toggle')]))).toEqual(['switch-untargeted']);
+    expect(codes(map([bare('hold')]))).toEqual(['switch-untargeted']);
+    expect(codes(map([fork(), lever(1, [prop('dialogueId', 'liver.office.found')])]))).toEqual(['reveal-only']);
+    expect(codes(map([fork(), lever(1, [prop('figure', 'liver_overtime')], 'hold')]))).toEqual(['reveal-only']);
+  });
+
   it('refuses a negative cooldown', () => {
     expect(codes(map([fork(), lever(1, [prop('cooldownSeconds', -1)])]))).toEqual(['out-of-range']);
   });

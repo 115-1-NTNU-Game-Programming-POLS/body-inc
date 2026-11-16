@@ -185,6 +185,10 @@ function problemMessage(p: RoomProblem): string {
     case 'conveyor-shape': return '輸送帶必須畫成矩形，蓋住它佔的格子；點不知道佔哪些格子';
     case 'fork-switch': return '分岔輸送帶（altDirection 不是 none 的 Conveyor）沒有任何開關（Switch）或調度口指向它，永遠不會轉向；請讓一根拉桿的 target 指向它，或把 altDirection 設回 none';
     case 'fork-same': return '分岔輸送帶的 altDirection 和 direction 方向一樣，拉桿轉了也沒有差別；請改成另一個方向';
+    case 'cooldown-reveal': return '照出開關（mode 為 reveal 的 Switch）設了 cooldownSeconds；照出開關被螢光筆照到一次就永遠打開，沒有東西可以冷卻，請設成 0';
+    case 'switch-untargeted': return '拉桿或壓力板（mode 為 toggle 或 hold 的 Switch）沒有設 target；只有照出開關（reveal）可以不指向任何物件';
+    case 'reveal-needs': return '房間裡有照出開關（mode 為 reveal 的 Switch），但地圖屬性 needs 沒有列出 highlighter；照出開關只有螢光筆能打開，請在 needs 加上 highlighter';
+    case 'reveal-only': return '拉桿或壓力板設了 dialogueId 或 figure；這兩個欄位只有照出開關（mode 為 reveal）會用到，請清空或把 mode 改成 reveal';
     case 'cooldown-hold': return '壓力板（mode 為 hold 的 Switch）設了 cooldownSeconds；壓力板只在有人或箱子壓著時才是開的，沒有東西可以冷卻，請設成 0，或把 mode 改成 toggle';
     case 'switch-missing': return 'lock 是 switch，但房間裡沒有任何開關（Switch）的 target 指向這扇門，門永遠打不開';
     case 'key-missing': return `lock 是 key，lockParam 是「${a['key']}」，但房間裡沒有 itemId 為「${a['key']}」的道具（Pickup），門永遠打不開；不打算開的門請把 lockParam 留空`;
@@ -418,7 +422,8 @@ function passable(room: RoomModel, door: RoomObject): boolean {
       const aimed = switchesFor(room.objects, door.id);
       const boxed = room.objects.some((o) => o.kind === 'Box' && o.variant === undefined && String(o.props['when']).trim() === '');
       // A Port stays on once filled, and like a plate it needs a box that is always there, which port-need already demands.
-      return aimed.some((s) => s.variant === undefined) && aimed.every((s) => s.props['mode'] === 'toggle' || boxed);
+      // A reveal switch stays lit for good, like a lever thrown on; the highlighter it needs is the room's `needs`.
+      return aimed.some((s) => s.variant === undefined) && aimed.every((s) => s.props['mode'] === 'toggle' || s.props['mode'] === 'reveal' || boxed);
     }
     case 'key':
       return keysFor(room.objects, door).length > 0;

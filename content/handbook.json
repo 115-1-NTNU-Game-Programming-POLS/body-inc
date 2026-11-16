@@ -14,6 +14,7 @@
     { "id": "digestion", "body": ["handbook.digestion.1", "handbook.digestion.2"] },
     { "id": "refusing_drinks", "body": ["handbook.refusing_drinks.1", "handbook.refusing_drinks.2", "handbook.refusing_drinks.3"] },
     { "id": "fasting_alcohol", "body": ["handbook.fasting_alcohol.1", "handbook.fasting_alcohol.2"] },
-    { "id": "alcohol_poisoning", "body": ["handbook.alcohol_poisoning.1", "handbook.alcohol_poisoning.2", "handbook.alcohol_poisoning.3", "handbook.alcohol_poisoning.4"] }
+    { "id": "alcohol_poisoning", "body": ["handbook.alcohol_poisoning.1", "handbook.alcohol_poisoning.2", "handbook.alcohol_poisoning.3", "handbook.alcohol_poisoning.4"] },
+    { "id": "health_check", "body": ["handbook.health_check.1", "handbook.health_check.2"] }
   ]
 }
