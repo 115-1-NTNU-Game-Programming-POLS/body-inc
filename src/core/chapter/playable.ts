@@ -2,9 +2,11 @@ import { MINUTES_PER_DAY, type RuleClock } from '../clock.ts';
 import { CLING } from '../combat/frames.ts';
 import { passBody } from '../outer/body.ts';
 import { caffeineOf, metabolise, senseCap } from '../outer/caffeine.ts';
-import { openingCombos, playOpening, playOption, type Deck } from '../outer/deck.ts';
+import { OPENING_SOURCES, openingCombos, playOpening, playOption, type Deck } from '../outer/deck.ts';
 import { enterRoom } from '../rooms/entry.ts';
-import { holds, type TagState } from '../tags/store.ts';
+import { record } from '../tags/causal.ts';
+import type { Condition } from '../tags/condition.ts';
+import { holds, setFlag, type TagState } from '../tags/store.ts';
 import { roomsOf, startChapter, type ChapterContent } from './chapter.ts';
 
 /**
@@ -70,12 +72,32 @@ export function bedAfter(ctx: ChapterContent, tags: TagState): number | undefine
     });
   });
   if (ends.length === 0) return 'none';
+  const played = withStoryFlags(ctx, tags, ends);
   for (let t = 0; t <= BED_SEARCH_MINUTES; t++) {
     // The whole body waits, not only caffeine: a way out may wait for the liver's line to clear.
-    const now = passBody(tags, ctx.dict, t, ctx.params, t);
+    const now = passBody(played, ctx.dict, t, ctx.params, t);
     if (ends.some((c) => !c || holds(now, ctx.dict, c))) return t;
   }
   return undefined;
+}
+
+/**
+ * The tags with every flag a way out asks for set, when no opening card can set it: story
+ * progress such as the stomach boss's concession (`snack_settled`) comes from playing the chapter,
+ * which waiting cannot stand in for, and is not what the opening cards decide.
+ */
+function withStoryFlags(ctx: ChapterContent, tags: TagState, ends: readonly (Condition | undefined)[]): TagState {
+  const storyOnly = (name: string): boolean => {
+    // A modifier alias is not a tag of the dictionary and is left to the body's own rules.
+    const d = ctx.dict.tags.get(name);
+    return d?.type === 'boolean' && !d.sources.some((s) => OPENING_SOURCES.includes(s));
+  };
+  const names = new Set(ends.flatMap((c) => c?.terms ?? []).flatMap((t) => (t.kind === 'flag' && !t.negated && storyOnly(t.name) ? [t.name] : [])));
+  if (names.size === 0) return tags;
+  const [log, cause] = record(tags.log, { kind: 'rule', key: 'playable.story', at: 0 });
+  let out: TagState = { ...tags, log };
+  for (const name of names) out = setFlag(out, ctx.dict, name, true, cause, 0);
+  return out;
 }
 
 /** See ComboReport.sight. */

@@ -11,7 +11,7 @@ import { FixedStepLoop } from '../../src/app/loop.ts';
 import { SETTINGS, TELEGRAPH, TICK_HZ, type Cue, type GameEvent } from '../../src/core/index.ts';
 
 const FIELDS = noteFields(ENEMIES);
-const CHAPTERS = ['prologue', 'brain', 'greybox', 'liver', 'midterm', 'wall', 'patrol-brain', 'patrol-liver'];
+const CHAPTERS = ['prologue', 'brain', 'greybox', 'liver', 'midterm', 'wall', 'patrol-brain', 'patrol-liver', 'stomach'];
 
 const problems = (audio: AudioTable = AUDIO, feedback: FeedbackTable = FEEDBACK): string[] =>
   audioProblems(audio, feedback, STRINGS, FIELDS, Object.values(UI), CHAPTERS);
@@ -22,6 +22,17 @@ const tone = (gain: number, at = 0, dur = 0.1): Cue['voices'][number] => ({ kind
 describe('the audio content', () => {
   it('passes its own check against the feedback table and the strings', () => {
     expect(problems()).toEqual([]);
+  });
+
+  it('a cue with a caption is played only by the events its caption describes', () => {
+    // A caption names what happened, so an event borrowing a captioned cue tells a deaf player something else.
+    const captioned = Object.entries(FEEDBACK.events).flatMap(([type, e]) => {
+      const sound = e.sound;
+      if (!sound) return [];
+      const cues = Object.keys(AUDIO.cues).filter((c) => c === sound || (sound.includes('{') && c.startsWith(sound.split('{')[0]!)));
+      return cues.some((c) => AUDIO.cues[c]!.caption !== undefined) ? [type] : [];
+    });
+    expect(captioned.sort()).toEqual(['gaugeFull', 'parry', 'refused', 'shieldBroken', 'stampLanded', 'telegraph']);
   });
 
   it('the three telegraph tiers are three different cues with their own captions', () => {

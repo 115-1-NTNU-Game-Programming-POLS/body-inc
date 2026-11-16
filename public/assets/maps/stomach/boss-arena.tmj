@@ -671,6 +671,35 @@
        "type": "string",
        "propertytype": "EnemyType",
        "value": "snack"
+      },
+      {
+       "name": "when",
+       "type": "string",
+       "value": "!snack_settled"
+      }
+     ]
+    },
+    {
+     "id": 9,
+     "name": "time-clock",
+     "type": "Trigger",
+     "x": 32,
+     "y": 192,
+     "width": 64,
+     "height": 64,
+     "rotation": 0,
+     "visible": true,
+     "properties": [
+      {
+       "name": "event",
+       "type": "string",
+       "propertytype": "TriggerEvent",
+       "value": "checkpoint"
+      },
+      {
+       "name": "when",
+       "type": "string",
+       "value": "snack_settled"
       }
      ]
     }

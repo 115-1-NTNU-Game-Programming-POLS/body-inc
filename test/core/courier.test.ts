@@ -7,6 +7,7 @@ import {
   type ChapterContent, type ChapterState, type DomainEvent, type EnteredRoom, type EnemyState, type GameEvent, type GameState, type TickInput, type TiledMap,
 } from '../../src/core/index.ts';
 import { ENEMY_BODY, stepEnemy } from '../../src/core/combat/actors.ts';
+import { tagsFromQuery } from '../../src/app/session.ts';
 import { readRoom } from '../../src/core/rooms/tiled.ts';
 import { stepMixer } from '../../src/core/stomach/mixer.ts';
 import { compileCondition } from '../../src/core/tags/dictionary.ts';
@@ -449,8 +450,8 @@ describe('the chapter counts a return and nothing else', () => {
     }
     return { state: s, events };
   }
-  const night = (): ChapterState => {
-    const { pending: _, ...s } = startChapter(content, { room: 'stomach/night-lab', gauge: STAMP.gaugeMax });
+  const night = (q = ''): ChapterState => {
+    const { pending: _, ...s } = startChapter(content, { room: 'stomach/night-lab', gauge: STAMP.gaugeMax, ...(q ? { tags: tagsFromQuery(`?tags=${q}`, TAGS) } : {}) });
     return s;
   };
   const withOrders = (s: ChapterState, ...at: { col: number; row: number }[]): ChapterState =>
@@ -487,7 +488,8 @@ describe('the chapter counts a return and nothing else', () => {
   });
 
   it('an order in the mixer is work like any food: asleep beside it, the operator is woken after twenty seconds of it', () => {
-    const s0 = night();
+    // The bed is the chapter's end and waits for the snack boss's concession.
+    const s0 = night('snack_settled');
     // No courier of his own, so the only orders are the two put on the hopper here; the operator stands at the bed.
     const bedside: ChapterState = { ...s0, game: { ...s0.game, enemies: [], operator: { ...s0.game.operator, x: 470, y: 288 } } };
     const lay = play(bedside, 1, () => ({ ...NONE, interactPressed: true }));

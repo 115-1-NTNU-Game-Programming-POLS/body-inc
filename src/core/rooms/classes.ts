@@ -183,6 +183,12 @@ export const OBJECT_CLASSES: Readonly<Record<string, ClassSpec>> = {
   Bed: {
     bedType: enumOf('BedType', ['nap', 'sleep']),
     requires: { type: 'condition' },
+    /**
+     * What the bed says when `requires` fails: `body` that the body is not ready (caffeine), `story` that
+     * the chapter's night is not over yet. The stomach's bed waits for the boss, and its evidence allows
+     * waking at night but not lying awake (design doc 7.5), so it must not answer that sleep will not come.
+     */
+    refusal: enumOf('BedRefusal', ['body', 'story']),
     /** A handbook page the bed unlocks when it is used (design doc 7.4: the nap sofa gives 〈短暫午睡〉). */
     unlocks: { type: 'string', default: '' },
     /**

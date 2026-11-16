@@ -302,7 +302,7 @@ describe('beds', () => {
     expect(first.state.game.operator.stacks).toBe(0);
     expect(first.state.game.enemies.find((e) => e.id === a.id)).toMatchObject({ phase: 'dispersed', x: a.homeX, y: a.homeY });
     const second = advanceBy(c, first.state, PRESS);
-    expect(second.events).toContainEqual({ type: 'bedRefused', object: 2, bedType: 'nap' });
+    expect(second.events).toContainEqual({ type: 'bedRefused', object: 2, bedType: 'nap', reason: 'nap' });
     expect(second.state.game.clock.minute).toBe(first.state.game.clock.minute);
   });
 
@@ -322,7 +322,7 @@ describe('beds', () => {
     const c = lab([sleep('caffeine<15')]);
     const near = (s: ChapterState) => place(s, 430, 175);
     const wired = advanceBy(c, near(startChapter(c, { tags: tags('caffeine:50') })), PRESS);
-    expect(wired.events).toContainEqual({ type: 'bedRefused', object: 3, bedType: 'sleep' });
+    expect(wired.events).toContainEqual({ type: 'bedRefused', object: 3, bedType: 'sleep', reason: 'sleep' });
     expect(types(wired.events)).not.toContain('chapterEnded');
     const rested = advanceBy(c, near(startChapter(c, { tags: tags('caffeine:10') })), PRESS);
     expect(types(rested.events)).toContain('chapterEnded');

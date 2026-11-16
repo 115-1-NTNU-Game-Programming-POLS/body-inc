@@ -11,7 +11,7 @@
       "semester": { "file": "local-forecast-elevator.mp3", "title": "Local Forecast - Elevator", "artist": "Kevin MacLeod", "sourceUrl": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Local%20Forecast%20-%20Elevator.mp3" }
     },
     "scenes": { "Title": "title", "Opening": "cards", "Courses": "semester", "Semester": "semester", "Name": "title" },
-    "chapters": { "prologue": "prologue", "brain": "brain", "greybox": "brain", "liver": "liver", "midterm": "boss", "wall": "cards", "patrol-brain": "brain", "patrol-liver": "liver" },
+    "chapters": { "prologue": "prologue", "brain": "brain", "greybox": "brain", "liver": "liver", "midterm": "boss", "wall": "cards", "patrol-brain": "brain", "patrol-liver": "liver", "stomach": "prologue" },
     "boss": "boss"
   },
   "cues": {

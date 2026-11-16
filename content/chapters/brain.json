@@ -2,7 +2,7 @@
   "version": 1,
   "id": "brain",
   "start": "brain/lobby",
-  "next": "midterm",
+  "next": "stomach",
   "intro": "brain.intro",
   "tools": [],
   "partner": "chairman",

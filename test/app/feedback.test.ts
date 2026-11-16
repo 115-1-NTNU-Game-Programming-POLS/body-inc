@@ -153,9 +153,10 @@ describe('feedback table', () => {
       'pieRaised: note "pie.raised.{sleepy}" uses unknown placeholder "{sleepy}"',
       'stampVoid: note "stamp_void.{solution}" uses unknown placeholder "{solution}"',
       'bossStage: note "boss_stage.{stage}" uses unknown placeholder "{stage}"',
+      'snackStage: note "boss.snack.next_stage.{stage}" uses unknown placeholder "{stage}"',
       'doorLocked: note "door.locked.{lock}" uses unknown placeholder "{lock}"',
       'pickedUp: note "pickup.{itemType}" uses unknown placeholder "{itemType}"',
-      'bedRefused: note "bed.refused.{bedType}" uses unknown placeholder "{bedType}"',
+      'bedRefused: note "bed.refused.{reason}" uses unknown placeholder "{reason}"',
       'sleepInterrupted: note "sleep.woke.{cause}" uses unknown placeholder "{cause}"',
       'dizzyChanged: note "dizzy.{dizzy}" uses unknown placeholder "{dizzy}"',
       'examAnswered: note "exam.answered.{how}" uses unknown placeholder "{how}"',
@@ -172,11 +173,12 @@ describe('feedback table', () => {
     expect(STRINGS.strings['pickup.handbook']).toBeUndefined();
   });
 
-  it('each bed kind a map can place has its refusal line', () => {
-    expect(FIELDS.bedRefused?.['bedType']).toEqual(['nap', 'sleep']);
-    const { ['bed.refused.sleep']: _, ...rest } = STRINGS.strings;
+  it('each bed kind a map can place, and a bed waiting for the story, has its refusal line', () => {
+    expect(FIELDS.bedRefused?.['reason']).toEqual(['nap', 'sleep', 'story']);
+    const { ['bed.refused.sleep']: _, ['bed.refused.story']: __, ...rest } = STRINGS.strings;
     expect(feedbackProblems(FEEDBACK, { ...STRINGS, strings: rest }, FIELDS)).toEqual([
       'bedRefused: note "bed.refused.sleep" is not in content/strings',
+      'bedRefused: note "bed.refused.story" is not in content/strings',
     ]);
   });
 

@@ -9,8 +9,8 @@
  "height": 12,
  "tilewidth": 32,
  "tileheight": 32,
- "nextlayerid": 4,
- "nextobjectid": 16,
+ "nextlayerid": 6,
+ "nextobjectid": 24,
  "class": "Room",
  "properties": [
   {
@@ -728,6 +728,17 @@
        "name": "sleepSeconds",
        "type": "int",
        "value": 30
+      },
+      {
+       "name": "requires",
+       "type": "string",
+       "value": "snack_settled"
+      },
+      {
+       "name": "refusal",
+       "type": "string",
+       "propertytype": "BedRefusal",
+       "value": "story"
       }
      ]
     },
@@ -783,7 +794,7 @@
       {
        "name": "when",
        "type": "string",
-       "value": "!courier_closed"
+       "value": "!courier_closed,!early_night"
       }
      ]
     },
@@ -853,6 +864,228 @@
        "type": "string",
        "propertytype": "Socket",
        "value": "E"
+      }
+     ]
+    },
+    {
+     "id": 16,
+     "name": "chief",
+     "type": "NPC",
+     "x": 400,
+     "y": 304,
+     "width": 0,
+     "height": 0,
+     "rotation": 0,
+     "visible": true,
+     "point": true,
+     "properties": [
+      {
+       "name": "npcId",
+       "type": "string",
+       "value": "stomach"
+      },
+      {
+       "name": "dialogueId",
+       "type": "string",
+       "value": "stomach.chief.night"
+      }
+     ]
+    },
+    {
+     "id": 17,
+     "name": "feeder",
+     "type": "Conveyor",
+     "x": 64,
+     "y": 96,
+     "width": 32,
+     "height": 96,
+     "rotation": 0,
+     "visible": true,
+     "properties": [
+      {
+       "name": "direction",
+       "type": "string",
+       "propertytype": "Direction",
+       "value": "S"
+      },
+      {
+       "name": "speed",
+       "type": "string",
+       "propertytype": "ConveyorSpeed",
+       "value": "slow"
+      }
+     ]
+    },
+    {
+     "id": 18,
+     "name": "climax",
+     "type": "Trigger",
+     "x": 576,
+     "y": 192,
+     "width": 32,
+     "height": 64,
+     "rotation": 0,
+     "visible": true,
+     "properties": [
+      {
+       "name": "event",
+       "type": "string",
+       "propertytype": "TriggerEvent",
+       "value": "card"
+      },
+      {
+       "name": "eventId",
+       "type": "string",
+       "value": "climax"
+      },
+      {
+       "name": "once",
+       "type": "bool",
+       "value": true
+      }
+     ]
+    },
+    {
+     "id": 20,
+     "name": "food-normal",
+     "type": "Box",
+     "x": 80,
+     "y": 112,
+     "width": 0,
+     "height": 0,
+     "rotation": 0,
+     "visible": true,
+     "point": true,
+     "properties": [
+      {
+       "name": "boxType",
+       "type": "string",
+       "propertytype": "BoxType",
+       "value": "food"
+      },
+      {
+       "name": "portion",
+       "type": "string",
+       "propertytype": "Portion",
+       "value": "normal"
+      },
+      {
+       "name": "when",
+       "type": "string",
+       "value": "snack_run,snack_settled"
+      }
+     ]
+    },
+    {
+     "id": 21,
+     "name": "food-normal",
+     "type": "Box",
+     "x": 304,
+     "y": 304,
+     "width": 0,
+     "height": 0,
+     "rotation": 0,
+     "visible": true,
+     "point": true,
+     "properties": [
+      {
+       "name": "boxType",
+       "type": "string",
+       "propertytype": "BoxType",
+       "value": "food"
+      },
+      {
+       "name": "portion",
+       "type": "string",
+       "propertytype": "Portion",
+       "value": "normal"
+      },
+      {
+       "name": "when",
+       "type": "string",
+       "value": "snack_saved,snack_settled"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": 4,
+   "name": "variant:snack-run",
+   "type": "group",
+   "class": "Variant",
+   "x": 0,
+   "y": 0,
+   "opacity": 1,
+   "visible": true,
+   "properties": [
+    {
+     "name": "when",
+     "type": "string",
+     "value": "snack_run,snack_settled"
+    }
+   ],
+   "layers": [
+    {
+     "id": 5,
+     "name": "objects",
+     "type": "objectgroup",
+     "x": 0,
+     "y": 0,
+     "opacity": 1,
+     "visible": true,
+     "draworder": "topdown",
+     "objects": [
+      {
+       "id": 22,
+       "name": "roommate-belt",
+       "type": "Conveyor",
+       "x": 96,
+       "y": 96,
+       "width": 416,
+       "height": 32,
+       "rotation": 0,
+       "visible": true,
+       "properties": [
+        {
+         "name": "direction",
+         "type": "string",
+         "propertytype": "Direction",
+         "value": "W"
+        },
+        {
+         "name": "speed",
+         "type": "string",
+         "propertytype": "ConveyorSpeed",
+         "value": "slow"
+        }
+       ]
+      },
+      {
+       "id": 23,
+       "name": "food-normal",
+       "type": "Box",
+       "x": 496,
+       "y": 112,
+       "width": 0,
+       "height": 0,
+       "rotation": 0,
+       "visible": true,
+       "point": true,
+       "properties": [
+        {
+         "name": "boxType",
+         "type": "string",
+         "propertytype": "BoxType",
+         "value": "food"
+        },
+        {
+         "name": "portion",
+         "type": "string",
+         "propertytype": "Portion",
+         "value": "normal"
+        }
+       ]
       }
      ]
     }

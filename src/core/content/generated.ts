@@ -251,6 +251,9 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
       "stage2": {
         "$ref": "#/$defs/BossSnackStage"
       },
+      "stage3": {
+        "$ref": "#/$defs/BossSnackLightsOut"
+      },
       "protest": {
         "$ref": "#/$defs/BossProtest"
       },
@@ -501,6 +504,37 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
           },
           "deliveries": {
             "$ref": "#/$defs/BossDeliveries"
+          }
+        }
+      },
+      "BossSnackLightsOut": {
+        "description": "Snack: the third stage (熄燈). It starts when his budget has fallen to `budget`, and no damage takes him below it before then. A sleep bar fills for `sleepSeconds` and stands still for `interruptSeconds` each time the mixer finishes one of his boxes. Once it is full and the mixer is empty the stamp closes the case; nothing else hurts him in this stage.",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "budget",
+          "deliveries",
+          "sleepSeconds",
+          "interruptSeconds"
+        ],
+        "properties": {
+          "budget": {
+            "description": "The stage starts when his budget is at most this; below stage2.budget, and at most the stamp's damage, so that the stamp closes the case.",
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "deliveries": {
+            "$ref": "#/$defs/BossDeliveries"
+          },
+          "sleepSeconds": {
+            "description": "How long the sleep bar takes to fill when nothing interrupts it.",
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "interruptSeconds": {
+            "description": "How long the bar stands still after the mixer finishes one of his boxes (design doc 7.5: the mixer interrupts it once per box).",
+            "type": "number",
+            "exclusiveMinimum": 0
           }
         }
       },
@@ -808,7 +842,7 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
         }
       },
       "climax": {
-        "description": "The choice an event card offers before the boss (design doc 7.4): a boolean tag it sets, and what that costs. With the flag on, the boss summons `summonFactor` times as many enemies at once and may keep that many times as many alive, and going to bed files only `archiveFactor` of the desk.",
+        "description": "The choice an event card offers before the boss (design doc 7.4, 7.5): a boolean tag it sets, and what that costs. With the flag on, the boss summons `summonFactor` times as many enemies at once and may keep that many times as many alive, the stomach boss throws his stage-2 boxes `paceFactor` times as often, and going to bed files only `archiveFactor` of the desk.",
         "type": "object",
         "additionalProperties": false,
         "required": [
@@ -831,6 +865,12 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
             "type": "number",
             "minimum": 0,
             "maximum": 1
+          },
+          "paceFactor": {
+            "description": "Multiplier on how often the stomach boss throws in his stage 2 (加大份量) while the flag is on; the time between boxes is divided by it.",
+            "type": "number",
+            "minimum": 1,
+            "maximum": 2
           }
         }
       }
@@ -3487,6 +3527,7 @@ export interface BossFile {
   readonly behaviour: "caffeine" | "toast" | "snack";
   readonly deliveries?: BossDeliveries;
   readonly stage2?: BossSnackStage;
+  readonly stage3?: BossSnackLightsOut;
   readonly protest?: BossProtest;
   readonly song?: BossSong;
   readonly workOrder?: BossWorkOrder;
@@ -3568,6 +3609,17 @@ export interface BossSnackStage {
   /** The stage starts when his budget is at most this; below the budget of the file. */
   readonly budget: number;
   readonly deliveries: BossDeliveries;
+}
+
+/** Snack: the third stage (熄燈). It starts when his budget has fallen to `budget`, and no damage takes him below it before then. A sleep bar fills for `sleepSeconds` and stands still for `interruptSeconds` each time the mixer finishes one of his boxes. Once it is full and the mixer is empty the stamp closes the case; nothing else hurts him in this stage. */
+export interface BossSnackLightsOut {
+  /** The stage starts when his budget is at most this; below stage2.budget, and at most the stamp's damage, so that the stamp closes the case. */
+  readonly budget: number;
+  readonly deliveries: BossDeliveries;
+  /** How long the sleep bar takes to fill when nothing interrupts it. */
+  readonly sleepSeconds: number;
+  /** How long the bar stands still after the mixer finishes one of his boxes (design doc 7.5: the mixer interrupts it once per box). */
+  readonly interruptSeconds: number;
 }
 
 /** Snack: the area the mixer throws when it is fed one box over its capacity (胃抗議). It hurts the operator wherever he stands round the hopper, so it is a tier-3 move with the longest telegraph. */
@@ -3661,7 +3713,7 @@ export interface ChapterFile {
   readonly closedCases?: Readonly<Record<string, string>>;
   /** Enemy types that leave a handbook page when their case is closed, as enemy id to page id (design doc 7.5: the sugar salesman drops 〈糖分與疲倦〉). The page is kept like any unlocked page, so a forced leave does not take it back. */
   readonly caseDrops?: Readonly<Record<string, string>>;
-  /** The choice an event card offers before the boss (design doc 7.4): a boolean tag it sets, and what that costs. With the flag on, the boss summons `summonFactor` times as many enemies at once and may keep that many times as many alive, and going to bed files only `archiveFactor` of the desk. */
+  /** The choice an event card offers before the boss (design doc 7.4, 7.5): a boolean tag it sets, and what that costs. With the flag on, the boss summons `summonFactor` times as many enemies at once and may keep that many times as many alive, the stomach boss throws his stage-2 boxes `paceFactor` times as often, and going to bed files only `archiveFactor` of the desk. */
   readonly climax?: {
     /** Boolean tag the choice sets. */
     readonly flag: string;
@@ -3669,6 +3721,8 @@ export interface ChapterFile {
     readonly summonFactor?: number;
     /** Multiplier on what sleep files while the flag is on. */
     readonly archiveFactor?: number;
+    /** Multiplier on how often the stomach boss throws in his stage 2 (加大份量) while the flag is on; the time between boxes is divided by it. */
+    readonly paceFactor?: number;
   };
 }
 

@@ -11,6 +11,7 @@
     "behaviour": { "description": "Which core controller runs this boss.", "enum": ["caffeine", "toast", "snack"] },
     "deliveries": { "$ref": "#/$defs/BossDeliveries" },
     "stage2": { "$ref": "#/$defs/BossSnackStage" },
+    "stage3": { "$ref": "#/$defs/BossSnackLightsOut" },
     "protest": { "$ref": "#/$defs/BossProtest" },
     "song": { "$ref": "#/$defs/BossSong" },
     "workOrder": { "$ref": "#/$defs/BossWorkOrder" },
@@ -93,6 +94,18 @@
       "properties": {
         "budget": { "description": "The stage starts when his budget is at most this; below the budget of the file.", "type": "number", "exclusiveMinimum": 0 },
         "deliveries": { "$ref": "#/$defs/BossDeliveries" }
+      }
+    },
+    "BossSnackLightsOut": {
+      "description": "Snack: the third stage (熄燈). It starts when his budget has fallen to `budget`, and no damage takes him below it before then. A sleep bar fills for `sleepSeconds` and stands still for `interruptSeconds` each time the mixer finishes one of his boxes. Once it is full and the mixer is empty the stamp closes the case; nothing else hurts him in this stage.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["budget", "deliveries", "sleepSeconds", "interruptSeconds"],
+      "properties": {
+        "budget": { "description": "The stage starts when his budget is at most this; below stage2.budget, and at most the stamp's damage, so that the stamp closes the case.", "type": "number", "exclusiveMinimum": 0 },
+        "deliveries": { "$ref": "#/$defs/BossDeliveries" },
+        "sleepSeconds": { "description": "How long the sleep bar takes to fill when nothing interrupts it.", "type": "number", "exclusiveMinimum": 0 },
+        "interruptSeconds": { "description": "How long the bar stands still after the mixer finishes one of his boxes (design doc 7.5: the mixer interrupts it once per box).", "type": "number", "exclusiveMinimum": 0 }
       }
     },
     "BossProtest": {

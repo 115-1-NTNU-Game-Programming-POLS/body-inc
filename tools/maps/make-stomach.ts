@@ -12,7 +12,8 @@
  * puzzle). A late-night courier stands by the head of the in-belt and throws an order (a food box)
  * onto it every few seconds: let go, it rides into the mixer, which works overtime; stamped, it is
  * returned and counted (design doc 7.5). It has no belt loop: a box pushed into a corner stays
- * there, but the bed needs no box. A spare food box sits in the north-east corner behind two food chunks
+ * there, but the bed needs no box. The bed is also where the chapter ends, so it refuses the operator until the snack boss's case
+ * is settled and they have walked back from the arena. A spare food box sits in the north-east corner behind two food chunks
  * (design doc 6.2): the logistics chief's acid, on L, dissolves them after 1.5 seconds and the way is open for good.
  * sorting-lab is for the fork of core/rooms/boxes.ts and the lever cooldown of core/rooms/cooling.ts (the sorting
  * center): a line of four portions, a fork on it that a lever turns, a fast way to the hopper and a 22-tile slow way
@@ -34,14 +35,22 @@ const int = (name: string, value: number) => ({ name, type: 'int', value });
 const obj = (name: string, value: number) => ({ name, type: 'object', value });
 const rect = (id: number, name: string, type: string, col: number, row: number, cols: number, rows: number, properties: object[]) =>
   ({ id, name, type, x: col * T, y: row * T, width: cols * T, height: rows * T, rotation: 0, visible: true, properties });
-const food = (id: number, col: number, row: number, portion: string) => ({
-  id, name: `food-${portion}`, type: 'Box', x: col * T + 16, y: row * T + 16, width: 0, height: 0, rotation: 0, visible: true, point: true,
-  properties: [str('boxType', 'BoxType', 'food'), str('portion', 'Portion', portion)],
+/** The logistics chief (design doc 7.5), one in each lab, with that lab's conversation; see stomach.csv. */
+const chief = (id: number, lab: string, col: number, row: number) => ({
+  id, name: 'chief', type: 'NPC', x: col * T + 16, y: row * T + 16, width: 0, height: 0, rotation: 0, visible: true, point: true,
+  properties: [str('npcId', undefined, 'stomach'), str('dialogueId', undefined, `stomach.chief.${lab}`)],
 });
+const food = (id: number, col: number, row: number, portion: string, when = '') => ({
+  id, name: `food-${portion}`, type: 'Box', x: col * T + 16, y: row * T + 16, width: 0, height: 0, rotation: 0, visible: true, point: true,
+  properties: [str('boxType', 'BoxType', 'food'), str('portion', 'Portion', portion), ...(when ? [str('when', undefined, when)] : [])],
+});
+/** An event card (content/decks/stomach.json) asked once, the first time the operator steps on it. */
+const card = (id: number, name: string, eventId: string, col: number, row: number, cols: number, rows: number) =>
+  rect(id, name, 'Trigger', col, row, cols, rows, [str('event', 'TriggerEvent', 'card'), str('eventId', undefined, eventId), { name: 'once', type: 'bool', value: true }]);
 
 writeRoom('stomach/mixer-lab.tmj', {
   type: 'map', version: '1.10', tiledversion: '1.11.0', orientation: 'orthogonal', renderorder: 'right-down',
-  infinite: false, width: W, height: 12, tilewidth: T, tileheight: T, nextlayerid: 4, nextobjectid: 18, class: 'Room',
+  infinite: false, width: W, height: 12, tilewidth: T, tileheight: T, nextlayerid: 4, nextobjectid: 21, class: 'Room',
   properties: [
     { name: 'organ', type: 'string', value: 'stomach' },
     { name: 'role', type: 'string', value: 'puzzle' },
@@ -57,7 +66,10 @@ writeRoom('stomach/mixer-lab.tmj', {
         { id: 1, name: 'start', type: 'PlayerStart', x: 2 * T + 16, y: 7 * T + 16, width: 0, height: 0, rotation: 0, visible: true, point: true },
         food(2, 4, 4, 'small'),
         food(3, 6, 4, 'normal'),
-        food(4, 8, 4, 'large'),
+        // The dinner card (design doc 7.5): a buffet dinner is a small portion here instead of the large one. Fried chicken
+        // adds no box, since any box the mixer takes in comes out as one of the gate's parcels and would make the lab easier.
+        food(4, 8, 4, 'large', '!light_dinner'),
+        food(19, 8, 4, 'small', 'light_dinner'),
         food(5, 4, 9, 'normal'),
         food(6, 6, 9, 'small'),
         rect(7, 'belt-in', 'Conveyor', 2, 6, 8, 1, [str('direction', 'Direction', 'E')]),
@@ -82,6 +94,8 @@ writeRoom('stomach/mixer-lab.tmj', {
         // Greybox: the large-portion salesman of design doc 7.5 (the manager archetype, shield and all) in the south-east corner.
         { id: 17, name: 'large-seller', type: 'Spawn', x: 17 * T + 16, y: 9 * T + 16, width: 0, height: 0, rotation: 0, visible: true, point: true,
           properties: [str('enemyType', 'EnemyType', 'large_seller')] },
+        // Off every box's lane and the sellers' corner.
+        chief(18, 'mixer', 11, 9),
       ],
     },
   ],
@@ -103,7 +117,7 @@ const belt = (id: number, name: string, col: number, row: number, cols: number, 
 // is already running on entry.
 writeRoom('stomach/sorting-lab.tmj', {
   type: 'map', version: '1.10', tiledversion: '1.11.0', orientation: 'orthogonal', renderorder: 'right-down',
-  infinite: false, width: W, height: 12, tilewidth: T, tileheight: T, nextlayerid: 4, nextobjectid: 21, class: 'Room',
+  infinite: false, width: W, height: 12, tilewidth: T, tileheight: T, nextlayerid: 4, nextobjectid: 23, class: 'Room',
   properties: [
     { name: 'organ', type: 'string', value: 'stomach' },
     { name: 'role', type: 'string', value: 'puzzle' },
@@ -141,6 +155,11 @@ writeRoom('stomach/sorting-lab.tmj', {
         belt(18, 'slow-c', 18, 9, 1, 2, 'N', 'slow'),
         belt(19, 'slow-d', 13, 8, 6, 1, 'W', 'slow'),
         belt(20, 'slow-e', 12, 7, 1, 2, 'N', 'slow'),
+        // Up in the open floor by the levers, clear of the belts below.
+        chief(21, 'sorting', 14, 4),
+        // The roommate's message (design doc 7.5, the mid-chapter event card) on the door's own rows, so no way to the night
+        // lab passes it by; it is asked before the night lab is entered, which decides on entry what the card put there.
+        card(22, 'roommate', 'roommate', 18, 6, 1, 2),
       ],
     },
   ],
@@ -149,7 +168,7 @@ writeRoom('stomach/sorting-lab.tmj', {
 
 writeRoom('stomach/night-lab.tmj', {
   type: 'map', version: '1.10', tiledversion: '1.11.0', orientation: 'orthogonal', renderorder: 'right-down',
-  infinite: false, width: W, height: 12, tilewidth: T, tileheight: T, nextlayerid: 4, nextobjectid: 16, class: 'Room',
+  infinite: false, width: W, height: 12, tilewidth: T, tileheight: T, nextlayerid: 6, nextobjectid: 24, class: 'Room',
   properties: [
     { name: 'organ', type: 'string', value: 'stomach' },
     { name: 'role', type: 'string', value: 'puzzle' },
@@ -169,18 +188,51 @@ writeRoom('stomach/night-lab.tmj', {
         rect(5, 'mixer', 'Mixer', 10, 6, 2, 1, [int('capacity', 3), str('outlet', 'Socket', 'E')]),
         rect(6, 'belt-out', 'Conveyor', 12, 6, 3, 1, [str('direction', 'Direction', 'E'), str('speed', 'ConveyorSpeed', 'slow')]),
         rect(7, 'gate', 'Port', 15, 6, 2, 1, [int('need', 2), str('accepts', 'PortAccepts', 'parcel')]),
-        rect(8, 'bedtime', 'Bed', 15, 8, 2, 2, [str('bedType', 'BedType', 'sleep'), int('sleepSeconds', 30)]),
+        // The chapter's end (design doc 7.2 puts the concession before it): the bed stays refused until the snack boss's case is settled.
+        rect(8, 'bedtime', 'Bed', 15, 8, 2, 2, [str('bedType', 'BedType', 'sleep'), int('sleepSeconds', 30), str('requires', undefined, 'snack_settled'), str('refusal', 'BedRefusal', 'story')]),
         rect(9, 'door-w', 'Door', 0, 6, 1, 2, [str('socket', 'Socket', 'W')]),
         rect(10, 'cold', 'ColdStore', 6, 9, 3, 2, []),
         // The late-night courier of design doc 7.5 stands beside the head of the in-belt. Once his case is closed (chapter file closedCases) he stays out.
+        // Turning the roommate down to sleep (early_night) means no more late orders tonight, so he does not come either.
         { id: 11, name: 'courier', type: 'Spawn', x: 3 * T + 16, y: 5 * T + 16, width: 0, height: 0, rotation: 0, visible: true, point: true,
-          properties: [str('enemyType', 'EnemyType', 'courier'), str('when', undefined, '!courier_closed')] },
+          properties: [str('enemyType', 'EnemyType', 'courier'), str('when', undefined, '!courier_closed,!early_night')] },
         // A spare portion in the north-east corner, walled in by two chunks round a 2 x 2 pocket. The corner tile (16, 5) stays open: a body cannot slip through the diagonal gap, and the gate's count label sits above it.
         food(12, 17, 3, 'normal'),
         rect(13, 'chunk-south', 'Chunk', 17, 5, 2, 1, []),
         rect(14, 'chunk-west', 'Chunk', 16, 3, 1, 2, []),
         // The way on to the boss arena, open from the start: the lab has no rule that gates it yet.
         rect(15, 'door-e', 'Door', 19, 6, 1, 2, [str('socket', 'Socket', 'E')]),
+        // West of the bed; row 10 still leads a box past him to the cold store.
+        chief(16, 'night', 12, 9),
+        // A slow feeder down the west wall into the head of the in-belt: a box on it reaches the hopper about 7 seconds after
+        // the operator walks back in from the arena, so the mixer is still digesting when they lie down.
+        belt(17, 'feeder', 2, 3, 1, 3, 'S', 'slow'),
+        // The climax card (design doc 7.5: before the 1 a.m. delivery) on the arena door's own rows.
+        card(18, 'climax', 'climax', 18, 6, 1, 2),
+        // What the roommate card left for the walk back to bed (design doc 7.5, the late-night puzzle). Going with him puts a
+        // normal portion on the feeder, and the variant layer below a second one on a slow belt along the north wall, so the
+        // mixer digests the two back to back: waiting by the east door up to 19 seconds before going the few tiles to bed is
+        // woken by its alarm, 20 or more sleeps through (measured in test/core/stomach-cards.test.ts). A box riding a belt cannot be pushed, so the answer
+        // is to wait. It needs snack_settled, or the belts would feed it in on the way out.
+        food(20, 2, 3, 'normal', 'snack_run,snack_settled'),
+        // His share for breakfast waits by the cold store: one push west keeps it for tomorrow.
+        food(21, 9, 9, 'normal', 'snack_saved,snack_settled'),
+      ],
+    },
+    // The roommate run's second box, on a slow belt into the feeder that exists only on the walk back to bed, so the
+    // first visit's puzzle is untouched. 12 tiles at a tile a second, then the feeder and the in-belt: it reaches the
+    // hopper about 20 seconds in, as the feeder's box is still digesting.
+    {
+      id: 4, name: 'variant:snack-run', type: 'group', class: 'Variant', x: 0, y: 0, opacity: 1, visible: true,
+      properties: [{ name: 'when', type: 'string', value: 'snack_run,snack_settled' }],
+      layers: [
+        {
+          id: 5, name: 'objects', type: 'objectgroup', x: 0, y: 0, opacity: 1, visible: true, draworder: 'topdown',
+          objects: [
+            belt(22, 'roommate-belt', 3, 3, 13, 1, 'W', 'slow'),
+            food(23, 15, 3, 'normal'),
+          ],
+        },
       ],
     },
   ],
@@ -214,8 +266,12 @@ writeRoom('stomach/boss-arena.tmj', {
         rect(5, 'dock-ne', 'Dock', 17, 4, 1, 1, []),
         rect(6, 'dock-se', 'Dock', 17, 9, 1, 1, []),
         rect(7, 'dock-sw', 'Dock', 2, 9, 1, 1, []),
+        // As in the brain's arena: once his contract is rewritten, a later visit finds the arena empty.
         { id: 8, name: 'snack-boss', type: 'Spawn', x: 10 * T, y: 4 * T + 16, width: 0, height: 0, rotation: 0, visible: true, point: true,
-          properties: [str('enemyType', 'EnemyType', 'snack')] },
+          properties: [str('enemyType', 'EnemyType', 'snack'), str('when', undefined, '!snack_settled')] },
+        // The chapter's time clock, in the only way out of the arena. It works once his contract is rewritten, so leaving
+        // punches in with snack_settled and "continue" does not mean fighting him again; during the fight it would refill the hearts.
+        rect(9, 'time-clock', 'Trigger', 1, 6, 2, 2, [str('event', 'TriggerEvent', 'checkpoint'), str('when', undefined, 'snack_settled')]),
       ],
     },
   ],
