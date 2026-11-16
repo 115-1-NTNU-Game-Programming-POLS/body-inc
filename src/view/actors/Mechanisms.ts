@@ -104,14 +104,14 @@ export class Mechanisms {
     this.render(state);
   }
 
-  /** `figures` holds the text of each reveal figure kind (Switch `figure`), filled in by the scene from the chapter's state. */
-  render(state: GameState, figures: Readonly<Record<string, string>> = {}): void {
+  /** `figure` gives the text of a reveal figure kind (Switch `figure`) from the chapter's state; it is asked only while one is found. */
+  render(state: GameState, figure: (kind: string) => string = () => ''): void {
     const cooling = new Set(selectCooling(state).map((c) => c.object));
     for (const s of selectSwitches(state)) {
       const v = this.levers.get(s.object);
       if (!v) continue;
       if (v.label) {
-        const text = s.on ? figures[s.figure] ?? '' : '';
+        const text = s.on ? figure(s.figure) : '';
         v.label.setVisible(text !== '');
         if (text !== '') updateText(v.label, text);
       }

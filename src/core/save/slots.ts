@@ -74,7 +74,7 @@ export interface Checkpoint {
   readonly tags: TagState;
   readonly clock: RuleClock;
   readonly fired: readonly string[];
-  /** Toggle switches that were on at the punch, as `roomId#objectId`. */
+  /** Levers and reveal switches that were on at the punch, as `roomId#objectId`. */
   readonly switches: readonly string[];
   /** Where boxes were last left, by `roomId#objectId`; entering a room settles them (core/rooms/boxes.ts). */
   readonly boxes: readonly BoxPlace[];

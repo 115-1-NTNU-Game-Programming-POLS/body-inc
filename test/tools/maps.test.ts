@@ -371,7 +371,7 @@ describe('chapter check (build plan P0)', () => {
   const check = (rooms: Record<string, TiledMap>, links = AB, chapter: Partial<{
     id: string; start: string; next: string; intro: string; carry: string[]; archive: { held: string; hands: number; desk: string; total: number; into: string };
     climax: { flag: string; summonFactor?: number; archiveFactor?: number };
-    closedCases: Record<string, string>; caseDrops: Record<string, string>; partner: 'chairman' | 'logistics';
+    closedCases: Record<string, string>; caseDrops: Record<string, string>; partner: 'chairman' | 'logistics'; tools: ('stamp' | 'folder' | 'highlighter')[];
   }> = {}) => {
     const dir = join(root, `maps${n++}`);
     mkdirSync(join(dir, 'lab'), { recursive: true });
@@ -382,6 +382,18 @@ describe('chapter check (build plan P0)', () => {
 
   it('passes a healthy two-room chapter', () => {
     expect(check({ a: a(), b: b() })).toEqual([]);
+  });
+
+  it('a room that needs a tool the chapter never hands over fails, unless the chapter starts with it or a conversation in it grants it', () => {
+    const needy = () => map([start, northDoor()], { props: [...ROOM_PROPS, prop('needs', 'highlighter')] });
+    const message = expect.stringContaining('needs 列了 highlighter');
+    expect(check({ a: a(), b: needy() })).toEqual([message]);
+    expect(check({ a: a(), b: needy() }, AB, { tools: ['stamp', 'folder', 'highlighter'] })).toEqual([]);
+    const counter = { type: 'NPC', x: 200, y: 200, properties: [prop('npcId', 'clerk'), prop('dialogueId', 'liver.clerk')] };
+    expect(check({ a: map([start, southDoor(), counter]), b: needy() })).toEqual([]);
+    // A grant of another tool does not count.
+    const folderDesk = { ...counter, properties: [prop('npcId', 'clerk'), prop('dialogueId', 'brain.clerk')] };
+    expect(check({ a: map([start, southDoor(), folderDesk]), b: needy() })).toEqual([message]);
   });
 
   it('passes the greybox chapter in the real maps', () => {

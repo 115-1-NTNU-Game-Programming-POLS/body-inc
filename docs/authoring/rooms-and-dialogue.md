@@ -62,7 +62,9 @@ Switch 有兩種。`toggle` 是拉桿：走近按 E 或 Enter 可以來回切換
 
 照出開關有兩種用法。第一種是隱藏通道：把一扇 `lock` 為 `switch` 的門的開關全部設成照出開關，這扇門在照出之前就是一面牆，碰到它不會出現「門鎖著」的提示，門上也不掛鎖牌。這時門所在的牆面不要開成門洞（`make-liver.ts` 的教學房 `audit` 不對東側呼叫 `socket`），照出開關的矩形蓋在那段牆上，螢光筆的線可以穿過牆面劃到它。第二種是照出隱藏的狀態：不設 `target`，改設 `dialogueId`（照出時開一次的對話，像調度口收滿時的對話一樣，只開一次）或 `figure`（照出後浮在它上方的數字；`liver_overtime` 是肝的隱藏加班時數，也就是收貨區的酒精以第一產線的速度還要處理幾個遊戲小時）。肝的辦公室 `office` 就是用這種方式，把照出開關蓋在肝的身上。
 
-有照出開關的房間，地圖屬性 `needs` 必須列出 `highlighter`，否則地圖檢查會指出（`reveal-needs`）。照出開關設了 `cooldownSeconds` 會被指出（`cooldown-reveal`），因為它只會打開一次；拉桿或壓力板沒有設 `target`（`switch-untargeted`），或設了只有照出開關會用到的 `dialogueId`、`figure`（`reveal-only`），也會被指出。章節檢查把只靠照出開關開的門算成通路，至於玩家走到那裡時手上有沒有螢光筆，由 `needs` 標示，交給試玩確認。螢光筆在肝臟章由倉庫角落的總務處窗口交出（對話 `liver.clerk` 的 `grant:highlighter`），所以主線（會場、工廠、頂樓、角落）不能有需要螢光筆的房間。
+有照出開關的房間，地圖屬性 `needs` 必須列出 `highlighter`，否則地圖檢查會指出（`reveal-needs`）。照出開關設了 `cooldownSeconds` 會被指出（`cooldown-reveal`），因為它只會打開一次；拉桿或壓力板沒有設 `target`（`switch-untargeted`），或設了只有照出開關會用到的 `dialogueId`、`figure`（`reveal-only`），也會被指出。章節檢查把只靠照出開關開的門算成通路，前提是這一章拿得到螢光筆：`needs` 列了某把文具的房間，所在的章節要嘛開局就有它（章節檔的 `tools`），要嘛這一章的房間裡有對話用 `grant:` 交出它，否則章節檢查會指出。螢光筆在肝臟章由倉庫角落的總務處窗口交出（對話 `liver.clerk` 的 `grant:highlighter`），窗口後面有一台打卡機，強制下班回到這裡時螢光筆還在。
+
+照出開關的對話若設了標籤，強制下班回到打卡機時標籤會跟著退回，所以這段對話和劇情觸發一樣會被撤銷：開關保持照出，下一次走進那間房，對話會再演一次，把標籤設回來，不需要再拿螢光筆。肝臟章靠這一點讓主線不會卡住：工廠東側排隊的門是 `alcohol==0,liver_found`，`liver_found` 由辦公室的對話 `liver.office.found` 設定，所以會場到頂樓的路一定經過倉庫、教學房與辦公室；門前的觸發 `liver.factory.queue`（`when` 為 `!liver_found`）告訴玩家要先去倉庫。
 
 要注意，營運長無法一邊站在壓力板上、一邊走進遠處的門，所以只靠壓力板開的門，要房間裡有箱子可以壓住壓力板才走得過去；地圖檢查判斷房間能不能走到時，只把放在 `objects` 圖層、`when` 留空的箱子算進去。灰盒章節的 `greybox/greybox-room` 北門與 `greybox/lock-hall` 示範了拉桿、時段與條件式三種鎖，可以用 `?room=greybox/lock-hall&tags=caffeine:100` 看到條件式的門關上；`greybox/archive` 的西門示範鑰匙鎖。
 

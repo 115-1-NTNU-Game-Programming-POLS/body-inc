@@ -27,6 +27,7 @@ import { wholeMinutes } from '../src/core/clock.ts';
 import { arrivalPoint } from '../src/core/rooms/interact.ts';
 import { keysFor, lockOf, mayOpen, switchesFor } from '../src/core/rooms/locks.ts';
 import { listProps, type PropProblem, type TiledMapFile } from '../src/core/rooms/props.ts';
+import { DEFAULT_TOOLS, isTool } from '../src/core/tools.ts';
 import { SOCKET_COLS, SOCKET_ROWS, readRoom, type RoomModel, type RoomObject, type RoomProblem, type TiledMap } from '../src/core/rooms/tiled.ts';
 import type { ConditionProblem } from '../src/core/tags/condition.ts';
 import { loadDictionary, type TagDictionary } from '../src/core/tags/dictionary.ts';
@@ -45,6 +46,8 @@ export interface MapContent {
   readonly rescueIds?: ReadonlySet<string>;
   /** Exam ids: the file names in content/exams, whose insides are check-content's to judge. */
   readonly examIds?: ReadonlySet<string>;
+  /** Conversations with a `grant:<tool>` effect, by tool. */
+  readonly grants?: ReadonlyMap<string, ReadonlySet<string>>;
   /** Chapter files by chapter id; a file that fails to parse or its schema is left out and reported in `problems`. */
   readonly chapters?: ReadonlyMap<string, ChapterFile>;
   /** Problems found while reading content (a chapter file that does not parse), reported first. */
@@ -57,11 +60,20 @@ export function loadMapContent(contentDir = join(ROOT, 'content')): MapContent {
   // Ids are read loosely: a map names a conversation that exists, and what is wrong inside it
   // is check-dialogue's to say, once, rather than again as a missing id here.
   const dialogueIds = new Set<string>();
+  const grants = new Map<string, Set<string>>();
   const dialogueDir = join(contentDir, 'dialogue');
   if (existsSync(dialogueDir)) {
     for (const f of readdirSync(dialogueDir).filter((n) => n.endsWith('.csv')).sort()) {
       const [, ...rows] = parseCsv(readFileSync(join(dialogueDir, f), 'utf8').replace(/^﻿/, ''));
-      for (const r of rows) if ((r[0] ?? '').trim() !== '') dialogueIds.add(r[0]!.trim());
+      for (const r of rows) {
+        const id = (r[0] ?? '').trim();
+        if (id === '') continue;
+        dialogueIds.add(id);
+        for (const m of (r[6] ?? '').matchAll(/grant:\s*([a-z_]+)/g)) {
+          if (!grants.has(m[1]!)) grants.set(m[1]!, new Set());
+          grants.get(m[1]!)!.add(id);
+        }
+      }
     }
   }
   const handbookFile = join(contentDir, 'handbook.json');
@@ -116,6 +128,7 @@ export function loadMapContent(contentDir = join(ROOT, 'content')): MapContent {
     dict: loadDictionary(json('tags.json')),
     enemies: loadEnemyTable(json('enemies.json')),
     dialogueIds,
+    grants,
     handbookIds: new Set(handbook.map((p) => p.id)),
     cardIds,
     rescueIds,
@@ -422,7 +435,8 @@ function passable(room: RoomModel, door: RoomObject): boolean {
       const aimed = switchesFor(room.objects, door.id);
       const boxed = room.objects.some((o) => o.kind === 'Box' && o.variant === undefined && String(o.props['when']).trim() === '');
       // A Port stays on once filled, and like a plate it needs a box that is always there, which port-need already demands.
-      // A reveal switch stays lit for good, like a lever thrown on; the highlighter it needs is the room's `needs`.
+      // A reveal switch stays lit for good, like a lever thrown on; that the chapter hands over the highlighter it
+      // needs is the `needs` rule in checkChapters.
       return aimed.some((s) => s.variant === undefined) && aimed.every((s) => s.props['mode'] === 'toggle' || s.props['mode'] === 'reveal' || boxed);
     }
     case 'key':
@@ -474,6 +488,17 @@ export function checkChapters(mapsDir: string, content: MapContent = loadMapCont
       // A chapter file cannot name a door inside a variant, yet the game would let the operator through one that opens.
       for (const d of doors.filter((x) => x.variant !== undefined && mayOpen(x))) {
         out.push(`${r.path} 物件 #${d.id}（Door）：變體圖層裡的門沒辦法在章節檔接到別的房間，卻打得開（lock 為 ${lockOf(d)}）；請把 lock 設成 key、lockParam 留空，或把門移到變體圖層之外`);
+      }
+    }
+
+    // A room that needs a tool is reachable only if the chapter starts with it or one of its own conversations hands it over;
+    // the reachability below counts a reveal-locked door as a way through and trusts this for the highlighter.
+    const held = (chapter.tools ?? DEFAULT_TOOLS).filter(isTool) as string[];
+    const said = new Set([chapter.intro ?? '', ...inChapter.flatMap((r) => r.room.objects.flatMap((o) => [String(o.props['dialogueId'] ?? ''), String(o.props['eventId'] ?? '')]))]);
+    for (const r of inChapter) {
+      for (const tool of list(r.room.props['needs']).filter(isTool)) {
+        if (held.includes(tool) || [...(content.grants?.get(tool) ?? [])].some((d) => said.has(d))) continue;
+        out.push(`${r.path} 地圖屬性：needs 列了 ${tool}，但 ${file} 開局沒有這把文具，這一章的房間也沒有任何對話用 grant:${tool} 交出它，玩家拿不到`);
       }
     }
 

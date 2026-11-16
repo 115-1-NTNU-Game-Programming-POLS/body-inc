@@ -10,7 +10,7 @@
  "tilewidth": 32,
  "tileheight": 32,
  "nextlayerid": 4,
- "nextobjectid": 7,
+ "nextobjectid": 8,
  "class": "Room",
  "properties": [
   {
@@ -672,6 +672,25 @@
        "type": "string",
        "propertytype": "Socket",
        "value": "E"
+      }
+     ]
+    },
+    {
+     "id": 7,
+     "name": "time-clock",
+     "type": "Trigger",
+     "x": 480,
+     "y": 256,
+     "width": 64,
+     "height": 64,
+     "rotation": 0,
+     "visible": true,
+     "properties": [
+      {
+       "name": "event",
+       "type": "string",
+       "propertytype": "TriggerEvent",
+       "value": "checkpoint"
       }
      ]
     }
