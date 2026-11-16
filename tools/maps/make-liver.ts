@@ -4,7 +4,12 @@
  *   party      start; the time clock, the three sobering-up myth stalls, two cheers kids, the toast card on the way out
  *   factory    the dock where alcohol crates wait, the outlet of the first line and the second line's
  *              intake fed by a belt along the south wall; the east door opens once receiving is empty
- *   warehouse  the glycogen warehouse with the liver's sign; the fasting page appears once dizzy
+ *   warehouse  the glycogen warehouse with the liver's sign; the fasting page appears once dizzy; the
+ *              general affairs counter in the corner hands over the highlighter
+ *   audit      the highlighter's teaching room: a notice says all is well, the east wall hides a passage
+ *              that only the health check finds (issue #76), and the health check page lies by it
+ *   office     behind it, the liver's office: the overtime the highlighter finds over the liver, the
+ *              resignation letter in the drawer, the stack of "I'm fine" reports
  *   rooftop    the venue where the toast boss sings (乾杯三巡); the east door opens once he gives up
  *   corner     the classmate who will not wake up: the rescue, then the end of the night
  *
@@ -64,7 +69,13 @@ function socket(s: Shell, side: 'N' | 'S' | 'E' | 'W', open: boolean): void {
   }
 }
 
-const room = (s: Shell, role: string, est: number, objects: { id: number }[]) => ({
+/** A reveal switch (issue #76) over tiles: only the highlighter's line or circle lights it. */
+const reveal = (id: number, name: string, col: number, row: number, cols: number, rows: number, target = 0, extra: object[] = []) =>
+  rect(id, name, 'Switch', col * T, row * T, cols * T, rows * T, [
+    str('mode', 'SwitchMode', 'reveal'), ...(target ? [{ name: 'target', type: 'object', value: target }] : []), ...extra,
+  ]);
+
+const room = (s: Shell, role: string, est: number, objects: { id: number }[], needs = '') => ({
   type: 'map', version: '1.10', tiledversion: '1.11.0', orientation: 'orthogonal', renderorder: 'right-down',
   infinite: false, width: W, height: 12, tilewidth: T, tileheight: T, nextlayerid: 4,
   nextobjectid: Math.max(...objects.map((o) => o.id)) + 1, class: 'Room',
@@ -72,6 +83,7 @@ const room = (s: Shell, role: string, est: number, objects: { id: number }[]) =>
     { name: 'organ', type: 'string', value: 'liver' },
     { name: 'role', type: 'string', value: role },
     { name: 'estSeconds', type: 'int', value: est },
+    ...(needs ? [{ name: 'needs', type: 'string', value: needs }] : []),
   ],
   layers: [
     tileLayer(1, 'floor', s.floor),
@@ -124,13 +136,47 @@ const room = (s: Shell, role: string, est: number, objects: { id: number }[]) =>
 {
   const s = shell('liver', 61);
   socket(s, 'N', true);
-  writeRoom('liver/warehouse.tmj', room(s, 'treasure', 30, [
+  socket(s, 'E', true);
+  writeRoom('liver/warehouse.tmj', room(s, 'treasure', 45, [
     start(320, 160),
     door(2, 'N'),
     npc(3, 'liver', 'liver.warehouse.sign', 7, 6),
     // Shown only to a run that has been dizzy, as design doc 7.7 hangs it on the warehouse door.
     handbook(4, 'fasting_alcohol', 13, 6, 'dizzy'),
+    // Off the way to the venue, so the highlighter is a side trip and the main line never needs it.
+    npc(5, 'clerk', 'liver.clerk', 17, 4),
+    door(6, 'E'),
   ]));
+}
+
+{
+  // The east wall is left whole: a hidden passage must not look like a doorway until it is found.
+  const s = shell('liver', 73);
+  socket(s, 'W', true);
+  writeRoom('liver/audit.tmj', room(s, 'puzzle', 60, [
+    start(64, 224),
+    door(2, 'W'),
+    npc(3, 'notice', 'liver.audit.notice', 16, 4),
+    door(4, 'E', 'switch'),
+    // Over the wall where the doorway would be; the line reaches through it from the floor beside.
+    reveal(5, 'hidden-passage', W - 1, 6, 1, 2, 4),
+    // Design doc 7.7 hangs the page on the teaching room, so it is there for a run that walked past the counter too.
+    handbook(6, 'health_check', 14, 9),
+  ], 'highlighter'));
+}
+
+{
+  const s = shell('liver', 79);
+  socket(s, 'W', true);
+  writeRoom('liver/office.tmj', room(s, 'treasure', 60, [
+    start(64, 224),
+    door(2, 'W'),
+    npc(3, 'liver', 'liver.office.desk', 10, 5),
+    // Around the liver, so a line or a circle at him finds the overtime he does not mention.
+    reveal(4, 'overtime', 9, 4, 3, 2, 0, [str('dialogueId', undefined, 'liver.office.found'), str('figure', 'RevealFigure', 'liver_overtime')]),
+    npc(5, 'papers', 'liver.office.papers', 5, 4),
+    npc(6, 'drawer', 'liver.office.drawer', 15, 4),
+  ], 'highlighter'));
 }
 
 {

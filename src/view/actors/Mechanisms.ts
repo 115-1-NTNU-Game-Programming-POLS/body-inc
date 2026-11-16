@@ -13,6 +13,8 @@ const GREY = 0x8a8780;
 const COLD = 0x9cc7de;
 const CHUNK_FOOD = 0xc9a066;
 const CHUNK_ACID = 0x8fb339;
+/** Highlighter yellow of the palette (art direction, `#FFE873`): what the health check has found. */
+const HIGHLIGHT = 0xffe873;
 
 /**
  * Placeholder pictures for switches, pickups and door locks, redrawn only when their state changes. A
@@ -20,7 +22,7 @@ const CHUNK_ACID = 0x8fb339;
  * clock, resource); the plate comes off when the door opens. Real art replaces these later.
  */
 export class Mechanisms {
-  private readonly levers = new Map<number, { g: Phaser.GameObjects.Graphics; o: RoomObject; drawn?: string }>();
+  private readonly levers = new Map<number, { g: Phaser.GameObjects.Graphics; o: RoomObject; drawn?: string; label?: Phaser.GameObjects.Text }>();
   private readonly plates = new Map<number, Phaser.GameObjects.Graphics>();
   private readonly items = new Map<number, Phaser.GameObjects.Graphics>();
   /** A food box keeps its id when the mixer turns it into a parcel, so the type drawn is kept to redraw it then. */
@@ -87,7 +89,11 @@ export class Mechanisms {
       const o = byId.get(s.object)!;
       // A plate is flat on the floor like a belt, so a box resting on it is drawn on top.
       const depth = s.mode === 'hold' ? 1 : objectBox(o).bottom;
-      this.levers.set(s.object, { g: scene.add.graphics().setDepth(depth), o });
+      const b = objectBox(o);
+      const label = s.figure === 'none' ? undefined
+        : addText(scene, (b.left + b.right) / 2, b.top - 4, '', { role: 'print', weight: 700, size: 14, color: '#0c2d5e', backgroundColor: '#ffe873', padding: { x: 4, y: 1 } })
+          .setOrigin(0.5, 1).setDepth(1e4).setVisible(false);
+      this.levers.set(s.object, { g: scene.add.graphics().setDepth(depth), o, ...(label ? { label } : {}) });
     }
     for (const d of selectDoorLocks(state)) {
       const o = byId.get(d.object)!;
@@ -98,15 +104,24 @@ export class Mechanisms {
     this.render(state);
   }
 
-  render(state: GameState): void {
+  /** `figures` holds the text of each reveal figure kind (Switch `figure`), filled in by the scene from the chapter's state. */
+  render(state: GameState, figures: Readonly<Record<string, string>> = {}): void {
     const cooling = new Set(selectCooling(state).map((c) => c.object));
     for (const s of selectSwitches(state)) {
       const v = this.levers.get(s.object);
+      if (!v) continue;
+      if (v.label) {
+        const text = s.on ? figures[s.figure] ?? '' : '';
+        v.label.setVisible(text !== '');
+        if (text !== '') updateText(v.label, text);
+      }
       const look = `${s.on}|${cooling.has(s.object)}`;
-      if (!v || v.drawn === look) continue;
+      if (v.drawn === look) continue;
       v.drawn = look;
       v.g.clear();
       if (s.mode === 'hold') drawPlate(v.g, v.o, s.on);
+      // Not drawn at all until it is found, so a hidden passage reads as wall.
+      else if (s.mode === 'reveal') { if (s.on) drawFound(v.g, v.o); }
       else drawLever(v.g, v.o, s.on, cooling.has(s.object));
     }
     for (const d of selectDoorLocks(state)) this.plates.get(d.object)?.setVisible(!d.open);
@@ -432,6 +447,13 @@ function drawLever(g: Phaser.GameObjects.Graphics, o: RoomObject, on: boolean, c
   g.lineStyle(3, INK, 1).lineBetween(cx, base - 2, tipX, tipY);
   g.fillStyle(on && !cooling ? BLUE : GREY).fillCircle(tipX, tipY, 4).lineStyle(1, INK, 1).strokeCircle(tipX, tipY, 4);
   if (cooling) g.fillStyle(0xc8372d).fillRect(cx - 9, base + 5, 18, 3);
+}
+
+/** What the health check found: its box outlined in highlighter yellow, with a pale wash inside. */
+function drawFound(g: Phaser.GameObjects.Graphics, o: RoomObject): void {
+  const b = objectBox(o);
+  g.fillStyle(HIGHLIGHT, 0.25).fillRect(b.left, b.top, b.right - b.left, b.bottom - b.top);
+  g.lineStyle(2, HIGHLIGHT, 0.9).strokeRect(b.left + 1, b.top + 1, b.right - b.left - 2, b.bottom - b.top - 2);
 }
 
 /** An ink plate with the lock's icon, on the face of the door. */

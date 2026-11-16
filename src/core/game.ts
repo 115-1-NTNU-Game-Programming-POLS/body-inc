@@ -297,7 +297,7 @@ export type DomainEvent =
   | { readonly type: 'doorEntered'; readonly object: number; readonly door: string; readonly socket: string }
   | { readonly type: 'doorLocked'; readonly object: number; readonly lock: string }
   /** A switch went on or off; `by` says what moved it. Only toggle switches stay on after the operator leaves. */
-  | { readonly type: 'switchChanged'; readonly object: number; readonly on: boolean; readonly mode: string; readonly by: 'interact' | 'staple' | 'step' | 'box' }
+  | { readonly type: 'switchChanged'; readonly object: number; readonly on: boolean; readonly mode: string; readonly by: 'interact' | 'staple' | 'step' | 'box' | 'highlighter' }
   /** The interact key was pressed at a switch that is still cooling down from its last throw; nothing changed. */
   | { readonly type: 'switchCooling'; readonly object: number; readonly seconds: number }
   /** A box started sliding to this tile, pushed by the operator or carried by a conveyor, or the mixer set it down there. */
@@ -488,6 +488,22 @@ const switchMode = (room: EnteredRoom, id: number): string | undefined => {
   return o ? String(o.props['mode']) : undefined;
 };
 
+/** Levers and reveal switches stay on once on, so they outlive a visit; a plate and a port are judged afresh. */
+const lasting = (room: EnteredRoom, id: number): boolean => {
+  const mode = switchMode(room, id);
+  return mode === 'toggle' || mode === 'reveal';
+};
+
+/** Reveal switches the highlighter has not lit yet (issue #76): their objects are not there for the player. */
+export const unrevealed = (room: Pick<EnteredRoom, 'objects'>, switches: readonly number[]): RoomObject[] =>
+  room.objects.filter((o) => o.kind === 'Switch' && o.props['mode'] === 'reveal' && !switches.includes(o.id));
+
+/** A door whose only switches are reveal switches not lit yet: a hidden passage, which reads as wall, so touching it says nothing. */
+const hiddenDoor = (room: EnteredRoom, door: RoomObject, switches: readonly number[]): boolean => {
+  const aimed = room.objects.filter((o) => o.kind === 'Switch' && o.props['target'] === door.id);
+  return door.props['lock'] === 'switch' && aimed.length > 0 && aimed.every((o) => o.props['mode'] === 'reveal' && !switches.includes(o.id));
+};
+
 const ascending = (ids: Iterable<number>): number[] => [...new Set(ids)].sort((a, b) => a - b);
 
 /** Plates held down by a box at rest; a sliding box has not arrived and presses nothing yet. */
@@ -542,7 +558,7 @@ export function createGame(entered: EnteredRoom, seed: number, table: EnemyTable
   const chilled = ascending(options.chilled ?? []);
   const boxes = settleBoxes(room, options.boxes ?? new Map(), occupantsOf(operator, spawned.enemies).bodies, [...delivered, ...chilled]);
   const switches = ascending([
-    ...(options.switches ?? []).filter((id) => switchMode(room, id) === 'toggle'),
+    ...(options.switches ?? []).filter((id) => lasting(room, id)),
     ...platesUnder(room, body),
     ...platesUnderBoxes(room, boxes),
     ...filledPorts(room, delivered),
@@ -648,7 +664,7 @@ function forcedLeave(before: GameState): GameState {
     : { boxes: settled, serial: 0 };
   const boxes = crates.boxes;
   const switches = ascending([
-    ...state.switches.filter((id) => switchMode(state.room, id) === 'toggle'), ...platesUnder(state.room, body), ...platesUnderBoxes(state.room, boxes),
+    ...state.switches.filter((id) => lasting(state.room, id)), ...platesUnder(state.room, body), ...platesUnderBoxes(state.room, boxes),
     ...filledPorts(state.room, state.delivered),
   ]);
   return {
@@ -1008,7 +1024,8 @@ export function step(state: GameState, pressed: TickInput): StepResult {
     const byBox = on ? !stoodOn.includes(id) : boxWasOn.includes(id);
     events.push({ type: 'switchChanged', object: id, on, mode: 'hold', by: byBox ? 'box' : 'step' });
   }
-  let switches = ascending([...levers, ...plates, ...filledPorts(state.room, moved.delivered)]);
+  const reveals = state.switches.filter((id) => switchMode(state.room, id) === 'reveal');
+  let switches = ascending([...levers, ...reveals, ...plates, ...filledPorts(state.room, moved.delivered)]);
   const doorsOpenNow = openDoors(state.room, switches, state.unlocked, taken);
 
   // Doors and triggers fire on the tick the operator steps onto them, not while standing there;
@@ -1019,6 +1036,7 @@ export function step(state: GameState, pressed: TickInput): StepResult {
     const opened = o.kind === 'Door' && doorsOpenNow.includes(o.id) && !state.doorsOpen.includes(o.id);
     if (state.touching.includes(o.id) && !opened) continue;
     if (o.kind === 'Door') {
+      if (!doorsOpenNow.includes(o.id) && hiddenDoor(state.room, o, switches)) continue;
       roomEvents.push(doorsOpenNow.includes(o.id)
         ? { type: 'doorEntered', object: o.id, door: o.name, socket: String(o.props['socket']) }
         : { type: 'doorLocked', object: o.id, lock: String(o.props['lock']) });
@@ -1288,6 +1306,16 @@ export function step(state: GameState, pressed: TickInput): StepResult {
     }
   }
 
+  // The health check (design doc 7.7): a reveal switch the line crosses or the circle touches is lit
+  // for good, in id order. A door it unlocks opens on the next tick, as after a staple's lever.
+  const reveal = (meets: (b: Box) => boolean): void => {
+    for (const o of unrevealed(state.room, switches)) {
+      if (!meets(objectBox(o))) continue;
+      switches = ascending([...switches, o.id]);
+      events.push({ type: 'switchChanged', object: o.id, on: true, mode: 'reveal', by: 'highlighter' });
+    }
+  };
+
   // The highlighter's line pierces: every hittable enemy it crosses takes the hit, lowest id first,
   // on the stapler's terms (a manager's shield stops it, immune ones bounce it, reforming ones
   // scatter). Its own hits are never doubled by a mark (issue #76, decision 3). Alcohol crates only wobble.
@@ -1302,6 +1330,7 @@ export function step(state: GameState, pressed: TickInput): StepResult {
     if (f && crateTiles(room, f.waiting).some((t) => lineCrosses(op, tileBox(t)))) {
       events.push({ type: 'immuneBounce', target: linesOf(room).receiving!.id, enemy: ALCOHOL_CRATE, solution: f.solution });
     }
+    reveal((b) => lineCrosses(op, b));
   }
 
   // The circle marks the defeatable enemies standing in it; it is no hit, so it charges nothing and
@@ -1310,6 +1339,7 @@ export function step(state: GameState, pressed: TickInput): StepResult {
   if (s.circleLanded) {
     const centre = circleCentre(op);
     events.push({ type: 'circleDrawn', x: centre.x, y: centre.y, radius: HIGHLIGHTER.circleRadiusPx });
+    reveal((b) => circleTouchesBox(centre.x, centre.y, HIGHLIGHTER.circleRadiusPx, b));
     for (const { id } of byId()) {
       const e = enemies.get(id)!;
       if (!isHittable(e) || e.archetype === 'cheers' || !inCircle(centre, e)) continue;
@@ -1767,8 +1797,9 @@ export function selectInteractable(s: GameState): { readonly object: number; rea
   return { object: o.id, kind: o.kind };
 }
 /** Every locked door of the room and whether it is open now, by the same rule the step uses. */
+/** Locked doors and whether each is open. A hidden passage is left out: it carries no lock plate, or the plate would give it away. */
 export function selectDoorLocks(s: GameState): readonly { readonly object: number; readonly lock: string; readonly open: boolean }[] {
-  return s.room.objects.filter((o) => o.kind === 'Door' && o.props['lock'] !== 'none')
+  return s.room.objects.filter((o) => o.kind === 'Door' && o.props['lock'] !== 'none' && !hiddenDoor(s.room, o, []))
     .map((o) => ({ object: o.id, lock: String(o.props['lock']), open: doorOpen(s.room.objects, o, s.switches, s.unlocked, s.taken) }));
 }
 /** Every pickup of the room and whether it is still there to take. */
@@ -1777,8 +1808,9 @@ export function selectPickups(s: GameState): readonly { readonly object: number;
     .map((o) => ({ object: o.id, itemType: String(o.props['itemType']), present: !s.taken.includes(o.id) }));
 }
 /** Every switch of the room and whether it is on. */
-export function selectSwitches(s: GameState): readonly { readonly object: number; readonly mode: string; readonly on: boolean }[] {
-  return s.room.objects.filter((o) => o.kind === 'Switch').map((o) => ({ object: o.id, mode: String(o.props['mode']), on: s.switches.includes(o.id) }));
+export function selectSwitches(s: GameState): readonly { readonly object: number; readonly mode: string; readonly on: boolean; readonly figure: string }[] {
+  return s.room.objects.filter((o) => o.kind === 'Switch')
+    .map((o) => ({ object: o.id, mode: String(o.props['mode']), on: s.switches.includes(o.id), figure: String(o.props['figure'] ?? 'none') }));
 }
 /** Every box with where to draw it now (the top-left of its tile, part way along a slide). */
 export function selectBoxes(s: GameState): readonly { readonly object: number; readonly boxType: string; readonly x: number; readonly y: number }[] {
