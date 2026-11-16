@@ -134,6 +134,8 @@ interface DayRun {
   fasting: boolean;
   deadline: boolean;
   lateSnack: boolean;
+  /** The liver's load the day's blood test read; undefined until one is taken. */
+  bloodTest: number | undefined;
   workLeft: number;
   /** Hours of the day still to be spent writing the assignment at index `writeIdx` of the state. */
   writeLeft: number;
@@ -216,6 +218,7 @@ function viewOf(d: DayRun): DayView {
     welfare: welfareView(s),
     panel: elevatorPanel(d.morningLoads, k),
     liverClues: liverClues(d.morningLoads.liver, s.liverOrders, k),
+    ...bloodTestOf(d),
     modifiers: activeModifiers(s.tags, ctx.dict),
     homework: workable(s).map(({ a, i }) => ({
       n: i + 1, due: a.due, written: a.written, debugged: a.debugged, ...(a.written >= WRITE_HOURS ? { debug: a.debug } : {}),
@@ -226,6 +229,13 @@ function viewOf(d: DayRun): DayView {
       : {}),
     ...(grading === undefined ? {} : { grade: { done: s.graded, need: GRADE_HOURS, due: gradeDays(k).to, open: grading.day, night: grading.night } }),
   };
+}
+
+/** Today's blood test if there is one, else the latest of the days gone. */
+function bloodTestOf(d: DayRun): { bloodTest?: { day: number; load: number } } {
+  if (d.bloodTest !== undefined) return { bloodTest: { day: d.s.day, load: d.bloodTest } };
+  const last = [...d.s.history].reverse().find((r) => r.bloodTest !== undefined);
+  return last ? { bloodTest: { day: last.day, load: last.bloodTest! } } : {};
 }
 
 function roll(d: DayRun): number {
@@ -267,6 +277,8 @@ function applyEvents(d: DayRun, upTo: number, before = false): void {
       d.lateSnack = true;
       d.evidence.stomach.push(cause);
     }
+    // Loads move only in the night settlement, so the afternoon's load is the morning's.
+    if (opt.bloodTest) d.bloodTest = d.morningLoads.liver;
     d.workLeft += opt.workHours ?? 0;
     d.bedDelay += opt.bedDelay ?? 0;
     d.played.push({ id: ev.id, option: pick });
@@ -576,7 +588,7 @@ export function playDay(from: SemesterState, ctx: SemesterContext, strategy: Str
   const debt = amount(s0.tags, dict, 'sleep_debt');
   const d: DayRun = {
     s: s0, ctx, strategy, exam, S: sleepFactor(debt, k), brainStrike: strikes('brain', s0.loads.brain, k), paper: ctx.courses === undefined ? 0 : paperShare(ctx.courses), morningLoads: s0.loads,
-    cups: 0, alcoholCups: 0, fasting: false, deadline: false, lateSnack: false, workLeft: 0, writeLeft: 0, writeIdx: -1, projectLeft: 0, projectHours: 0, gradeLeft: 0, walk: false, sit: 0, bedDelay: 0, overtimeDelay: 0, studyHours: 0, lateStudy: 0,
+    cups: 0, alcoholCups: 0, fasting: false, deadline: false, lateSnack: false, bloodTest: undefined, workLeft: 0, writeLeft: 0, writeIdx: -1, projectLeft: 0, projectHours: 0, gradeLeft: 0, walk: false, sit: 0, bedDelay: 0, overtimeDelay: 0, studyHours: 0, lateStudy: 0,
     evidence: { brain: [], stomach: [], liver: [] },
     pending: hospitalDay ? [] : (ctx.scenario[day] ?? []).map((id) => ctx.events.get(id)!).sort((a, b) => a.hour - b.hour),
     played: [],
@@ -756,6 +768,7 @@ export function playDay(from: SemesterState, ctx: SemesterContext, strategy: Str
     kind: hospitalDay ? 'hospital' : exam !== null ? 'exam' : 'normal',
     settled: true,
     patrols, events: d.played, loadsAfter: d.s.loads, studyHours: d.studyHours, homework: homeworkDelta(from.homework, d.s.homework), ...(rankDone ? { rank: rankDone } : {}),
+    ...(d.bloodTest !== undefined ? { bloodTest: d.bloodTest } : {}),
     ...(d.projectHours > 0 ? { project: { hours: d.projectHours, gain: d.s.project - from.project, done: from.project < PROJECT_NEED && d.s.project >= PROJECT_NEED } } : {}),
     ...(d.s.graded > from.graded ? { grade: { hours: d.s.graded - from.graded, done: from.graded < GRADE_HOURS && d.s.graded >= GRADE_HOURS } } : {}),
     ...(rankSpent > 0 && bedEnd <= STOP_BY ? { contestStop: true as const } : {}),

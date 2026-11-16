@@ -32,6 +32,8 @@ export interface EventOption {
   /** Free hours of the day the event eats. */
   readonly workHours?: number;
   readonly bedDelay?: number;
+  /** The health office's blood test (design doc 8.6): the day's record and every later view learn the liver's exact load. */
+  readonly bloodTest?: boolean;
 }
 
 export interface SemesterEvent {
@@ -140,6 +142,8 @@ export interface DayRecord {
   readonly contestStop?: true;
   /** The welfare card the day's patrol gave. */
   readonly card?: string;
+  /** The liver's load as the day's blood test read it, the morning's load since loads move only at night; absent without one. */
+  readonly bloodTest?: number;
   /** Progress the minutes of 會議紀錄 added from the day's patrols. */
   readonly minutes?: number;
 }
@@ -274,6 +278,11 @@ export interface DayView {
   readonly welfare: WelfareView;
   readonly panel: ElevatorPanel;
   readonly liverClues: LiverClues;
+  /**
+   * The latest blood test and the day it was taken (design doc 8.6). The only load a view ever holds: the player paid an
+   * afternoon for it, and it is the number as it was that day, not the liver's load now.
+   */
+  readonly bloodTest?: { readonly day: number; readonly load: number };
   /** Dictionary modifiers that hold now (design doc 8.7). */
   readonly modifiers: readonly string[];
   /** The assignments that can be worked on today. */
