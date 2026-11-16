@@ -22,6 +22,7 @@
     { "name": "roommate", "type": "boolean", "sources": ["card"], "duration": "untilWake", "facts": ["general"] },
     { "name": "patrol_side", "type": "boolean", "sources": ["event"], "duration": "persistent", "facts": ["general"] },
     { "name": "toast_conceded", "type": "boolean", "sources": ["event"], "duration": "persistent", "facts": ["general"] },
+    { "name": "liver_found", "type": "boolean", "sources": ["event"], "duration": "persistent", "facts": ["20"] },
     { "name": "caffeine_settled", "type": "boolean", "sources": ["event"], "duration": "persistent", "facts": ["9", "26"] },
     { "name": "snack_settled", "type": "boolean", "sources": ["event"], "duration": "persistent", "facts": ["14"] },
     { "name": "chief_mixer", "type": "boolean", "sources": ["event"], "duration": "persistent", "facts": ["general"] },

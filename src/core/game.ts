@@ -34,7 +34,7 @@ import type { EnteredRoom } from './rooms/entry.ts';
 import { coolDown, cooldownTicks, coolingLeft, startCooling, type Cooling } from './rooms/cooling.ts';
 import { asleep, stepSleep, type SleepEvent, type SleepState } from './rooms/sleep.ts';
 import { leverAt, objectBox, platesUnder, reachableObject, touchedObjects } from './rooms/interact.ts';
-import { doorOpen } from './rooms/locks.ts';
+import { doorOpen, switchesFor } from './rooms/locks.ts';
 import {
   ALCOHOL_CRATE, boxCentre, crateOnTile, crateTiles, isFactory, isSpawnedCrate, linesOf, MIST, onIntake, outletTile,
 } from './liver/factory.ts';
@@ -500,7 +500,7 @@ export const unrevealed = (room: Pick<EnteredRoom, 'objects'>, switches: readonl
 
 /** A door whose only switches are reveal switches not lit yet: a hidden passage, which reads as wall, so touching it says nothing. */
 const hiddenDoor = (room: EnteredRoom, door: RoomObject, switches: readonly number[]): boolean => {
-  const aimed = room.objects.filter((o) => o.kind === 'Switch' && o.props['target'] === door.id);
+  const aimed = switchesFor(room.objects, door.id);
   return door.props['lock'] === 'switch' && aimed.length > 0 && aimed.every((o) => o.props['mode'] === 'reveal' && !switches.includes(o.id));
 };
 

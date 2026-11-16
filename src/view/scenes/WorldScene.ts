@@ -239,8 +239,11 @@ export class WorldScene extends Phaser.Scene {
     }
 
     this.hazards.render(prevState, state, alpha);
-    const overtime = overtimeHours(chapter.run.tags, TAGS, PARAMS);
-    this.mechanisms.render(state, { liver_overtime: overtime > 0 ? fillStr('liver.overtime', { hours: overtime.toFixed(1) }) : str('liver.overtime_none') });
+    this.mechanisms.render(state, (kind) => {
+      if (kind !== 'liver_overtime') return '';
+      const hours = overtimeHours(chapter.run.tags, TAGS, PARAMS);
+      return hours > 0 ? fillStr('liver.overtime', { hours: hours.toFixed(1) }) : str('liver.overtime_none');
+    });
     this.renderStaples(prevState, alpha);
     this.overlay.render(state);
     const bumps = this.walls.starts(this.pending, tick, cur.action.kind === 'free' || cur.action.kind === 'guard');

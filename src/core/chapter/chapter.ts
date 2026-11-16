@@ -576,7 +576,9 @@ const undoneByReturn = (ctx: ChapterContent, key: string): boolean => {
   if (id === CONCESSION) return true;
   return ctx.rooms.get(room)?.objects.some((o) => String(o.id) === id
     && (o.kind === 'Bed' || (o.kind === 'Pickup' && o.props['itemType'] !== 'handbook')
-      || (o.kind === 'Trigger' && SCENES.includes(String(o.props['event']))))) ?? false;
+      || (o.kind === 'Trigger' && SCENES.includes(String(o.props['event'])))
+      // The switch stays found, but the tags its conversation set go back, so it is shown again on the next visit.
+      || (o.kind === 'Switch' && o.props['mode'] === 'reveal' && String(o.props['dialogueId'] ?? '').trim() !== ''))) ?? false;
 };
 
 /** A conversation or an event card. Only one is on screen at a time, and only one opens per tick. */
@@ -730,7 +732,7 @@ function stepRoom(ctx: ChapterContent, state: ChapterState, input: TickInput): C
    */
   const claimReveal = () => {
     if (opening) return;
-    for (const o of game.room.objects) {
+    for (const o of [...game.room.objects].sort((a, b) => a.id - b.id)) {
       if (o.kind !== 'Switch' || o.props['mode'] !== 'reveal' || !game.switches.includes(o.id)) continue;
       const id = String(o.props['dialogueId'] ?? '').trim();
       const key = `${run.roomId}#${o.id}`;

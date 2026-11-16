@@ -6,7 +6,9 @@ import {
   type ChapterContent, type ChapterState, type GameEvent, type TickInput, type TiledMap, type Tool,
 } from '../../src/core/index.ts';
 import { record } from '../../src/core/tags/causal.ts';
-import { addAmount, EMPTY_TAGS } from '../../src/core/tags/store.ts';
+import { compileCondition } from '../../src/core/tags/dictionary.ts';
+import { addAmount, EMPTY_TAGS, holds } from '../../src/core/tags/store.ts';
+import { tagsFromQuery } from '../../src/app/session.ts';
 
 /**
  * The highlighter's health check in the liver chapter (issue #76), played on the real maps: the
@@ -49,16 +51,27 @@ const tap = (s: ChapterState) => {
   return { state: rest.state, events: [...down.events, ...rest.events] };
 };
 const types = (es: readonly GameEvent[]) => es.map((e) => e.type);
+/** Reads the open conversation to its end, confirming on every other tick. */
+const finish = (s: ChapterState): ChapterState => {
+  for (let i = 0; i < 2000 && s.dialogue; i++) s = run(s, i % 2 === 0 ? { ...NO_INPUT, interactPressed: true } : NO_INPUT).state;
+  expect(s.dialogue).toBeNull();
+  return s;
+};
+const foundOut = (s: ChapterState): boolean => holds(s.run.tags, TAGS, compileCondition(TAGS, 'liver_found'));
 
 describe('the health check in the liver chapter', () => {
-  it('the main line never needs the highlighter, and only the general affairs counter hands it over', () => {
+  it('the chapter starts without the highlighter, only the counter hands it over, and the queued door waits for the office', () => {
     const needs = (p: string) => String(LIVER.rooms.get(p)!.props['needs'] ?? '');
-    for (const p of ['liver/party', 'liver/factory', 'liver/rooftop', 'liver/corner', 'liver/warehouse']) expect(needs(p), p).not.toContain('highlighter');
     expect(needs('liver/audit')).toContain('highlighter');
     expect(needs('liver/office')).toContain('highlighter');
     expect(startChapter(LIVER).run.tools).not.toContain('highlighter');
-    const granted = [...DIALOGUES.values()].filter((d) => JSON.stringify(d).includes('highlighter')).map((d) => d.id);
+    const granted = [...DIALOGUES.values()].filter((d) => JSON.stringify(d).includes('grant')).filter((d) => JSON.stringify(d).includes('highlighter')).map((d) => d.id);
     expect(granted).toEqual(['liver.clerk']);
+    // Receiving empty is not enough: the factory's east door, the way to the venue, opens only once the liver is found out.
+    const factory = place(startChapter(LIVER, { room: 'liver/factory', tools: WITH }), 590, 224);
+    expect(types(run(factory, EAST, 30).events)).toContain('doorLocked');
+    const found = { ...factory, run: { ...factory.run, tags: tagsFromQuery('?tags=liver_found', TAGS) } };
+    expect(run(found, EAST, 30).state.run.roomId).toBe('liver/rooftop');
   });
 
   it('talking to the counter puts the highlighter in the pocket', () => {
@@ -66,7 +79,7 @@ describe('the health check in the liver chapter', () => {
     s = { ...s, game: { ...s.game, operator: { ...s.game.operator, aim: { x: 0, y: -1 } } } };
     s = run(s, { ...NO_INPUT, interactPressed: true }).state;
     expect(s.dialogue?.id).toBe('liver.clerk');
-    for (let i = 0; i < 2000 && s.dialogue; i++) s = run(s, i % 2 === 0 ? { ...NO_INPUT, interactPressed: true } : NO_INPUT).state;
+    s = finish(s);
     expect(s.run.tools).toContain('highlighter');
     expect(s.game.highlighter).toBe(true);
   });
@@ -110,11 +123,15 @@ describe('the health check in the liver chapter', () => {
     expect(after.state.run.switches).toContain(`liver/audit#${PASSAGE}`);
   });
 
-  it('a circle finds it as well', () => {
-    const s = byWall(inRoom('liver/audit', WITH), 'highlighter');
+  it('a circle finds it as well, from beyond the reach of the line', () => {
+    // Four tiles from the wall: the tap's line falls short, so only the circle can find the passage.
+    const s = place(inRoom('liver/audit', WITH), 500, 230, 'highlighter');
+    expect(types(tap(s).events)).not.toContain('switchChanged');
     const held = run(s, { ...NO_INPUT, attack: true, attackPressed: true });
     const circled = run(held.state, { ...NO_INPUT, attack: true }, 40);
-    expect([...held.events, ...circled.events]).toContainEqual({ type: 'switchChanged', object: PASSAGE, on: true, mode: 'reveal', by: 'highlighter' });
+    const seen = types([...held.events, ...circled.events]);
+    expect(seen).toContain('circleDrawn');
+    expect(seen.indexOf('switchChanged')).toBeGreaterThan(seen.indexOf('circleDrawn'));
   });
 
   it('in the office, the line at the liver finds his overtime and opens the sticky note once', () => {
@@ -124,17 +141,51 @@ describe('the health check in the liver chapter', () => {
     expect(types(found.events)).toContain('switchChanged');
     expect(found.state.dialogue?.id).toBe('liver.office.found');
     expect(found.state.run.fired).toContain('liver/office#4');
-    let closed = found.state;
-    for (let i = 0; i < 2000 && closed.dialogue; i++) closed = run(closed, i % 2 === 0 ? { ...NO_INPUT, interactPressed: true } : NO_INPUT).state;
-    expect(closed.dialogue).toBeNull();
+    const closed = finish(found.state);
+    expect(foundOut(closed)).toBe(true);
     const again = tap(place(closed, 250, 176));
     expect(again.state.dialogue).toBeNull();
+  });
+
+  it('a forced leave to a punch before the finding takes it back, and leaves it to be shown again', () => {
+    const punched = run(place(inRoom('liver/warehouse', WITH), 512, 290), NO_INPUT, 2).state;
+    expect(punched.run.checkpoint?.roomId).toBe('liver/warehouse');
+    const office = inRoom('liver/office', WITH);
+    const s = place({ ...office, run: { ...office.run, checkpoint: punched.run.checkpoint } }, 250, 176, 'highlighter');
+    const closed = finish(run(s, { ...NO_INPUT, attack: true, attackPressed: true }, 6).state);
+    expect(foundOut(closed)).toBe(true);
+    const dying: ChapterState = { ...closed, game: { ...closed.game, operator: { ...closed.game.operator, halves: 0 } } };
+    const after = run(dying, NO_INPUT);
+    expect(types(after.events)).toContain('forcedLeave');
+    expect(after.state.run.roomId).toBe('liver/warehouse');
+    expect(foundOut(after.state)).toBe(false);
+    // The switch stays found and its conversation is owed again, so the next visit sets the tag without the highlighter;
+    // kept spent, the queued door could never open.
+    expect(after.state.run.switches).toContain('liver/office#4');
+    expect(after.state.run.fired).not.toContain('liver/office#4');
+  });
+
+  it('the time clock past the counter keeps the highlighter through a forced leave', () => {
+    let s = place(inRoom('liver/warehouse', WITHOUT), 560, 180);
+    s = { ...s, game: { ...s.game, operator: { ...s.game.operator, aim: { x: 0, y: -1 } } } };
+    s = finish(run(s, { ...NO_INPUT, interactPressed: true }).state);
+    expect(s.run.tools).toContain('highlighter');
+    s = run(place(s, 512, 290), NO_INPUT, 2).state;
+    expect(s.run.checkpoint?.roomId).toBe('liver/warehouse');
+    const dying: ChapterState = { ...s, game: { ...s.game, operator: { ...s.game.operator, halves: 0 } } };
+    const after = run(dying, NO_INPUT).state;
+    expect(after.run.tools).toContain('highlighter');
+    expect(after.game.highlighter).toBe(true);
   });
 
   it('his overtime is what the first line still has to work through, in game hours', () => {
     expect(overtimeHours(EMPTY_TAGS, TAGS, PARAMS)).toBe(0);
     const [log, cause] = record(EMPTY_TAGS.log, { kind: 'event', key: 'test', at: 0 });
     const two = addAmount({ ...EMPTY_TAGS, log }, TAGS, 'alcohol', 2, cause, 0);
-    expect(overtimeHours(two, TAGS, PARAMS)).toBe(Math.round((2 / PARAMS.liverRate) * 10) / 10);
+    // Two cups at 0.6 a game hour: 3.33 hours, shown up to the next tenth.
+    expect(PARAMS.liverRate).toBe(0.6);
+    expect(overtimeHours(two, TAGS, PARAMS)).toBe(3.4);
+    const tail = addAmount({ ...EMPTY_TAGS, log }, TAGS, 'alcohol', 0.01, cause, 0);
+    expect(overtimeHours(tail, TAGS, PARAMS)).toBe(0.1);
   });
 });
