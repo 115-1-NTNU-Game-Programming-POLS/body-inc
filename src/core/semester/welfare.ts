@@ -79,6 +79,8 @@ export interface OfferRequest {
   readonly grade: Grade;
   readonly held: readonly string[];
   readonly courses: readonly string[] | undefined;
+  /** The offer being drawn again (開局重抽): its cards are left out of the new one, which comes from a stream of its own. */
+  readonly instead?: readonly string[];
 }
 
 /** The cards a played patrol offers, in the order they are shown: the pool of its floor, not yet held, drawn without a repeat. */
@@ -86,8 +88,9 @@ export function welfareOffer(r: OfferRequest): readonly string[] {
   if (!GRADES.includes(r.grade)) throw new RangeError(`"${String(r.grade)}" is not a rating`);
   const pool = WELFARE_CARDS
     .filter((c) => (c.source === 'general' || c.source === r.floor) && !r.held.includes(c.id) && (c.course === undefined || takes(r.courses, c.course)))
+    .filter((c) => r.instead === undefined || !r.instead.includes(c.id))
     .map((c) => c.id);
-  let streams = seedStreams(Math.imul(r.salt ^ 0x9e3779b9, 31) + r.day);
+  let streams = seedStreams(Math.imul(r.salt ^ (r.instead === undefined ? 0x9e3779b9 : 0x85ebca6b), 31) + r.day);
   const out: string[] = [];
   for (let i = 0; i < OFFER_SIZE[r.grade] && pool.length > 0; i++) {
     let j: number;

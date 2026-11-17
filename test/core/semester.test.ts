@@ -686,7 +686,7 @@ describe('what the player is allowed to see', () => {
     expect(views.length).toBeGreaterThan(5);
     for (const v of views) {
       expect(Object.keys(v).sort()).toEqual([
-        'S', 'bedDelay', 'caffeine', 'day', 'examTomorrow', 'exam', 'homework', 'hospitals', 'liverClues', 'liverReading', 'modifiers', 'panel', 'progress', 'sleepDebt', 'staging', 'wake', 'weekend', 'welfare',
+        'S', 'bedDelay', 'caffeine', 'day', 'examTomorrow', 'exam', 'homework', 'hospitals', 'liverClues', 'liverReading', 'modifiers', 'panel', 'progress', 'sleepDebt', 'staging', 'wake', 'weekend', 'welfare', 'workOrders',
       ].sort());
       // The one load a view holds is a reading paid for; with no blood test and no patrol lit, that is the day-1 checkup.
       expect(v.liverReading).toEqual({ day: 1, by: 'checkup', load: 0 });

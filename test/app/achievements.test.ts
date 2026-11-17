@@ -3,7 +3,7 @@ import { commendation, finishSemester, hasAchievement, sealColumns, workOrderTra
 import { SaveStore } from '../../src/app/storage.ts';
 import {
   ACHIEVEMENTS, decode, DEFAULT_HOST, earnedAchievements, encode, playDay, PROGRESS, startSemester,
-  type DayRecord, type FloorId, type ProgressData, type SemesterState, type Strategy,
+  type DayRecord, type FloorId, type ProgressData, type SemesterContext, type SemesterState, type Strategy,
 } from '../../src/core/index.ts';
 import { contextFor } from '../../sim/semester/scenario.ts';
 
@@ -23,35 +23,41 @@ const player = (floors: Record<number, FloorId>, overtime: Record<number, FloorI
   night: () => ({ bed: 22, nextWake: 7, lateNight: 'rest' }),
 });
 
+const CTX = new WeakMap<SemesterState, SemesterContext>();
+const BASE = contextFor(0.5, 1, { scenario: {} });
+/** The achievements of a state `days` played, or of one laid over it, which 主動健檢 reads without its context. */
+const earned = (s: SemesterState) => earnedAchievements(s, CTX.get(s) ?? BASE);
+
 /** Days 1 to `to` with a barbecue on day 2. */
 function days(to: number, strategy: Strategy, bbq: readonly number[] = [2]): SemesterState {
   const ctx = contextFor(0.5, 1, { scenario: Object.fromEntries(bbq.map((d) => [d, ['bbq']])) });
   let s = startSemester(ctx, 1);
   while (s.day <= to) s = playDay(s, ctx, strategy);
+  CTX.set(s, ctx);
   return s;
 }
 
 describe('主動健檢 (design doc 8.14)', () => {
   it('is earned by patrolling the liver on the day after a barbecue', () => {
-    expect(earnedAchievements(days(3, player({ 3: 'liver' })))).toEqual(['active_checkup']);
+    expect(earned(days(3, player({ 3: 'liver' })))).toEqual(['active_checkup']);
   });
 
   it('counts the overtime patrol as well as the first one', () => {
-    expect(earnedAchievements(days(3, player({ 3: 'brain' }, { 3: 'liver' })))).toEqual(['active_checkup']);
+    expect(earned(days(3, player({ 3: 'brain' }, { 3: 'liver' })))).toEqual(['active_checkup']);
   });
 
   it('is not earned by the liver on the barbecue day itself, two days after, or on a semester without a barbecue', () => {
-    expect(earnedAchievements(days(3, player({ 2: 'liver' })))).toEqual([]);
-    expect(earnedAchievements(days(4, player({ 4: 'liver' })))).toEqual([]);
-    expect(earnedAchievements(days(4, player({ 3: 'liver', 4: 'liver' }), []))).toEqual([]);
-    expect(earnedAchievements(days(3, player({})))).toEqual([]);
+    expect(earned(days(3, player({ 2: 'liver' })))).toEqual([]);
+    expect(earned(days(4, player({ 4: 'liver' })))).toEqual([]);
+    expect(earned(days(4, player({ 3: 'liver', 4: 'liver' }), []))).toEqual([]);
+    expect(earned(days(3, player({})))).toEqual([]);
   });
 
   it('takes the next day with an elevator when the day after the barbecue is the midterm', () => {
     const s = days(6, player({ 6: 'liver' }), [4]);
     expect(s.history.find((r) => r.day === 5)!.kind).toBe('exam');
-    expect(earnedAchievements(s)).toEqual(['active_checkup']);
-    expect(earnedAchievements(days(7, player({ 7: 'liver' }), [4]))).toEqual([]);
+    expect(earned(s)).toEqual(['active_checkup']);
+    expect(earned(days(7, player({ 7: 'liver' }), [4]))).toEqual([]);
   });
 
   it('needs the barbecue: another event the day before does not count', () => {
@@ -59,7 +65,7 @@ describe('主動健檢 (design doc 8.14)', () => {
     let st = startSemester(ctx, 1);
     while (st.day <= 3) st = playDay(st, ctx, player({ 3: 'liver' }));
     expect(st.history.find((r) => r.day === 2)!.events.map((e) => e.id)).toEqual(['deadline']);
-    expect(earnedAchievements(st)).toEqual([]);
+    expect(earnedAchievements(st, ctx)).toEqual([]);
   });
 
   it('counts a failed patrol, which was still a visit', () => {
@@ -67,7 +73,7 @@ describe('主動健檢 (design doc 8.14)', () => {
     const failed: SemesterState = {
       ...s, history: s.history.map((r): DayRecord => (r.day === 3 ? { ...r, patrols: r.patrols.map((p) => ({ ...p, failed: true })) } : r)),
     };
-    expect(earnedAchievements(failed)).toEqual(['active_checkup']);
+    expect(earned(failed)).toEqual(['active_checkup']);
   });
 });
 

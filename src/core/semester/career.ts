@@ -9,6 +9,12 @@ import type { SemesterContext, SemesterState } from './types.ts';
 export const CAREER_NODES = {
   // 健檢提前: the health office's blood test is booked on day 3 instead of falling on a day the seed draws.
   early_checkup: { line: 'audit', price: 40 },
+  // 工單明細: the liver's work-order tray lists the day and the cause of each order, not only how many.
+  order_details: { line: 'audit', price: 60 },
+  // 多一種開局卡: the semester's setting card is picked from two drawn instead of dealt.
+  two_settings: { line: 'hr', price: 50 },
+  // 開局重抽: once a semester, a patrol's welfare offer may be drawn again.
+  reroll: { line: 'affairs', price: 40 },
 } as const satisfies Record<string, { readonly line: string; readonly price: number }>;
 
 export type CareerNode = keyof typeof CAREER_NODES;

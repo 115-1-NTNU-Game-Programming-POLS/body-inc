@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import {
-  bankPoints, buyCareerNode, careerCards, COFFEE_PLANS, commendation, sealColumns, daySummary, endSummary, finishSemester, hasAchievement, workOrderTray, floorChoice, freshSeed, gradePrompt, kitWith, morningPlan, newSemester, NIGHT_PLANS, nightPlan, patrolOffer, patrolResultLine, projectPrompt, REST_PLANS, resumeSemester, semesterCleared, servesAlcohol, settingLines,
+  bankPoints, buyCareerNode, careerCards, COFFEE_PLANS, commendation, rerollOffer, sealColumns, settingChoices, daySummary, endSummary, finishSemester, hasAchievement, workOrderTray, floorChoice, freshSeed, gradePrompt, kitWith, morningPlan, newSemester, NIGHT_PLANS, nightPlan, patrolOffer, patrolResultLine, projectPrompt, REST_PLANS, resumeSemester, semesterCleared, servesAlcohol, settingLines,
   latestReading, readingPrompt, TUTORIAL_COURSES, TUTORIAL_SEED, tutorLine, visitReport, walkPrompt, weekdayOf, welfareCaption, welfareText,
   type CoffeePlanId, type NightPlanId, type RestPlanId,
 } from '../../app/semester.ts';
@@ -11,7 +11,7 @@ import { patrolChapter, patrolLoop, type PatrolSession } from '../../app/patrol.
 import type { SaveStore } from '../../app/storage.ts';
 import {
   advanceDay, buildWall, earnedAchievements, isCareerNode, yearEndPoints, gradeRoom, MAX_DEBUG_PER_NIGHT, MAX_RANK_HOURS, nightRoom, pinWall, projectRoom, rankGain, RANK_FULL, rankSharePercent, reviewWall, RUN, WRITE_HOURS, type Answer, type Ask, type ChapterContent, type DayView, type FloorId, type HomeworkView, type PatrolKit, type PatrolResult, type ProgressData, type ReportDocument, type RunData,
-  type AchievementId, type SemesterContext, type SemesterRun, type SemesterState, type Settings, type TagState, type Wall,
+  type AchievementId, type SemesterContext, type SemesterRun, type SemesterState, type SettingId, type Settings, type TagState, type Wall,
 } from '../../core/index.ts';
 import { WALL_CHAPTER, wallLoop, type WallSession } from '../../app/wall.ts';
 import { soundIn } from '../audio/installSound.ts';
@@ -88,6 +88,8 @@ export class SemesterScene extends Phaser.Scene {
   private head: Phaser.GameObjects.Text | undefined;
   /** The career tree nodes owned when the semester began, kept in its save so it replays with the same schedule. */
   private career: readonly string[] = [];
+  /** The setting card picked with 多一種開局卡, which the saved run keeps so it replays with the same one. */
+  private setting: string | undefined;
   /** Handbook pages known when the scene opened; the year-end points count the ones found after. */
   private pagesAtStart = 0;
   /** The year-end points banked for this semester so far. */
@@ -127,10 +129,16 @@ export class SemesterScene extends Phaser.Scene {
     this.career = data.resume !== undefined ? (data.resume.career ?? []) : this.keep ? (progress?.career ?? []).filter(isCareerNode) : [];
     this.pagesAtStart = progress?.handbook.length ?? 0;
     this.banked = 0;
-    const fresh = back ?? newSemester(seed, data.bbqDays, courses, data.clause, this.career);
+    const begin = (setting?: SettingId): void => {
+      const fresh = back ?? newSemester(seed, data.bbqDays, courses, data.clause, this.career, setting);
+      this.ctx = fresh.ctx;
+      this.state = fresh.state;
+      this.setting = data.resume?.setting ?? setting;
+    };
+    begin();
+    // 多一種開局卡 asks for the card before the first morning; a resumed run has its pick saved.
+    const choices = back === undefined && this.keep ? settingChoices(seed, courses, data.clause ?? 0, this.career) : [];
     this.seed = seed;
-    this.ctx = fresh.ctx;
-    this.state = fresh.state;
     this.finished = data.resume === undefined ? [] : [...data.resume.days];
     this.answers = [];
     this.menu = undefined;
@@ -173,7 +181,11 @@ export class SemesterScene extends Phaser.Scene {
       this.input.off('pointerdown', onClick);
       this.clear();
     });
-    this.ask();
+    if (choices.length === 0) return this.ask();
+    this.cards(choices, str('semester.setting.pick.title'), str('semester.setting.pick.caption'), (i) => {
+      begin(choices[i]!.id);
+      this.ask();
+    });
   }
 
   /**
@@ -383,11 +395,12 @@ export class SemesterScene extends Phaser.Scene {
     };
     // 主動健檢 puts the liver's work-order tray in the lobby (design doc 8.6, 8.14).
     const progress = this.registry.get('progress') as ProgressData | undefined;
-    const tray = hasAchievement(progress, 'active_checkup') ? workOrderTray(view.liverClues.orders) : undefined;
+    const details = this.career.includes('order_details') ? view.workOrders : undefined;
+    const tray = hasAchievement(progress, 'active_checkup') ? workOrderTray(view.liverClues.orders, details) : undefined;
     this.panel(view, str('semester.floor.title'), undefined, tray, (patrol) => {
       this.playPatrol(patrol, tags, liverLoad, view.day * 2, view.welfare.kit, (first) => {
         read(first);
-        this.askCard(view, patrol, first, (card) => {
+        this.askCard(view, patrol, first, (card, reroll) => {
           this.cards(
             [
               { label: str('semester.overtime.none'), note: str('semester.overtime.none.note') },
@@ -395,11 +408,11 @@ export class SemesterScene extends Phaser.Scene {
             ],
             str('semester.floor.overtime.title'), first === null ? undefined : patrolResultLine(patrol, first),
             (i) => {
-              if (i === 0) return this.answer({ kind: 'floor', choice: floorChoice(patrol, undefined, [first], card) });
+              if (i === 0) return this.answer({ kind: 'floor', choice: floorChoice(patrol, undefined, [first], card, reroll) });
               this.panel(view, str('semester.floor.overtime.again'), patrol, tray, (overtime) => {
                 this.playPatrol(overtime, tags, liverLoad, view.day * 2 + 1, kitWith(view, card), (second) => {
                   read(second);
-                  this.answer({ kind: 'floor', choice: floorChoice(patrol, overtime, [first, second], card) });
+                  this.answer({ kind: 'floor', choice: floorChoice(patrol, overtime, [first, second], card, reroll) });
                 });
               });
             },
@@ -409,12 +422,20 @@ export class SemesterScene extends Phaser.Scene {
     });
   }
 
-  /** The welfare cards a rated patrol offers (design doc 8.8): one is picked and kept to the end of the semester. No offer, no screen. */
-  private askCard(view: DayView, floor: FloorId, first: PatrolResult | null, done: (card: string | undefined) => void): void {
+  /**
+   * The welfare cards a rated patrol offers (design doc 8.8): one is picked and kept to the end of the semester. No offer, no
+   * screen. With 開局重抽 the offer ends in a card that draws it again once a semester, and the card is then picked from that.
+   */
+  private askCard(view: DayView, floor: FloorId, first: PatrolResult | null, done: (card: string | undefined, reroll: boolean) => void): void {
     const offer = patrolOffer(view, this.ctx, floor, first);
-    if (first === null || offer.length === 0) return done(undefined);
+    if (first === null || offer.length === 0) return done(undefined, false);
     const caption = [patrolResultLine(floor, first), welfareCaption(view.welfare.held)].join('\n');
-    this.cards(offer.map(welfareText), str('semester.welfare.title'), caption, (i) => done(offer[i]!));
+    const again = rerollOffer(view, this.ctx, floor, first, offer);
+    const reroll = again.length > 0 ? [{ label: str('semester.welfare.reroll'), note: str('semester.welfare.reroll.note') }] : [];
+    this.cards([...offer.map(welfareText), ...reroll], str('semester.welfare.title'), caption, (i) => {
+      if (i < offer.length) return done(offer[i]!, false);
+      this.cards(again.map(welfareText), str('semester.welfare.title'), caption, (j) => done(again[j]!, true));
+    });
   }
 
   /**
@@ -673,7 +694,7 @@ export class SemesterScene extends Phaser.Scene {
     const pages = Math.max(0, progress.handbook.length - this.pagesAtStart);
     const points = yearEndPoints(after, this.ctx, pages);
     this.banked = points;
-    const done = finishSemester(saves, progress, { level: this.ctx.clause ?? 0, cleared: semesterCleared(after, this.ctx) }, earnedAchievements(after), points);
+    const done = finishSemester(saves, progress, { level: this.ctx.clause ?? 0, cleared: semesterCleared(after, this.ctx) }, earnedAchievements(after, this.ctx), points);
     if (done.issues.length > 0) this.game.events.emit('save-issues', done.issues);
     this.registry.set('progress', done.progress);
     const unlocked = done.progress.clauseUnlocked ?? 0;
@@ -773,7 +794,7 @@ export class SemesterScene extends Phaser.Scene {
         this.answers = [];
         this.persist({
           seed: this.seed, ...(this.ctx.courses ? { courses: [...this.ctx.courses] } : {}), ...(this.ctx.clause ? { clause: this.ctx.clause } : {}),
-          ...(this.career.length > 0 ? { career: [...this.career] } : {}), days: this.finished,
+          ...(this.career.length > 0 ? { career: [...this.career] } : {}), ...(this.setting !== undefined ? { setting: this.setting } : {}), days: this.finished,
         });
         this.ask();
         return;

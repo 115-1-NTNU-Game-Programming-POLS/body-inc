@@ -1,6 +1,6 @@
 import {
-  advanceDay, amount, BOOKED_BLOOD_TEST_DAY, CAREER_NODES, CAREER_ORDER, cannotBuy, withBloodTestOn, yearEndPoints, BURDEN_REWARD, burdenOf, clauseFinMult, CLAUSE_CREDIT_CAP, commitmentsOf, composeReport, creditsOf, EVENTS, fixedHour, GRADE_HOURS, GRADE_PAPERS, gradeDays, HOMEWORK_MISS_PENALTY, HOMEWORK_PROGRESS, isFailed, patrolKit, PROJECT_FIN_PENALTY, PROJECT_NEED, PROJECT_REVIEW, projectDue, RANK_FULL, rankNights, RANK_SHARE, rankSharePercent, PROGRESS, takes, prototypeContext, semesterInputs, settingHours, SIT_LIMIT, startSemester, summarize, unlockedAfter, welfareOffer, withBarbecueOn, withClause,
-  type AchievementId, type CareerNode, type DayView, type FloorChoice, type FloorId, type MorningPlan, type NightPlan, type PatrolKit, type PatrolResult, type ProgressData, type ReportDocument, type Scenario, type SemesterContext, type SemesterRun, type SemesterState,
+  advanceDay, amount, BOOKED_BLOOD_TEST_DAY, SETTING_IDS, CAREER_NODES, CAREER_ORDER, cannotBuy, withBloodTestOn, yearEndPoints, BURDEN_REWARD, burdenOf, clauseFinMult, CLAUSE_CREDIT_CAP, commitmentsOf, composeReport, creditsOf, EVENTS, fixedHour, GRADE_HOURS, GRADE_PAPERS, gradeDays, HOMEWORK_MISS_PENALTY, HOMEWORK_PROGRESS, isFailed, patrolKit, PROJECT_FIN_PENALTY, PROJECT_NEED, PROJECT_REVIEW, projectDue, RANK_FULL, rankNights, RANK_SHARE, rankSharePercent, PROGRESS, takes, prototypeContext, semesterInputs, settingHours, SIT_LIMIT, startSemester, summarize, unlockedAfter, welfareOffer, withBarbecueOn, withClause,
+  type AchievementId, type CareerNode, type Setting, type SettingId, type WorkOrder, type DayView, type FloorChoice, type FloorId, type MorningPlan, type NightPlan, type PatrolKit, type PatrolResult, type ProgressData, type ReportDocument, type Scenario, type SemesterContext, type SemesterRun, type SemesterState,
 } from '../core/index.ts';
 import { fillStr as fill, PARAMS, REPORT, str, STRINGS, TAGS } from './content.ts';
 import type { SaveIssue, SaveStore } from './storage.ts';
@@ -91,10 +91,14 @@ export function commendation(id: AchievementId): { title: string; lines: string[
 
 /**
  * The liver's work-order tray in the lobby (design doc 8.6), which 主動健檢 unlocks: how many work orders the liver was sent this
- * semester, and still no load. Their days and causes are the career node 工單明細's (design doc 8.14), not the tray's.
+ * semester, and still no load. With the career node 工單明細 (design doc 8.14) `details` lists the day and the cause of each.
  */
-export function workOrderTray(orders: readonly number[]): string {
-  return orders.length === 0 ? str('semester.tray.none') : fill('semester.tray.some', { n: orders.length });
+export function workOrderTray(orders: readonly number[], details?: readonly WorkOrder[]): string {
+  if (orders.length === 0) return str('semester.tray.none');
+  const count = fill('semester.tray.some', { n: orders.length });
+  if (details === undefined || details.length === 0) return count;
+  const list = details.map((o) => fill('semester.tray.order', { day: o.day, cause: str(`semester.event.${o.event}.name`), option: str(`semester.event.${o.event}.${o.option}`) }));
+  return `${count}\n${list.join('、')}`;
 }
 
 /** The commendation's seal, read as a square seal is: columns from the right, each from the top. */
@@ -125,6 +129,24 @@ export function clauseNote(level: number): string {
 /** The first and last-plus-one hour of a block of fixed hours, as the texts name them. */
 const spanOf = (hours: readonly number[]): { from: number; to: number } => ({ from: Math.min(...hours), to: Math.max(...hours) + 1 });
 
+/** The setting card's whole schedule, as the first morning and the pick of 多一種開局卡 tell it. */
+function settingIntro(setting: Setting): string {
+  const first = setting.commitments[0];
+  return fill(`semester.setting.intro.${setting.id}`, { days: setting.commitments.map((c) => c.day).join('、'), ...(first === undefined ? { from: 0, to: 0 } : spanOf(first.hours)) });
+}
+
+/**
+ * The setting cards a new semester offers to pick from, or none when it deals its own: the career node 多一種開局卡 draws both
+ * cards there are (design doc 8.14 says two of a pool; the pool has only two so far) under a clause that draws one at all.
+ */
+export function settingChoices(seed: number, courses: readonly string[] | undefined, clause: number, career: readonly string[]): { id: SettingId; label: string; note: string }[] {
+  if (seed === TUTORIAL_SEED || !career.includes('two_settings') || newSemester(seed, undefined, courses, clause, career).ctx.setting === undefined) return [];
+  return SETTING_IDS.map((id) => {
+    const setting = newSemester(seed, undefined, courses, clause, career, id).ctx.setting!;
+    return { id, label: str(`semester.setting.name.${id}`), note: settingIntro(setting) };
+  });
+}
+
 /**
  * What the morning of `day` tells of the clause and the setting card: on the first day the clause and the card's whole schedule,
  * on a day the card falls on a reminder of its hours.
@@ -136,9 +158,7 @@ export function settingLines(ctx: SemesterContext, day: number): string[] {
   if (day === 1) {
     if (level > 0) lines.push(fill('semester.clause.intro', { level, name: clauseName(level), mult: clauseFinMult(level) }));
     const first = setting?.commitments[0];
-    if (setting !== undefined && first !== undefined) {
-      lines.push(fill(`semester.setting.intro.${setting.id}`, { days: setting.commitments.map((c) => c.day).join('、'), ...spanOf(first.hours) }));
-    }
+    if (setting !== undefined && first !== undefined) lines.push(settingIntro(setting));
     return lines;
   }
   const hours = settingHours(setting, day);
@@ -229,19 +249,21 @@ export function semesterContext(seed: number, courses?: readonly string[]): Seme
 }
 
 /**
- * `bbqDays` is a dev override (app/session.ts semesterFromQuery); a normal game takes the events its seed deals. `clause` is the
- * overtime clause level; the scripted first week is level 0 whatever is asked, and the clause comes last so the setting card
- * sees the events the semester really has.
+ * A semester from its seed and what the player chose. `bbqDays` is a dev override (app/session.ts semesterFromQuery); a normal
+ * game takes the events its seed deals. `clause` is the overtime clause level; the scripted first week is level 0 whatever is
+ * asked, and the clause comes last so the setting card sees the events the semester really has. `career` is the career tree
+ * nodes owned at its start, which the tutorial week ignores, since its schedule is scripted. `setting` is the card picked with
+ * 多一種開局卡, which a semester without that node, or without a clause that draws a card, cannot have.
  */
-/**
- * A semester from its seed and what the player chose. `career` is the career tree nodes owned at its start, which only the
- * tutorial week ignores, since its schedule is scripted.
- */
-export const newSemester = (seed: number, bbqDays?: readonly number[], courses?: readonly string[], clause = 0, career: readonly string[] = []): { ctx: SemesterContext; state: SemesterState } => {
+export const newSemester = (seed: number, bbqDays?: readonly number[], courses?: readonly string[], clause = 0, career: readonly string[] = [], setting?: string): { ctx: SemesterContext; state: SemesterState } => {
+  if (setting !== undefined && !career.includes('two_settings')) throw new RangeError(`the setting card "${setting}" was picked without the career node 多一種開局卡`);
+  if (setting !== undefined && !(SETTING_IDS as readonly string[]).includes(setting)) throw new RangeError(`"${setting}" is not a setting card`);
+  const tutorial = seed === TUTORIAL_SEED;
   const dealt = semesterContext(seed, courses);
   const barbecued = bbqDays === undefined ? dealt.scenario : withBarbecueOn(dealt.scenario, bbqDays);
-  const booked = seed !== TUTORIAL_SEED && career.includes('early_checkup') ? withBloodTestOn(barbecued, BOOKED_BLOOD_TEST_DAY) : barbecued;
-  const ctx = withClause({ ...dealt, scenario: booked }, seed, seed === TUTORIAL_SEED ? 0 : clause);
+  const booked = !tutorial && career.includes('early_checkup') ? withBloodTestOn(barbecued, BOOKED_BLOOD_TEST_DAY) : barbecued;
+  const clauses = withClause({ ...dealt, scenario: booked }, seed, tutorial ? 0 : clause, setting as SettingId | undefined);
+  const ctx: SemesterContext = !tutorial && career.includes('reroll') ? { ...clauses, reroll: true } : clauses;
   return { ctx, state: startSemester(ctx, seed) };
 };
 
@@ -253,7 +275,7 @@ export const newSemester = (seed: number, bbqDays?: readonly number[], courses?:
  */
 export function resumeSemester(run: SemesterRun): { ctx: SemesterContext; state: SemesterState } | undefined {
   try {
-    const { ctx, state: start } = newSemester(run.seed, undefined, run.courses, run.clause, run.career);
+    const { ctx, state: start } = newSemester(run.seed, undefined, run.courses, run.clause, run.career, run.setting);
     let state = start;
     for (const answers of run.days) {
       const step = advanceDay(state, ctx, answers);
@@ -299,12 +321,21 @@ export const morningPlan = (coffee: CoffeePlanId, rest: RestPlanId, write = 0, p
 export const nightPlan = (id: NightPlanId, debug = 0, rank = 0, grade = 0): NightPlan =>
   ({ ...NIGHT_PLANS[id], nextWake: PARAMS.wake, ...(debug > 0 ? { debug } : {}), ...(rank > 0 ? { rank } : {}), ...(grade > 0 ? { grade } : {}) });
 
-export const floorChoice = (patrol: FloorId, overtime?: FloorId, played?: readonly (PatrolResult | null)[], card?: string): FloorChoice =>
-  ({ patrol, ...(overtime === undefined ? {} : { overtime }), ...(played === undefined || played.every((r) => r === null) ? {} : { played }), ...(card === undefined ? {} : { card }) });
+export const floorChoice = (patrol: FloorId, overtime?: FloorId, played?: readonly (PatrolResult | null)[], card?: string, reroll = false): FloorChoice =>
+  ({ patrol, ...(overtime === undefined ? {} : { overtime }), ...(played === undefined || played.every((r) => r === null) ? {} : { played }), ...(card === undefined ? {} : { card }), ...(reroll ? { reroll: true as const } : {}) });
 
 /** The welfare cards the day's first patrol offers (design doc 8.8): none unless its rooms were played and it was not failed. */
 export const patrolOffer = (view: DayView, ctx: SemesterContext, floor: FloorId, result: PatrolResult | null): readonly string[] =>
   result === null || isFailed(result) ? [] : welfareOffer({ salt: view.welfare.salt, day: view.day, floor, grade: result.grade, held: view.welfare.held, courses: ctx.courses });
+
+/**
+ * The offer drawn again in place of `offer` with the career node 開局重抽 (design doc 8.14), or none when the semester may not
+ * draw again: without the node, once it has, or when no card is left that the first offer did not show.
+ */
+export function rerollOffer(view: DayView, ctx: SemesterContext, floor: FloorId, result: PatrolResult | null, offer: readonly string[]): readonly string[] {
+  if (ctx.reroll !== true || view.welfare.rerolled || result === null || isFailed(result) || offer.length === 0) return [];
+  return welfareOffer({ salt: view.welfare.salt, day: view.day, floor, grade: result.grade, held: view.welfare.held, courses: ctx.courses, instead: offer });
+}
 
 export const welfareText = (id: string): { label: string; note: string } => ({ label: str(`welfare.${id}.name`), note: str(`welfare.${id}.effect`) });
 
