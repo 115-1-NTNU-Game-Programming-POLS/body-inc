@@ -240,13 +240,17 @@ export class SemesterScene extends Phaser.Scene {
 
   private banner(view: DayView, phase: string): void {
     this.head?.destroy();
-    this.readingLine?.destroy();
-    const latest = latestReading(view.liverReading);
-    this.readingLine = latest === undefined ? undefined : addText(this, this.scale.width - 32, 28, latest, { role: 'print', weight: 400, size: 18, color: DIM }).setOrigin(1, 0);
+    this.showReading(view.liverReading);
     const weekday = str(`semester.weekday.${weekdayOf(view.day)}`);
     const day = fillStr('semester.day', { n: view.day, weekday });
     const exam = view.exam === null ? '' : `　${str(`semester.exam.${view.exam}`)}`;
     this.head = addText(this, 32, 24, `${day}　${str(`semester.phase.${phase}`)}${exam}`, { role: 'print', weight: 700, size: 22, color: DIM });
+  }
+
+  private showReading(reading: DayView['liverReading']): void {
+    this.readingLine?.destroy();
+    const latest = latestReading(reading);
+    this.readingLine = latest === undefined ? undefined : addText(this, this.scale.width - 32, 28, latest, { role: 'print', weight: 400, size: 18, color: DIM }).setOrigin(1, 0);
   }
 
   private show(ask: Ask): void {
@@ -353,8 +357,13 @@ export class SemesterScene extends Phaser.Scene {
   /** The elevator, then the rooms of the floor chosen, and only after those the offer of overtime, so it is made knowing how the first went (design doc 8.4). */
   private askFloor(view: DayView, tags: TagState, liverLoad: number): void {
     this.banner(view, 'floor');
+    // The rules take the highlighter's reading only with the whole floor answer, so the screens until then show it from here.
+    const read = (result: PatrolResult | null): void => {
+      if (result?.liverRead === true) this.showReading({ day: view.day, by: 'highlighter', load: liverLoad });
+    };
     this.panel(view, str('semester.floor.title'), undefined, (patrol) => {
       this.playPatrol(patrol, tags, liverLoad, view.day * 2, view.welfare.kit, (first) => {
+        read(first);
         this.askCard(view, patrol, first, (card) => {
           this.cards(
             [
@@ -366,6 +375,7 @@ export class SemesterScene extends Phaser.Scene {
               if (i === 0) return this.answer({ kind: 'floor', choice: floorChoice(patrol, undefined, [first], card) });
               this.panel(view, str('semester.floor.overtime.again'), patrol, (overtime) => {
                 this.playPatrol(overtime, tags, liverLoad, view.day * 2 + 1, kitWith(view, card), (second) => {
+                  read(second);
                   this.answer({ kind: 'floor', choice: floorChoice(patrol, overtime, [first, second], card) });
                 });
               });
