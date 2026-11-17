@@ -131,6 +131,10 @@ export function walkPrompt(): { title: string; caption: string; options: { label
 /** The liver's load as a figure to show: whole points, against the red line. */
 export const liverFigure = (load: number): string => fill('semester.liver.figure', { value: Math.round(load), cap: PARAMS.floorRedAt });
 
+/** The line kept on screen with the latest reading of the liver and the day it was read (design doc 8.6); none before the first. */
+export const latestReading = (reading: DayView['liverReading']): string | undefined =>
+  reading === undefined ? undefined : `${fill('semester.liver.latest', { day: reading.day, label: str(`semester.reader.${reading.by}`) })}${liverFigure(reading.load)}`;
+
 /**
  * A report on the liver (design doc 8.6), from the start-of-term checkup or the health office's blood test: the load read, against
  * the floor lines the elevator would light at if the liver ever lit, and one card to go back to the day.

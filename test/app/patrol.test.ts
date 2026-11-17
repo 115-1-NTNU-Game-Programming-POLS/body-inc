@@ -178,7 +178,15 @@ describe('the highlighter in the liver patrol (design doc 8.6)', () => {
     expect(play('brain', '', 'patrol-brain/lobby').loop.state.run.tools).not.toContain('highlighter');
   });
 
-  it('a line at the liver in the hall shows his load and the patrol reports it read, whatever else it rates', () => {
+  it('keeps the reading through a patrol given up or cut short, which is a failure all the same', () => {
+    const p = facingLiver();
+    expect(p.giveUp()).toEqual({ failed: true });
+    read(p);
+    expect(p.giveUp()).toEqual({ failed: true, liverRead: true });
+    expect(play('brain', '', 'patrol-brain/lobby').giveUp()).toEqual({ failed: true });
+  });
+
+  it('a line at the liver in the hall reports it read, whatever else the patrol rates', () => {
     const p = facingLiver();
     expect(p.rate()).toEqual({ grade: 'C' });
     read(p);
