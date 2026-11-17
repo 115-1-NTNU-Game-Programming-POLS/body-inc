@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import {
-  buyCareerNode, careerCards, COFFEE_PLANS, commendation, sealColumns, daySummary, endSummary, finishSemester, hasAchievement, workOrderTray, floorChoice, freshSeed, gradePrompt, kitWith, morningPlan, newSemester, NIGHT_PLANS, nightPlan, patrolOffer, patrolResultLine, projectPrompt, REST_PLANS, resumeSemester, semesterCleared, servesAlcohol, settingLines,
+  bankPoints, buyCareerNode, careerCards, COFFEE_PLANS, commendation, sealColumns, daySummary, endSummary, finishSemester, hasAchievement, workOrderTray, floorChoice, freshSeed, gradePrompt, kitWith, morningPlan, newSemester, NIGHT_PLANS, nightPlan, patrolOffer, patrolResultLine, projectPrompt, REST_PLANS, resumeSemester, semesterCleared, servesAlcohol, settingLines,
   latestReading, readingPrompt, TUTORIAL_COURSES, TUTORIAL_SEED, tutorLine, visitReport, walkPrompt, weekdayOf, welfareCaption, welfareText,
   type CoffeePlanId, type NightPlanId, type RestPlanId,
 } from '../../app/semester.ts';
@@ -90,6 +90,8 @@ export class SemesterScene extends Phaser.Scene {
   private career: readonly string[] = [];
   /** Handbook pages known when the scene opened; the year-end points count the ones found after. */
   private pagesAtStart = 0;
+  /** The year-end points banked for this semester so far. */
+  private banked = 0;
   /** The last reading of the liver whose report was shown, as day and reader, so a report comes once, right after the reading. */
   private readingShown: string | undefined;
   /** The latest reading of the liver, at the top right of every phase once there is one. */
@@ -119,8 +121,10 @@ export class SemesterScene extends Phaser.Scene {
     this.keep = data.seed === undefined && data.bbqDays === undefined && data.demo !== true;
     const progress = this.registry.get('progress') as ProgressData | undefined;
     // The career tree shapes only the player's own semesters, so a dev or demo run plays the schedule its seed deals.
-    this.career = data.resume?.career ?? (this.keep ? (progress?.career ?? []).filter(isCareerNode) : []);
+    // A resumed run replays with the nodes it saved, and a save without them began with none, whatever was bought since.
+    this.career = data.resume !== undefined ? (data.resume.career ?? []) : this.keep ? (progress?.career ?? []).filter(isCareerNode) : [];
     this.pagesAtStart = progress?.handbook.length ?? 0;
+    this.banked = 0;
     const fresh = back ?? newSemester(seed, data.bbqDays, courses, data.clause, this.career);
     this.seed = seed;
     this.ctx = fresh.ctx;
@@ -654,11 +658,30 @@ export class SemesterScene extends Phaser.Scene {
     // A semester resumed from its save counts only the pages found since, which is short by the ones found before the break.
     const pages = Math.max(0, progress.handbook.length - this.pagesAtStart);
     const points = yearEndPoints(after, this.ctx, pages);
+    this.banked = points;
     const done = finishSemester(saves, progress, { level: this.ctx.clause ?? 0, cleared: semesterCleared(after, this.ctx) }, earnedAchievements(after), points);
     if (done.issues.length > 0) this.game.events.emit('save-issues', done.issues);
     this.registry.set('progress', done.progress);
     const unlocked = done.progress.clauseUnlocked ?? 0;
     return { ...(unlocked > (progress.clauseUnlocked ?? 0) ? { opened: unlocked } : {}), commended: done.commended, pages };
+  }
+
+  /**
+   * The pages the semester found by now, with the points it banked topped up for any found since it was counted: the year-end
+   * review wall hands one over after the count, which is made first so a page closed on the wall still keeps the semester's points.
+   */
+  private pagesFound(after: SemesterState, counted: number): number {
+    const progress = this.registry.get('progress') as ProgressData | undefined;
+    const saves = this.registry.get('saves') as SaveStore | undefined;
+    if (!this.keep || progress === undefined || saves === undefined) return counted;
+    const pages = Math.max(counted, progress.handbook.length - this.pagesAtStart);
+    const more = yearEndPoints(after, this.ctx, pages) - this.banked;
+    if (more <= 0) return pages;
+    const done = bankPoints(saves, progress, more);
+    if (done.issues.length > 0) this.game.events.emit('save-issues', done.issues);
+    this.registry.set('progress', done.progress);
+    this.banked += more;
+    return pages;
   }
 
   /** The career tree (design doc 8.14): a node bought is saved at once and the tree shown again; the last card leaves. */
@@ -743,7 +766,11 @@ export class SemesterScene extends Phaser.Scene {
       }
       this.persist(null);
       const { opened, commended, pages } = this.countSemester(after);
-      const toEnd = (): void => this.commend(commended, () => this.page(str('semester.end.title'), endSummary(after, this.ctx, opened, pages), str('semester.end.back'), () => this.careerTree(() => this.leave())));
+      const toEnd = (): void => {
+        const found = this.pagesFound(after, pages);
+        const leave = this.keep ? () => this.careerTree(() => this.leave()) : () => this.leave();
+        this.commend(commended, () => this.page(str('semester.end.title'), endSummary(after, this.ctx, opened, found), str(this.keep ? 'semester.end.next' : 'semester.end.back'), leave));
+      };
       let review: Wall | undefined;
       try {
         review = reviewWall(after, this.ctx, REPORT, str);

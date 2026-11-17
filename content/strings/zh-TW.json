@@ -660,6 +660,7 @@
     "semester.blood_test.back": { "text": "知道了", "fact": "" },
     "semester.blood_test.back.note": { "text": "回到今天的行程。", "fact": "" },
     "semester.end.points": { "text": "年終評價點數：{points} 點", "fact": "" },
+    "semester.end.next": { "text": "按 Enter 前往職涯樹", "fact": "" },
     "career.title": { "text": "職涯樹：可用 {points} 點", "fact": "" },
     "career.caption": { "text": "點數換的是選項，不是數值；解鎖的節點從下一局開始生效。", "fact": "" },
     "career.price": { "text": "{n} 點", "fact": "" },

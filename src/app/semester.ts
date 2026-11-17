@@ -48,6 +48,14 @@ export function finishSemester(
   return { progress: next, issues: saves.save(PROGRESS, next), commended };
 }
 
+/** Progress with `points` more banked for the career tree, saved; used when a semester's points grow after it was counted. */
+export function bankPoints(saves: SaveStore, progress: ProgressData, points: number): { progress: ProgressData; issues: SaveIssue[] } {
+  if (!Number.isInteger(points) || points < 0) throw new RangeError(`cannot bank ${points} points`);
+  if (points === 0) return { progress, issues: [] };
+  const next = { ...progress, careerPoints: (progress.careerPoints ?? 0) + points };
+  return { progress: next, issues: saves.save(PROGRESS, next) };
+}
+
 /** Progress with `id` bought, or why it cannot be (owned already, or the points fall short); a bought node is saved at once. */
 export function buyCareerNode(saves: SaveStore, progress: ProgressData, id: CareerNode): { progress: ProgressData; issues: SaveIssue[] } | { refused: 'owned' | 'short' } {
   const owned = progress.career ?? [];
@@ -414,9 +422,9 @@ export function endSummary(state: SemesterState, ctx: SemesterContext, opened?: 
   if (sum.bankrupt) lines.push(str('semester.end.bankrupt'));
   else if (sum.hospitalized) lines.push(str('semester.end.hospital'));
   lines.push(fill('semester.end.debt', { debt: oneDecimal(sum.finalDebt) }));
-  // The review points of a finished project are only paid into a passed semester's review below.
+  // A finished project's points go into the year-end points of any semester, passed or not.
   if (takes(ctx.courses, 'compiler') && !sum.bankrupt) {
-    if (projectDone && passed) lines.push(fill('semester.end.project.done', { points: PROJECT_REVIEW }));
+    if (projectDone) lines.push(fill('semester.end.project.done', { points: PROJECT_REVIEW }));
     else if (!projectDone && !hospitalFinal) lines.push(fill('semester.end.project.fail', { points: PROJECT_FIN_PENALTY }));
   }
   // Late grades cost nothing but the line in the review (design doc 8.3), so the line only has a meaning to a semester that was not lost to bankruptcy.

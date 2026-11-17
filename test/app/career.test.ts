@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buyCareerNode, careerCards, endSummary, finishSemester, newSemester, resumeSemester, TUTORIAL_SEED } from '../../src/app/semester.ts';
+import { bankPoints, buyCareerNode, careerCards, endSummary, finishSemester, newSemester, resumeSemester, TUTORIAL_SEED } from '../../src/app/semester.ts';
 import { SaveStore } from '../../src/app/storage.ts';
 import {
   BOOKED_BLOOD_TEST_DAY, CAREER_NODES, cannotBuy, decode, DEFAULT_HOST, encode, healthScore, HOSPITAL_FACTOR, playDay, PROGRESS, RUN, startSemester,
@@ -31,15 +31,14 @@ const withDay = (s: SemesterState, day: number, patch: Partial<DayRecord>): Seme
   ({ ...s, history: s.history.map((r) => (r.day === day ? { ...r, ...patch } : r)) });
 
 describe('the health score (design doc 8.11)', () => {
-  it('takes 6 a floor-day of strike up to 30 and 10 a crisis off 100, and never goes below 0', () => {
+  it('takes 6 a floor-day of strike up to 30 off 100, and never a night in the emergency room', () => {
     const s = at();
     const base = healthScore(s, ctx);
     expect(base).toBeLessThanOrEqual(100);
     expect(healthScore(withDay(s, 2, { strikes: ['brain', 'gut'] }), ctx)).toBeCloseTo(base - 12);
     expect(healthScore(withDay(withDay(s, 1, { strikes: ['brain', 'gut', 'immune'] }), 2, { strikes: ['brain', 'gut', 'stomach'] }), ctx)).toBeCloseTo(base - 30);
-    expect(healthScore(withDay(s, 2, { crisis: { node: 0, at: 0, fasting: false } }), ctx)).toBeCloseTo(base - 10);
-    const wrecked = [1, 2, 3].reduce((x, d) => withDay(x, d, { crisis: { node: 0, at: 0, fasting: false }, strikes: ['brain', 'gut', 'immune'] }), s);
-    expect(healthScore(wrecked, ctx)).toBeGreaterThanOrEqual(0);
+    // The stay it ends in already takes a fifth off the year-end points, so the night itself costs the health score nothing.
+    expect(healthScore(withDay(s, 2, { crisis: { node: 0, at: 0, fasting: false } }), ctx)).toBeCloseTo(base);
   });
 });
 
@@ -58,7 +57,7 @@ describe('the year-end review points (design doc 8.14)', () => {
     expect(yearEndPoints({ ...s, hospitals: 2 }, ctx, 0)).toBe(Math.round(half * HOSPITAL_FACTOR ** 2));
   });
 
-  it('multiplies a passed semester with courses by its burden, and adds the finished project only then', () => {
+  it('multiplies a passed semester with courses by its burden, and adds the finished project whether or not it passed', () => {
     const { ctx: c } = newSemester(1, [], ['os', 'compiler', 'database', 'networks']);
     let s = startSemester(c, 1);
     s = { ...s, mid: 90, fin: 90, project: 10, history: at().history };
@@ -66,7 +65,13 @@ describe('the year-end review points (design doc 8.14)', () => {
     const half = 0.5 * summarize(s, c).grade + 0.5 * healthScore(s, c);
     expect(yearEndPoints(s, c, 0)).toBe(Math.round(half * 1.15 + 10));
     expect(yearEndPoints({ ...s, project: 9 }, c, 0)).toBe(Math.round(half * 1.15));
-    expect(yearEndPoints({ ...s, fin: 10 }, c, 0)).toBe(Math.round(0.5 * summarize({ ...s, fin: 10 }, c).grade + 0.5 * healthScore(s, c)));
+    const failed = { ...s, fin: 10 };
+    expect(summarize(failed, c).passFin).toBe(false);
+    expect(yearEndPoints(failed, c, 0)).toBe(Math.round(0.5 * summarize(failed, c).grade + 0.5 * healthScore(s, c) + 10));
+    expect(yearEndPoints({ ...failed, project: 9 }, c, 0)).toBe(Math.round(0.5 * summarize(failed, c).grade + 0.5 * healthScore(s, c)));
+    expect(yearEndPoints({ ...s, bankrupt: true }, c, 1)).toBe(3 * s.history.length + 5 + 10);
+    expect(yearEndPoints({ ...s, project: 10 }, newSemester(1, [], ['os', 'database', 'networks', 'software']).ctx, 0)).toBe(
+      yearEndPoints({ ...s, project: 0 }, newSemester(1, [], ['os', 'database', 'networks', 'software']).ctx, 0));
   });
 
   it('refuses a page count that is not a whole number of 0 or more', () => {
@@ -90,6 +95,17 @@ describe('the points and nodes in the progress slot', () => {
     expect(two.progress.careerPoints).toBe(55);
     expect(decode(PROGRESS, data.get('hbc.v1.progress') ?? null).data.careerPoints).toBe(55);
     expect('careerPoints' in finishSemester(saves, fresh).progress).toBe(false);
+  });
+
+  it('banks more points on top, saved, and refuses a count that is not a whole number of 0 or more', () => {
+    const { saves, data } = store();
+    const more = bankPoints(saves, { ...fresh, careerPoints: 12 }, 5);
+    expect(more.progress.careerPoints).toBe(17);
+    expect(decode(PROGRESS, data.get('hbc.v1.progress') ?? null).data.careerPoints).toBe(17);
+    const same = { ...fresh, careerPoints: 3 };
+    expect(bankPoints(saves, same, 0).progress).toBe(same);
+    expect(() => bankPoints(saves, fresh, -1)).toThrow(RangeError);
+    expect(() => bankPoints(saves, fresh, 0.5)).toThrow(RangeError);
   });
 
   it('buys a node it can afford, once, and saves it', () => {
