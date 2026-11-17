@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { readingPrompt } from '../../src/app/semester.ts';
+import { latestReading, readingPrompt } from '../../src/app/semester.ts';
 import { playDay, startSemester, type DayView, type PatrolResult, type SemesterState, type Strategy } from '../../src/core/index.ts';
 import { BLOOD_TEST_DAYS } from '../../src/core/semester/scenario.ts';
 import { contextFor, EVENTS, scenarioFor } from '../../sim/semester/scenario.ts';
@@ -170,7 +170,16 @@ describe('the report card of a reading', () => {
     expect(at(40).caption).toContain('有點高');
     expect(at(60).caption).toContain('很高');
     expect(at(85).caption).toContain('到了紅線');
-    for (const load of [0, 50, 90]) expect(at(load).caption).toContain('只有抽血才看得到');
+    for (const load of [0, 50, 90]) expect(at(load).caption).toContain('只有主動檢查才看得到');
     expect(at(0).options).toHaveLength(1);
+  });
+});
+
+describe('the latest reading kept on screen (design doc 8.6)', () => {
+  it('names the day and what read it, for every reader, and is absent before the first', () => {
+    expect(latestReading(undefined)).toBeUndefined();
+    expect(latestReading({ day: 1, by: 'checkup', load: 0 })).toBe('最近讀數（第 1 天，開學健檢）：肝的負荷 0（紅線 85）');
+    expect(latestReading({ day: 4, by: 'blood_test', load: 33.6 })).toBe('最近讀數（第 4 天，抽血）：肝的負荷 34（紅線 85）');
+    expect(latestReading({ day: 6, by: 'highlighter', load: 61 })).toBe('最近讀數（第 6 天，螢光筆巡視）：肝的負荷 61（紅線 85）');
   });
 });
