@@ -210,8 +210,8 @@ export const STORY: SlotDef<StoryData> = {
 };
 
 /**
- * Cross-run progress (design doc 13.5): what outlives every run and every chapter. The handbook
- * and the host's name so far; achievements, the career tree and the rest join it when they exist.
+ * Cross-run progress (design doc 13.5): what outlives every run and every chapter. The handbook,
+ * the host's name and the achievements so far; the career tree and the rest join it when they exist.
  */
 export interface ProgressData {
   /** Unlocked handbook page ids, in the order they were found. */
@@ -222,11 +222,13 @@ export interface ProgressData {
   readonly semestersDone: number;
   /** The highest overtime clause level the player may start at (design doc 8.14); absent is 0. A clear of that level opens the next. */
   readonly clauseUnlocked?: number;
+  /** Achievement ids earned (design doc 8.14, core/semester/achievements.ts), in the order they were earned; absent is none. */
+  readonly achievements?: readonly string[];
 }
 
 export const PROGRESS: SlotDef<ProgressData> = {
   name: 'progress',
-  version: 4,
+  version: 5,
   schema: {
     type: 'object',
     additionalProperties: false,
@@ -238,6 +240,8 @@ export const PROGRESS: SlotDef<ProgressData> = {
       semestersDone: INT,
       // The levels that exist are the rules' business (core/semester/clauses.ts); the save only keeps a count.
       clauseUnlocked: INT,
+      // Ids the rules no longer know are kept, so a save is never thinned by an older build; the game reads only the ones it knows.
+      achievements: { type: 'array', uniqueItems: true, items: { type: 'string', minLength: 1 } },
     },
   },
   defaults: () => ({ handbook: [], hostName: DEFAULT_HOST, semestersDone: 0 }),
@@ -248,6 +252,8 @@ export const PROGRESS: SlotDef<ProgressData> = {
     2: (data) => (isRecord(data) ? { ...data, semestersDone: 0 } : data),
     // Version 4 adds the unlocked clause level as an optional field; a save from before it has unlocked none.
     3: (data) => data,
+    // Version 5 adds the achievements as an optional field; a save from before it has earned none.
+    4: (data) => data,
   },
 };
 

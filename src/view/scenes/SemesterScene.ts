@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import {
-  COFFEE_PLANS, daySummary, endSummary, finishSemester, floorChoice, freshSeed, gradePrompt, kitWith, morningPlan, newSemester, NIGHT_PLANS, nightPlan, patrolOffer, patrolResultLine, projectPrompt, REST_PLANS, resumeSemester, semesterCleared, servesAlcohol, settingLines,
+  COFFEE_PLANS, commendation, daySummary, endSummary, finishSemester, hasAchievement, workOrderTray, floorChoice, freshSeed, gradePrompt, kitWith, morningPlan, newSemester, NIGHT_PLANS, nightPlan, patrolOffer, patrolResultLine, projectPrompt, REST_PLANS, resumeSemester, semesterCleared, servesAlcohol, settingLines,
   readingPrompt, TUTORIAL_COURSES, TUTORIAL_SEED, tutorLine, visitReport, walkPrompt, weekdayOf, welfareCaption, welfareText,
   type CoffeePlanId, type NightPlanId, type RestPlanId,
 } from '../../app/semester.ts';
@@ -10,8 +10,8 @@ import { keepPage } from '../../app/handbook.ts';
 import { patrolChapter, patrolLoop, type PatrolSession } from '../../app/patrol.ts';
 import type { SaveStore } from '../../app/storage.ts';
 import {
-  advanceDay, buildWall, gradeRoom, MAX_DEBUG_PER_NIGHT, MAX_RANK_HOURS, nightRoom, pinWall, projectRoom, rankGain, RANK_FULL, rankSharePercent, reviewWall, RUN, WRITE_HOURS, type Answer, type Ask, type ChapterContent, type DayView, type FloorId, type HomeworkView, type PatrolKit, type PatrolResult, type ProgressData, type ReportDocument, type RunData,
-  type SemesterContext, type SemesterRun, type SemesterState, type Settings, type TagState, type Wall,
+  advanceDay, buildWall, earnedAchievements, gradeRoom, MAX_DEBUG_PER_NIGHT, MAX_RANK_HOURS, nightRoom, pinWall, projectRoom, rankGain, RANK_FULL, rankSharePercent, reviewWall, RUN, WRITE_HOURS, type Answer, type Ask, type ChapterContent, type DayView, type FloorId, type HomeworkView, type PatrolKit, type PatrolResult, type ProgressData, type ReportDocument, type RunData,
+  type AchievementId, type SemesterContext, type SemesterRun, type SemesterState, type Settings, type TagState, type Wall,
 } from '../../core/index.ts';
 import { WALL_CHAPTER, wallLoop, type WallSession } from '../../app/wall.ts';
 import { soundIn } from '../audio/installSound.ts';
@@ -345,7 +345,10 @@ export class SemesterScene extends Phaser.Scene {
   /** The elevator, then the rooms of the floor chosen, and only after those the offer of overtime, so it is made knowing how the first went (design doc 8.4). */
   private askFloor(view: DayView, tags: TagState, liverLoad: number): void {
     this.banner(view, 'floor');
-    this.panel(view, str('semester.floor.title'), undefined, (patrol) => {
+    // 主動健檢 puts the liver's work-order tray in the lobby (design doc 8.6, 8.14).
+    const progress = this.registry.get('progress') as ProgressData | undefined;
+    const tray = hasAchievement(progress, 'active_checkup') ? workOrderTray(view.liverClues.orders) : undefined;
+    this.panel(view, str('semester.floor.title'), undefined, tray, (patrol) => {
       this.playPatrol(patrol, tags, liverLoad, view.day * 2, view.welfare.kit, (first) => {
         this.askCard(view, patrol, first, (card) => {
           this.cards(
@@ -356,7 +359,7 @@ export class SemesterScene extends Phaser.Scene {
             str('semester.floor.overtime.title'), first === null ? undefined : patrolResultLine(patrol, first),
             (i) => {
               if (i === 0) return this.answer({ kind: 'floor', choice: floorChoice(patrol, undefined, [first], card) });
-              this.panel(view, str('semester.floor.overtime.again'), patrol, (overtime) => {
+              this.panel(view, str('semester.floor.overtime.again'), patrol, tray, (overtime) => {
                 this.playPatrol(overtime, tags, liverLoad, view.day * 2 + 1, kitWith(view, card), (second) => {
                   this.answer({ kind: 'floor', choice: floorChoice(patrol, overtime, [first, second], card) });
                 });
@@ -415,9 +418,9 @@ export class SemesterScene extends Phaser.Scene {
     this.scene.launch('Hud');
   }
 
-  private panel(view: DayView, title: string, disabled: FloorId | undefined, pick: (floor: FloorId) => void): void {
+  private panel(view: DayView, title: string, disabled: FloorId | undefined, tray: string | undefined, pick: (floor: FloorId) => void): void {
     this.clear();
-    const panel = new ElevatorPanelView(this, view.panel, { title }, disabled, (i) => this.choose(i), (i) => this.select(i));
+    const panel = new ElevatorPanelView(this, view.panel, { title, ...(tray === undefined ? {} : { tray }) }, disabled, (i) => this.choose(i), (i) => this.select(i));
     this.menu = {
       n: view.panel.buttons.length,
       paint: (c) => panel.paint(c),
@@ -621,18 +624,26 @@ export class SemesterScene extends Phaser.Scene {
   }
 
   /**
-   * A semester fixed from the URL does not count, so looking at the rules never ends the scripted first week. Gives the clause
-   * level the clear just unlocked, if it did.
+   * A semester fixed from the URL does not count, so looking at the rules never ends the scripted first week and earns nothing.
+   * Gives the clause level the clear just unlocked, if it did, and the achievements earned for the first time.
    */
-  private countSemester(after: SemesterState): number | undefined {
+  private countSemester(after: SemesterState): { opened?: number; commended: AchievementId[] } {
     const progress = this.registry.get('progress') as ProgressData | undefined;
     const saves = this.registry.get('saves') as SaveStore | undefined;
-    if (!this.keep || progress === undefined || saves === undefined) return undefined;
-    const done = finishSemester(saves, progress, { level: this.ctx.clause ?? 0, cleared: semesterCleared(after, this.ctx) });
+    if (!this.keep || progress === undefined || saves === undefined) return { commended: [] };
+    const done = finishSemester(saves, progress, { level: this.ctx.clause ?? 0, cleared: semesterCleared(after, this.ctx) }, earnedAchievements(after));
     if (done.issues.length > 0) this.game.events.emit('save-issues', done.issues);
     this.registry.set('progress', done.progress);
     const unlocked = done.progress.clauseUnlocked ?? 0;
-    return unlocked > (progress.clauseUnlocked ?? 0) ? unlocked : undefined;
+    return { ...(unlocked > (progress.clauseUnlocked ?? 0) ? { opened: unlocked } : {}), commended: done.commended };
+  }
+
+  /** One commendation page per achievement just earned (design doc 8.14), then `done`. */
+  private commend(ids: readonly AchievementId[], done: () => void): void {
+    const [id, ...rest] = ids;
+    if (id === undefined) return done();
+    const { title, lines } = commendation(id);
+    this.page(title, lines, str('semester.commend.back'), () => this.commend(rest, done));
   }
 
   private endOfDay(after: SemesterState): void {
@@ -651,8 +662,8 @@ export class SemesterScene extends Phaser.Scene {
         return;
       }
       this.persist(null);
-      const opened = this.countSemester(after);
-      const toEnd = (): void => this.page(str('semester.end.title'), endSummary(after, this.ctx, opened), str('semester.end.back'), () => this.leave());
+      const { opened, commended } = this.countSemester(after);
+      const toEnd = (): void => this.commend(commended, () => this.page(str('semester.end.title'), endSummary(after, this.ctx, opened), str('semester.end.back'), () => this.leave()));
       let review: Wall | undefined;
       try {
         review = reviewWall(after, this.ctx, REPORT, str);
