@@ -705,7 +705,6 @@ export class SemesterScene extends Phaser.Scene {
     this.start(Math.max(0, cards.findIndex((c) => c.allowed)));
   }
 
-  /** One commendation page per achievement just earned (design doc 8.14), then `done`. */
   /** One commendation per achievement just earned, as the square-cornered document of art direction 9 with the company's seal. */
   private commend(ids: readonly AchievementId[], done: () => void): void {
     const [id, ...rest] = ids;
