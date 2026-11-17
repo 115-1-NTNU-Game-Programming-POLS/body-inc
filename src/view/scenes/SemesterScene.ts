@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import {
-  buyCareerNode, careerCards, COFFEE_PLANS, commendation, daySummary, endSummary, finishSemester, hasAchievement, workOrderTray, floorChoice, freshSeed, gradePrompt, kitWith, morningPlan, newSemester, NIGHT_PLANS, nightPlan, patrolOffer, patrolResultLine, projectPrompt, REST_PLANS, resumeSemester, semesterCleared, servesAlcohol, settingLines,
-  readingPrompt, TUTORIAL_COURSES, TUTORIAL_SEED, tutorLine, visitReport, walkPrompt, weekdayOf, welfareCaption, welfareText,
+  buyCareerNode, careerCards, COFFEE_PLANS, commendation, sealColumns, daySummary, endSummary, finishSemester, hasAchievement, workOrderTray, floorChoice, freshSeed, gradePrompt, kitWith, morningPlan, newSemester, NIGHT_PLANS, nightPlan, patrolOffer, patrolResultLine, projectPrompt, REST_PLANS, resumeSemester, semesterCleared, servesAlcohol, settingLines,
+  latestReading, readingPrompt, TUTORIAL_COURSES, TUTORIAL_SEED, tutorLine, visitReport, walkPrompt, weekdayOf, welfareCaption, welfareText,
   type CoffeePlanId, type NightPlanId, type RestPlanId,
 } from '../../app/semester.ts';
 import { musicFor } from '../../app/audio.ts';
@@ -25,6 +25,10 @@ const PAPER = '#fbfaf6';
 const INK = '#0c2d5e';
 /** The report sheet of art direction 8.5: 720 wide, a 64 px binding margin on the left, 8 px hard shadow; at most 640 tall. */
 const SHEET = { y: 24, w: 720, h: 624, binding: 64, pad: 24, top: 28, footer: 40, shadow: 8 };
+/** The commendation of art direction 9: a 640 x 440 square-cornered document with the company's 120 x 120 seal. */
+const COMMEND = { w: 640, h: 440, pad: 40, seal: 120 };
+const STAMP_RED = 0xc8372d;
+const STAMP_RED_CSS = '#c8372d';
 /** How long a chosen card stays highlighted before the next question, so the choice is seen. */
 const CHOSEN_MS = 220;
 /** After the wall closes, Esc is ignored this long so a double press does not also leave the semester. */
@@ -88,6 +92,8 @@ export class SemesterScene extends Phaser.Scene {
   private pagesAtStart = 0;
   /** The last reading of the liver whose report was shown, as day and reader, so a report comes once, right after the reading. */
   private readingShown: string | undefined;
+  /** The latest reading of the liver, at the top right of every phase once there is one. */
+  private readingLine: Phaser.GameObjects.Text | undefined;
   private lines: Phaser.GameObjects.GameObject[] = [];
   /** Until this time (scene clock) Esc does not leave the semester: the Esc that closed the wall must not also close this. */
   private escGuardUntil = 0;
@@ -127,6 +133,9 @@ export class SemesterScene extends Phaser.Scene {
     this.onContinue = undefined;
     this.lines = [];
     this.head = undefined;
+    this.readingLine = undefined;
+    // Phaser keeps one scene object for every semester of the page's life, so what was shown belongs to the last one.
+    this.readingShown = undefined;
     this.escGuardUntil = 0;
     addText(this, this.scale.width / 2, this.scale.height - 40, str(data.demo === true ? 'semester.hint.demo' : 'semester.hint'), { role: 'print', weight: 400, size: 18, color: DIM }).setOrigin(0.5, 1);
 
@@ -243,6 +252,9 @@ export class SemesterScene extends Phaser.Scene {
 
   private banner(view: DayView, phase: string): void {
     this.head?.destroy();
+    this.readingLine?.destroy();
+    const latest = latestReading(view.liverReading);
+    this.readingLine = latest === undefined ? undefined : addText(this, this.scale.width - 32, 28, latest, { role: 'print', weight: 400, size: 18, color: DIM }).setOrigin(1, 0);
     const weekday = str(`semester.weekday.${weekdayOf(view.day)}`);
     const day = fillStr('semester.day', { n: view.day, weekday });
     const exam = view.exam === null ? '' : `　${str(`semester.exam.${view.exam}`)}`;
@@ -671,11 +683,42 @@ export class SemesterScene extends Phaser.Scene {
   }
 
   /** One commendation page per achievement just earned (design doc 8.14), then `done`. */
+  /** One commendation per achievement just earned, as the square-cornered document of art direction 9 with the company's seal. */
   private commend(ids: readonly AchievementId[], done: () => void): void {
     const [id, ...rest] = ids;
     if (id === undefined) return done();
+    this.clear();
     const { title, lines } = commendation(id);
-    this.page(title, lines, str('semester.commend.back'), () => this.commend(rest, done));
+    const [name, why, unlock] = lines;
+    const x = (this.scale.width - COMMEND.w) / 2;
+    const y = (this.scale.height - COMMEND.h) / 2 - 24;
+    const own = <T extends Phaser.GameObjects.GameObject>(o: T): T => {
+      this.lines.push(o);
+      return o;
+    };
+    own(this.add.rectangle(x + SHEET.shadow, y + SHEET.shadow, COMMEND.w, COMMEND.h, 0x000000, 0.45).setOrigin(0, 0));
+    own(this.add.rectangle(x, y, COMMEND.w, COMMEND.h, 0xf4efe4).setOrigin(0, 0).setStrokeStyle(2, 0x0c2d5e));
+    own(this.add.rectangle(x + COMMEND.pad, y + 84, COMMEND.w - 2 * COMMEND.pad, 2, 0x0c2d5e, 0.35).setOrigin(0, 0));
+    own(addText(this, x + COMMEND.w / 2, y + 28, title, { role: 'hand', weight: 700, size: 32, color: INK }).setOrigin(0.5, 0));
+    const width = COMMEND.w - 2 * COMMEND.pad;
+    let at = y + 108;
+    for (const [text, spec] of [
+      [name, { role: 'hand', weight: 700, size: 26, color: INK }],
+      [why, { role: 'print', weight: 400, size: 20, color: INK, maxWidth: width, lineHeight: 1.5 }],
+      [unlock, { role: 'print', weight: 400, size: 18, color: INK, maxWidth: width - COMMEND.seal, lineHeight: 1.5 }],
+    ] as const) {
+      if (text === undefined) continue;
+      at += own(addText(this, x + COMMEND.pad, at, text, spec)).height + 14;
+    }
+    const seal = own(this.add.container(x + COMMEND.w - COMMEND.pad - COMMEND.seal / 2, y + COMMEND.h - COMMEND.pad - COMMEND.seal / 2));
+    const cell = (COMMEND.seal - 16) / 3;
+    seal.add(this.add.rectangle(0, 0, COMMEND.seal, COMMEND.seal).setStrokeStyle(5, STAMP_RED));
+    sealColumns().forEach((column, c) => column.forEach((ch, r) => {
+      seal.add(addText(this, (1 - c) * cell, (r - 1) * cell, ch, { role: 'hand', weight: 700, size: Math.floor(cell * 0.86), color: STAMP_RED_CSS }).setOrigin(0.5));
+    }));
+    seal.setAngle(-6).setAlpha(0.86);
+    own(addText(this, this.scale.width / 2, y + COMMEND.h + 28, str('semester.commend.back'), { role: 'print', weight: 700, size: 22, color: DIM }).setOrigin(0.5, 0));
+    this.onContinue = () => this.commend(rest, done);
   }
 
   private endOfDay(after: SemesterState): void {
@@ -684,6 +727,8 @@ export class SemesterScene extends Phaser.Scene {
     const title = fillStr('semester.sum.title', { n: before.day });
     this.head?.destroy();
     this.head = undefined;
+    this.readingLine?.destroy();
+    this.readingLine = undefined;
     const next = (): void => {
       if (!after.ended) {
         this.state = after;
