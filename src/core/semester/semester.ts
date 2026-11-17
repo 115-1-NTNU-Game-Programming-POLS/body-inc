@@ -18,7 +18,7 @@ import { contributions, GRADES, nextLoad, strikes, type DayFacts } from './load.
 import { isFailed, type PatrolResult } from './patrol.ts';
 import { examPerformance, gradeFor } from './rating.ts';
 import type {
-  Assignment, DayRecord, DayView, HomeworkDay, PatrolRecord, SemesterContext, SemesterEvent, SemesterParams, SemesterState, SemesterSummary, Strategy, WelfareView,
+  Assignment, DayRecord, DayView, HomeworkDay, LiverReading, PatrolRecord, SemesterContext, SemesterEvent, SemesterParams, SemesterState, SemesterSummary, Strategy, WelfareView,
 } from './types.ts';
 import { EARLY_START_DAYS, minutesProgress, patrolKit, STOP_BY, welfareOffer } from './welfare.ts';
 
@@ -134,8 +134,8 @@ interface DayRun {
   fasting: boolean;
   deadline: boolean;
   lateSnack: boolean;
-  /** The liver's load the day's blood test read; undefined until one is taken. */
-  bloodTest: number | undefined;
+  /** The latest reading of the liver's load today; undefined until something reads it. */
+  reading: LiverReading | undefined;
   workLeft: number;
   /** Hours of the day still to be spent writing the assignment at index `writeIdx` of the state. */
   writeLeft: number;
@@ -218,7 +218,7 @@ function viewOf(d: DayRun): DayView {
     welfare: welfareView(s),
     panel: elevatorPanel(d.morningLoads, k),
     liverClues: liverClues(d.morningLoads.liver, s.liverOrders, k),
-    ...bloodTestOf(d),
+    ...readingOf(d),
     modifiers: activeModifiers(s.tags, ctx.dict),
     homework: workable(s).map(({ a, i }) => ({
       n: i + 1, due: a.due, written: a.written, debugged: a.debugged, ...(a.written >= WRITE_HOURS ? { debug: a.debug } : {}),
@@ -231,11 +231,11 @@ function viewOf(d: DayRun): DayView {
   };
 }
 
-/** Today's blood test if there is one, else the latest of the days gone. */
-function bloodTestOf(d: DayRun): { bloodTest?: { day: number; load: number } } {
-  if (d.bloodTest !== undefined) return { bloodTest: { day: d.s.day, load: d.bloodTest } };
-  const last = [...d.s.history].reverse().find((r) => r.bloodTest !== undefined);
-  return last ? { bloodTest: { day: last.day, load: last.bloodTest! } } : {};
+/** Today's reading of the liver if there is one, else the latest of the days gone. */
+function readingOf(d: DayRun): { liverReading?: LiverReading & { day: number } } {
+  if (d.reading !== undefined) return { liverReading: { ...d.reading, day: d.s.day } };
+  const last = [...d.s.history].reverse().find((r) => r.liverReading !== undefined);
+  return last ? { liverReading: { ...last.liverReading!, day: last.day } } : {};
 }
 
 function roll(d: DayRun): number {
@@ -278,7 +278,7 @@ function applyEvents(d: DayRun, upTo: number, before = false): void {
       d.evidence.stomach.push(cause);
     }
     // Loads move only in the night settlement, so the afternoon's load is the morning's.
-    if (opt.bloodTest) d.bloodTest = d.morningLoads.liver;
+    if (opt.bloodTest) d.reading = { load: d.morningLoads.liver, by: 'blood_test' };
     d.workLeft += opt.workHours ?? 0;
     d.bedDelay += opt.bedDelay ?? 0;
     d.played.push({ id: ev.id, option: pick });
@@ -391,6 +391,10 @@ function patrol(d: DayRun, floor: FloorId, overtime: boolean, played?: PatrolRes
   // Drawn even when the rooms were played, so the stream the rest of the semester draws from stays where a skill-drawn patrol leaves it.
   const drawn = gradeFor(d.ctx.skill, roll(d), d.ctx.params);
   if (played === undefined) return { floor, grade: drawn, overtime };
+  if (played.liverRead === true) {
+    if (floor !== 'liver') throw new RangeError(`the highlighter read the liver in the patrol of ${floor}`);
+    d.reading = { load: d.morningLoads.liver, by: 'highlighter' };
+  }
   if (isFailed(played)) return { floor, grade: 'C', overtime, failed: true };
   if (!GRADES.includes(played.grade)) throw new RangeError(`"${String(played.grade)}" is not a rating`);
   const records = played.records ?? 0;
@@ -588,7 +592,7 @@ export function playDay(from: SemesterState, ctx: SemesterContext, strategy: Str
   const debt = amount(s0.tags, dict, 'sleep_debt');
   const d: DayRun = {
     s: s0, ctx, strategy, exam, S: sleepFactor(debt, k), brainStrike: strikes('brain', s0.loads.brain, k), paper: ctx.courses === undefined ? 0 : paperShare(ctx.courses), morningLoads: s0.loads,
-    cups: 0, alcoholCups: 0, fasting: false, deadline: false, lateSnack: false, bloodTest: undefined, workLeft: 0, writeLeft: 0, writeIdx: -1, projectLeft: 0, projectHours: 0, gradeLeft: 0, walk: false, sit: 0, bedDelay: 0, overtimeDelay: 0, studyHours: 0, lateStudy: 0,
+    cups: 0, alcoholCups: 0, fasting: false, deadline: false, lateSnack: false, reading: hospitalDay || day !== 1 ? undefined : { load: s0.loads.liver, by: 'checkup' }, workLeft: 0, writeLeft: 0, writeIdx: -1, projectLeft: 0, projectHours: 0, gradeLeft: 0, walk: false, sit: 0, bedDelay: 0, overtimeDelay: 0, studyHours: 0, lateStudy: 0,
     evidence: { brain: [], stomach: [], liver: [] },
     pending: hospitalDay ? [] : (ctx.scenario[day] ?? []).map((id) => ctx.events.get(id)!).sort((a, b) => a.hour - b.hour),
     played: [],
@@ -668,7 +672,7 @@ export function playDay(from: SemesterState, ctx: SemesterContext, strategy: Str
   const patrols: PatrolRecord[] = [];
   let cardTaken: string | undefined;
   if (!hospitalDay && exam === null) {
-    const choice = strategy.floor(viewOf(d), d.s.tags);
+    const choice = strategy.floor(viewOf(d), d.s.tags, d.morningLoads.liver);
     const rooms = 1 + (choice.overtime === undefined ? 0 : 1);
     if (choice.played !== undefined && choice.played.length !== rooms) {
       throw new RangeError(`${choice.played.length} played patrols were given for ${rooms} chosen`);
@@ -768,7 +772,7 @@ export function playDay(from: SemesterState, ctx: SemesterContext, strategy: Str
     kind: hospitalDay ? 'hospital' : exam !== null ? 'exam' : 'normal',
     settled: true,
     patrols, events: d.played, loadsAfter: d.s.loads, studyHours: d.studyHours, homework: homeworkDelta(from.homework, d.s.homework), ...(rankDone ? { rank: rankDone } : {}),
-    ...(d.bloodTest !== undefined ? { bloodTest: d.bloodTest } : {}),
+    ...(d.reading !== undefined ? { liverReading: d.reading } : {}),
     ...(d.projectHours > 0 ? { project: { hours: d.projectHours, gain: d.s.project - from.project, done: from.project < PROJECT_NEED && d.s.project >= PROJECT_NEED } } : {}),
     ...(d.s.graded > from.graded ? { grade: { hours: d.s.graded - from.graded, done: from.graded < GRADE_HOURS && d.s.graded >= GRADE_HOURS } } : {}),
     ...(rankSpent > 0 && bedEnd <= STOP_BY ? { contestStop: true as const } : {}),

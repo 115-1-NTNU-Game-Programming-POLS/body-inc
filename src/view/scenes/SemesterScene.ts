@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import {
-  bloodTestPrompt, COFFEE_PLANS, daySummary, endSummary, finishSemester, floorChoice, freshSeed, gradePrompt, kitWith, morningPlan, newSemester, NIGHT_PLANS, nightPlan, patrolOffer, patrolResultLine, projectPrompt, REST_PLANS, resumeSemester, semesterCleared, servesAlcohol, settingLines,
-  TUTORIAL_COURSES, TUTORIAL_SEED, tutorLine, visitReport, walkPrompt, weekdayOf, welfareCaption, welfareText,
+  COFFEE_PLANS, daySummary, endSummary, finishSemester, floorChoice, freshSeed, gradePrompt, kitWith, morningPlan, newSemester, NIGHT_PLANS, nightPlan, patrolOffer, patrolResultLine, projectPrompt, REST_PLANS, resumeSemester, semesterCleared, servesAlcohol, settingLines,
+  readingPrompt, TUTORIAL_COURSES, TUTORIAL_SEED, tutorLine, visitReport, walkPrompt, weekdayOf, welfareCaption, welfareText,
   type CoffeePlanId, type NightPlanId, type RestPlanId,
 } from '../../app/semester.ts';
 import { musicFor } from '../../app/audio.ts';
@@ -82,8 +82,8 @@ export class SemesterScene extends Phaser.Scene {
   /** What Enter does when no menu is up: go on from the day or the semester summary. */
   private onContinue: (() => void) | undefined;
   private head: Phaser.GameObjects.Text | undefined;
-  /** The day whose blood test result was shown, so the result comes once, right after the afternoon it was taken. */
-  private testShown: number | undefined;
+  /** The last reading of the liver whose report was shown, as day and reader, so a report comes once, right after the reading. */
+  private readingShown: string | undefined;
   private lines: Phaser.GameObjects.GameObject[] = [];
   /** Until this time (scene clock) Esc does not leave the semester: the Esc that closed the wall must not also close this. */
   private escGuardUntil = 0;
@@ -242,17 +242,19 @@ export class SemesterScene extends Phaser.Scene {
   }
 
   private show(ask: Ask): void {
-    const test = ask.view.bloodTest;
-    if (test !== undefined && test.day === ask.view.day && this.testShown !== test.day) {
-      this.testShown = test.day;
-      this.banner(ask.view, 'event');
-      const { title, caption, options } = bloodTestPrompt(test);
+    const reading = ask.view.liverReading;
+    const key = reading && `${reading.day}:${reading.by}`;
+    // The highlighter's reading is the figure over the liver in the patrol's rooms, which is its report.
+    if (reading !== undefined && reading.day === ask.view.day && reading.by !== 'highlighter' && this.readingShown !== key) {
+      this.readingShown = key;
+      this.banner(ask.view, reading.by === 'checkup' ? 'plan' : 'event');
+      const { title, caption, options } = readingPrompt({ load: reading.load, by: reading.by });
       return this.cards(options, title, caption, () => this.show(ask));
     }
     switch (ask.kind) {
       case 'plan': return this.askCoffee(ask.view);
       case 'event': return this.askEvent(ask.view, ask.id, ask.options);
-      case 'floor': return this.askFloor(ask.view, ask.tags);
+      case 'floor': return this.askFloor(ask.view, ask.tags, ask.liverLoad);
       case 'night': return this.askNight(ask.view);
     }
   }
@@ -341,10 +343,10 @@ export class SemesterScene extends Phaser.Scene {
   }
 
   /** The elevator, then the rooms of the floor chosen, and only after those the offer of overtime, so it is made knowing how the first went (design doc 8.4). */
-  private askFloor(view: DayView, tags: TagState): void {
+  private askFloor(view: DayView, tags: TagState, liverLoad: number): void {
     this.banner(view, 'floor');
     this.panel(view, str('semester.floor.title'), undefined, (patrol) => {
-      this.playPatrol(patrol, tags, view.day * 2, view.welfare.kit, (first) => {
+      this.playPatrol(patrol, tags, liverLoad, view.day * 2, view.welfare.kit, (first) => {
         this.askCard(view, patrol, first, (card) => {
           this.cards(
             [
@@ -355,7 +357,7 @@ export class SemesterScene extends Phaser.Scene {
             (i) => {
               if (i === 0) return this.answer({ kind: 'floor', choice: floorChoice(patrol, undefined, [first], card) });
               this.panel(view, str('semester.floor.overtime.again'), patrol, (overtime) => {
-                this.playPatrol(overtime, tags, view.day * 2 + 1, kitWith(view, card), (second) => {
+                this.playPatrol(overtime, tags, liverLoad, view.day * 2 + 1, kitWith(view, card), (second) => {
                   this.answer({ kind: 'floor', choice: floorChoice(patrol, overtime, [first, second], card) });
                 });
               });
@@ -378,7 +380,7 @@ export class SemesterScene extends Phaser.Scene {
    * The rooms of a floor's patrol, played on the World and the HUD while the semester sleeps (as the evidence wall is). A floor with
    * no rooms of its own, or rooms that cannot be built, hands back null and the rules draw its rating from the skill.
    */
-  private playPatrol(floor: FloorId, tags: TagState, salt: number, kit: PatrolKit, done: (result: PatrolResult | null) => void): void {
+  private playPatrol(floor: FloorId, tags: TagState, liverLoad: number, salt: number, kit: PatrolKit, done: (result: PatrolResult | null) => void): void {
     const base = patrolChapter(this.registry.get('chapters') as ReadonlyMap<string, ChapterContent>, floor);
     if (base === undefined) return done(null);
     let play: ReturnType<typeof patrolLoop>;
@@ -392,6 +394,7 @@ export class SemesterScene extends Phaser.Scene {
     this.registry.set('patrol', {
       floor,
       play,
+      liverLoad,
       done: (result) => {
         this.registry.set('loop', undefined);
         this.events.once(Phaser.Scenes.Events.WAKE, () => {

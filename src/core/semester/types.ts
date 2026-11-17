@@ -142,8 +142,8 @@ export interface DayRecord {
   readonly contestStop?: true;
   /** The welfare card the day's patrol gave. */
   readonly card?: string;
-  /** The liver's load as the day's blood test read it, the morning's load since loads move only at night; absent without one. */
-  readonly bloodTest?: number;
+  /** The liver's load as the day read it (design doc 8.6), the morning's load since loads move only at night; absent when nothing read it. */
+  readonly liverReading?: LiverReading;
   /** Progress the minutes of 會議紀錄 added from the day's patrols. */
   readonly minutes?: number;
 }
@@ -279,10 +279,10 @@ export interface DayView {
   readonly panel: ElevatorPanel;
   readonly liverClues: LiverClues;
   /**
-   * The latest blood test and the day it was taken (design doc 8.6). The only load a view ever holds: the player paid an
-   * afternoon for it, and it is the number as it was that day, not the liver's load now.
+   * The latest reading of the liver's load and the day it was taken (design doc 8.6). The only load a view ever holds: the player
+   * paid for it with an afternoon or a patrol, and it is the number as it was that day, not the liver's load now.
    */
-  readonly bloodTest?: { readonly day: number; readonly load: number };
+  readonly liverReading?: LiverReading & { readonly day: number };
   /** Dictionary modifiers that hold now (design doc 8.7). */
   readonly modifiers: readonly string[];
   /** The assignments that can be worked on today. */
@@ -298,11 +298,26 @@ export interface DayView {
   readonly grade?: { readonly done: number; readonly need: number; readonly due: number; readonly open: boolean; readonly night: boolean };
 }
 
+/**
+ * What read the liver's load: the start-of-term checkup on day 1, the health office's blood test, or the highlighter lit on the
+ * liver in its patrol.
+ */
+export type LiverReader = 'checkup' | 'blood_test' | 'highlighter';
+
+export interface LiverReading {
+  readonly load: number;
+  readonly by: LiverReader;
+}
+
 export interface Strategy {
   plan(view: DayView): MorningPlan;
   choose(eventId: string, options: readonly string[], view: DayView): string;
-  /** `tags` are the body's as the elevator is reached, which the rooms of a played patrol are entered with. */
-  floor(view: DayView, tags: TagState): FloorChoice;
+  /**
+   * `tags` are the body's as the elevator is reached, which the rooms of a played patrol are entered with. `liverLoad` is the figure
+   * the highlighter shows over the liver in its patrol: a screen draws it only once lit, and a strategy that plays no rooms has no
+   * business with it.
+   */
+  floor(view: DayView, tags: TagState, liverLoad: number): FloorChoice;
   night(view: DayView): NightPlan;
 }
 

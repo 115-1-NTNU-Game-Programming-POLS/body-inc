@@ -41,6 +41,14 @@ describe('the rating of a played patrol (design doc 8.5)', () => {
     expect(ratePatrol({ hits: 0, forced: true, records: 0 }, goals(true, true))).toEqual({ failed: true });
   });
 
+  it('reports the liver read by the highlighter on every rating, a failure included, since what was seen stays seen', () => {
+    const read = { ...goals(true, true), read: true };
+    expect(ratePatrol(NO_TALLY, read)).toEqual({ grade: 'S', liverRead: true });
+    expect(ratePatrol(NO_TALLY, { ...read, core: false })).toEqual({ grade: 'C', liverRead: true });
+    expect(ratePatrol({ hits: 0, forced: true, records: 0 }, read)).toEqual({ failed: true, liverRead: true });
+    expect(ratePatrol(NO_TALLY, goals(true, true))).toEqual({ grade: 'S' });
+  });
+
   it('counts the perfect dodges as records, and puts them on the rating only when there are some', () => {
     const t = tallyPatrol(NO_TALLY, [{ type: 'perfectDodge' }, { type: 'dodge' }, { type: 'perfectDodge' }, { type: 'perfectDodge' }]);
     expect(t).toEqual({ hits: 0, forced: false, records: 3 });
@@ -112,7 +120,7 @@ describe('a played patrol in the semester', () => {
       const drawn = new Map(baseline.history.map((r) => [r.day, r.patrols.map((p): PatrolResult => ({ grade: p.grade }))]));
       const played: Strategy = {
         ...base,
-        floor: (view, tags) => ({ ...base.floor(view, tags), ...(drawn.get(view.day)?.length ? { played: drawn.get(view.day)! } : {}) }),
+        floor: (view, tags, load) => ({ ...base.floor(view, tags, load), ...(drawn.get(view.day)?.length ? { played: drawn.get(view.day)! } : {}) }),
       };
       expect(baseline.history.some((r) => r.patrols.length > 0), name).toBe(true);
       expect(runSemester(ctx, played, 4), name).toEqual(baseline);

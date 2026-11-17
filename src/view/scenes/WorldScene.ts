@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { SCENE_ATLASES, type Manifest, type ManifestEntry } from '../../app/assets.ts';
 import { lowHeartBeat, musicFor, secondOf, UI } from '../../app/audio.ts';
 import { AUDIO, FEEDBACK, fillStr, PARAMS, str, STRINGS, TAGS } from '../../app/content.ts';
+import { liverFigure } from '../../app/semester.ts';
 import { releaseKeysOnClose } from '../../app/dialogue.ts';
 import { keepPage, titleKey } from '../../app/handbook.ts';
 import { assistsOf, mayOpenOverlay, panelOpen, speedOf, togglesAttack, withAssists } from '../../app/pause.ts';
@@ -240,6 +241,7 @@ export class WorldScene extends Phaser.Scene {
 
     this.hazards.render(prevState, state, alpha);
     this.mechanisms.render(state, (kind) => {
+      if (kind === 'liver_load') return this.patrolSession ? liverFigure(this.patrolSession.liverLoad) : '';
       if (kind !== 'liver_overtime') return '';
       const hours = overtimeHours(chapter.run.tags, TAGS, PARAMS);
       return hours > 0 ? fillStr('liver.overtime', { hours: hours.toFixed(1) }) : str('liver.overtime_none');

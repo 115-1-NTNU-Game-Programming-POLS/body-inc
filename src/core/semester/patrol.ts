@@ -3,9 +3,10 @@ import { GRADES, type Grade } from './load.ts';
 
 /**
  * How a played patrol ended: the rating it earned and the perfect dodges it made (`records`, left out when none, which 會議紀錄 turns into
- * progress), or a failure (forced clock-out or given up), which cuts no load and gives no card (design doc 8.4).
+ * progress), or a failure (forced clock-out or given up), which cuts no load and gives no card (design doc 8.4). `liverRead` is a
+ * highlighter lit on the liver in its patrol (design doc 8.6); what was seen stays seen, so a failed patrol can carry it too.
  */
-export type PatrolResult = { readonly grade: Grade; readonly records?: number } | { readonly failed: true };
+export type PatrolResult = ({ readonly grade: Grade; readonly records?: number } | { readonly failed: true }) & { readonly liverRead?: true };
 
 export const isFailed = (r: PatrolResult): r is { readonly failed: true } => 'failed' in r;
 
@@ -39,6 +40,8 @@ export interface PatrolGoals {
   /** The core room's goal, which design doc 8.5 makes necessary for anything above C. */
   readonly core: boolean;
   readonly side: boolean;
+  /** The highlighter has lit the liver and shown its load. */
+  readonly read?: boolean;
 }
 
 /**
@@ -46,9 +49,10 @@ export interface PatrolGoals {
  * each lift it one step from B, so S needs all three.
  */
 export function ratePatrol(tally: PatrolTally, goals: PatrolGoals): PatrolResult {
-  if (tally.forced) return { failed: true };
+  const read = goals.read === true ? { liverRead: true as const } : {};
+  if (tally.forced) return { failed: true, ...read };
   const records = tally.records > 0 ? { records: tally.records } : {};
-  if (!goals.core) return { grade: 'C', ...records };
+  if (!goals.core) return { grade: 'C', ...records, ...read };
   const step = (tally.hits <= HITS_FOR_A ? 1 : 0) + (goals.side ? 1 : 0);
-  return { grade: GRADES[1 + step]!, ...records };
+  return { grade: GRADES[1 + step]!, ...records, ...read };
 }

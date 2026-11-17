@@ -24,6 +24,8 @@ export interface PatrolPlay {
 export interface PatrolSession {
   readonly floor: FloorId;
   readonly play: PatrolPlay;
+  /** The liver's load of the day, the figure the highlighter shows over the liver once lit (design doc 8.6). */
+  readonly liverLoad: number;
   readonly done: (result: PatrolResult) => void;
 }
 

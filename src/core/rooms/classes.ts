@@ -87,8 +87,11 @@ export const OBJECT_CLASSES: Readonly<Record<string, ClassSpec>> = {
     cooldownSeconds: { type: 'int', default: 0, min: 0 },
     /** Reveal only: a conversation that opens once it is lit, such as the liver's sticky note when found out. */
     dialogueId: { type: 'ref', ref: 'dialogue', required: false },
-    /** Reveal only: a figure drawn over it once lit. `liver_overtime` is the hours the first line still has to work through. */
-    figure: enumOf('RevealFigure', ['none', 'liver_overtime']),
+    /**
+     * Reveal only: a figure drawn over it once lit. `liver_overtime` is the hours the first line still has to work through,
+     * `liver_load` the semester's liver load in its patrol (design doc 8.6).
+     */
+    figure: enumOf('RevealFigure', ['none', 'liver_overtime', 'liver_load']),
   },
   Conveyor: {
     direction: enumOf('Direction', SOCKETS, 'E'),

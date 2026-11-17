@@ -128,15 +128,18 @@ export function walkPrompt(): { title: string; caption: string; options: { label
   };
 }
 
+/** The liver's load as a figure to show: whole points, against the red line. */
+export const liverFigure = (load: number): string => fill('semester.liver.figure', { value: Math.round(load), cap: PARAMS.floorRedAt });
+
 /**
- * The health office's report on the liver (design doc 8.6): the load the blood test read, against the floor lines the elevator
- * would light at if the liver ever lit, and one card to go back to the day.
+ * A report on the liver (design doc 8.6), from the start-of-term checkup or the health office's blood test: the load read, against
+ * the floor lines the elevator would light at if the liver ever lit, and one card to go back to the day.
  */
-export function bloodTestPrompt(test: { readonly load: number }): { title: string; caption: string; options: { label: string; note: string }[] } {
-  const load = Math.round(test.load);
-  const band = test.load >= PARAMS.floorRedAt ? 'red' : test.load >= PARAMS.floorOrangeAt ? 'orange' : test.load >= PARAMS.floorYellowAt ? 'yellow' : 'ok';
+export function readingPrompt(reading: { readonly load: number; readonly by: 'checkup' | 'blood_test' }): { title: string; caption: string; options: { label: string; note: string }[] } {
+  const { load } = reading;
+  const band = load >= PARAMS.floorRedAt ? 'red' : load >= PARAMS.floorOrangeAt ? 'orange' : load >= PARAMS.floorYellowAt ? 'yellow' : 'ok';
   return {
-    title: fill('semester.blood_test.result', { value: load, cap: PARAMS.floorRedAt }),
+    title: `${str(`semester.${reading.by}.result`)}${liverFigure(load)}`,
     caption: `${str(`semester.blood_test.${band}`)}
 ${str('semester.blood_test.why')}`,
     options: [{ label: str('semester.blood_test.back'), note: str('semester.blood_test.back.note') }],

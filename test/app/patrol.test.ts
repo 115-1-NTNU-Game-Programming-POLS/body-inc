@@ -4,7 +4,7 @@ import { chapterContent } from '../../src/app/chapters.ts';
 import { CHAPTERS } from '../../src/app/content.ts';
 import { patrolChapter, patrolLoop, type PatrolPlay } from '../../src/app/patrol.ts';
 import { tagsFromQuery } from '../../src/app/session.ts';
-import { acetaldehydeCrates, amount, BASE_PERKS, enemyCenter, roomsOf, TICK_MS, type ChapterContent, type FloorId, type GameEvent, type TiledMap, type TickInput } from '../../src/core/index.ts';
+import { acetaldehydeCrates, amount, BASE_PERKS, enemyCenter, NO_INPUT, roomsOf, TICK_MS, type ChapterContent, type FloorId, type GameEvent, type TiledMap, type TickInput } from '../../src/core/index.ts';
 
 const content = (id: string): ChapterContent => {
   const chapter = CHAPTERS.get(id)!;
@@ -154,6 +154,44 @@ describe('the brain patrol (design doc 8.5)', () => {
     walk(p, 18 * 32 + 16, 6 * 32, 600, 24);
     wait(p, 10);
     expect(seen.some((e) => e.type === 'chapterEnded')).toBe(true);
+  });
+});
+
+describe('the highlighter in the liver patrol (design doc 8.6)', () => {
+  /** The lobby with the operator west of the liver, facing him, the highlighter in hand. */
+  const facingLiver = (): PatrolPlay => {
+    const p = play('liver', '?tags=alcohol:0', 'patrol-liver/lobby');
+    const s = p.loop.state;
+    p.loop.state = { ...s, game: { ...s.game, touching: [], operator: { ...s.game.operator, x: 230, y: 176, tool: 'highlighter', aim: { x: 1, y: 0 } } } };
+    return p;
+  };
+  const read = (p: PatrolPlay) => {
+    p.loop.advance(TICK_MS, () => ({ ...NO_INPUT, attack: true, attackPressed: true }));
+    for (let i = 0; i < 2000 && p.loop.state.dialogue?.id !== 'patrol.liver.found'; i++) p.loop.advance(TICK_MS);
+    expect(p.loop.state.dialogue?.id).toBe('patrol.liver.found');
+    for (let i = 0; i < 2000 && p.loop.state.dialogue; i++) p.loop.advance(TICK_MS, () => (i % 2 === 0 ? { ...NO_INPUT, interactPressed: true } : NO_INPUT));
+    expect(p.loop.state.dialogue).toBeNull();
+  };
+
+  it('carries the highlighter into the liver patrol and not into the brain one', () => {
+    expect(play('liver', '', 'patrol-liver/lobby').loop.state.run.tools).toContain('highlighter');
+    expect(play('brain', '', 'patrol-brain/lobby').loop.state.run.tools).not.toContain('highlighter');
+  });
+
+  it('a line at the liver in the hall shows his load and the patrol reports it read, whatever else it rates', () => {
+    const p = facingLiver();
+    expect(p.rate()).toEqual({ grade: 'C' });
+    read(p);
+    expect(p.rate()).toEqual({ grade: 'C', liverRead: true });
+  });
+
+  it('reads nothing while the line is drawn away from him', () => {
+    const p = facingLiver();
+    p.loop.state = { ...p.loop.state, game: { ...p.loop.state.game, operator: { ...p.loop.state.game.operator, aim: { x: -1, y: 0 } } } };
+    p.loop.advance(TICK_MS, () => ({ ...NO_INPUT, attack: true, attackPressed: true }));
+    for (let i = 0; i < 300; i++) p.loop.advance(TICK_MS);
+    expect(p.loop.state.dialogue).toBeNull();
+    expect(p.rate()).toEqual({ grade: 'C' });
   });
 });
 
