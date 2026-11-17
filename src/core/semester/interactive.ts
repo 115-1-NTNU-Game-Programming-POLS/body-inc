@@ -9,7 +9,7 @@ import type { DayView, FloorChoice, MorningPlan, NightPlan, SemesterContext, Sem
 export type Ask =
   | { readonly kind: 'plan'; readonly view: DayView }
   | { readonly kind: 'event'; readonly view: DayView; readonly id: string; readonly options: readonly string[] }
-  | { readonly kind: 'floor'; readonly view: DayView; readonly tags: TagState }
+  | { readonly kind: 'floor'; readonly view: DayView; readonly tags: TagState; readonly liverLoad: number }
   | { readonly kind: 'night'; readonly view: DayView };
 
 export type Answer =
@@ -55,7 +55,7 @@ export function advanceDay(s: SemesterState, ctx: SemesterContext, answers: read
       if (!options.includes(option)) throw new RangeError(`"${option}" is not an option of event "${id}" (${options.join(', ')})`);
       return option;
     },
-    floor: (view, tags) => take({ kind: 'floor', view, tags }).choice,
+    floor: (view, tags, liverLoad) => take({ kind: 'floor', view, tags, liverLoad }).choice,
     night: (view) => take({ kind: 'night', view }).plan,
   };
   let state: SemesterState;

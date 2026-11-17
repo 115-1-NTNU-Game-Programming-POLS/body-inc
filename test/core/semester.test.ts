@@ -680,14 +680,16 @@ describe('exams and hospital (design doc 8.9, 8.11)', () => {
 describe('what the player is allowed to see', () => {
   it('hands strategies lights and clues but no floor load', () => {
     const views: DayView[] = [];
-    const spy: Strategy = { ...ARCHETYPES.drinkerBlind, floor: (v, t) => { views.push(v); return ARCHETYPES.drinkerBlind.floor(v, t); } };
+    const spy: Strategy = { ...ARCHETYPES.drinkerBlind, floor: (v, t, l) => { views.push(v); return ARCHETYPES.drinkerBlind.floor(v, t, l); } };
     const ctx = contextFor(0.5, 1, { scenario: { 2: ['bbq'], 3: ['bbq'] } });
     runSemester(ctx, spy, 1);
     expect(views.length).toBeGreaterThan(5);
     for (const v of views) {
       expect(Object.keys(v).sort()).toEqual([
-        'S', 'bedDelay', 'caffeine', 'day', 'examTomorrow', 'exam', 'homework', 'hospitals', 'liverClues', 'modifiers', 'panel', 'progress', 'sleepDebt', 'staging', 'wake', 'weekend', 'welfare',
+        'S', 'bedDelay', 'caffeine', 'day', 'examTomorrow', 'exam', 'homework', 'hospitals', 'liverClues', 'liverReading', 'modifiers', 'panel', 'progress', 'sleepDebt', 'staging', 'wake', 'weekend', 'welfare',
       ].sort());
+      // The one load a view holds is a reading paid for; with no blood test and no patrol lit, that is the day-1 checkup.
+      expect(v.liverReading).toEqual({ day: 1, by: 'checkup', load: 0 });
       for (const b of v.panel.buttons) expect(Object.keys(b).every((k) => ['floor', 'light', 'note'].includes(k))).toBe(true);
     }
     // after a binge the clue is on while the light is not

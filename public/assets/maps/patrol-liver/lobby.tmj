@@ -10,7 +10,7 @@
  "tilewidth": 32,
  "tileheight": 32,
  "nextlayerid": 4,
- "nextobjectid": 4,
+ "nextobjectid": 5,
  "class": "Room",
  "properties": [
   {
@@ -27,6 +27,11 @@
    "name": "estSeconds",
    "type": "int",
    "value": 20
+  },
+  {
+   "name": "needs",
+   "type": "string",
+   "value": "highlighter"
   }
  ],
  "layers": [
@@ -599,6 +604,36 @@
        "name": "dialogueId",
        "type": "string",
        "value": "patrol.liver.lobby"
+      }
+     ]
+    },
+    {
+     "id": 4,
+     "name": "load",
+     "type": "Switch",
+     "x": 256,
+     "y": 128,
+     "width": 96,
+     "height": 96,
+     "rotation": 0,
+     "visible": true,
+     "properties": [
+      {
+       "name": "mode",
+       "type": "string",
+       "propertytype": "SwitchMode",
+       "value": "reveal"
+      },
+      {
+       "name": "dialogueId",
+       "type": "string",
+       "value": "patrol.liver.found"
+      },
+      {
+       "name": "figure",
+       "type": "string",
+       "propertytype": "RevealFigure",
+       "value": "liver_load"
       }
      ]
     }

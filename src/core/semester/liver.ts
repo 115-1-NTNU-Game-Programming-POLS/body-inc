@@ -4,9 +4,9 @@ import type { FloorThresholds } from './floors.ts';
  * The liver never lights (design doc 8.6), so it gives itself away through four other channels.
  * Two live here: the work orders that every liver-loading event pins on the board (input is
  * always visible), and the cross-floor clues, which are what other departments notice of the
- * liver's backlog. The blood test that reads the exact load is the event `blood_test`
- * (scenario.ts), and `DayView.bloodTest` carries its result; the highlighter on a liver patrol
- * and the start-of-term checkup are not built.
+ * liver's backlog. Three things read the exact load (design doc 8.6): the start-of-term checkup
+ * on day 1, the blood test event `blood_test` (scenario.ts), and the highlighter lit on the liver in
+ * its patrol; `DayView.liverReading` carries the latest.
  */
 export interface LiverClues {
   /** Days on which a liver-loading event sent a work order. */
