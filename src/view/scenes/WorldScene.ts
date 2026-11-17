@@ -144,7 +144,7 @@ export class WorldScene extends Phaser.Scene {
     if (this.wallSession) this.input.keyboard?.on('keydown-ESC', () => this.finishWall());
     this.patrolSession = this.registry.get('patrol') as PatrolSession | undefined;
     // Giving up is a failed patrol, not a way out of one that is going badly: it cuts no load and gives no card (design doc 8.4).
-    if (this.patrolSession) this.input.keyboard?.on('keydown-ESC', () => this.finishPatrol({ failed: true }));
+    if (this.patrolSession) this.input.keyboard?.on('keydown-ESC', () => this.patrolSession && this.finishPatrol(this.patrolSession.play.giveUp()));
     // Esc already means "leave" on the wall and in a patrol, so the menu belongs to the story rooms.
     if (!this.wallSession && !this.patrolSession) this.input.keyboard?.on('keydown-ESC', (e: KeyboardEvent) => this.openPause(e));
 
@@ -284,7 +284,7 @@ export class WorldScene extends Phaser.Scene {
         this.leave(() => this.scene.restart());
         break;
       case 'forcedLeave':
-        if (this.patrolSession) this.finishPatrol({ failed: true });
+        if (this.patrolSession) this.finishPatrol(this.patrolSession.play.giveUp());
         break;
       case 'chapterEnded': {
         if (this.patrolSession) {

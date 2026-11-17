@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import {
   COFFEE_PLANS, daySummary, endSummary, finishSemester, floorChoice, freshSeed, gradePrompt, kitWith, morningPlan, newSemester, NIGHT_PLANS, nightPlan, patrolOffer, patrolResultLine, projectPrompt, REST_PLANS, resumeSemester, semesterCleared, servesAlcohol, settingLines,
-  readingPrompt, TUTORIAL_COURSES, TUTORIAL_SEED, tutorLine, visitReport, walkPrompt, weekdayOf, welfareCaption, welfareText,
+  latestReading, readingPrompt, TUTORIAL_COURSES, TUTORIAL_SEED, tutorLine, visitReport, walkPrompt, weekdayOf, welfareCaption, welfareText,
   type CoffeePlanId, type NightPlanId, type RestPlanId,
 } from '../../app/semester.ts';
 import { musicFor } from '../../app/audio.ts';
@@ -84,6 +84,8 @@ export class SemesterScene extends Phaser.Scene {
   private head: Phaser.GameObjects.Text | undefined;
   /** The last reading of the liver whose report was shown, as day and reader, so a report comes once, right after the reading. */
   private readingShown: string | undefined;
+  /** The latest reading of the liver, at the top right of every phase once there is one. */
+  private readingLine: Phaser.GameObjects.Text | undefined;
   private lines: Phaser.GameObjects.GameObject[] = [];
   /** Until this time (scene clock) Esc does not leave the semester: the Esc that closed the wall must not also close this. */
   private escGuardUntil = 0;
@@ -119,6 +121,9 @@ export class SemesterScene extends Phaser.Scene {
     this.onContinue = undefined;
     this.lines = [];
     this.head = undefined;
+    this.readingLine = undefined;
+    // Phaser keeps one scene object for every semester of the page's life, so what was shown belongs to the last one.
+    this.readingShown = undefined;
     this.escGuardUntil = 0;
     addText(this, this.scale.width / 2, this.scale.height - 40, str(data.demo === true ? 'semester.hint.demo' : 'semester.hint'), { role: 'print', weight: 400, size: 18, color: DIM }).setOrigin(0.5, 1);
 
@@ -235,6 +240,9 @@ export class SemesterScene extends Phaser.Scene {
 
   private banner(view: DayView, phase: string): void {
     this.head?.destroy();
+    this.readingLine?.destroy();
+    const latest = latestReading(view.liverReading);
+    this.readingLine = latest === undefined ? undefined : addText(this, this.scale.width - 32, 28, latest, { role: 'print', weight: 400, size: 18, color: DIM }).setOrigin(1, 0);
     const weekday = str(`semester.weekday.${weekdayOf(view.day)}`);
     const day = fillStr('semester.day', { n: view.day, weekday });
     const exam = view.exam === null ? '' : `　${str(`semester.exam.${view.exam}`)}`;
@@ -641,6 +649,8 @@ export class SemesterScene extends Phaser.Scene {
     const title = fillStr('semester.sum.title', { n: before.day });
     this.head?.destroy();
     this.head = undefined;
+    this.readingLine?.destroy();
+    this.readingLine = undefined;
     const next = (): void => {
       if (!after.ended) {
         this.state = after;
