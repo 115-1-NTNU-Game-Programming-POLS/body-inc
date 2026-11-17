@@ -63,7 +63,7 @@ export class ElevatorPanelView {
       this.layer.add(box);
       this.plates.push({ frame, floor: b.floor, disabled: off });
     });
-    if (texts.tray) this.layer.add(addText(scene, cx, PLATE.top + PLATE.h + 28, texts.tray, { role: 'print', weight: 700, size: 20, color: '#c9d3e3' }).setOrigin(0.5, 0));
+    if (texts.tray) this.layer.add(addText(scene, cx, PLATE.top + PLATE.h + 28, texts.tray, { role: 'print', weight: 700, size: 20, color: '#c9d3e3' }).setOrigin(0.5, 0).setAlign('center'));
   }
 
   /** The floor of a plate, in panel order. */
