@@ -53,7 +53,7 @@ describe('cold start budget (issue #72)', () => {
   it('fails when the bundle grows past the limit, and says by how much the cold path stands', () => {
     const { problems } = checkPerfBudget(fakeDist(900));
     expect(problems).toHaveLength(1);
-    expect(problems[0]).toMatch(/the cold path is \d+\.\d kB, over the 1750 kB limit/);
+    expect(problems[0]).toMatch(/the cold path is \d+\.\d kB, over the 1800 kB limit/);
   });
 
   it('fails on a lower limit, so a limit that is never reached is not what keeps it green', () => {
