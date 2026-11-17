@@ -138,10 +138,12 @@ describe('the points and nodes in the progress slot', () => {
   it('shows each node with its price, marks the one owned and the one short of points, and ends with the way out', () => {
     const short = careerCards({ ...fresh, careerPoints: 10 });
     expect(short.title).toBe('職涯樹：可用 10 點');
-    expect(short.cards.map((c) => c.allowed)).toEqual([false, true]);
+    expect(short.cards.map((c) => c.node)).toEqual(['early_checkup', 'order_details', 'two_settings', 'reroll', undefined]);
+    expect(short.cards.map((c) => c.allowed)).toEqual([false, false, false, false, true]);
     expect(short.cards[0]!.label).toBe('健檢提前（40 點）');
     expect(short.cards[0]!.note).toContain('點數還不夠');
-    expect(careerCards({ ...fresh, careerPoints: 40 }).cards[0]!.allowed).toBe(true);
+    expect(careerCards({ ...fresh, careerPoints: 40 }).cards.map((c) => c.allowed)).toEqual([true, false, false, true, true]);
+    expect(careerCards({ ...fresh, careerPoints: 60 }).cards.map((c) => c.label)).toEqual(['健檢提前（40 點）', '工單明細（60 點）', '多一種開局卡（50 點）', '開局重抽（40 點）', '回到標題']);
     const owned = careerCards({ ...fresh, careerPoints: 100, career: ['early_checkup'] });
     expect(owned.cards[0]).toMatchObject({ label: '健檢提前（已解鎖）', allowed: false });
     expect(owned.cards.at(-1)!.node).toBeUndefined();

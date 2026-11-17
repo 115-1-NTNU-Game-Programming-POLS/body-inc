@@ -66,6 +66,15 @@ export interface SemesterContext {
   readonly clause?: number;
   /** The setting card of the semester, whose hours the days spend as work whatever the plan says. */
   readonly setting?: Setting;
+  /** A patrol's welfare offer may be drawn again once a semester (the career node 開局重抽, design doc 8.14). */
+  readonly reroll?: true;
+}
+
+/** A work order sent to the liver: the day, and the event and option that sent it. */
+export interface WorkOrder {
+  readonly day: number;
+  readonly event: string;
+  readonly option: string;
 }
 
 /** One assignment of the operating-systems card, as the state keeps it. `debug` is drawn at the start and stays hidden until the writing is done. */
@@ -138,6 +147,12 @@ export interface DayRecord {
   readonly grade?: { readonly hours: number; readonly done: boolean };
   /** Hours of sleep the night counted for, as the debt saw them (a hospital night counts as good sleep); absent on the final exam day. */
   readonly slept?: number;
+  /** Hours of the day a cup of coffee was drunk at; absent when none was. */
+  readonly coffee?: readonly number[];
+  /** The hours of grading the night itself took, which push bedtime back; absent when it took none. */
+  readonly gradeNight?: number;
+  /** The patrol's welfare offer was drawn again (開局重抽, design doc 8.14), which a semester does once at most. */
+  readonly rerolled?: true;
   /** The leaderboard contest was fought tonight and over before the clock struck 24, which the next patrol's 知所進退 reads. */
   readonly contestStop?: true;
   /** The welfare card the day's patrol gave. */
@@ -191,6 +206,8 @@ export interface SemesterState {
   readonly zeroCupDays: number;
   /** The day of each work order, one per liver-loading event (design doc 8.6), so a day with two drinks appears twice. */
   readonly liverOrders: readonly number[];
+  /** The same work orders with the event and the option that sent each, for the career node 工單明細 (design doc 8.14). */
+  readonly workOrders: readonly WorkOrder[];
   readonly hospitals: number;
   /** The assignments of the courses taken, in order; empty when the operating-systems card is not. */
   readonly homework: readonly Assignment[];
@@ -230,6 +247,8 @@ export interface FloorChoice {
   readonly played?: readonly (PatrolResult | null)[];
   /** The welfare card picked from what the first patrol offered (`welfareOffer`); only a played patrol that was not failed offers any. */
   readonly card?: string;
+  /** The card was picked from the offer drawn again, which `SemesterContext.reroll` allows once a semester. */
+  readonly reroll?: true;
 }
 
 export interface NightPlan {
@@ -254,6 +273,8 @@ export interface WelfareView {
   /** The night before, which a card picked in the middle of the day gives the overtime patrol a kit from. */
   readonly last?: LastNight;
   readonly salt: number;
+  /** The semester has drawn a welfare offer again already. */
+  readonly rerolled: boolean;
 }
 
 /**
@@ -278,6 +299,8 @@ export interface DayView {
   readonly welfare: WelfareView;
   readonly panel: ElevatorPanel;
   readonly liverClues: LiverClues;
+  /** The work orders of `liverClues` with what sent each; only the career node 工單明細 shows them. */
+  readonly workOrders: readonly WorkOrder[];
   /**
    * The latest reading of the liver's load and the day it was taken (design doc 8.6). The only load a view ever holds: the player
    * paid for it with an afternoon or a patrol, and it is the number as it was that day, not the liver's load now.

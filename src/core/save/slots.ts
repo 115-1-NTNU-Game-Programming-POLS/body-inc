@@ -293,6 +293,8 @@ export interface SemesterRun {
   readonly clause?: number;
   /** The career tree nodes owned when the semester began, which shape its schedule; absent is none. */
   readonly career?: readonly string[];
+  /** The setting card picked with the career node 多一種開局卡; absent is the one the seed deals. */
+  readonly setting?: string;
   /** The answers of each finished day, in the order the day asked its questions. */
   readonly days: readonly (readonly Answer[])[];
 }
@@ -344,6 +346,7 @@ const ANSWER: Schema = {
               },
             },
             card: { type: 'string', minLength: 1 },
+            reroll: { const: true },
           },
         },
       },
@@ -367,7 +370,7 @@ const ANSWER: Schema = {
 
 export const RUN: SlotDef<RunData> = {
   name: 'run',
-  version: 11,
+  version: 12,
   schema: {
     type: 'object',
     additionalProperties: false,
@@ -385,6 +388,7 @@ export const RUN: SlotDef<RunData> = {
               courses: { type: 'array', items: { type: 'string', minLength: 1 } },
               clause: INT,
               career: { type: 'array', uniqueItems: true, items: { type: 'string', minLength: 1 } },
+              setting: { type: 'string', minLength: 1 },
               days: { type: 'array', items: { type: 'array', items: ANSWER } },
             },
           },
@@ -393,8 +397,8 @@ export const RUN: SlotDef<RunData> = {
     },
   },
   defaults: () => ({ semester: null }),
-  // Versions 2 to 10 add optional fields (the course list; the hours of writing and debugging; the contest hours; the project hours and the walk; the grading hours; the overtime clause; the results of the patrols played; the welfare card picked and the records a patrol made; the highlighter's reading of the liver in a patrol; the career tree nodes owned at the start); an older run is valid without them.
-  migrations: { 1: (data) => data, 2: (data) => data, 3: (data) => data, 4: (data) => data, 5: (data) => data, 6: (data) => data, 7: (data) => data, 8: (data) => data, 9: (data) => data, 10: (data) => data },
+  // Versions 2 to 12 add optional fields (the course list; the hours of writing and debugging; the contest hours; the project hours and the walk; the grading hours; the overtime clause; the results of the patrols played; the welfare card picked and the records a patrol made; the highlighter's reading of the liver in a patrol; the career tree nodes owned at the start; the setting card picked and the welfare offer drawn again); an older run is valid without them.
+  migrations: { 1: (data) => data, 2: (data) => data, 3: (data) => data, 4: (data) => data, 5: (data) => data, 6: (data) => data, 7: (data) => data, 8: (data) => data, 9: (data) => data, 10: (data) => data, 11: (data) => data },
 };
 
 export const SLOTS = [SETTINGS, STORY, PROGRESS, RUN] as const;
