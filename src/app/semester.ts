@@ -330,11 +330,12 @@ export const patrolOffer = (view: DayView, ctx: SemesterContext, floor: FloorId,
 
 /**
  * The offer drawn again in place of `offer` with the career node 開局重抽 (design doc 8.14), or none when the semester may not
- * draw again: without the node, once it has, or when no card is left that the first offer did not show.
+ * draw again: without the node, once it has, or when the cards the first offer did not show cannot fill as many again.
  */
 export function rerollOffer(view: DayView, ctx: SemesterContext, floor: FloorId, result: PatrolResult | null, offer: readonly string[]): readonly string[] {
   if (ctx.reroll !== true || view.welfare.rerolled || result === null || isFailed(result) || offer.length === 0) return [];
-  return welfareOffer({ salt: view.welfare.salt, day: view.day, floor, grade: result.grade, held: view.welfare.held, courses: ctx.courses, instead: offer });
+  const again = welfareOffer({ salt: view.welfare.salt, day: view.day, floor, grade: result.grade, held: view.welfare.held, courses: ctx.courses, instead: offer });
+  return again.length < offer.length ? [] : again;
 }
 
 export const welfareText = (id: string): { label: string; note: string } => ({ label: str(`welfare.${id}.name`), note: str(`welfare.${id}.effect`) });

@@ -698,7 +698,9 @@ export function playDay(from: SemesterState, ctx: SemesterContext, strategy: Str
       if (choice.reroll === true) {
         if (ctx.reroll !== true) throw new RangeError('an offer can only be drawn again with the career node 開局重抽');
         if (rerolledBefore(d.s)) throw new RangeError('the semester has drawn an offer again already');
-        offer = welfareOffer({ ...request, instead: offer });
+        const again = welfareOffer({ ...request, instead: offer });
+        if (again.length < offer.length) throw new RangeError(`only ${again.length} cards are left to draw again in place of ${offer.length}`);
+        offer = again;
         d.rerolled = true;
       }
       if (!offer.includes(choice.card)) throw new RangeError(`"${choice.card}" is not among the cards the patrol offered (${offer.join(', ') || 'none'})`);

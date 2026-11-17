@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { newSemester, resumeSemester, settingChoices, TUTORIAL_SEED, workOrderTray } from '../../src/app/semester.ts';
+import { newSemester, rerollOffer, resumeSemester, settingChoices, TUTORIAL_SEED, workOrderTray } from '../../src/app/semester.ts';
 import {
   decode, encode, playDay, RUN, startSemester, welfareOffer, type DayView, type FloorChoice, type SemesterContext, type SemesterState, type Strategy,
 } from '../../src/core/index.ts';
@@ -99,11 +99,24 @@ describe('開局重抽', () => {
 
   it('lets a semester with the node take a card from the offer drawn again, once', () => {
     const seen: DayView[] = [];
-    const s = play(ctxOf(true), picker([2], seen), 3);
-    expect(s.history.map((r) => r.rerolled === true)).toEqual([false, true, false]);
-    expect(s.history[1]!.card).toBe(offers(seen[1]!).again[0]);
-    expect(seen.map((v) => v.welfare.rerolled)).toEqual([false, false, true]);
-    expect(() => play(ctxOf(true), picker([2, 3]), 3)).toThrow(/drawn an offer again already/);
+    const s = play(ctxOf(true), picker([1], seen), 3);
+    expect(s.history.map((r) => r.rerolled === true)).toEqual([true, false, false]);
+    expect(s.history[0]!.card).toBe(offers(seen[0]!).again[0]);
+    expect(seen.map((v) => v.welfare.rerolled)).toEqual([false, true, true]);
+    expect(() => play(ctxOf(true), picker([1, 2]), 3)).toThrow(/drawn an offer again already/);
+  });
+
+  it('is not offered when the cards left cannot fill a whole offer, and such a pick is refused', () => {
+    // The liver's pool is the four general cards: an A shows three and leaves one.
+    const liver: Strategy = { ...quiet, floor: (v) => {
+      const req = { salt: v.welfare.salt, day: v.day, floor: 'liver' as const, grade: 'A' as const, held: v.welfare.held, courses: undefined };
+      const first = welfareOffer(req);
+      const again = welfareOffer({ ...req, instead: first });
+      expect([first.length, again.length]).toEqual([3, 1]);
+      expect(rerollOffer(v, ctxOf(true), 'liver', { grade: 'A' }, first)).toEqual([]);
+      return { patrol: 'liver', played: [{ grade: 'A' }], card: again[0]!, reroll: true };
+    } };
+    expect(() => play(ctxOf(true), liver, 1)).toThrow(/only 1 cards are left/);
   });
 
   it('refuses the offer drawn again without the node, or without a card picked from it', () => {
