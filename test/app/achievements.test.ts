@@ -47,6 +47,13 @@ describe('主動健檢 (design doc 8.14)', () => {
     expect(earnedAchievements(days(3, player({})))).toEqual([]);
   });
 
+  it('takes the next day with an elevator when the day after the barbecue is the midterm', () => {
+    const s = days(6, player({ 6: 'liver' }), [4]);
+    expect(s.history.find((r) => r.day === 5)!.kind).toBe('exam');
+    expect(earnedAchievements(s)).toEqual(['active_checkup']);
+    expect(earnedAchievements(days(7, player({ 7: 'liver' }), [4]))).toEqual([]);
+  });
+
   it('needs the barbecue: another event the day before does not count', () => {
     const ctx = contextFor(0.5, 1, { scenario: { 2: ['deadline'] } });
     let st = startSemester(ctx, 1);
