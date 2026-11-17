@@ -55,12 +55,18 @@ export function commendation(id: AchievementId): { title: string; lines: string[
 }
 
 /**
- * The liver's work-order tray in the lobby (design doc 8.6), which 主動健檢 unlocks: the work orders sent to the liver this semester,
- * by the days they came, and still no load.
+ * The liver's work-order tray in the lobby (design doc 8.6), which 主動健檢 unlocks: how many work orders the liver was sent this
+ * semester, and still no load. Their days and causes are the career node 工單明細's (design doc 8.14), not the tray's.
  */
 export function workOrderTray(orders: readonly number[]): string {
-  if (orders.length === 0) return str('semester.tray.none');
-  return fill('semester.tray.some', { n: orders.length, list: [...new Set(orders)].join('、') });
+  return orders.length === 0 ? str('semester.tray.none') : fill('semester.tray.some', { n: orders.length });
+}
+
+/** The commendation's seal, read as a square seal is: columns from the right, each from the top. */
+export function sealColumns(): string[][] {
+  const chars = [...str('semester.commend.seal')];
+  const side = Math.ceil(Math.sqrt(chars.length));
+  return Array.from({ length: side }, (_, c) => chars.slice(c * side, c * side + side));
 }
 
 /** Whether the semester passed both exams, which is what clears its clause level. */

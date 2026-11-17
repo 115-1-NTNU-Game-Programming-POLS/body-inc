@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { commendation, finishSemester, hasAchievement, workOrderTray } from '../../src/app/semester.ts';
+import { commendation, finishSemester, hasAchievement, sealColumns, workOrderTray } from '../../src/app/semester.ts';
 import { SaveStore } from '../../src/app/storage.ts';
 import {
   ACHIEVEMENTS, decode, DEFAULT_HOST, earnedAchievements, encode, playDay, PROGRESS, startSemester,
@@ -110,14 +110,26 @@ describe('what the achievement shows', () => {
     }
   });
 
-  it('lists the work orders of the semester by day in the tray, and no load', () => {
+  it('counts the work orders of the semester in the tray, with neither their days nor a load', () => {
     expect(workOrderTray([])).toBe('肝臟工單匣：本局還沒有送進肝的工單');
-    expect(workOrderTray([2, 3, 3])).toBe('肝臟工單匣：本局 3 張，第 2、3 天');
+    expect(workOrderTray([2, 3, 3])).toBe('肝臟工單匣：本局已送進 3 張工單');
+    expect(workOrderTray([2, 3, 3])).not.toMatch(/第|天/);
   });
 
-  it('fills the tray from the clues the view already carries', () => {
-    const s = days(3, player({}), [2, 3]);
+  it('fills the tray from the clues the floor\'s view carries', () => {
+    const seen: string[] = [];
+    const watching: Strategy = { ...player({}), floor: (view, tags, load) => {
+      seen.push(workOrderTray(view.liverClues.orders));
+      return player({}).floor(view, tags, load);
+    } };
+    const s = days(3, watching, [2, 3]);
     expect(s.liverOrders.length).toBeGreaterThan(0);
-    expect(workOrderTray(s.liverOrders)).toContain('第 2、3 天');
+    // The floor is chosen after the day's events, so a barbecue's order is in the tray the same day.
+    expect(seen).toEqual(['肝臟工單匣：本局還沒有送進肝的工單', '肝臟工單匣：本局已送進 1 張工單', workOrderTray(s.liverOrders)]);
+    expect(seen[2]).toBe('肝臟工單匣：本局已送進 2 張工單');
+  });
+
+  it('reads the seal in columns from the right, three characters each', () => {
+    expect(sealColumns()).toEqual([['人', '體', '股'], ['份', '有', '限'], ['公', '司', '印']]);
   });
 });
