@@ -284,5 +284,3 @@ export function rankGain(hours: number, S: number): number {
 /** The board as a percent of full marks, which is what the final exam takes its share from. */
 export const rankPercent = (score: number): number => 100 * Math.min(1, score / RANK_FULL);
 
-/** A passed semester's review: the grade times the reward of its burden, plus a flat `bonus` such as the final project's. */
-export const reviewPoints = (grade: number, credits: number, bonus = 0): number => grade * BURDEN_REWARD[burdenOf(credits)] + bonus;

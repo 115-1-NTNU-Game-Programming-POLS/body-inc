@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { fillStr, str } from '../../src/app/content.ts';
 import { daySummary, endSummary, morningPlan, newSemester, nightPlan } from '../../src/app/semester.ts';
-import { creditsOf, playDay, PROJECT_FIN_PENALTY, PROJECT_NEED, PROJECT_REVIEW, reviewPoints, summarize, type SemesterState, type Strategy } from '../../src/core/index.ts';
+import { BURDEN_REWARD, burdenOf, creditsOf, healthScore, playDay, PROJECT_FIN_PENALTY, PROJECT_NEED, PROJECT_REVIEW, summarize, type SemesterState, type Strategy } from '../../src/core/index.ts';
 
 const player = (project: number, walk: boolean): Strategy => ({
   plan: () => morningPlan('none', 'balanced', 0, project, walk),
@@ -46,8 +46,9 @@ describe('what the player is told about the compiler project', () => {
     const done = end(40, PROJECT_NEED);
     const grade = summarize(done, ctx).grade;
     expect(summarize(done, ctx).passFin).toBe(true);
-    expect(reviewOf(done)).toBe(Math.round(reviewPoints(grade, creditsOf(WITH), PROJECT_REVIEW)));
-    expect(reviewOf(done)).toBeGreaterThan(Math.round(reviewPoints(grade, creditsOf(WITH))));
+    const base = (0.5 * grade + 0.5 * healthScore(done, ctx)) * 0.8 ** done.hospitals * BURDEN_REWARD[burdenOf(creditsOf(WITH))];
+    expect(reviewOf(done)).toBe(Math.round(base + PROJECT_REVIEW));
+    expect(reviewOf({ ...done, project: PROJECT_NEED - 1 })).toBe(Math.round(base));
     const failed = end(0, PROJECT_NEED);
     expect(summarize(failed, ctx).passFin).toBe(false);
     expect(endSummary(failed, ctx).some((l) => l.includes('另加') || l.startsWith('學期評價'))).toBe(false);
