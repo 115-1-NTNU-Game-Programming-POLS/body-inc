@@ -151,7 +151,7 @@ describe('a played patrol in the semester', () => {
 });
 
 describe('the run slot with played patrols', () => {
-  const played = [{ grade: 'A' as const }, { failed: true as const }, null];
+  const played = [{ grade: 'A' as const }, { failed: true as const }, null, { grade: 'C' as const, liverRead: true as const }, { failed: true as const, liverRead: true as const }];
   const run = {
     semester: {
       seed: 3,
@@ -169,9 +169,9 @@ describe('the run slot with played patrols', () => {
   });
 
   it('refuses a result that is neither a rating nor a failure', () => {
-    for (const bad of [{ grade: 'Z' }, { failed: false }, {}, { grade: 'A', failed: true }]) {
+    for (const bad of [{ grade: 'Z' }, { failed: false }, {}, { grade: 'A', failed: true }, { grade: 'A', liverRead: false }, { failed: true, liverRead: 1 }]) {
       const data = { semester: { seed: 3, days: [[{ kind: 'floor', choice: { patrol: 'brain', played: [bad] } }]] } };
-      expect(decode(RUN, JSON.stringify({ schema: 9, data })).kind, JSON.stringify(bad)).toBe('invalid');
+      expect(decode(RUN, JSON.stringify({ schema: 10, data })).kind, JSON.stringify(bad)).toBe('invalid');
     }
   });
 });
