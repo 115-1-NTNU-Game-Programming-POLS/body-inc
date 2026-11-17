@@ -423,9 +423,9 @@ export function endSummary(state: SemesterState, ctx: SemesterContext, opened?: 
   else if (sum.hospitalized) lines.push(str('semester.end.hospital'));
   lines.push(fill('semester.end.debt', { debt: oneDecimal(sum.finalDebt) }));
   // A finished project's points go into the year-end points of any semester, passed or not.
-  if (takes(ctx.courses, 'compiler') && !sum.bankrupt) {
+  if (takes(ctx.courses, 'compiler')) {
     if (projectDone) lines.push(fill('semester.end.project.done', { points: PROJECT_REVIEW }));
-    else if (!projectDone && !hospitalFinal) lines.push(fill('semester.end.project.fail', { points: PROJECT_FIN_PENALTY }));
+    else if (!sum.bankrupt && !hospitalFinal) lines.push(fill('semester.end.project.fail', { points: PROJECT_FIN_PENALTY }));
   }
   // Late grades cost nothing but the line in the review (design doc 8.3), so the line only has a meaning to a semester that was not lost to bankruptcy.
   if (takes(ctx.courses, 'ta') && !sum.bankrupt) {

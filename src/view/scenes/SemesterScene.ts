@@ -99,6 +99,8 @@ export class SemesterScene extends Phaser.Scene {
   private lines: Phaser.GameObjects.GameObject[] = [];
   /** Until this time (scene clock) Esc does not leave the semester: the Esc that closed the wall must not also close this. */
   private escGuardUntil = 0;
+  /** What Esc does instead of leaving, while that would skip a step the semester's end must not lose. */
+  private escape: (() => void) | undefined;
 
   constructor() {
     super('Semester');
@@ -141,11 +143,12 @@ export class SemesterScene extends Phaser.Scene {
     // Phaser keeps one scene object for every semester of the page's life, so what was shown belongs to the last one.
     this.readingShown = undefined;
     this.escGuardUntil = 0;
+    this.escape = undefined;
     addText(this, this.scale.width / 2, this.scale.height - 40, str(data.demo === true ? 'semester.hint.demo' : 'semester.hint'), { role: 'print', weight: 400, size: 18, color: DIM }).setOrigin(0.5, 1);
 
     const onKey = (e: KeyboardEvent) => {
       // Leaving keeps the save of the last finished day; the hint line says so.
-      if (e.code === 'Escape') return performance.now() < this.escGuardUntil ? undefined : this.leave();
+      if (e.code === 'Escape') return performance.now() < this.escGuardUntil ? undefined : (this.escape ?? (() => this.leave()))();
       if (e.repeat || this.busy) return;
       if (this.menu === undefined) {
         if (CONFIRM.includes(e.code)) this.proceed();
@@ -178,7 +181,7 @@ export class SemesterScene extends Phaser.Scene {
    * the year-end review of a passed semester before the end page (build plan: evidence wall). The semester sleeps while the World and the HUD run the wall
    * chapter; taking the page from the report desk, or Esc, wakes it and goes on with `go`.
    */
-  private showWall(make: () => Wall, go: () => void): void {
+  private showWall(make: () => Wall, go: () => void, onPage?: () => void): void {
     const base = (this.registry.get('chapters') as ReadonlyMap<string, ChapterContent> | undefined)?.get(WALL_CHAPTER);
     let session: { wall: Wall; loop: ReturnType<typeof wallLoop>['loop'] };
     try {
@@ -196,6 +199,7 @@ export class SemesterScene extends Phaser.Scene {
     this.registry.set('loop', session.loop);
     this.registry.set('wall', {
       wall: session.wall,
+      ...(onPage ? { onPage } : {}),
       done: () => {
         this.registry.set('loop', undefined);
         this.events.once(Phaser.Scenes.Events.WAKE, () => {
@@ -688,6 +692,7 @@ export class SemesterScene extends Phaser.Scene {
   private careerTree(done: () => void): void {
     const saves = this.registry.get('saves') as SaveStore | undefined;
     const progress = this.registry.get('progress') as ProgressData | undefined;
+    this.escape = undefined;
     if (!this.keep || saves === undefined || progress === undefined) return done();
     const { title, caption, cards } = careerCards(progress);
     this.cards(cards, title, caption, (i) => {
@@ -768,6 +773,8 @@ export class SemesterScene extends Phaser.Scene {
       const toEnd = (): void => {
         const found = this.pagesFound(after, pages);
         const leave = this.keep ? () => this.careerTree(() => this.leave()) : () => this.leave();
+        // Esc from the commendation or the end page still passes through the career tree: nothing else opens it.
+        this.escape = leave;
         this.commend(commended, () => this.page(str('semester.end.title'), endSummary(after, this.ctx, opened, found), str(this.keep ? 'semester.end.next' : 'semester.end.back'), leave));
       };
       let review: Wall | undefined;
@@ -778,7 +785,7 @@ export class SemesterScene extends Phaser.Scene {
       }
       if (review === undefined) return toEnd();
       const wall = review;
-      this.showWall(() => wall, toEnd);
+      this.showWall(() => wall, toEnd, () => void this.pagesFound(after, pages));
     };
     // The report is an addition to the day summary: if it cannot be written, or there is nowhere to keep the page it
     // unlocks (Boot always sets both), the day goes on without it instead of leaving the screen half cleared.

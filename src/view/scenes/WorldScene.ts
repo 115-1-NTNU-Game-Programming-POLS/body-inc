@@ -271,6 +271,7 @@ export class WorldScene extends Phaser.Scene {
         const kept = keepPage(this.registry.get('saves') as SaveStore, this.registry.get('progress') as ProgressData, e.id);
         if (kept.issues.length > 0) this.game.events.emit('save-issues', kept.issues);
         this.registry.set('progress', kept.progress);
+        this.wallSession?.onPage?.();
         this.note(str(kept.isNew ? 'handbook.unlocked' : 'handbook.known').replace('{title}', str(titleKey(e.id))));
         // Taking the page from the report desk is the end of the wall; the note gets a moment on screen first.
         if (this.wallSession && !this.leaving) this.time.delayedCall(WALL_END_MS, () => this.finishWall());

@@ -74,6 +74,13 @@ describe('the year-end review points (design doc 8.14)', () => {
       yearEndPoints({ ...s, project: 0 }, newSemester(1, [], ['os', 'database', 'networks', 'software']).ctx, 0));
   });
 
+  it('explains the points of a finished project on the end page of a bankrupt semester too', () => {
+    const { ctx: c } = newSemester(1, [], ['os', 'compiler', 'database', 'networks']);
+    const s = { ...startSemester(c, 1), history: at().history, bankrupt: true, ended: true, project: 10 };
+    expect(endSummary(s, c)).toContain('期末專案完成，年終評價點數另加 10');
+    expect(endSummary({ ...s, project: 9 }, c).some((l) => l.includes('期末專案'))).toBe(false);
+  });
+
   it('refuses a page count that is not a whole number of 0 or more', () => {
     expect(() => yearEndPoints(at(), ctx, -1)).toThrow(RangeError);
     expect(() => yearEndPoints(at(), ctx, 1.5)).toThrow(RangeError);
