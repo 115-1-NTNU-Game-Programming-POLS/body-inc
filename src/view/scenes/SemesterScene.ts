@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import {
-  COFFEE_PLANS, daySummary, endSummary, finishSemester, floorChoice, freshSeed, gradePrompt, kitWith, morningPlan, newSemester, NIGHT_PLANS, nightPlan, patrolOffer, patrolResultLine, projectPrompt, REST_PLANS, resumeSemester, semesterCleared, servesAlcohol, settingLines,
+  COFFEE_PLANS, commendation, sealColumns, daySummary, endSummary, finishSemester, hasAchievement, workOrderTray, floorChoice, freshSeed, gradePrompt, kitWith, morningPlan, newSemester, NIGHT_PLANS, nightPlan, patrolOffer, patrolResultLine, projectPrompt, REST_PLANS, resumeSemester, semesterCleared, servesAlcohol, settingLines,
   latestReading, readingPrompt, TUTORIAL_COURSES, TUTORIAL_SEED, tutorLine, visitReport, walkPrompt, weekdayOf, welfareCaption, welfareText,
   type CoffeePlanId, type NightPlanId, type RestPlanId,
 } from '../../app/semester.ts';
@@ -10,8 +10,8 @@ import { keepPage } from '../../app/handbook.ts';
 import { patrolChapter, patrolLoop, type PatrolSession } from '../../app/patrol.ts';
 import type { SaveStore } from '../../app/storage.ts';
 import {
-  advanceDay, buildWall, gradeRoom, MAX_DEBUG_PER_NIGHT, MAX_RANK_HOURS, nightRoom, pinWall, projectRoom, rankGain, RANK_FULL, rankSharePercent, reviewWall, RUN, WRITE_HOURS, type Answer, type Ask, type ChapterContent, type DayView, type FloorId, type HomeworkView, type PatrolKit, type PatrolResult, type ProgressData, type ReportDocument, type RunData,
-  type SemesterContext, type SemesterRun, type SemesterState, type Settings, type TagState, type Wall,
+  advanceDay, buildWall, earnedAchievements, gradeRoom, MAX_DEBUG_PER_NIGHT, MAX_RANK_HOURS, nightRoom, pinWall, projectRoom, rankGain, RANK_FULL, rankSharePercent, reviewWall, RUN, WRITE_HOURS, type Answer, type Ask, type ChapterContent, type DayView, type FloorId, type HomeworkView, type PatrolKit, type PatrolResult, type ProgressData, type ReportDocument, type RunData,
+  type AchievementId, type SemesterContext, type SemesterRun, type SemesterState, type Settings, type TagState, type Wall,
 } from '../../core/index.ts';
 import { WALL_CHAPTER, wallLoop, type WallSession } from '../../app/wall.ts';
 import { soundIn } from '../audio/installSound.ts';
@@ -25,6 +25,10 @@ const PAPER = '#fbfaf6';
 const INK = '#0c2d5e';
 /** The report sheet of art direction 8.5: 720 wide, a 64 px binding margin on the left, 8 px hard shadow; at most 640 tall. */
 const SHEET = { y: 24, w: 720, h: 624, binding: 64, pad: 24, top: 28, footer: 40, shadow: 8 };
+/** The commendation of art direction 9: a 640 x 440 square-cornered document with the company's 120 x 120 seal. */
+const COMMEND = { w: 640, h: 440, pad: 40, seal: 120 };
+const STAMP_RED = 0xc8372d;
+const STAMP_RED_CSS = '#c8372d';
 /** How long a chosen card stays highlighted before the next question, so the choice is seen. */
 const CHOSEN_MS = 220;
 /** After the wall closes, Esc is ignored this long so a double press does not also leave the semester. */
@@ -361,7 +365,10 @@ export class SemesterScene extends Phaser.Scene {
     const read = (result: PatrolResult | null): void => {
       if (result?.liverRead === true) this.showReading({ day: view.day, by: 'highlighter', load: liverLoad });
     };
-    this.panel(view, str('semester.floor.title'), undefined, (patrol) => {
+    // 主動健檢 puts the liver's work-order tray in the lobby (design doc 8.6, 8.14).
+    const progress = this.registry.get('progress') as ProgressData | undefined;
+    const tray = hasAchievement(progress, 'active_checkup') ? workOrderTray(view.liverClues.orders) : undefined;
+    this.panel(view, str('semester.floor.title'), undefined, tray, (patrol) => {
       this.playPatrol(patrol, tags, liverLoad, view.day * 2, view.welfare.kit, (first) => {
         read(first);
         this.askCard(view, patrol, first, (card) => {
@@ -373,7 +380,7 @@ export class SemesterScene extends Phaser.Scene {
             str('semester.floor.overtime.title'), first === null ? undefined : patrolResultLine(patrol, first),
             (i) => {
               if (i === 0) return this.answer({ kind: 'floor', choice: floorChoice(patrol, undefined, [first], card) });
-              this.panel(view, str('semester.floor.overtime.again'), patrol, (overtime) => {
+              this.panel(view, str('semester.floor.overtime.again'), patrol, tray, (overtime) => {
                 this.playPatrol(overtime, tags, liverLoad, view.day * 2 + 1, kitWith(view, card), (second) => {
                   read(second);
                   this.answer({ kind: 'floor', choice: floorChoice(patrol, overtime, [first, second], card) });
@@ -433,9 +440,9 @@ export class SemesterScene extends Phaser.Scene {
     this.scene.launch('Hud');
   }
 
-  private panel(view: DayView, title: string, disabled: FloorId | undefined, pick: (floor: FloorId) => void): void {
+  private panel(view: DayView, title: string, disabled: FloorId | undefined, tray: string | undefined, pick: (floor: FloorId) => void): void {
     this.clear();
-    const panel = new ElevatorPanelView(this, view.panel, { title }, disabled, (i) => this.choose(i), (i) => this.select(i));
+    const panel = new ElevatorPanelView(this, view.panel, { title, ...(tray === undefined ? {} : { tray }) }, disabled, (i) => this.choose(i), (i) => this.select(i));
     this.menu = {
       n: view.panel.buttons.length,
       paint: (c) => panel.paint(c),
@@ -639,18 +646,56 @@ export class SemesterScene extends Phaser.Scene {
   }
 
   /**
-   * A semester fixed from the URL does not count, so looking at the rules never ends the scripted first week. Gives the clause
-   * level the clear just unlocked, if it did.
+   * A semester fixed from the URL does not count, so looking at the rules never ends the scripted first week and earns nothing.
+   * Gives the clause level the clear just unlocked, if it did, and the achievements earned for the first time.
    */
-  private countSemester(after: SemesterState): number | undefined {
+  private countSemester(after: SemesterState): { opened?: number; commended: AchievementId[] } {
     const progress = this.registry.get('progress') as ProgressData | undefined;
     const saves = this.registry.get('saves') as SaveStore | undefined;
-    if (!this.keep || progress === undefined || saves === undefined) return undefined;
-    const done = finishSemester(saves, progress, { level: this.ctx.clause ?? 0, cleared: semesterCleared(after, this.ctx) });
+    if (!this.keep || progress === undefined || saves === undefined) return { commended: [] };
+    const done = finishSemester(saves, progress, { level: this.ctx.clause ?? 0, cleared: semesterCleared(after, this.ctx) }, earnedAchievements(after));
     if (done.issues.length > 0) this.game.events.emit('save-issues', done.issues);
     this.registry.set('progress', done.progress);
     const unlocked = done.progress.clauseUnlocked ?? 0;
-    return unlocked > (progress.clauseUnlocked ?? 0) ? unlocked : undefined;
+    return { ...(unlocked > (progress.clauseUnlocked ?? 0) ? { opened: unlocked } : {}), commended: done.commended };
+  }
+
+  /** One commendation per achievement just earned, as the square-cornered document of art direction 9 with the company's seal. */
+  private commend(ids: readonly AchievementId[], done: () => void): void {
+    const [id, ...rest] = ids;
+    if (id === undefined) return done();
+    this.clear();
+    const { title, lines } = commendation(id);
+    const [name, why, unlock] = lines;
+    const x = (this.scale.width - COMMEND.w) / 2;
+    const y = (this.scale.height - COMMEND.h) / 2 - 24;
+    const own = <T extends Phaser.GameObjects.GameObject>(o: T): T => {
+      this.lines.push(o);
+      return o;
+    };
+    own(this.add.rectangle(x + SHEET.shadow, y + SHEET.shadow, COMMEND.w, COMMEND.h, 0x000000, 0.45).setOrigin(0, 0));
+    own(this.add.rectangle(x, y, COMMEND.w, COMMEND.h, 0xf4efe4).setOrigin(0, 0).setStrokeStyle(2, 0x0c2d5e));
+    own(this.add.rectangle(x + COMMEND.pad, y + 84, COMMEND.w - 2 * COMMEND.pad, 2, 0x0c2d5e, 0.35).setOrigin(0, 0));
+    own(addText(this, x + COMMEND.w / 2, y + 28, title, { role: 'hand', weight: 700, size: 32, color: INK }).setOrigin(0.5, 0));
+    const width = COMMEND.w - 2 * COMMEND.pad;
+    let at = y + 108;
+    for (const [text, spec] of [
+      [name, { role: 'hand', weight: 700, size: 26, color: INK }],
+      [why, { role: 'print', weight: 400, size: 20, color: INK, maxWidth: width, lineHeight: 1.5 }],
+      [unlock, { role: 'print', weight: 400, size: 18, color: INK, maxWidth: width - COMMEND.seal, lineHeight: 1.5 }],
+    ] as const) {
+      if (text === undefined) continue;
+      at += own(addText(this, x + COMMEND.pad, at, text, spec)).height + 14;
+    }
+    const seal = own(this.add.container(x + COMMEND.w - COMMEND.pad - COMMEND.seal / 2, y + COMMEND.h - COMMEND.pad - COMMEND.seal / 2));
+    const cell = (COMMEND.seal - 16) / 3;
+    seal.add(this.add.rectangle(0, 0, COMMEND.seal, COMMEND.seal).setStrokeStyle(5, STAMP_RED));
+    sealColumns().forEach((column, c) => column.forEach((ch, r) => {
+      seal.add(addText(this, (1 - c) * cell, (r - 1) * cell, ch, { role: 'hand', weight: 700, size: Math.floor(cell * 0.86), color: STAMP_RED_CSS }).setOrigin(0.5));
+    }));
+    seal.setAngle(-6).setAlpha(0.86);
+    own(addText(this, this.scale.width / 2, y + COMMEND.h + 28, str('semester.commend.back'), { role: 'print', weight: 700, size: 22, color: DIM }).setOrigin(0.5, 0));
+    this.onContinue = () => this.commend(rest, done);
   }
 
   private endOfDay(after: SemesterState): void {
@@ -671,8 +716,8 @@ export class SemesterScene extends Phaser.Scene {
         return;
       }
       this.persist(null);
-      const opened = this.countSemester(after);
-      const toEnd = (): void => this.page(str('semester.end.title'), endSummary(after, this.ctx, opened), str('semester.end.back'), () => this.leave());
+      const { opened, commended } = this.countSemester(after);
+      const toEnd = (): void => this.commend(commended, () => this.page(str('semester.end.title'), endSummary(after, this.ctx, opened), str('semester.end.back'), () => this.leave()));
       let review: Wall | undefined;
       try {
         review = reviewWall(after, this.ctx, REPORT, str);

@@ -1,6 +1,6 @@
 import {
   advanceDay, amount, BURDEN_REWARD, burdenOf, clauseFinMult, CLAUSE_CREDIT_CAP, commitmentsOf, composeReport, creditsOf, EVENTS, fixedHour, GRADE_HOURS, GRADE_PAPERS, gradeDays, HOMEWORK_MISS_PENALTY, HOMEWORK_PROGRESS, isFailed, patrolKit, PROJECT_FIN_PENALTY, PROJECT_NEED, PROJECT_REVIEW, projectDue, RANK_FULL, rankNights, RANK_SHARE, rankSharePercent, reviewPoints, PROGRESS, takes, prototypeContext, semesterInputs, settingHours, SIT_LIMIT, startSemester, summarize, unlockedAfter, welfareOffer, withBarbecueOn, withClause,
-  type DayView, type FloorChoice, type FloorId, type MorningPlan, type NightPlan, type PatrolKit, type PatrolResult, type ProgressData, type ReportDocument, type Scenario, type SemesterContext, type SemesterRun, type SemesterState,
+  type AchievementId, type DayView, type FloorChoice, type FloorId, type MorningPlan, type NightPlan, type PatrolKit, type PatrolResult, type ProgressData, type ReportDocument, type Scenario, type SemesterContext, type SemesterRun, type SemesterState,
 } from '../core/index.ts';
 import { fillStr as fill, PARAMS, REPORT, str, STRINGS, TAGS } from './content.ts';
 import type { SaveIssue, SaveStore } from './storage.ts';
@@ -34,10 +34,39 @@ export const freshSeed = (semestersDone: number, now: number): number => (semest
  * The progress after a semester ran to its end, and issues from writing it; the registry copy follows even when the write failed.
  * `played` is the clause level the semester was played at and whether it was cleared, which decides what the next start may pick.
  */
-export function finishSemester(saves: SaveStore, progress: ProgressData, played?: { readonly level: number; readonly cleared: boolean }): { progress: ProgressData; issues: SaveIssue[] } {
+export function finishSemester(
+  saves: SaveStore, progress: ProgressData, played?: { readonly level: number; readonly cleared: boolean }, earned: readonly AchievementId[] = [],
+): { progress: ProgressData; issues: SaveIssue[]; commended: AchievementId[] } {
   const unlocked = played === undefined ? undefined : unlockedAfter(progress.clauseUnlocked ?? 0, played.level, played.cleared);
-  const next = { ...progress, semestersDone: progress.semestersDone + 1, ...(unlocked === undefined ? {} : { clauseUnlocked: unlocked }) };
-  return { progress: next, issues: saves.save(PROGRESS, next) };
+  const had = progress.achievements ?? [];
+  const commended = earned.filter((id) => !had.includes(id));
+  const next = {
+    ...progress, semestersDone: progress.semestersDone + 1, ...(unlocked === undefined ? {} : { clauseUnlocked: unlocked }),
+    ...(commended.length > 0 ? { achievements: [...had, ...commended] } : {}),
+  };
+  return { progress: next, issues: saves.save(PROGRESS, next), commended };
+}
+
+export const hasAchievement = (progress: ProgressData | undefined, id: AchievementId): boolean => progress?.achievements?.includes(id) === true;
+
+/** The commendation (嘉獎令) of an achievement just earned: its name, why it was earned and what it unlocks. */
+export function commendation(id: AchievementId): { title: string; lines: string[] } {
+  return { title: str('semester.commend.title'), lines: [str(`achievement.${id}.name`), str(`achievement.${id}.why`), str(`achievement.${id}.unlock`)] };
+}
+
+/**
+ * The liver's work-order tray in the lobby (design doc 8.6), which 主動健檢 unlocks: how many work orders the liver was sent this
+ * semester, and still no load. Their days and causes are the career node 工單明細's (design doc 8.14), not the tray's.
+ */
+export function workOrderTray(orders: readonly number[]): string {
+  return orders.length === 0 ? str('semester.tray.none') : fill('semester.tray.some', { n: orders.length });
+}
+
+/** The commendation's seal, read as a square seal is: columns from the right, each from the top. */
+export function sealColumns(): string[][] {
+  const chars = [...str('semester.commend.seal')];
+  const side = Math.ceil(Math.sqrt(chars.length));
+  return Array.from({ length: side }, (_, c) => chars.slice(c * side, c * side + side));
 }
 
 /** Whether the semester passed both exams, which is what clears its clause level. */

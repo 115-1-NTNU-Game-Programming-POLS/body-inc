@@ -14,6 +14,8 @@ const SHADOW = 6;
 
 export interface ElevatorTexts {
   readonly title: string;
+  /** The liver's work-order tray under the plates, once 主動健檢 has unlocked it (design doc 8.6). */
+  readonly tray?: string;
 }
 
 interface Plate {
@@ -61,6 +63,7 @@ export class ElevatorPanelView {
       this.layer.add(box);
       this.plates.push({ frame, floor: b.floor, disabled: off });
     });
+    if (texts.tray) this.layer.add(addText(scene, cx, PLATE.top + PLATE.h + 28, texts.tray, { role: 'print', weight: 700, size: 20, color: '#c9d3e3' }).setOrigin(0.5, 0));
   }
 
   /** The floor of a plate, in panel order. */
