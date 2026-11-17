@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import {
-  COFFEE_PLANS, commendation, sealColumns, daySummary, endSummary, finishSemester, hasAchievement, workOrderTray, floorChoice, freshSeed, gradePrompt, kitWith, morningPlan, newSemester, NIGHT_PLANS, nightPlan, patrolOffer, patrolResultLine, projectPrompt, REST_PLANS, resumeSemester, semesterCleared, servesAlcohol, settingLines,
+  bankPoints, buyCareerNode, careerCards, COFFEE_PLANS, commendation, sealColumns, daySummary, endSummary, finishSemester, hasAchievement, workOrderTray, floorChoice, freshSeed, gradePrompt, kitWith, morningPlan, newSemester, NIGHT_PLANS, nightPlan, patrolOffer, patrolResultLine, projectPrompt, REST_PLANS, resumeSemester, semesterCleared, servesAlcohol, settingLines,
   latestReading, readingPrompt, TUTORIAL_COURSES, TUTORIAL_SEED, tutorLine, visitReport, walkPrompt, weekdayOf, welfareCaption, welfareText,
   type CoffeePlanId, type NightPlanId, type RestPlanId,
 } from '../../app/semester.ts';
@@ -10,7 +10,7 @@ import { keepPage } from '../../app/handbook.ts';
 import { patrolChapter, patrolLoop, type PatrolSession } from '../../app/patrol.ts';
 import type { SaveStore } from '../../app/storage.ts';
 import {
-  advanceDay, buildWall, earnedAchievements, gradeRoom, MAX_DEBUG_PER_NIGHT, MAX_RANK_HOURS, nightRoom, pinWall, projectRoom, rankGain, RANK_FULL, rankSharePercent, reviewWall, RUN, WRITE_HOURS, type Answer, type Ask, type ChapterContent, type DayView, type FloorId, type HomeworkView, type PatrolKit, type PatrolResult, type ProgressData, type ReportDocument, type RunData,
+  advanceDay, buildWall, earnedAchievements, isCareerNode, yearEndPoints, gradeRoom, MAX_DEBUG_PER_NIGHT, MAX_RANK_HOURS, nightRoom, pinWall, projectRoom, rankGain, RANK_FULL, rankSharePercent, reviewWall, RUN, WRITE_HOURS, type Answer, type Ask, type ChapterContent, type DayView, type FloorId, type HomeworkView, type PatrolKit, type PatrolResult, type ProgressData, type ReportDocument, type RunData,
   type AchievementId, type SemesterContext, type SemesterRun, type SemesterState, type Settings, type TagState, type Wall,
 } from '../../core/index.ts';
 import { WALL_CHAPTER, wallLoop, type WallSession } from '../../app/wall.ts';
@@ -86,6 +86,12 @@ export class SemesterScene extends Phaser.Scene {
   /** What Enter does when no menu is up: go on from the day or the semester summary. */
   private onContinue: (() => void) | undefined;
   private head: Phaser.GameObjects.Text | undefined;
+  /** The career tree nodes owned when the semester began, kept in its save so it replays with the same schedule. */
+  private career: readonly string[] = [];
+  /** Handbook pages known when the scene opened; the year-end points count the ones found after. */
+  private pagesAtStart = 0;
+  /** The year-end points banked for this semester so far. */
+  private banked = 0;
   /** The last reading of the liver whose report was shown, as day and reader, so a report comes once, right after the reading. */
   private readingShown: string | undefined;
   /** The latest reading of the liver, at the top right of every phase once there is one. */
@@ -93,6 +99,8 @@ export class SemesterScene extends Phaser.Scene {
   private lines: Phaser.GameObjects.GameObject[] = [];
   /** Until this time (scene clock) Esc does not leave the semester: the Esc that closed the wall must not also close this. */
   private escGuardUntil = 0;
+  /** What Esc does instead of leaving, while that would skip a step the semester's end must not lose. */
+  private escape: (() => void) | undefined;
 
   constructor() {
     super('Semester');
@@ -111,12 +119,18 @@ export class SemesterScene extends Phaser.Scene {
     const seed = data.resume?.seed ?? data.seed ?? freshSeed(done, Date.now());
     // The scripted first week has its course list; any other new semester has the picks of the course scene, and a dev one none.
     const courses = data.courses ?? (data.seed === undefined && seed === TUTORIAL_SEED ? [...TUTORIAL_COURSES] : undefined);
-    const fresh = back ?? newSemester(seed, data.bbqDays, courses, data.clause);
+    // A run fixed from the URL is for looking at the rules and must not replace the player's save; nor may the demo.
+    this.keep = data.seed === undefined && data.bbqDays === undefined && data.demo !== true;
+    const progress = this.registry.get('progress') as ProgressData | undefined;
+    // The career tree shapes only the player's own semesters, so a dev or demo run plays the schedule its seed deals.
+    // A resumed run replays with the nodes it saved, and a save without them began with none, whatever was bought since.
+    this.career = data.resume !== undefined ? (data.resume.career ?? []) : this.keep ? (progress?.career ?? []).filter(isCareerNode) : [];
+    this.pagesAtStart = progress?.handbook.length ?? 0;
+    this.banked = 0;
+    const fresh = back ?? newSemester(seed, data.bbqDays, courses, data.clause, this.career);
     this.seed = seed;
     this.ctx = fresh.ctx;
     this.state = fresh.state;
-    // A run fixed from the URL is for looking at the rules and must not replace the player's save; nor may the demo.
-    this.keep = data.seed === undefined && data.bbqDays === undefined && data.demo !== true;
     this.finished = data.resume === undefined ? [] : [...data.resume.days];
     this.answers = [];
     this.menu = undefined;
@@ -129,11 +143,12 @@ export class SemesterScene extends Phaser.Scene {
     // Phaser keeps one scene object for every semester of the page's life, so what was shown belongs to the last one.
     this.readingShown = undefined;
     this.escGuardUntil = 0;
+    this.escape = undefined;
     addText(this, this.scale.width / 2, this.scale.height - 40, str(data.demo === true ? 'semester.hint.demo' : 'semester.hint'), { role: 'print', weight: 400, size: 18, color: DIM }).setOrigin(0.5, 1);
 
     const onKey = (e: KeyboardEvent) => {
       // Leaving keeps the save of the last finished day; the hint line says so.
-      if (e.code === 'Escape') return performance.now() < this.escGuardUntil ? undefined : this.leave();
+      if (e.code === 'Escape') return performance.now() < this.escGuardUntil ? undefined : (this.escape ?? (() => this.leave()))();
       if (e.repeat || this.busy) return;
       if (this.menu === undefined) {
         if (CONFIRM.includes(e.code)) this.proceed();
@@ -166,7 +181,7 @@ export class SemesterScene extends Phaser.Scene {
    * the year-end review of a passed semester before the end page (build plan: evidence wall). The semester sleeps while the World and the HUD run the wall
    * chapter; taking the page from the report desk, or Esc, wakes it and goes on with `go`.
    */
-  private showWall(make: () => Wall, go: () => void): void {
+  private showWall(make: () => Wall, go: () => void, onPage?: () => void): void {
     const base = (this.registry.get('chapters') as ReadonlyMap<string, ChapterContent> | undefined)?.get(WALL_CHAPTER);
     let session: { wall: Wall; loop: ReturnType<typeof wallLoop>['loop'] };
     try {
@@ -184,6 +199,7 @@ export class SemesterScene extends Phaser.Scene {
     this.registry.set('loop', session.loop);
     this.registry.set('wall', {
       wall: session.wall,
+      ...(onPage ? { onPage } : {}),
       done: () => {
         this.registry.set('loop', undefined);
         this.events.once(Phaser.Scenes.Events.WAKE, () => {
@@ -649,15 +665,59 @@ export class SemesterScene extends Phaser.Scene {
    * A semester fixed from the URL does not count, so looking at the rules never ends the scripted first week and earns nothing.
    * Gives the clause level the clear just unlocked, if it did, and the achievements earned for the first time.
    */
-  private countSemester(after: SemesterState): { opened?: number; commended: AchievementId[] } {
+  private countSemester(after: SemesterState): { opened?: number; commended: AchievementId[]; pages: number } {
     const progress = this.registry.get('progress') as ProgressData | undefined;
     const saves = this.registry.get('saves') as SaveStore | undefined;
-    if (!this.keep || progress === undefined || saves === undefined) return { commended: [] };
-    const done = finishSemester(saves, progress, { level: this.ctx.clause ?? 0, cleared: semesterCleared(after, this.ctx) }, earnedAchievements(after));
+    if (!this.keep || progress === undefined || saves === undefined) return { commended: [], pages: 0 };
+    // A semester resumed from its save counts only the pages found since, which is short by the ones found before the break.
+    const pages = Math.max(0, progress.handbook.length - this.pagesAtStart);
+    const points = yearEndPoints(after, this.ctx, pages);
+    this.banked = points;
+    const done = finishSemester(saves, progress, { level: this.ctx.clause ?? 0, cleared: semesterCleared(after, this.ctx) }, earnedAchievements(after), points);
     if (done.issues.length > 0) this.game.events.emit('save-issues', done.issues);
     this.registry.set('progress', done.progress);
     const unlocked = done.progress.clauseUnlocked ?? 0;
-    return { ...(unlocked > (progress.clauseUnlocked ?? 0) ? { opened: unlocked } : {}), commended: done.commended };
+    return { ...(unlocked > (progress.clauseUnlocked ?? 0) ? { opened: unlocked } : {}), commended: done.commended, pages };
+  }
+
+  /**
+   * The pages the semester found by now, with the points it banked topped up for any found since it was counted: the year-end
+   * review wall hands one over after the count, which is made first so a page closed on the wall still keeps the semester's points.
+   */
+  private pagesFound(after: SemesterState, counted: number): number {
+    const progress = this.registry.get('progress') as ProgressData | undefined;
+    const saves = this.registry.get('saves') as SaveStore | undefined;
+    if (!this.keep || progress === undefined || saves === undefined) return counted;
+    const pages = Math.max(counted, progress.handbook.length - this.pagesAtStart);
+    const more = yearEndPoints(after, this.ctx, pages) - this.banked;
+    if (more <= 0) return pages;
+    const done = bankPoints(saves, progress, more);
+    if (done.issues.length > 0) this.game.events.emit('save-issues', done.issues);
+    this.registry.set('progress', done.progress);
+    this.banked += more;
+    return pages;
+  }
+
+  /** The career tree (design doc 8.14): a node bought is saved at once and the tree shown again; the last card leaves. */
+  private careerTree(done: () => void): void {
+    const saves = this.registry.get('saves') as SaveStore | undefined;
+    const progress = this.registry.get('progress') as ProgressData | undefined;
+    this.escape = undefined;
+    if (!this.keep || saves === undefined || progress === undefined) return done();
+    const { title, caption, cards } = careerCards(progress);
+    this.cards(cards, title, caption, (i) => {
+      const node = cards[i]?.node;
+      if (node === undefined) return done();
+      const bought = buyCareerNode(saves, progress, node);
+      if ('refused' in bought) return this.careerTree(done);
+      if (bought.issues.length > 0) this.game.events.emit('save-issues', bought.issues);
+      this.registry.set('progress', bought.progress);
+      this.careerTree(done);
+    });
+    const menu = this.menu;
+    if (menu === undefined) return;
+    this.menu = { ...menu, allowed: (i) => cards[i]?.allowed === true };
+    this.start(Math.max(0, cards.findIndex((c) => c.allowed)));
   }
 
   /** One commendation per achievement just earned, as the square-cornered document of art direction 9 with the company's seal. */
@@ -711,13 +771,22 @@ export class SemesterScene extends Phaser.Scene {
         this.state = after;
         this.finished.push(this.answers);
         this.answers = [];
-        this.persist({ seed: this.seed, ...(this.ctx.courses ? { courses: [...this.ctx.courses] } : {}), ...(this.ctx.clause ? { clause: this.ctx.clause } : {}), days: this.finished });
+        this.persist({
+          seed: this.seed, ...(this.ctx.courses ? { courses: [...this.ctx.courses] } : {}), ...(this.ctx.clause ? { clause: this.ctx.clause } : {}),
+          ...(this.career.length > 0 ? { career: [...this.career] } : {}), days: this.finished,
+        });
         this.ask();
         return;
       }
       this.persist(null);
-      const { opened, commended } = this.countSemester(after);
-      const toEnd = (): void => this.commend(commended, () => this.page(str('semester.end.title'), endSummary(after, this.ctx, opened), str('semester.end.back'), () => this.leave()));
+      const { opened, commended, pages } = this.countSemester(after);
+      const toEnd = (): void => {
+        const found = this.pagesFound(after, pages);
+        const leave = this.keep ? () => this.careerTree(() => this.leave()) : () => this.leave();
+        // Esc from the commendation or the end page still passes through the career tree: nothing else opens it.
+        this.escape = leave;
+        this.commend(commended, () => this.page(str('semester.end.title'), endSummary(after, this.ctx, opened, found), str(this.keep ? 'semester.end.next' : 'semester.end.back'), leave));
+      };
       let review: Wall | undefined;
       try {
         review = reviewWall(after, this.ctx, REPORT, str);
@@ -726,7 +795,7 @@ export class SemesterScene extends Phaser.Scene {
       }
       if (review === undefined) return toEnd();
       const wall = review;
-      this.showWall(() => wall, toEnd);
+      this.showWall(() => wall, toEnd, () => void this.pagesFound(after, pages));
     };
     // The report is an addition to the day summary: if it cannot be written, or there is nowhere to keep the page it
     // unlocks (Boot always sets both), the day goes on without it instead of leaving the screen half cleared.

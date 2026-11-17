@@ -211,7 +211,7 @@ export const STORY: SlotDef<StoryData> = {
 
 /**
  * Cross-run progress (design doc 13.5): what outlives every run and every chapter. The handbook,
- * the host's name and the achievements so far; the career tree and the rest join it when they exist.
+ * the host's name, the achievements and the career tree so far.
  */
 export interface ProgressData {
   /** Unlocked handbook page ids, in the order they were found. */
@@ -224,11 +224,15 @@ export interface ProgressData {
   readonly clauseUnlocked?: number;
   /** Achievement ids earned (design doc 8.14, core/semester/achievements.ts), in the order they were earned; absent is none. */
   readonly achievements?: readonly string[];
+  /** Year-end review points not yet spent on the career tree (design doc 8.14); absent is 0. */
+  readonly careerPoints?: number;
+  /** Career tree nodes bought (core/semester/career.ts), in the order they were bought; absent is none. */
+  readonly career?: readonly string[];
 }
 
 export const PROGRESS: SlotDef<ProgressData> = {
   name: 'progress',
-  version: 5,
+  version: 6,
   schema: {
     type: 'object',
     additionalProperties: false,
@@ -242,6 +246,9 @@ export const PROGRESS: SlotDef<ProgressData> = {
       clauseUnlocked: INT,
       // Ids the rules no longer know are kept, so a save is never thinned by an older build; the game reads only the ones it knows.
       achievements: { type: 'array', uniqueItems: true, items: { type: 'string', minLength: 1 } },
+      careerPoints: INT,
+      // As with achievements, a node this build does not know is kept and not applied.
+      career: { type: 'array', uniqueItems: true, items: { type: 'string', minLength: 1 } },
     },
   },
   defaults: () => ({ handbook: [], hostName: DEFAULT_HOST, semestersDone: 0 }),
@@ -254,6 +261,8 @@ export const PROGRESS: SlotDef<ProgressData> = {
     3: (data) => data,
     // Version 5 adds the achievements as an optional field; a save from before it has earned none.
     4: (data) => data,
+    // Version 6 adds the career tree's points and nodes as optional fields; a save from before it has neither.
+    5: (data) => data,
   },
 };
 
@@ -282,6 +291,8 @@ export interface SemesterRun {
   readonly courses?: readonly string[];
   /** The overtime clause level (design doc 8.14); absent is level 0, which is what a run saved before the clauses replays as. */
   readonly clause?: number;
+  /** The career tree nodes owned when the semester began, which shape its schedule; absent is none. */
+  readonly career?: readonly string[];
   /** The answers of each finished day, in the order the day asked its questions. */
   readonly days: readonly (readonly Answer[])[];
 }
@@ -356,7 +367,7 @@ const ANSWER: Schema = {
 
 export const RUN: SlotDef<RunData> = {
   name: 'run',
-  version: 10,
+  version: 11,
   schema: {
     type: 'object',
     additionalProperties: false,
@@ -373,6 +384,7 @@ export const RUN: SlotDef<RunData> = {
               seed: INT,
               courses: { type: 'array', items: { type: 'string', minLength: 1 } },
               clause: INT,
+              career: { type: 'array', uniqueItems: true, items: { type: 'string', minLength: 1 } },
               days: { type: 'array', items: { type: 'array', items: ANSWER } },
             },
           },
@@ -381,8 +393,8 @@ export const RUN: SlotDef<RunData> = {
     },
   },
   defaults: () => ({ semester: null }),
-  // Versions 2 to 10 add optional fields (the course list; the hours of writing and debugging; the contest hours; the project hours and the walk; the grading hours; the overtime clause; the results of the patrols played; the welfare card picked and the records a patrol made; the highlighter's reading of the liver in a patrol); an older run is valid without them.
-  migrations: { 1: (data) => data, 2: (data) => data, 3: (data) => data, 4: (data) => data, 5: (data) => data, 6: (data) => data, 7: (data) => data, 8: (data) => data, 9: (data) => data },
+  // Versions 2 to 10 add optional fields (the course list; the hours of writing and debugging; the contest hours; the project hours and the walk; the grading hours; the overtime clause; the results of the patrols played; the welfare card picked and the records a patrol made; the highlighter's reading of the liver in a patrol; the career tree nodes owned at the start); an older run is valid without them.
+  migrations: { 1: (data) => data, 2: (data) => data, 3: (data) => data, 4: (data) => data, 5: (data) => data, 6: (data) => data, 7: (data) => data, 8: (data) => data, 9: (data) => data, 10: (data) => data },
 };
 
 export const SLOTS = [SETTINGS, STORY, PROGRESS, RUN] as const;

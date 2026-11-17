@@ -1,6 +1,6 @@
 import {
-  advanceDay, amount, BURDEN_REWARD, burdenOf, clauseFinMult, CLAUSE_CREDIT_CAP, commitmentsOf, composeReport, creditsOf, EVENTS, fixedHour, GRADE_HOURS, GRADE_PAPERS, gradeDays, HOMEWORK_MISS_PENALTY, HOMEWORK_PROGRESS, isFailed, patrolKit, PROJECT_FIN_PENALTY, PROJECT_NEED, PROJECT_REVIEW, projectDue, RANK_FULL, rankNights, RANK_SHARE, rankSharePercent, reviewPoints, PROGRESS, takes, prototypeContext, semesterInputs, settingHours, SIT_LIMIT, startSemester, summarize, unlockedAfter, welfareOffer, withBarbecueOn, withClause,
-  type AchievementId, type DayView, type FloorChoice, type FloorId, type MorningPlan, type NightPlan, type PatrolKit, type PatrolResult, type ProgressData, type ReportDocument, type Scenario, type SemesterContext, type SemesterRun, type SemesterState,
+  advanceDay, amount, BOOKED_BLOOD_TEST_DAY, CAREER_NODES, CAREER_ORDER, cannotBuy, withBloodTestOn, yearEndPoints, BURDEN_REWARD, burdenOf, clauseFinMult, CLAUSE_CREDIT_CAP, commitmentsOf, composeReport, creditsOf, EVENTS, fixedHour, GRADE_HOURS, GRADE_PAPERS, gradeDays, HOMEWORK_MISS_PENALTY, HOMEWORK_PROGRESS, isFailed, patrolKit, PROJECT_FIN_PENALTY, PROJECT_NEED, PROJECT_REVIEW, projectDue, RANK_FULL, rankNights, RANK_SHARE, rankSharePercent, PROGRESS, takes, prototypeContext, semesterInputs, settingHours, SIT_LIMIT, startSemester, summarize, unlockedAfter, welfareOffer, withBarbecueOn, withClause,
+  type AchievementId, type CareerNode, type DayView, type FloorChoice, type FloorId, type MorningPlan, type NightPlan, type PatrolKit, type PatrolResult, type ProgressData, type ReportDocument, type Scenario, type SemesterContext, type SemesterRun, type SemesterState,
 } from '../core/index.ts';
 import { fillStr as fill, PARAMS, REPORT, str, STRINGS, TAGS } from './content.ts';
 import type { SaveIssue, SaveStore } from './storage.ts';
@@ -35,7 +35,7 @@ export const freshSeed = (semestersDone: number, now: number): number => (semest
  * `played` is the clause level the semester was played at and whether it was cleared, which decides what the next start may pick.
  */
 export function finishSemester(
-  saves: SaveStore, progress: ProgressData, played?: { readonly level: number; readonly cleared: boolean }, earned: readonly AchievementId[] = [],
+  saves: SaveStore, progress: ProgressData, played?: { readonly level: number; readonly cleared: boolean }, earned: readonly AchievementId[] = [], points = 0,
 ): { progress: ProgressData; issues: SaveIssue[]; commended: AchievementId[] } {
   const unlocked = played === undefined ? undefined : unlockedAfter(progress.clauseUnlocked ?? 0, played.level, played.cleared);
   const had = progress.achievements ?? [];
@@ -43,8 +43,43 @@ export function finishSemester(
   const next = {
     ...progress, semestersDone: progress.semestersDone + 1, ...(unlocked === undefined ? {} : { clauseUnlocked: unlocked }),
     ...(commended.length > 0 ? { achievements: [...had, ...commended] } : {}),
+    ...(points > 0 ? { careerPoints: (progress.careerPoints ?? 0) + points } : {}),
   };
   return { progress: next, issues: saves.save(PROGRESS, next), commended };
+}
+
+/** Progress with `points` more banked for the career tree, saved; used when a semester's points grow after it was counted. */
+export function bankPoints(saves: SaveStore, progress: ProgressData, points: number): { progress: ProgressData; issues: SaveIssue[] } {
+  if (!Number.isInteger(points) || points < 0) throw new RangeError(`cannot bank ${points} points`);
+  if (points === 0) return { progress, issues: [] };
+  const next = { ...progress, careerPoints: (progress.careerPoints ?? 0) + points };
+  return { progress: next, issues: saves.save(PROGRESS, next) };
+}
+
+/** Progress with `id` bought, or why it cannot be (owned already, or the points fall short); a bought node is saved at once. */
+export function buyCareerNode(saves: SaveStore, progress: ProgressData, id: CareerNode): { progress: ProgressData; issues: SaveIssue[] } | { refused: 'owned' | 'short' } {
+  const owned = progress.career ?? [];
+  const points = progress.careerPoints ?? 0;
+  const refused = cannotBuy(id, points, owned);
+  if (refused !== undefined) return { refused };
+  const next = { ...progress, careerPoints: points - CAREER_NODES[id].price, career: [...owned, id] };
+  return { progress: next, issues: saves.save(PROGRESS, next) };
+}
+
+/** The career tree's cards: one per node, with its price or that it is owned, and last the way out. */
+export function careerCards(progress: ProgressData): { title: string; caption: string; cards: { label: string; note: string; node?: CareerNode; allowed: boolean }[] } {
+  const owned = progress.career ?? [];
+  const points = progress.careerPoints ?? 0;
+  const cards = CAREER_ORDER.map((node) => {
+    const refused = cannotBuy(node, points, owned);
+    const price = refused === 'owned' ? str('career.owned') : fill('career.price', { n: CAREER_NODES[node].price });
+    const note = str(`career.node.${node}.note`);
+    return { label: `${str(`career.node.${node}`)}（${price}）`, note: refused === 'short' ? `${note}${str('career.short')}` : note, node, allowed: refused === undefined };
+  });
+  return {
+    title: fill('career.title', { points }), caption: str('career.caption'),
+    cards: [...cards, { label: str('career.leave'), note: str('career.leave.note'), allowed: true }],
+  };
 }
 
 export const hasAchievement = (progress: ProgressData | undefined, id: AchievementId): boolean => progress?.achievements?.includes(id) === true;
@@ -198,10 +233,15 @@ export function semesterContext(seed: number, courses?: readonly string[]): Seme
  * overtime clause level; the scripted first week is level 0 whatever is asked, and the clause comes last so the setting card
  * sees the events the semester really has.
  */
-export const newSemester = (seed: number, bbqDays?: readonly number[], courses?: readonly string[], clause = 0): { ctx: SemesterContext; state: SemesterState } => {
+/**
+ * A semester from its seed and what the player chose. `career` is the career tree nodes owned at its start, which only the
+ * tutorial week ignores, since its schedule is scripted.
+ */
+export const newSemester = (seed: number, bbqDays?: readonly number[], courses?: readonly string[], clause = 0, career: readonly string[] = []): { ctx: SemesterContext; state: SemesterState } => {
   const dealt = semesterContext(seed, courses);
-  const scened = bbqDays === undefined ? dealt : { ...dealt, scenario: withBarbecueOn(dealt.scenario, bbqDays) };
-  const ctx = withClause(scened, seed, seed === TUTORIAL_SEED ? 0 : clause);
+  const barbecued = bbqDays === undefined ? dealt.scenario : withBarbecueOn(dealt.scenario, bbqDays);
+  const booked = seed !== TUTORIAL_SEED && career.includes('early_checkup') ? withBloodTestOn(barbecued, BOOKED_BLOOD_TEST_DAY) : barbecued;
+  const ctx = withClause({ ...dealt, scenario: booked }, seed, seed === TUTORIAL_SEED ? 0 : clause);
   return { ctx, state: startSemester(ctx, seed) };
 };
 
@@ -213,7 +253,7 @@ export const newSemester = (seed: number, bbqDays?: readonly number[], courses?:
  */
 export function resumeSemester(run: SemesterRun): { ctx: SemesterContext; state: SemesterState } | undefined {
   try {
-    const { ctx, state: start } = newSemester(run.seed, undefined, run.courses, run.clause);
+    const { ctx, state: start } = newSemester(run.seed, undefined, run.courses, run.clause, run.career);
     let state = start;
     for (const answers of run.days) {
       const step = advanceDay(state, ctx, answers);
@@ -363,7 +403,7 @@ export function visitReport(state: SemesterState, ctx: SemesterContext, seed: nu
  * The semester's result once it has ended: the two exams, the grade, and how the semester went. `opened` is the clause level
  * the clear just unlocked, which only the progress knows.
  */
-export function endSummary(state: SemesterState, ctx: SemesterContext, opened?: number): string[] {
+export function endSummary(state: SemesterState, ctx: SemesterContext, opened?: number, pages = 0): string[] {
   if (!state.ended) throw new RangeError('the semester has not ended');
   const sum = summarize(state, ctx);
   const passed = sum.passMid && sum.passFin;
@@ -382,10 +422,10 @@ export function endSummary(state: SemesterState, ctx: SemesterContext, opened?: 
   if (sum.bankrupt) lines.push(str('semester.end.bankrupt'));
   else if (sum.hospitalized) lines.push(str('semester.end.hospital'));
   lines.push(fill('semester.end.debt', { debt: oneDecimal(sum.finalDebt) }));
-  // The review points of a finished project are only paid into a passed semester's review below.
-  if (takes(ctx.courses, 'compiler') && !sum.bankrupt) {
-    if (projectDone && passed) lines.push(fill('semester.end.project.done', { points: PROJECT_REVIEW }));
-    else if (!projectDone && !hospitalFinal) lines.push(fill('semester.end.project.fail', { points: PROJECT_FIN_PENALTY }));
+  // A finished project's points go into the year-end points of any semester, passed or not.
+  if (takes(ctx.courses, 'compiler')) {
+    if (projectDone) lines.push(fill('semester.end.project.done', { points: PROJECT_REVIEW }));
+    else if (!sum.bankrupt && !hospitalFinal) lines.push(fill('semester.end.project.fail', { points: PROJECT_FIN_PENALTY }));
   }
   // Late grades cost nothing but the line in the review (design doc 8.3), so the line only has a meaning to a semester that was not lost to bankruptcy.
   if (takes(ctx.courses, 'ta') && !sum.bankrupt) {
@@ -394,11 +434,10 @@ export function endSummary(state: SemesterState, ctx: SemesterContext, opened?: 
   }
   const missed = state.homework.filter((a) => a.missed).length;
   if (missed > 0 && !sum.bankrupt && !hospitalFinal) lines.push(fill('semester.end.homework.missed', { missed, points: missed * HOMEWORK_MISS_PENALTY }));
+  const points = yearEndPoints(state, ctx, pages);
   if (ctx.courses !== undefined && passed) {
-    const credits = creditsOf(ctx.courses);
-    const burden = burdenOf(credits);
-    const bonus = takes(ctx.courses, 'compiler') && projectDone ? PROJECT_REVIEW : 0;
-    lines.push(fill('semester.end.review', { points: percent(reviewPoints(sum.grade, credits, bonus)), burden: str(`semester.burden.${burden}`), reward: BURDEN_REWARD[burden].toFixed(2) }));
-  }
+    const burden = burdenOf(creditsOf(ctx.courses));
+    lines.push(fill('semester.end.review', { points, burden: str(`semester.burden.${burden}`), reward: BURDEN_REWARD[burden].toFixed(2) }));
+  } else lines.push(fill('semester.end.points', { points }));
   return lines;
 }

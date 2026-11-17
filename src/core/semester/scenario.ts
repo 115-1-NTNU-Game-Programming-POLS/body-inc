@@ -67,6 +67,14 @@ export function withBarbecueOn(scenario: Scenario, days: readonly number[]): Sce
   return out;
 }
 
+/** The scenario with the blood test taken off every day and put on `day` (健檢提前, design doc 8.14); every other event stays. */
+export function withBloodTestOn(scenario: Scenario, day: number): Scenario {
+  const out: Record<number, readonly string[]> = {};
+  for (const [d, ids] of Object.entries(scenario)) out[Number(d)] = ids.filter((id) => id !== 'blood_test');
+  out[day] = [...(out[day] ?? []), 'blood_test'];
+  return out;
+}
+
 /**
  * The prototype's context for a seed: its three events and the schedule that seed draws. The game
  * and `sim/` both build theirs here, so a field added to SemesterContext has one place to be set.

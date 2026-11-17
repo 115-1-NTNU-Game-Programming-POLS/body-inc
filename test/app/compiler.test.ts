@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { fillStr, str } from '../../src/app/content.ts';
 import { daySummary, endSummary, morningPlan, newSemester, nightPlan } from '../../src/app/semester.ts';
-import { creditsOf, playDay, PROJECT_FIN_PENALTY, PROJECT_NEED, PROJECT_REVIEW, reviewPoints, summarize, type SemesterState, type Strategy } from '../../src/core/index.ts';
+import { BURDEN_REWARD, burdenOf, creditsOf, healthScore, playDay, PROJECT_FIN_PENALTY, PROJECT_NEED, PROJECT_REVIEW, summarize, type SemesterState, type Strategy } from '../../src/core/index.ts';
 
 const player = (project: number, walk: boolean): Strategy => ({
   plan: () => morningPlan('none', 'balanced', 0, project, walk),
@@ -39,18 +39,23 @@ describe('what the player is told about the compiler project', () => {
     expect(endSummary({ ...missed.s, bankrupt: true }, missed.ctx).some((l) => l.includes('專案'))).toBe(false);
   });
 
-  it('pays the review points into the review line, and only for a passed semester', () => {
+  it('pays the review points into the review line of a passed semester, and the project points into the points of a failed one', () => {
     const { ctx, state } = newSemester(1, [], WITH);
     const end = (progress: number, project: number): SemesterState => playDay({ ...state, day: 10, mid: 80, progress, project }, ctx, player(0, false));
     const reviewOf = (s: SemesterState): number => Number(/學期評價：(\d+) 點/.exec(endSummary(s, ctx).find((l) => l.startsWith('學期評價'))!)![1]);
     const done = end(40, PROJECT_NEED);
     const grade = summarize(done, ctx).grade;
     expect(summarize(done, ctx).passFin).toBe(true);
-    expect(reviewOf(done)).toBe(Math.round(reviewPoints(grade, creditsOf(WITH), PROJECT_REVIEW)));
-    expect(reviewOf(done)).toBeGreaterThan(Math.round(reviewPoints(grade, creditsOf(WITH))));
+    const base = (0.5 * grade + 0.5 * healthScore(done, ctx)) * 0.8 ** done.hospitals * BURDEN_REWARD[burdenOf(creditsOf(WITH))];
+    expect(reviewOf(done)).toBe(Math.round(base + PROJECT_REVIEW));
+    expect(reviewOf({ ...done, project: PROJECT_NEED - 1 })).toBe(Math.round(base));
     const failed = end(0, PROJECT_NEED);
     expect(summarize(failed, ctx).passFin).toBe(false);
-    expect(endSummary(failed, ctx).some((l) => l.includes('另加') || l.startsWith('學期評價'))).toBe(false);
+    expect(endSummary(failed, ctx).some((l) => l.startsWith('學期評價'))).toBe(false);
+    // Design doc 8.3 puts no pass on the project's 10, so a failed semester that finished it still shows and banks them.
+    expect(endSummary(failed, ctx)).toContain(fillStr('semester.end.project.done', { points: PROJECT_REVIEW }));
+    const pointsOf = (s: SemesterState): number => Number(/年終評價點數：(\d+) 點/.exec(endSummary(s, ctx).find((l) => l.startsWith('年終評價點數'))!)![1]);
+    expect(pointsOf(failed) - pointsOf({ ...failed, project: PROJECT_NEED - 1 })).toBe(PROJECT_REVIEW);
   });
 
   it('leaves the penalty line out when the final was spent in hospital, where nothing was sat to take it off', () => {
