@@ -15,6 +15,13 @@
     "boss": "boss"
   },
   "cues": {
+    "liver.typing": { "trimDb": 13, "voices": [
+      { "kind": "noise", "filter": "bandpass", "cutoff": 740, "q": 0.8, "dur": 0.043, "gain": 0.38 },
+      { "kind": "noise", "filter": "bandpass", "cutoff": 900, "q": 1.2, "at": 0.086, "dur": 0.033, "gain": 0.35 },
+      { "kind": "noise", "filter": "bandpass", "cutoff": 810, "q": 0.9, "at": 0.157, "dur": 0.040, "gain": 0.42 },
+      { "kind": "noise", "filter": "bandpass", "cutoff": 940, "q": 1.1, "at": 0.281, "dur": 0.038, "gain": 0.37 },
+      { "kind": "noise", "filter": "bandpass", "cutoff": 780, "q": 1.2, "at": 0.374, "dur": 0.042, "gain": 0.40 },
+      { "kind": "noise", "filter": "bandpass", "cutoff": 660, "q": 0.8, "at": 0.460, "dur": 0.052, "gain": 0.48 } ] },
     "staple": { "trimDb": 12, "minGapMs": 40, "voices": [
       { "kind": "noise", "filter": "bandpass", "cutoff": 2600, "q": 2.5, "dur": 0.016, "gain": 0.5 },
       { "kind": "tone", "wave": "triangle", "freq": 1300, "to": 800, "dur": 0.02, "gain": 0.12 },

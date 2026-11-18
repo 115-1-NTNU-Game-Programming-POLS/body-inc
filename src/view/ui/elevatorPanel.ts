@@ -12,6 +12,25 @@ const LIGHT: Record<Light, number> = { off: 0x8f98a8, yellow: 0xf2cf4a, orange: 
 const PLATE = { w: 200, h: 300, gap: 24, top: 210 };
 const SHADOW = 6;
 
+/** The open elevator doors at the liver, drawn in the same ink and paper as the floor plates. */
+export function drawLiverStop(scene: Phaser.Scene): Phaser.GameObjects.Graphics {
+  const x = scene.scale.width / 2 - 168;
+  const y = 188;
+  return scene.add.graphics({ x, y })
+    .fillStyle(0x070f22, 0.5).fillRect(6, 6, 336, 246)
+    .fillStyle(INK).fillRect(0, 0, 336, 246)
+    .fillStyle(0x2b3448).fillRect(12, 12, 312, 228)
+    .fillStyle(0x39475b).fillRect(74, 166, 188, 62)
+    .fillStyle(0x171f2e).fillRect(130, 173, 9, 36).fillRect(197, 173, 9, 36)
+    .fillStyle(0x8f98a8).fillRect(113, 164, 110, 10)
+    .fillStyle(0x192438).fillRect(139, 112, 55, 42).fillRect(162, 154, 9, 10)
+    .fillStyle(NOTE_YELLOW).fillRect(144, 117, 45, 32)
+    .fillStyle(0x7a6339).fillRect(151, 125, 21, 2).fillRect(151, 132, 29, 2).fillRect(151, 139, 16, 2)
+    .fillStyle(0x52647c).fillRect(12, 12, 62, 216).fillRect(262, 12, 62, 216)
+    .fillStyle(0xc9d3e3).fillRect(70, 12, 4, 216).fillRect(262, 12, 4, 216)
+    .fillStyle(PAPER).fillRect(12, 228, 312, 12);
+}
+
 export interface ElevatorTexts {
   readonly title: string;
   /** The liver's work-order tray under the plates, once 主動健檢 has unlocked it (design doc 8.6). */

@@ -4,7 +4,7 @@ import {
   latestReading, readingPrompt, TUTORIAL_COURSES, TUTORIAL_SEED, tutorLine, visitReport, walkPrompt, weekdayOf, welfareCaption, welfareText,
   type CoffeePlanId, type NightPlanId, type RestPlanId,
 } from '../../app/semester.ts';
-import { musicFor } from '../../app/audio.ts';
+import { musicFor, UI } from '../../app/audio.ts';
 import { AUDIO, fillStr, REPORT, str } from '../../app/content.ts';
 import { keepPage } from '../../app/handbook.ts';
 import { patrolChapter, patrolLoop, type PatrolSession } from '../../app/patrol.ts';
@@ -14,10 +14,10 @@ import {
   type AchievementId, type SemesterContext, type SemesterRun, type SemesterState, type SettingId, type Settings, type TagState, type Wall,
 } from '../../core/index.ts';
 import { WALL_CHAPTER, wallLoop, type WallSession } from '../../app/wall.ts';
-import { soundIn } from '../audio/installSound.ts';
+import { playCue, soundIn } from '../audio/installSound.ts';
 import { addText, updateText } from '../text/fonts.ts';
 import { CardTable } from '../ui/cardTable.ts';
-import { ElevatorPanelView } from '../ui/elevatorPanel.ts';
+import { drawLiverStop, ElevatorPanelView } from '../ui/elevatorPanel.ts';
 import { primary } from '../ui/primary.ts';
 
 const DIM = '#c9d3e3';
@@ -397,7 +397,7 @@ export class SemesterScene extends Phaser.Scene {
     const progress = this.registry.get('progress') as ProgressData | undefined;
     const details = this.career.includes('order_details') ? view.workOrders : undefined;
     const tray = hasAchievement(progress, 'active_checkup') ? workOrderTray(view.liverClues.orders, details) : undefined;
-    this.panel(view, str('semester.floor.title'), undefined, tray, (patrol) => {
+    const pickFloor = () => this.panel(view, str('semester.floor.title'), undefined, tray, (patrol) => {
       this.playPatrol(patrol, tags, liverLoad, view.day * 2, view.welfare.kit, (first) => {
         read(first);
         this.askCard(view, patrol, first, (card, reroll) => {
@@ -420,6 +420,22 @@ export class SemesterScene extends Phaser.Scene {
         });
       });
     });
+    if (view.liverClues.elevatorStops) this.showLiverStop(pickFloor);
+    else pickFloor();
+  }
+
+  private showLiverStop(go: () => void): void {
+    this.clear();
+    const cx = this.scale.width / 2;
+    const scale = this.textScale;
+    this.lines.push(
+      drawLiverStop(this),
+      addText(this, cx, 120, str('semester.floor.liver_stop'), { role: 'hand', weight: 700, size: 36 * scale, color: PAPER }).setOrigin(0.5),
+      addText(this, cx, 478, str('semester.floor.liver_typing'), { role: 'print', weight: 400, size: 26 * scale, color: PAPER }).setOrigin(0.5),
+      addText(this, cx, 536, str('semester.floor.liver_continue'), { role: 'print', weight: 700, size: 20 * scale, color: DIM }).setOrigin(0.5),
+    );
+    this.onContinue = go;
+    playCue(this, UI.liverTyping);
   }
 
   /**

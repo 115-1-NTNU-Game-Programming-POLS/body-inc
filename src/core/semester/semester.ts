@@ -223,7 +223,7 @@ function viewOf(d: DayRun): DayView {
     hospitals: s.hospitals,
     welfare: welfareView(s, d.rerolled),
     panel: elevatorPanel(d.morningLoads, k),
-    liverClues: liverClues(d.morningLoads.liver, s.liverOrders, k),
+    liverClues: liverClues(d.morningLoads.liver, s.liverOrders, k, s.day, s.rng.setting),
     workOrders: s.workOrders,
     ...readingOf(d),
     modifiers: activeModifiers(s.tags, ctx.dict),

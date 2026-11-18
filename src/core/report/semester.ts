@@ -1,5 +1,5 @@
 import type { ReportFile } from '../content/generated.ts';
-import { liverClues, minuteOf, type DayRecord, type FloorId, type SemesterContext, type SemesterState } from '../semester/index.ts';
+import { minuteOf, stomachConveyorJammed, type DayRecord, type FloorId, type SemesterContext, type SemesterState } from '../semester/index.ts';
 import { trace, type CausalNode } from '../tags/causal.ts';
 import { composeReport } from './document.ts';
 import type { ReportFact, ReportDocument, ReportInput, StringLookup } from './types.ts';
@@ -72,7 +72,7 @@ export function operationFacts(
     const orders = state.liverOrders.filter((d) => d <= rec.day).length;
     const first = rec.patrols.find((p) => !p.overtime);
     if (orders > 0 && first) out.push({ key: 'ops:patrol_orders', scope: first.floor, at: evening, vars: { orders } });
-    if (liverClues(rec.loadsBefore.liver, state.liverOrders, k).stomachJam) out.push({ key: 'ops:liver_clue', scope: 'stomach', at: morning });
+    if (stomachConveyorJammed(rec.loadsBefore.liver, k)) out.push({ key: 'ops:liver_clue', scope: 'stomach', at: morning });
   }
   return out;
 }
