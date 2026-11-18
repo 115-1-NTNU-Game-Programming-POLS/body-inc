@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  activeModifiers, amount, caffeineBoost, caffeineOf, caffeineSleepCoef, calculateSemesterGrade, contributions, drawFloat, elevatorPanel,
+  activeModifiers, advanceDay, amount, caffeineBoost, caffeineOf, caffeineSleepCoef, calculateSemesterGrade, contributions, drawFloat, elevatorPanel,
   examPerformance, FLOORS, flag,
   gradeFor, lightOf, liverClues, liverStrikes, nextLoad, nextSleepDebt, patrolReduction, playDay, record, runSemester, scoreExam, seedStreams,
   semesterProblems, setFlag, sleepFactor, startSemester, strikes, summarize, trace, type DayRecord, type DayView, type Loads,
@@ -124,11 +124,24 @@ describe('the liver (design doc 8.6)', () => {
     expect(liverStrikes({ ...base, orders: [] }, K)).toBe(false);
   });
 
-  it('shows the cross-floor clues from 40 and the elevator stop from 60, while the light stays off', () => {
-    expect(liverClues(39.9, [], K)).toEqual({ orders: [], stomachJam: false, elevatorStops: false });
-    expect(liverClues(40, [2], K)).toEqual({ orders: [2], stomachJam: true, elevatorStops: false });
-    expect(liverClues(60, [2], K)).toEqual({ orders: [2], stomachJam: true, elevatorStops: true });
-    expect(lightOf('liver', 60, K)).toBe('off');
+  it('jams the conveyor from 40 and allows the seeded elevator stop from 60', () => {
+    const salt = seedStreams(2).setting;
+    expect(liverClues(39.9, [], K, 3, salt)).toEqual({ orders: [], stomachJam: false, elevatorStops: false });
+    expect(liverClues(40, [2], K, 3, salt)).toEqual({ orders: [2], stomachJam: true, elevatorStops: false });
+    expect(liverClues(59.9, [2], K, 3, salt).elevatorStops).toBe(false);
+    expect(liverClues(60, [2], K, 3, salt).elevatorStops).toBe(true);
+    expect(liverClues(60, [2], K, 2, salt).elevatorStops).toBe(false);
+    expect(liverClues(60, [2], K, 3, seedStreams(1).setting).elevatorStops).toBe(false);
+  });
+
+  it('replays the stop as part of the floor question and leaves the liver plate dark', () => {
+    const state = { ...startSemester(CTX, 2), day: 3, loads: loads({ liver: 60 }) };
+    const answers = [{ kind: 'plan', plan: { coffee: [], rest: [] } }] as const;
+    const step = advanceDay(state, CTX, answers);
+    if (step.done || step.ask.kind !== 'floor') throw new Error('expected the floor question');
+    expect(step.ask.view.liverClues.elevatorStops).toBe(true);
+    expect(step.ask.view.panel.buttons.find((b) => b.floor === 'liver')).toMatchObject({ light: 'off', note: 'liver_ok' });
+    expect(advanceDay(state, CTX, answers)).toEqual(step);
   });
 
   it('does not strike through the other floors rule', () => {

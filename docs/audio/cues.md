@@ -58,6 +58,7 @@
 | `cling` | 黏住 | `bound`, `clung`, `examStacked` |
 | `yawn` | 下行的哈欠 | `forcedLeave`, `bedUse`, `forcedNap`, `napped` |
 | `door` | 進門 | `doorEntered` |
+| `liver.typing` | 電梯開門時從辦公室傳來的一小串打字聲，畫面同時顯示文字提示 | 學期模式第一次選層前，電梯停在肝樓層時 |
 | `locked` | 門鎖住的兩聲；限時閘門關上時也用它，因為閘門關上就是一扇鎖住的門 | `doorLocked`, `portClosed` |
 | `pick` | 撿起東西的上行音 | `canTaken`, `teaTaken`, `pickedUp`, `parcelOut` |
 | `click` | 開關 | `switchChanged` |

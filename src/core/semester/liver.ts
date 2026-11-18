@@ -1,4 +1,7 @@
+import { nextInt } from '../rng.ts';
 import type { FloorThresholds } from './floors.ts';
+
+const ELEVATOR_STOP_ONE_IN = 3;
 
 /**
  * The liver never lights (design doc 8.6), so it gives itself away through four other channels.
@@ -17,9 +20,13 @@ export interface LiverClues {
   readonly elevatorStops: boolean;
 }
 
-export function liverClues(load: number, orders: readonly number[], k: FloorThresholds): LiverClues {
-  return { orders, stomachJam: load >= k.floorYellowAt, elevatorStops: load >= k.floorOrangeAt };
+export function liverClues(load: number, orders: readonly number[], k: FloorThresholds, day: number, salt: number): LiverClues {
+  // One roll per day, independent of event choices, patrols and the order in which the day is replayed.
+  const elevatorStops = load >= k.floorOrangeAt && nextInt(salt ^ Math.imul(day, 0x9e3779b1), ELEVATOR_STOP_ONE_IN)[0] === 0;
+  return { orders, stomachJam: stomachConveyorJammed(load, k), elevatorStops };
 }
+
+export const stomachConveyorJammed = (load: number, k: FloorThresholds): boolean => load >= k.floorYellowAt;
 
 export interface LiverStrikeInput {
   readonly load: number;
