@@ -105,6 +105,9 @@ describe('the nightly load (design doc 8.4)', () => {
     const base = { debtAfter: 0, deadline: false, tolerant: false, lateSnack: false, alcoholCups: 0, fasting: false, chronic: false };
     expect(contributions({ ...base, debtAfter: 2, deadline: true, tolerant: true }, K)).toEqual(loads({ brain: 24 }));
     expect(contributions({ ...base, chronic: true }, K)).toEqual(loads({ brain: 8, immune: 15 }));
+    expect(contributions({ ...base, illness: 'throat' }, K)).toEqual(loads({}));
+    expect(contributions({ ...base, illness: 'cold' }, K)).toEqual(loads({ immune: 25 }));
+    expect(contributions({ ...base, chronic: true, illness: 'fever' }, K)).toEqual(loads({ brain: 8, immune: 55 }));
     expect(contributions({ ...base, lateSnack: true }, K)).toEqual(loads({ stomach: 15 }));
     expect(contributions({ ...base, alcoholCups: 3 }, K).liver).toBe(24);
     expect(contributions({ ...base, alcoholCups: 3, fasting: true }, K).liver).toBe(36);
@@ -806,7 +809,7 @@ describe('what the player is allowed to see', () => {
     expect(views.length).toBeGreaterThan(5);
     for (const v of views) {
       expect(Object.keys(v).sort()).toEqual([
-        'S', 'bedDelay', 'caffeine', 'day', 'examTomorrow', 'exam', 'homework', 'hospitals', 'liverClues', 'liverReading', 'modifiers', 'panel', 'progress', 'sleepDebt', 'staging', 'stress', 'chronicStress', 'wake', 'weekend', 'welfare', 'workOrders',
+        'S', 'bedDelay', 'caffeine', 'day', 'examTomorrow', 'exam', 'homework', 'hospitals', 'liverClues', 'liverReading', 'modifiers', 'panel', 'progress', 'sleepDebt', 'staging', 'stress', 'chronicStress', 'wake', 'weekend', 'welfare', 'workOrders', ...(v.illness !== undefined ? ['illness'] : []),
       ].sort());
       // The one load a view holds is a reading paid for; with no blood test and no patrol lit, that is the day-1 checkup.
       expect(v.liverReading).toEqual({ day: 1, by: 'checkup', load: 0 });
@@ -934,7 +937,8 @@ describe('the causal log of a semester', () => {
 
   it('records whether the liver struck on an empty stomach, which a strike of two floors never is', () => {
     expect(strikeDay.crisis!.fasting).toBe(true);
-    const ctx = contextFor(0.5, 1, { scenario: crunchWeek(1) });
+    const ctx0 = contextFor(0.5, 1, { scenario: crunchWeek(1) });
+    const ctx = { ...ctx0, params: { ...ctx0.params, campusExposure: 0 } };
     const crammed = runSemester(ctx, ARCHETYPES.crammer, 1);
     const visit = crammed.history.find((r) => r.crisis)!;
     expect([visit.strikes, visit.crisis!.fasting]).toEqual([['brain', 'stomach'], false]);

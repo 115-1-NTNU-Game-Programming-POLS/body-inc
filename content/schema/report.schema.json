@@ -82,7 +82,7 @@
       "additionalProperties": false,
       "required": [
         "letterhead", "recipient", "explain", "incidentHead", "incidentItem", "copyTo", "copyCc", "chair", "liverNote",
-        "causeSingle", "causeMulti", "causeLiverFasting", "unlockNew", "unlockKnown", "examMid", "examFin",
+        "causeSingle", "causeMulti", "causeLiverFasting", "causeFever", "unlockNew", "unlockKnown", "examMid", "examFin",
         "noticeDate", "noticeNumber", "noticeSubject", "noticePenalty", "noticeMissed", "noticeAdvice", "noticeWarning",
         "bankruptDate", "bankruptNumber", "bankruptPrevious", "bankruptSubject", "bankruptResult",
         "bankruptAdviceHead", "bankruptAdvice1", "bankruptAdvice2", "bankruptAdvice3", "wallStruck", "wallMore", "wallOrder", "wallSmile",
@@ -101,6 +101,7 @@
         "causeSingle": { "type": "string", "minLength": 1 },
         "causeMulti": { "type": "string", "minLength": 1 },
         "causeLiverFasting": { "type": "string", "minLength": 1 },
+        "causeFever": { "type": "string", "minLength": 1 },
         "unlockNew": { "type": "string", "minLength": 1 },
         "unlockKnown": { "type": "string", "minLength": 1 },
         "examMid": { "type": "string", "minLength": 1 },

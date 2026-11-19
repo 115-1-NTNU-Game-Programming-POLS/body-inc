@@ -13,6 +13,8 @@ export interface FloorContrib {
   readonly fastingAlcoholMult: number;
   readonly chronicBrain: number;
   readonly chronicImmune: number;
+  readonly coldImmune: number;
+  readonly feverImmune: number;
 }
 
 export interface LoadParams extends FloorThresholds {
@@ -40,6 +42,8 @@ export interface DayFacts {
   readonly fasting: boolean;
   /** Chronic stress holds after tonight's settlement. */
   readonly chronic: boolean;
+  /** The stage of the cold after tonight's settlement; absent when the host is well. */
+  readonly illness?: 'throat' | 'cold' | 'fever';
 }
 
 const round6 = (x: number): number => Math.round(x * 1e6) / 1e6;
@@ -55,7 +59,7 @@ export function contributions(f: DayFacts, k: LoadParams): Loads {
       case 'brain': return c.debtBrain * f.debtAfter + (f.deadline ? c.deadlineBrain : 0) + (f.tolerant ? c.toleranceBrain : 0) + (f.chronic ? c.chronicBrain : 0);
       case 'stomach': return f.lateSnack ? c.lateSnackStomach : 0;
       case 'liver': return c.alcoholLiver * f.alcoholCups * (f.fasting ? c.fastingAlcoholMult : 1);
-      case 'immune': return f.chronic ? c.chronicImmune : 0;
+      case 'immune': return (f.chronic ? c.chronicImmune : 0) + (f.illness === 'cold' ? c.coldImmune : f.illness === 'fever' ? c.feverImmune : 0);
       case 'gut': return 0;
     }
   });

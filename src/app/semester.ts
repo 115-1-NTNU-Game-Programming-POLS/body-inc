@@ -386,6 +386,11 @@ export function daySummary(before: SemesterState, after: SemesterState, ctx: Sem
   const wasChronic = before.history[before.history.length - 1]?.chronicStress === true;
   if (rec.chronicStress === true && !wasChronic) lines.push(str('semester.sum.chronic.on'));
   if (rec.chronicStress !== true && wasChronic && rec.stress !== undefined) lines.push(str('semester.sum.chronic.off'));
+  // The cold's step tonight, read from the stage the day began with and the one the night left (design doc 9.1).
+  if (rec.infected === true) lines.push(str('semester.sum.ill.throat'));
+  const wasIll = before.illness?.stage ?? (rec.infected === true ? 'throat' : undefined);
+  if (rec.illness !== undefined && rec.illness !== wasIll) lines.push(str(`semester.sum.ill.${rec.illness}`));
+  if (rec.illness === undefined && wasIll !== undefined && rec.kind !== 'hospital' && !rec.hospitalized) lines.push(str(wasIll === 'throat' ? 'semester.sum.ill.stopped' : 'semester.sum.ill.well'));
   // Only the hours nothing else (class, meal, a course) already held are the card's to count.
   const taken = settingHours(ctx.setting, before.day).filter((h) => h < k.bedMin && fixedHour(k, ctx.courses, before.day, rec.wake, rec.kind === 'exam', h) === undefined);
   if (ctx.setting !== undefined && taken.length > 0 && rec.kind !== 'hospital') lines.push(fill('semester.sum.setting', { name: str(`semester.setting.name.${ctx.setting.id}`), hours: taken.length }));
