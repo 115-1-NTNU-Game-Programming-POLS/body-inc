@@ -382,6 +382,10 @@ export function daySummary(before: SemesterState, after: SemesterState, ctx: Sem
   if (rec.card !== undefined) lines.push(fill('semester.sum.card', { name: str(`welfare.${rec.card}.name`) }));
   if (rec.minutes !== undefined) lines.push(fill('semester.sum.minutes', { p: oneDecimal(rec.minutes) }));
   lines.push(fill('semester.sum.debt', { debt: oneDecimal(amount(after.tags, ctx.dict, 'sleep_debt')) }));
+  if (rec.stress !== undefined) lines.push(fill('semester.sum.stress', { p: percent(rec.stress) }));
+  const wasChronic = before.history[before.history.length - 1]?.chronicStress === true;
+  if (rec.chronicStress === true && !wasChronic) lines.push(str('semester.sum.chronic.on'));
+  if (rec.chronicStress !== true && wasChronic && rec.stress !== undefined) lines.push(str('semester.sum.chronic.off'));
   // Only the hours nothing else (class, meal, a course) already held are the card's to count.
   const taken = settingHours(ctx.setting, before.day).filter((h) => h < k.bedMin && fixedHour(k, ctx.courses, before.day, rec.wake, rec.kind === 'exam', h) === undefined);
   if (ctx.setting !== undefined && taken.length > 0 && rec.kind !== 'hospital') lines.push(fill('semester.sum.setting', { name: str(`semester.setting.name.${ctx.setting.id}`), hours: taken.length }));

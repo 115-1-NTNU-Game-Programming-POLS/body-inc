@@ -40,6 +40,13 @@ describe('the health score (design doc 8.11)', () => {
     // The stay it ends in already takes a fifth off the year-end points, so the night itself costs the health score nothing.
     expect(healthScore(withDay(s, 2, { crisis: { node: 0, at: 0, fasting: false } }), ctx)).toBeCloseTo(base);
   });
+
+  it('takes 5 off for each night settled under chronic stress', () => {
+    const s = at();
+    const base = healthScore(s, ctx);
+    expect(s.history.some((r) => r.chronicStress === true)).toBe(false);
+    expect(healthScore(withDay(withDay(s, 1, { chronicStress: true }), 3, { chronicStress: true }), ctx)).toBeCloseTo(base - 10);
+  });
 });
 
 describe('the year-end review points (design doc 8.14)', () => {

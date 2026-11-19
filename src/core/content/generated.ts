@@ -1668,6 +1668,8 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
           "chronicAt",
           "chronicDays",
           "chronicOff",
+          "chronicClear",
+          "chronicClearNights",
           "lowSocial",
           "lowSocialStress",
           "socialPerHour",
@@ -2029,6 +2031,17 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
           "chronicOff": {
             "type": "number"
           },
+          "chronicClear": {
+            "description": "Stress under which a night settlement counts toward clearing chronic stress in the semester.",
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "chronicClearNights": {
+            "description": "Night settlements in a row under chronicClear that clear chronic stress in the semester.",
+            "type": "integer",
+            "minimum": 1
+          },
           "lowSocial": {
             "type": "number"
           },
@@ -2284,7 +2297,9 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
               "toleranceBrain",
               "lateSnackStomach",
               "alcoholLiver",
-              "fastingAlcoholMult"
+              "fastingAlcoholMult",
+              "chronicBrain",
+              "chronicImmune"
             ],
             "properties": {
               "debtBrain": {
@@ -2316,6 +2331,16 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
                 "description": "Multiplier on the alcohol load when drinking on an empty stomach.",
                 "type": "number",
                 "minimum": 1
+              },
+              "chronicBrain": {
+                "description": "Brain load on a night while chronic stress holds.",
+                "type": "number",
+                "minimum": 0
+              },
+              "chronicImmune": {
+                "description": "Immune load on a night while chronic stress holds.",
+                "type": "number",
+                "minimum": 0
               }
             }
           },
@@ -4013,6 +4038,10 @@ export interface ParamsFile {
     readonly chronicAt: number;
     readonly chronicDays: number;
     readonly chronicOff: number;
+    /** Stress under which a night settlement counts toward clearing chronic stress in the semester. */
+    readonly chronicClear: number;
+    /** Night settlements in a row under chronicClear that clear chronic stress in the semester. */
+    readonly chronicClearNights: number;
     readonly lowSocial: number;
     readonly lowSocialStress: number;
     readonly socialPerHour: number;
@@ -4102,6 +4131,10 @@ export interface ParamsFile {
       readonly alcoholLiver: number;
       /** Multiplier on the alcohol load when drinking on an empty stomach. */
       readonly fastingAlcoholMult: number;
+      /** Brain load on a night while chronic stress holds. */
+      readonly chronicBrain: number;
+      /** Immune load on a night while chronic stress holds. */
+      readonly chronicImmune: number;
     };
     /** Hours an overtime patrol pushes bedtime back. */
     readonly overtimeBedDelay: number;

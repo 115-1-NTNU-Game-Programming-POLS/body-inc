@@ -80,11 +80,9 @@ export function startSemester(ctx: SemesterContext, seed: number): SemesterState
   for (const [day, ids] of Object.entries(ctx.scenario)) {
     for (const id of ids) if (!ctx.events.has(id)) throw new RangeError(`scenario day ${day} names the unknown event "${id}"`);
   }
-  let tags = EMPTY_TAGS;
-  if ((ctx.startDebt ?? 0) > 0) {
-    const [t, cause] = source(tags, 'rule', 'semester.start', 0);
-    tags = setAmount(t, ctx.dict, 'sleep_debt', ctx.startDebt!, cause, 0);
-  }
+  const [started, start] = source(EMPTY_TAGS, 'rule', 'semester.start', 0);
+  let tags = setAmount(started, ctx.dict, 'stress', ctx.params.stress0, start, 0);
+  if ((ctx.startDebt ?? 0) > 0) tags = setAmount(tags, ctx.dict, 'sleep_debt', ctx.startDebt!, start, 0);
   let rng = seedStreams(seed);
   const homework: Assignment[] = [];
   // The debugging hours are fixed by the seed, so starting early or late cannot reroll them (design doc 8.3).
@@ -117,6 +115,10 @@ function homeworkDelta(before: readonly Assignment[], after: readonly Assignment
 }
 
 type Activity = 'study' | 'rest' | 'class' | 'meal' | 'exam' | 'work' | 'project';
+type StressKey = keyof SemesterParams['stressPerHour'];
+
+/** The rows of `stressPerHour` the semester's hours are charged at; a free hour is leisure. */
+const STRESS_OF: Readonly<Record<Activity, StressKey>> = { study: 'study', project: 'study', rest: 'leisure', class: 'class', meal: 'meal', exam: 'exam', work: 'work' };
 
 /** One day in progress: the state it is rebuilding and what the day has done so far. */
 interface DayRun {
@@ -164,6 +166,10 @@ interface DayRun {
   played: { id: string; option: string }[];
   /** Progress the day's patrols added through 會議紀錄. */
   minutes: number;
+  /** Stress the day's hours and events add before the night's sleep takes its share off (design doc 9.1). */
+  stressDay: number;
+  /** The events behind the day's stress, for the causal log. */
+  stressCauses: number[];
 }
 
 const examOn = (day: number, ctx: SemesterContext): 'mid' | 'fin' | null =>
@@ -215,6 +221,8 @@ function viewOf(d: DayRun): DayView {
     exam: d.exam,
     examTomorrow: examOn(s.day + 1, ctx) !== null,
     sleepDebt: amount(s.tags, ctx.dict, 'sleep_debt'),
+    stress: amount(s.tags, ctx.dict, 'stress'),
+    chronicStress: flag(s.tags, ctx.dict, 'chronic_stress'),
     S: d.S,
     caffeine: caffeineOf(s.tags, ctx.dict),
     progress: s.progress,
@@ -286,6 +294,10 @@ function applyEvents(d: DayRun, upTo: number, before = false): void {
       d.lateSnack = true;
       d.evidence.stomach.push(cause);
     }
+    if (opt.stress !== undefined && opt.stress > 0) {
+      d.stressDay += opt.stress;
+      d.stressCauses.push(cause);
+    }
     // Loads move only in the night settlement, so the afternoon's load is the morning's.
     if (opt.bloodTest) d.reading = { load: d.morningLoads.liver, by: 'blood_test' };
     d.workLeft += opt.workHours ?? 0;
@@ -328,8 +340,9 @@ function activityAt(d: DayRun, h: number, rest: ReadonlySet<number>): Activity {
 }
 
 /** Spends `dur` hours on an activity; study moves the semester's progress, the paper-exam part of it into the staging pile, and the project a share of it at once. */
-function spend(d: DayRun, dur: number, activity: Activity, effort = 1): void {
+function spend(d: DayRun, dur: number, activity: Activity, effort = 1, stressAs: StressKey = STRESS_OF[activity]): void {
   const { dict, params: k } = d.ctx;
+  d.stressDay += k.stressPerHour[stressAs] * dur;
   let { tags, progress, staging, project } = d.s;
   if (activity === 'study' || activity === 'project') {
     const boost = caffeineBoost(caffeineOf(tags, dict), flag(tags, dict, 'caffeine_tolerant'), k);
@@ -364,6 +377,7 @@ function sitting(d: DayRun, activity: Activity, dur: number): number {
   if (d.walk && d.sit >= SIT_LIMIT) {
     d.sit = 0;
     effort = 1 - (1 - WALK_EFFORT) / dur;
+    d.stressDay += d.ctx.params.stressPerHour.walk * (1 - WALK_EFFORT);
   }
   if (d.sit >= SIT_LIMIT) effort *= STUCK_MULT;
   d.sit += dur;
@@ -441,6 +455,8 @@ interface Outcome {
   readonly crisis?: NonNullable<DayRecord['crisis']>;
   readonly archive?: NonNullable<DayRecord['archive']>;
   readonly slept: number;
+  readonly stress: number;
+  readonly chronicStress?: true;
 }
 
 const nodeOf = (tags: TagState, name: string): number[] => (tags.values[name] ? [tags.values[name]!.node] : []);
@@ -476,6 +492,31 @@ function explainDebt(d: DayRun, tags: TagState, n: Night, residual: number, alco
   return { ...tags, log: addCauses(tags.log, tags.values['sleep_debt']!.node, why, at) };
 }
 
+/**
+ * Tonight's stress (design doc 9.1): the day's hours and events raise it, every hour of effective sleep takes stressSleep off, and
+ * it stays within 0 to 100. Chronic stress begins after chronicDays settlements in a row above chronicAt and ends after
+ * chronicClearNights in a row under chronicClear.
+ */
+function settleStress(d: DayRun, tags0: TagState, rule: number, effective: number, at: number): TagState {
+  const { dict, params: k } = d.ctx;
+  let tags = tags0;
+  let cause = rule;
+  if (d.stressCauses.length > 0) [tags, cause] = derive(tags, 'stress.events', at, d.stressCauses);
+  const raised = Math.min(100, Math.max(0, amount(tags, dict, 'stress') + d.stressDay));
+  const after = Math.max(0, raised + k.stressSleep * effective);
+  tags = setAmount(tags, dict, 'stress', after, cause, at);
+  const before = d.s.history.flatMap((r) => (r.stress === undefined ? [] : [r.stress]));
+  const run = (n: number): number[] | undefined => (before.length >= n - 1 ? [...before.slice(before.length - (n - 1)), after] : undefined);
+  const chronicBefore = flag(tags, dict, 'chronic_stress');
+  if (!chronicBefore && run(k.chronicDays)?.every((x) => x > k.chronicAt) === true) {
+    const [t, node] = derive(tags, 'stress.chronic', at, nodeOf(tags, 'stress'));
+    tags = setFlag(t, dict, 'chronic_stress', true, node, at);
+  } else if (chronicBefore && run(k.chronicClearNights)?.every((x) => x < k.chronicClear) === true) {
+    tags = setFlag(tags, dict, 'chronic_stress', false, rule, at);
+  }
+  return tags;
+}
+
 /** The night settlement: sleep, debt, floor loads, strikes, a trip to the emergency room, waking up. */
 function settle(d: DayRun, n: Night): Outcome {
   const { dict, params: k } = d.ctx;
@@ -484,9 +525,12 @@ function settle(d: DayRun, n: Night): Outcome {
   const sleepHours = Math.max(0, 24 + n.nextWake - n.bedEnd);
   const residual = caffeineOf(d.s.tags, dict);
   const alcoholAtBed = amount(d.s.tags, dict, 'alcohol') > 0;
-  const mult = caffeineSleepCoef(residual, k) * (alcoholAtBed ? k.alcoholSleep : 1) * (d.lateSnack ? k.snackSleep : 1);
+  const chronicAtBed = flag(d.s.tags, dict, 'chronic_stress');
+  const mult = caffeineSleepCoef(residual, k) * (alcoholAtBed ? k.alcoholSleep : 1) * (d.lateSnack ? k.snackSleep : 1) * (chronicAtBed ? k.chronicSleep : 1);
   const effective = sleepHours * mult;
   let [tags, rule] = source(d.s.tags, 'rule', 'sleep', at, { bed: n.bedEnd, sleep: sleepHours, effective });
+  tags = settleStress(d, tags, rule, effective, at);
+  const chronic = flag(tags, dict, 'chronic_stress');
 
   const debtBefore = amount(tags, dict, 'sleep_debt');
   const debtAfter = nextSleepDebt(debtBefore, effective, k);
@@ -495,7 +539,7 @@ function settle(d: DayRun, n: Night): Outcome {
 
   const facts: DayFacts = {
     debtAfter, deadline: d.deadline, tolerant: flag(tags, dict, 'caffeine_tolerant'), lateSnack: d.lateSnack,
-    alcoholCups: d.alcoholCups, fasting: d.fasting,
+    alcoholCups: d.alcoholCups, fasting: d.fasting, chronic,
   };
   const add = contributions(facts, k);
   // A failed patrol still looked after the floor, so the neglect bonus is waived, but it cuts nothing.
@@ -517,10 +561,13 @@ function settle(d: DayRun, n: Night): Outcome {
 
   // A load is a running sum, so a floor's causes accumulate until it is calm again (under the yellow line).
   const tonight: Record<FloorId, number[]> = {
-    brain: [...(debtAfter > 0 ? nodeOf(tags, 'sleep_debt') : []), ...(facts.tolerant ? nodeOf(tags, 'caffeine_tolerant') : []), ...d.evidence.brain],
+    brain: [
+      ...(debtAfter > 0 ? nodeOf(tags, 'sleep_debt') : []), ...(facts.tolerant ? nodeOf(tags, 'caffeine_tolerant') : []), ...(chronic ? nodeOf(tags, 'chronic_stress') : []),
+      ...d.evidence.brain,
+    ],
     stomach: d.evidence.stomach,
     liver: d.evidence.liver,
-    immune: [],
+    immune: chronic ? nodeOf(tags, 'chronic_stress') : [],
     gut: [],
   };
   const behind = mapFloors((f) => [...new Set([...d.s.loadCauses[f], ...tonight[f]])]);
@@ -585,6 +632,8 @@ function settle(d: DayRun, n: Night): Outcome {
     loadsSettled,
     // The first emergency-room night counts as good sleep for the debt, so for the early-sleep bonus too.
     slept: hospitalDay !== undefined ? k.hospitalSleep : effective,
+    stress: amount(tags, dict, 'stress'),
+    ...(chronic ? { chronicStress: true as const } : {}),
     ...(staged > 0 ? { archive: { staged, rate, archived } } : {}),
     ...(struck.includes('liver') ? { liverStrike: { alcoholAtBed, dupMedication, orderBefore } } : {}),
     ...(crisis ? { crisis } : {}),
@@ -607,6 +656,8 @@ export function playDay(from: SemesterState, ctx: SemesterContext, strategy: Str
     pending: hospitalDay ? [] : (ctx.scenario[day] ?? []).map((id) => ctx.events.get(id)!).sort((a, b) => a.hour - b.hour),
     played: [],
     minutes: 0,
+    stressDay: hospitalDay ? k.hospitalStress : 0,
+    stressCauses: [],
   };
   const panel = elevatorPanel(s0.loads, k);
   const header = {
@@ -667,7 +718,7 @@ export function playDay(from: SemesterState, ctx: SemesterContext, strategy: Str
 
   for (let h = d.s.wake; h < k.bedMin; h++) {
     if (hospitalDay) {
-      spend(d, 1, 'rest');
+      spend(d, 1, 'rest', 1, 'hospital');
       continue;
     }
     applyEvents(d, h);
@@ -758,7 +809,8 @@ export function playDay(from: SemesterState, ctx: SemesterContext, strategy: Str
     const late = t < bedBase && night.lateNight === 'study';
     if (late) d.lateStudy += STEP;
     const activity = late ? 'study' : 'rest';
-    spend(d, STEP, activity, sitting(d, activity, STEP));
+    // Past the planned bedtime the hours went to what kept the player up: the debugging, the grading, the contest, an overtime patrol, an event.
+    spend(d, STEP, activity, sitting(d, activity, STEP), hospitalDay ? 'hospital' : t >= bedBase ? 'work' : STRESS_OF[activity]);
   }
 
   // An event in the night can use up the room the plan saw, and the clamp then takes those hours off the bedtime. Only the hours

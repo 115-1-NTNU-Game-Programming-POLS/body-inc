@@ -30,15 +30,16 @@ export const BOOKED_BLOOD_TEST_DAY = 3;
 export const HOSPITAL_FACTOR = 0.8;
 
 /**
- * The health score of design doc 8.11 (結局): 100 less 4 per hour of sleep debt at the end and 6 per floor-day of strike (30 at
- * most). Two terms are left out. 5 per day of chronic stress waits for a chronic-stress tag the semester does not have. 10 per
- * serious or critical event does not count the nights in the emergency room, which the year-end points already take a fifth
- * off for each (HOSPITAL_FACTOR), and the semester has no other such event yet.
+ * The health score of design doc 8.11 (結局): 100 less 4 per hour of sleep debt at the end, 5 per night settled under chronic
+ * stress and 6 per floor-day of strike (30 at most). The 10 per serious or critical event does not count the nights in the
+ * emergency room, which the year-end points already take a fifth off for each (HOSPITAL_FACTOR), and the semester has no other
+ * such event yet.
  */
 export function healthScore(state: SemesterState, ctx: SemesterContext): number {
   const debt = summarize(state, ctx).finalDebt;
   const strikeDays = state.history.reduce((n, r) => n + r.strikes.length, 0);
-  return Math.max(0, 100 - 4 * debt - Math.min(30, 6 * strikeDays));
+  const chronicDays = state.history.filter((r) => r.chronicStress === true).length;
+  return Math.max(0, 100 - 4 * debt - 5 * chronicDays - Math.min(30, 6 * strikeDays));
 }
 
 /**
