@@ -104,7 +104,7 @@ export function semesterInputs(state: SemesterState, ctx: SemesterContext, o: Se
       ...nodeFacts(trace(state.tags.log, crisis.id), o.cfg, parents),
       ...operationFacts(state.history, state, ctx, struck, o.text, o.cfg, previous?.day ?? 0, rec.day),
     ];
-    const common = { seed: o.seed, wakes, at: rec.crisis.at, facts, struck: rec.strikes, fasting: rec.crisis.fasting, known: o.known ?? new Set<string>() };
+    const common = { seed: o.seed, wakes, at: rec.crisis.at, facts, struck: rec.strikes, fasting: rec.crisis.fasting, ...(rec.crisis.fever === true ? { fever: true } : {}), known: o.known ?? new Set<string>() };
     return i === 0
       ? {
         ...common, kind: 'notice',
@@ -117,7 +117,7 @@ export function semesterInputs(state: SemesterState, ctx: SemesterContext, o: Se
           ...(rec.day + 1 === k.midDay ? { missedExam: 'mid' as const } : rec.day + 1 === k.finDay ? { missedExam: 'fin' as const } : {}),
         },
       }
-      : { ...common, kind: 'bankruptcy', previous: { at: previous!.crisis.at, struck: previous!.strikes, fasting: previous!.crisis.fasting } };
+      : { ...common, kind: 'bankruptcy', previous: { at: previous!.crisis.at, struck: previous!.strikes, fasting: previous!.crisis.fasting, ...(previous!.crisis.fever === true ? { fever: true } : {}) } };
   });
 }
 

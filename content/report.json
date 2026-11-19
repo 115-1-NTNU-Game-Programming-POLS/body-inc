@@ -132,6 +132,18 @@
       "score": "tag", "theme": "sleep",
       "single": ["report.tag.chronic_stress.single.1", "report.tag.chronic_stress.single.2"]
     },
+    "effect:infection": {
+      "score": "effect", "theme": "sleep",
+      "single": ["report.effect.infection.single.1", "report.effect.infection.single.2"]
+    },
+    "tag:cold": {
+      "score": "tag", "theme": "sleep",
+      "single": ["report.tag.cold.single.1", "report.tag.cold.single.2"]
+    },
+    "tag:fever": {
+      "score": "tag", "theme": "sleep",
+      "single": ["report.tag.fever.single.1", "report.tag.fever.single.2"]
+    },
     "strike": {
       "score": "effect",
       "single": ["report.strike.single.1", "report.strike.single.2"]
@@ -185,6 +197,7 @@
     "causeSingle": "report.doc.cause_single",
     "causeMulti": "report.doc.cause_multi",
     "causeLiverFasting": "report.doc.cause_liver_fasting",
+    "causeFever": "report.doc.cause_fever",
     "unlockNew": "report.doc.unlock_new",
     "unlockKnown": "report.doc.unlock_known",
     "examMid": "report.doc.exam_mid",

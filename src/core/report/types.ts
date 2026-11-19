@@ -79,6 +79,8 @@ export interface ReportInput {
   readonly struck: readonly string[];
   /** The liver struck while the stomach was empty: the dizzy crisis of design doc 8.6. */
   readonly fasting: boolean;
+  /** One floor struck while the host had a fever, the crisis tag of design doc 8.11. */
+  readonly fever?: boolean;
   /** Notice only: the day spent in hospital, when the notice is dated, and what the stay cost. */
   readonly hospital?: {
     readonly day: number;
@@ -90,7 +92,7 @@ export interface ReportInput {
     readonly missedExam?: 'mid' | 'fin';
   };
   /** Bankruptcy only: the case this one follows. */
-  readonly previous?: { readonly at: number; readonly struck: readonly string[]; readonly fasting: boolean };
+  readonly previous?: { readonly at: number; readonly struck: readonly string[]; readonly fasting: boolean; readonly fever?: boolean };
   /** Handbook pages the player already holds. */
   readonly known: ReadonlySet<string>;
 }

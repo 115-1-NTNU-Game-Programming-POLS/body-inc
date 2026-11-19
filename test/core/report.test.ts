@@ -347,6 +347,18 @@ describe('the report of a closure and of a bankruptcy', () => {
     ]);
   });
 
+  it('names the fever when one floor struck while the host had one (design doc 8.11), and only then', () => {
+    const fever = { struck: ['brain'], fasting: false, fever: true, facts: [{ key: 'strike', scope: 'brain', at: at(4, 22.5), parent: true }] };
+    expect(lines(fever)).toContain('主旨：本公司因大腦董事長室罷工，且宿主發燒，於第 5 天停業整頓一日，即日起復工，請查照。');
+    expect(lines({ ...fever, fever: false })).toContain('主旨：本公司因大腦董事長室罷工，於第 5 天停業整頓一日，即日起復工，請查照。');
+    const l = lines({
+      kind: 'bankruptcy', at: at(7, 22.5), hospital: undefined as never, struck: ['brain', 'immune'], fasting: false,
+      previous: { at: at(4, 22.5), struck: ['brain'], fasting: false, fever: true },
+      facts: [{ key: 'strike', scope: 'brain', at: at(7, 22.5), parent: true }],
+    });
+    expect(l).toContain('前案：第 4 天大腦董事長室罷工，且宿主發燒，停業整頓一日（人體急字第 0422 號）');
+  });
+
   it('sets it into the frame of a bankruptcy report, with the case it follows', () => {
     const l = lines({
       kind: 'bankruptcy', at: at(7, 22.5), hospital: undefined as never, previous: { at: at(4, 22.5), struck: ['liver'], fasting: true },
@@ -628,8 +640,8 @@ describe('from the causal log to facts', () => {
   });
 
   it('keeps an entry that has no bank key as a fact worded by the fallback, labelled', () => {
-    const odd = [{ id: 0, kind: 'tag' as const, key: 'cold', at: 100, causes: [] }];
-    expect(nodeFacts(odd, CFG, new Set())).toEqual([{ key: 'tag:cold', at: 100, vars: { label: 'cold' } }]);
+    const odd = [{ id: 0, kind: 'tag' as const, key: 'roommate', at: 100, causes: [] }];
+    expect(nodeFacts(odd, CFG, new Set())).toEqual([{ key: 'tag:roommate', at: 100, vars: { label: 'roommate' } }]);
   });
 
   it('rounds the caffeine left at bedtime for the sentence', () => {
@@ -804,7 +816,9 @@ describe('what the operator did and left undone', () => {
 
 describe('the input of each report', () => {
   const opts = { cfg: CFG, text, seed: 1 };
-  const crunch = contextFor(0.5, 1, { scenario: crunchWeek(1) });
+  const crunch0 = contextFor(0.5, 1, { scenario: crunchWeek(1) });
+  // The pinned cram week is about a strike of two floors, so no cold is caught on campus.
+  const crunch = { ...crunch0, params: { ...crunch0.params, campusExposure: 0 } };
   const crammed = runSemester(crunch, ARCHETYPES.crammer, 1);
 
   it('puts a visit on the ninth day into a stay on the final exam, issued that same day', () => {

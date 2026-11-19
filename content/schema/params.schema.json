@@ -113,6 +113,11 @@
         "restBed",
         "restEff",
         "feverIfEffBelow",
+        "throatDays",
+        "coldDays",
+        "feverDays",
+        "coldFastSleep",
+        "immuneStrikeInf",
         "passMid",
         "passFin",
         "difficulty",
@@ -531,6 +536,31 @@
         "feverIfEffBelow": {
           "type": "number"
         },
+        "throatDays": {
+          "description": "Nights a sore throat lasts in the semester before it becomes a cold, unless an early night ends it.",
+          "type": "integer",
+          "minimum": 1
+        },
+        "coldDays": {
+          "description": "Nights a cold lasts in the semester, unless a short night turns it into a fever.",
+          "type": "integer",
+          "minimum": 1
+        },
+        "feverDays": {
+          "description": "Nights a fever lasts in the semester.",
+          "type": "integer",
+          "minimum": 1
+        },
+        "coldFastSleep": {
+          "description": "Effective sleep from which one night counts as two nights of a cold.",
+          "type": "number",
+          "minimum": 0
+        },
+        "immuneStrikeInf": {
+          "description": "Multiplier on the infection chance while the immune floor strikes.",
+          "type": "number",
+          "minimum": 1
+        },
         "passMid": {
           "type": "number"
         },
@@ -719,7 +749,9 @@
             "alcoholLiver",
             "fastingAlcoholMult",
             "chronicBrain",
-            "chronicImmune"
+            "chronicImmune",
+            "coldImmune",
+            "feverImmune"
           ],
           "properties": {
             "debtBrain": {
@@ -759,6 +791,16 @@
             },
             "chronicImmune": {
               "description": "Immune load on a night while chronic stress holds.",
+              "type": "number",
+              "minimum": 0
+            },
+            "coldImmune": {
+              "description": "Immune load on a night with a cold.",
+              "type": "number",
+              "minimum": 0
+            },
+            "feverImmune": {
+              "description": "Immune load on a night with a fever.",
               "type": "number",
               "minimum": 0
             }

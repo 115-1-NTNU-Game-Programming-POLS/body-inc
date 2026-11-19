@@ -18,7 +18,7 @@ import { contributions, GRADES, nextLoad, strikes, type DayFacts } from './load.
 import { isFailed, type PatrolResult } from './patrol.ts';
 import { examPerformance, gradeFor } from './rating.ts';
 import type {
-  Assignment, DayRecord, DayView, HomeworkDay, LiverReading, PatrolRecord, SemesterContext, SemesterEvent, SemesterParams, SemesterState, SemesterSummary, Strategy, WelfareView,
+  Assignment, DayRecord, DayView, HomeworkDay, Illness, LiverReading, PatrolRecord, SemesterContext, SemesterEvent, SemesterParams, SemesterState, SemesterSummary, Strategy, WelfareView,
 } from './types.ts';
 import { EARLY_START_DAYS, minutesProgress, patrolKit, STOP_BY, welfareOffer } from './welfare.ts';
 
@@ -225,6 +225,7 @@ function viewOf(d: DayRun): DayView {
     sleepDebt: amount(s.tags, ctx.dict, 'sleep_debt'),
     stress: amount(s.tags, ctx.dict, 'stress'),
     chronicStress: flag(s.tags, ctx.dict, 'chronic_stress'),
+    ...(s.illness !== undefined ? { illness: s.illness.stage } : {}),
     S: d.S,
     caffeine: caffeineOf(s.tags, ctx.dict),
     progress: s.progress,
@@ -354,7 +355,9 @@ function spend(d: DayRun, dur: number, activity: Activity, effort = 1, stressAs:
   let { tags, progress, staging, project } = d.s;
   if (activity === 'study' || activity === 'project') {
     const boost = caffeineBoost(caffeineOf(tags, dict), flag(tags, dict, 'caffeine_tolerant'), k);
-    const efficiency = d.S * boost * (flag(tags, dict, 'withdrawal') ? k.withdrawal : 1) * (d.brainStrike ? k.floorStrikeStudyMult : 1);
+    const ill = d.s.illness?.stage;
+    const sick = ill === 'cold' ? k.coldStudy : ill === 'fever' ? k.feverStudy : 1;
+    const efficiency = d.S * boost * (flag(tags, dict, 'withdrawal') ? k.withdrawal : 1) * (d.brainStrike ? k.floorStrikeStudyMult : 1) * sick;
     const gain = efficiency * dur * effort;
     if (activity === 'project') {
       project += gain;
@@ -465,6 +468,7 @@ interface Outcome {
   readonly slept: number;
   readonly stress: number;
   readonly chronicStress?: true;
+  readonly illness?: Illness;
 }
 
 const nodeOf = (tags: TagState, name: string): number[] => (tags.values[name] ? [tags.values[name]!.node] : []);
@@ -498,6 +502,68 @@ function explainDebt(d: DayRun, tags: TagState, n: Night, residual: number, alco
   }
   if (d.lateSnack) why.push(...nodeOf(tags, 'late_snack'));
   return { ...tags, log: addCauses(tags.log, tags.values['sleep_debt']!.node, why, at) };
+}
+
+/** A roll in [0, 1) for `day` and `n` that draws from no stream, so the cold does not move any other draw of the semester. */
+const illnessRoll = (salt: number, day: number, n: number): number => nextFloat((salt ^ Math.imul(day * 2 + n + 1, 0x85ebca6b)) >>> 0)[0];
+
+/**
+ * The chance of catching a cold on an exposure (design doc 9.1): infBase, raised by the immune floor's load, by chronic stress,
+ * by a sleep debt of debtInfAt hours or more and while the immune floor strikes, and never above 1.
+ */
+export function infectionChance(immune: number, chronic: boolean, debt: number, immuneStriking: boolean, k: SemesterParams): number {
+  const p = k.infBase * (1 + immune / 100) * (chronic ? k.chronicInf : 1) * (debt >= k.debtInfAt ? k.debtInf : 1) * (immuneStriking ? k.immuneStrikeInf : 1);
+  return Math.min(1, p);
+}
+
+/**
+ * The morning's exposure on campus and the infection it may bring (design doc 9.1). A host who has a cold already, or spends
+ * the day in hospital, catches nothing. The infection cites what raised its chance.
+ */
+function catchCold(d: DayRun, hospitalDay: boolean): boolean {
+  const { dict, params: k } = d.ctx;
+  const s = d.s;
+  if (hospitalDay || s.illness !== undefined) return false;
+  if (illnessRoll(s.rng.setting, s.day, 0) >= k.campusExposure) return false;
+  const chronic = flag(s.tags, dict, 'chronic_stress');
+  const debt = amount(s.tags, dict, 'sleep_debt');
+  const chance = infectionChance(s.loads.immune, chronic, debt, strikes('immune', s.loads.immune, k), k);
+  if (illnessRoll(s.rng.setting, s.day, 1) >= chance) return false;
+  const at = minuteOf(s.day, s.wake);
+  const causes = [...(chronic ? nodeOf(s.tags, 'chronic_stress') : []), ...(debt >= k.debtInfAt ? nodeOf(s.tags, 'sleep_debt') : [])];
+  const [tags, node] = causes.length > 0 ? derive(s.tags, 'infection', at, causes, { chance }) : source(s.tags, 'rule', 'infection', at, { chance });
+  d.s = { ...s, tags, illness: { stage: 'throat', nights: k.throatDays, node } };
+  return true;
+}
+
+/**
+ * Tonight's step of the cold (design doc 9.1, the old sim's ladder): an early night of restEff or more ends a sore throat, which
+ * otherwise becomes a cold; a night under feverIfEffBelow turns a cold into a fever, and a night of coldFastSleep or more counts
+ * twice; each stage ends when its nights run out. The cold and fever tags follow the stage, each citing the one before.
+ */
+function settleIllness(d: DayRun, tags0: TagState, bedEnd: number, effective: number, at: number): [TagState, SemesterState['illness']] {
+  const { dict, params: k } = d.ctx;
+  const ill = d.s.illness;
+  let tags = tags0;
+  if (ill === undefined) return [tags, undefined];
+  const well = (): [TagState, undefined] => [setFlag(setFlag(tags, dict, 'cold', false, ill.node, at), dict, 'fever', false, ill.node, at), undefined];
+  const become = (stage: Illness, nights: number, cause: number): [TagState, SemesterState['illness']] => {
+    tags = setFlag(tags, dict, stage === 'fever' ? 'cold' : 'fever', false, cause, at);
+    tags = setFlag(tags, dict, stage, true, cause, at);
+    return [tags, { stage, nights, node: ill.node }];
+  };
+  if (ill.stage === 'throat') {
+    if (bedEnd <= k.restBed && effective >= k.restEff) return well();
+    const nights = ill.nights - 1;
+    return nights > 0 ? [tags, { ...ill, nights }] : become('cold', k.coldDays, ill.node);
+  }
+  if (ill.stage === 'cold') {
+    if (effective < k.feverIfEffBelow) return become('fever', k.feverDays, tags.values['cold']?.node ?? ill.node);
+    const nights = ill.nights - (effective >= k.coldFastSleep ? 2 : 1);
+    return nights > 0 ? [tags, { ...ill, nights }] : well();
+  }
+  const nights = ill.nights - 1;
+  return nights > 0 ? [tags, { ...ill, nights }] : well();
 }
 
 /**
@@ -538,6 +604,8 @@ function settle(d: DayRun, n: Night): Outcome {
   let [tags, rule] = source(d.s.tags, 'rule', 'sleep', at, { bed: n.bedEnd, sleep: sleepHours, effective });
   tags = settleStress(d, tags, rule, effective, at);
   const chronic = flag(tags, dict, 'chronic_stress');
+  let illness: SemesterState['illness'];
+  [tags, illness] = settleIllness(d, tags, n.bedEnd, effective, at);
 
   const debtBefore = amount(tags, dict, 'sleep_debt');
   const debtAfter = nextSleepDebt(debtBefore, effective, k);
@@ -546,7 +614,7 @@ function settle(d: DayRun, n: Night): Outcome {
 
   const facts: DayFacts = {
     debtAfter, deadline: d.deadline, tolerant: flag(tags, dict, 'caffeine_tolerant'), lateSnack: d.lateSnack,
-    alcoholCups: d.alcoholCups, fasting: d.fasting, chronic,
+    alcoholCups: d.alcoholCups, fasting: d.fasting, chronic, ...(illness !== undefined ? { illness: illness.stage } : {}),
   };
   const add = contributions(facts, k);
   // A failed patrol still looked after the floor, so the neglect bonus is waived, but it cuts nothing.
@@ -564,7 +632,9 @@ function settle(d: DayRun, n: Night): Outcome {
     : strikes(f, loads[f], k)));
   // Design doc 8.6: a struck liver plus an empty stomach is the dizzy-and-sweating crisis.
   const crisisNight = struck.includes('liver') && d.fasting;
-  const er = struck.length >= 2 || crisisNight;
+  // Design doc 8.11: one floor on strike with a crisis tag is enough; the fever is the cold's (the old sim's crisis tag).
+  const feverNight = struck.length >= 1 && illness?.stage === 'fever';
+  const er = struck.length >= 2 || crisisNight || feverNight;
 
   // A load is a running sum, so a floor's causes accumulate until it is calm again (under the yellow line).
   const tonight: Record<FloorId, number[]> = {
@@ -574,7 +644,7 @@ function settle(d: DayRun, n: Night): Outcome {
     ],
     stomach: d.evidence.stomach,
     liver: d.evidence.liver,
-    immune: chronic ? nodeOf(tags, 'chronic_stress') : [],
+    immune: [...(chronic ? nodeOf(tags, 'chronic_stress') : []), ...nodeOf(tags, 'cold'), ...nodeOf(tags, 'fever')],
     gut: [],
   };
   const behind = mapFloors((f) => [...new Set([...d.s.loadCauses[f], ...tonight[f]])]);
@@ -593,9 +663,9 @@ function settle(d: DayRun, n: Night): Outcome {
   let crisis: Outcome['crisis'];
   if (er) {
     hospitals += 1;
-    const [log, node] = record(tags.log, { kind: 'crisis', key: 'er', at, causes: strikeNodes });
+    const [log, node] = record(tags.log, { kind: 'crisis', key: 'er', at, causes: [...strikeNodes, ...(feverNight ? nodeOf(tags, 'fever') : [])] });
     tags = { ...tags, log };
-    crisis = { node, at, fasting: crisisNight };
+    crisis = { node, at, fasting: crisisNight, ...(feverNight ? { fever: true as const } : {}) };
     if (hospitals >= 2) {
       bankrupt = true;
     } else {
@@ -604,6 +674,11 @@ function settle(d: DayRun, n: Night): Outcome {
       tags = setAmount(tags, dict, 'sleep_debt', nextSleepDebt(halved, k.hospitalSleep, k), rule, at);
       loads = mapFloors((f) => Math.min(loads[f], k.hospitalFloorLoad));
       hospitalDay = day + 1;
+      // The hospital treats the cold, as the old sim's did.
+      if (illness !== undefined) {
+        tags = setFlag(setFlag(tags, dict, 'cold', false, rule, at), dict, 'fever', false, rule, at);
+        illness = undefined;
+      }
       residualHours = k.hospitalSleep;
     }
   }
@@ -629,8 +704,9 @@ function settle(d: DayRun, n: Night): Outcome {
   const archived = staged * rate;
 
   const loadCauses = mapFloors((f) => (loads[f] < k.floorYellowAt ? [] : behind[f]));
+  const { illness: _before, ...kept } = d.s;
   d.s = {
-    ...d.s, tags, loads, loadCauses, progress: d.s.progress + archived, staging: (staged - archived) * UNARCHIVED_KEPT, cupsHist, zeroCupDays, hospitals, bankrupt, day: day + 1, wake: er && !bankrupt ? k.wake : n.nextWake,
+    ...kept, tags, loads, loadCauses, ...(illness !== undefined ? { illness } : {}), progress: d.s.progress + archived, staging: (staged - archived) * UNARCHIVED_KEPT, cupsHist, zeroCupDays, hospitals, bankrupt, day: day + 1, wake: er && !bankrupt ? k.wake : n.nextWake,
     ...(hospitalDay !== undefined ? { hospitalDay } : {}),
   };
   return {
@@ -641,6 +717,7 @@ function settle(d: DayRun, n: Night): Outcome {
     slept: hospitalDay !== undefined ? k.hospitalSleep : effective,
     stress: amount(tags, dict, 'stress'),
     ...(chronic ? { chronicStress: true as const } : {}),
+    ...(illness !== undefined ? { illness: illness.stage } : {}),
     ...(staged > 0 ? { archive: { staged, rate, archived } } : {}),
     ...(struck.includes('liver') ? { liverStrike: { alcoholAtBed, dupMedication, orderBefore } } : {}),
     ...(crisis ? { crisis } : {}),
@@ -691,6 +768,7 @@ export function playDay(from: SemesterState, ctx: SemesterContext, strategy: Str
     return { ...d.s, history: [...d.s.history, rec] };
   }
 
+  const infected = catchCold(d, hospitalDay);
   const view0 = viewOf(d);
   const plan = hospitalDay ? { coffee: [], rest: [] } : strategy.plan(view0);
   const rest = new Set(plan.rest);
@@ -862,6 +940,7 @@ export function playDay(from: SemesterState, ctx: SemesterContext, strategy: Str
     ...(d.rerolled ? { rerolled: true as const } : {}),
     ...(cardTaken !== undefined ? { card: cardTaken } : {}),
     ...(d.minutes > 0 ? { minutes: d.minutes } : {}),
+    ...(infected ? { infected: true as const } : {}),
     ...outcome,
   };
   const ended = d.s.bankrupt;

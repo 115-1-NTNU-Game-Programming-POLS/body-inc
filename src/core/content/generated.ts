@@ -1693,6 +1693,11 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
           "restBed",
           "restEff",
           "feverIfEffBelow",
+          "throatDays",
+          "coldDays",
+          "feverDays",
+          "coldFastSleep",
+          "immuneStrikeInf",
           "passMid",
           "passFin",
           "difficulty",
@@ -2111,6 +2116,31 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
           "feverIfEffBelow": {
             "type": "number"
           },
+          "throatDays": {
+            "description": "Nights a sore throat lasts in the semester before it becomes a cold, unless an early night ends it.",
+            "type": "integer",
+            "minimum": 1
+          },
+          "coldDays": {
+            "description": "Nights a cold lasts in the semester, unless a short night turns it into a fever.",
+            "type": "integer",
+            "minimum": 1
+          },
+          "feverDays": {
+            "description": "Nights a fever lasts in the semester.",
+            "type": "integer",
+            "minimum": 1
+          },
+          "coldFastSleep": {
+            "description": "Effective sleep from which one night counts as two nights of a cold.",
+            "type": "number",
+            "minimum": 0
+          },
+          "immuneStrikeInf": {
+            "description": "Multiplier on the infection chance while the immune floor strikes.",
+            "type": "number",
+            "minimum": 1
+          },
           "passMid": {
             "type": "number"
           },
@@ -2299,7 +2329,9 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
               "alcoholLiver",
               "fastingAlcoholMult",
               "chronicBrain",
-              "chronicImmune"
+              "chronicImmune",
+              "coldImmune",
+              "feverImmune"
             ],
             "properties": {
               "debtBrain": {
@@ -2339,6 +2371,16 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
               },
               "chronicImmune": {
                 "description": "Immune load on a night while chronic stress holds.",
+                "type": "number",
+                "minimum": 0
+              },
+              "coldImmune": {
+                "description": "Immune load on a night with a cold.",
+                "type": "number",
+                "minimum": 0
+              },
+              "feverImmune": {
+                "description": "Immune load on a night with a fever.",
                 "type": "number",
                 "minimum": 0
               }
@@ -2792,6 +2834,7 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
           "causeSingle",
           "causeMulti",
           "causeLiverFasting",
+          "causeFever",
           "unlockNew",
           "unlockKnown",
           "examMid",
@@ -2871,6 +2914,10 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
             "minLength": 1
           },
           "causeLiverFasting": {
+            "type": "string",
+            "minLength": 1
+          },
+          "causeFever": {
             "type": "string",
             "minLength": 1
           },
@@ -4065,6 +4112,16 @@ export interface ParamsFile {
     readonly restBed: number;
     readonly restEff: number;
     readonly feverIfEffBelow: number;
+    /** Nights a sore throat lasts in the semester before it becomes a cold, unless an early night ends it. */
+    readonly throatDays: number;
+    /** Nights a cold lasts in the semester, unless a short night turns it into a fever. */
+    readonly coldDays: number;
+    /** Nights a fever lasts in the semester. */
+    readonly feverDays: number;
+    /** Effective sleep from which one night counts as two nights of a cold. */
+    readonly coldFastSleep: number;
+    /** Multiplier on the infection chance while the immune floor strikes. */
+    readonly immuneStrikeInf: number;
     readonly passMid: number;
     readonly passFin: number;
     readonly difficulty: number;
@@ -4135,6 +4192,10 @@ export interface ParamsFile {
       readonly chronicBrain: number;
       /** Immune load on a night while chronic stress holds. */
       readonly chronicImmune: number;
+      /** Immune load on a night with a cold. */
+      readonly coldImmune: number;
+      /** Immune load on a night with a fever. */
+      readonly feverImmune: number;
     };
     /** Hours an overtime patrol pushes bedtime back. */
     readonly overtimeBedDelay: number;
@@ -4271,6 +4332,7 @@ export interface ReportDoc {
   readonly causeSingle: string;
   readonly causeMulti: string;
   readonly causeLiverFasting: string;
+  readonly causeFever: string;
   readonly unlockNew: string;
   readonly unlockKnown: string;
   readonly examMid: string;

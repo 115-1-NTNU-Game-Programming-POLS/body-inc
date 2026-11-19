@@ -20,8 +20,13 @@ export type SemesterParams = SleepCoefficients & MetabolismParams & LoadParams &
   | 'tolDays' | 'tolCups' | 'tolResetDays' | 'withdrawal' | 'alcoholSleep' | 'snackSleep' | 'passMid' | 'passFin'
   | 'hospitalDebtMult' | 'hospitalFloorLoad' | 'hospitalSleep' | 'floorStrikeStudyMult' | 'overtimeBedDelay' | 'examPassPercent'
   | 'shiftHours' | 'labHours' | 'stress0' | 'stressPerHour' | 'stressSleep' | 'chronicAt' | 'chronicDays' | 'chronicClear'
-  | 'chronicClearNights' | 'chronicSleep' | 'hospitalStress'
+  | 'chronicClearNights' | 'chronicSleep' | 'hospitalStress' | 'infBase' | 'chronicInf' | 'debtInf' | 'debtInfAt' | 'campusExposure'
+  | 'restBed' | 'restEff' | 'feverIfEffBelow' | 'throatDays' | 'coldDays' | 'feverDays' | 'coldFastSleep' | 'immuneStrikeInf' | 'coldStudy'
+  | 'feverStudy'
 >;
+
+/** The stages of a common cold (design doc 9.1, the old sim's ladder): a sore throat, then a cold, then a fever. */
+export type Illness = 'throat' | 'cold' | 'fever';
 
 /** What one option of an event does to the day; only the fields it names. */
 export interface EventOption {
@@ -115,7 +120,7 @@ export interface DayRecord {
   /** Hour sleep began on the extended clock; absent on the final exam day, which has no night. */
   readonly bedEnd?: number;
   /** The emergency-room entry of the causal log, when the night ended there; `fasting` marks the liver strike on an empty stomach. */
-  readonly crisis?: { readonly node: number; readonly at: number; readonly fasting: boolean };
+  readonly crisis?: { readonly node: number; readonly at: number; readonly fasting: boolean; readonly fever?: true };
   readonly kind: 'normal' | 'exam' | 'hospital';
   /** False on the final exam day, which ends before any night settlement. */
   readonly settled: boolean;
@@ -154,6 +159,10 @@ export interface DayRecord {
   readonly stress?: number;
   /** Chronic stress held after the night settlement; absent when it did not. */
   readonly chronicStress?: true;
+  /** The stage of the cold after the night settlement; absent when the host is well. */
+  readonly illness?: Illness;
+  /** The host caught a cold today (design doc 9.1); absent on every other day. */
+  readonly infected?: true;
   /** Hours of the day a cup of coffee was drunk at; absent when none was. */
   readonly coffee?: readonly number[];
   /** The hours of grading the night itself took, which push bedtime back; absent when it took none. */
@@ -227,6 +236,8 @@ export interface SemesterState {
   readonly ended: boolean;
   /** The welfare cards taken so far (design doc 8.8), kept to the end; absent until the first. */
   readonly welfare?: readonly string[];
+  /** The cold the host has, the nights its stage has left, and the causal log entry of the infection; absent when well. */
+  readonly illness?: { readonly stage: Illness; readonly nights: number; readonly node: number };
 }
 
 /** The player's morning plan (design doc 8.2): coffee hours and the free hours spent resting. */
@@ -298,6 +309,8 @@ export interface DayView {
   /** Stress as the day began, 0 to 100. */
   readonly stress: number;
   readonly chronicStress: boolean;
+  /** The stage of the cold as the day began; absent when the host is well. */
+  readonly illness?: Illness;
   readonly S: number;
   readonly caffeine: number;
   readonly progress: number;
