@@ -26,7 +26,9 @@ function contentWith(...edits: [file: string, fn: (j: Record<string, any>) => vo
   return dir;
 }
 
-const problems = (dir: string) => checkReports({ contentDir: dir, seeds: 2 }).problems;
+// The smallest batch that reaches every key: below 8 seeds the roommate's cold leaves no campus infection in any notice.
+const SMALL = 10;
+const problems = (dir: string) => checkReports({ contentDir: dir, seeds: SMALL }).problems;
 
 // The default batch is 960 semesters; on a loaded machine it needs more than the 5 s default.
 describe('report check (build plan P6)', { timeout: 60_000 }, () => {
@@ -35,7 +37,7 @@ describe('report check (build plan P6)', { timeout: 60_000 }, () => {
     expect(r.problems).toEqual([]);
     expect(r.report).toContainEqual(expect.stringMatching(/^\d+ 個學期，停業整頓通知 \d+ 份、倒閉調查報告 \d+ 份/));
     expect(r.report).toContainEqual(expect.stringMatching(/^通用句比例：0 \/ \d+（目標 0）$/));
-    expect(r.report).toContainEqual('句型鍵 19 / 19 在批次中出現過');
+    expect(r.report).toContainEqual('句型鍵 21 / 21 在批次中出現過');
   });
 
   it('a sentence key with no template is named, with a run that produced it', () => {
@@ -95,11 +97,11 @@ describe('report check (build plan P6)', { timeout: 60_000 }, () => {
   });
 
   it('the command prints its footer and exits 0, or 1 with the problems', () => {
-    const ok = spawnSync(process.execPath, ['tools/check-reports.ts', 'content', '1'], { encoding: 'utf8' });
+    const ok = spawnSync(process.execPath, ['tools/check-reports.ts', 'content', String(SMALL)], { encoding: 'utf8' });
     expect(ok.status).toBe(0);
     expect(ok.stdout).toMatch(/report check: 0 problem\(s\) in content\r?\n$/);
     const dir = contentWith(['report.json', (j) => { delete j['keys']['effect:alcohol_sleep']; }]);
-    const bad = spawnSync(process.execPath, ['tools/check-reports.ts', dir, '1'], { encoding: 'utf8' });
+    const bad = spawnSync(process.execPath, ['tools/check-reports.ts', dir, String(SMALL)], { encoding: 'utf8' });
     expect(bad.status).toBe(1);
     expect(bad.stdout).toMatch(/句型鍵「effect:alcohol_sleep」沒有模板/);
     expect(bad.stdout).toMatch(/report check: 1 problem\(s\)/);

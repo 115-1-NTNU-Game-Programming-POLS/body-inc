@@ -19,7 +19,7 @@
     { "name": "returned_orders", "type": "number", "unit": "times", "sources": ["event"], "duration": "persistent", "facts": ["general"] },
     { "name": "acetaldehyde", "type": "number", "unit": "crates", "sources": ["rule"], "duration": "persistent", "facts": ["pending:4"] },
     { "name": "dizzy", "type": "boolean", "sources": ["rule"], "duration": "untilWake", "facts": ["31"] },
-    { "name": "roommate", "type": "boolean", "sources": ["card"], "duration": "untilWake", "facts": ["general"] },
+    { "name": "roommate", "type": "boolean", "sources": ["card", "event"], "duration": "untilWake", "facts": ["general"] },
     { "name": "patrol_side", "type": "boolean", "sources": ["event"], "duration": "persistent", "facts": ["general"] },
     { "name": "patrol_liver_read", "type": "boolean", "sources": ["event"], "duration": "persistent", "facts": ["20"] },
     { "name": "toast_conceded", "type": "boolean", "sources": ["event"], "duration": "persistent", "facts": ["general"] },

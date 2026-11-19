@@ -470,6 +470,8 @@ interface Outcome {
   readonly stress: number;
   readonly chronicStress?: true;
   readonly illness?: Illness;
+  readonly roommate?: true;
+  readonly caught?: true;
 }
 
 const nodeOf = (tags: TagState, name: string): number[] => (tags.values[name] ? [tags.values[name]!.node] : []);
@@ -505,8 +507,13 @@ function explainDebt(d: DayRun, tags: TagState, n: Night, residual: number, alco
   return { ...tags, log: addCauses(tags.log, tags.values['sleep_debt']!.node, why, at) };
 }
 
-/** A roll in [0, 1) for `day` and `n` that draws from no stream, so the cold does not move any other draw of the semester. */
-const illnessRoll = (salt: number, day: number, n: number): number => nextFloat((salt ^ Math.imul(day * 2 + n + 1, 0x85ebca6b)) >>> 0)[0];
+/**
+ * A roll in [0, 1) for `day` and `n` (0 or 1) that draws from no stream, so the cold does not move any other draw of the
+ * semester. Day d's n = 2 would be day d + 1's n = 0, so another source of rolls takes its own `salt` instead of more n.
+ */
+const illnessRoll = (salt: number, day: number, n: 0 | 1): number => nextFloat((salt ^ Math.imul(day * 2 + n + 1, 0x85ebca6b)) >>> 0)[0];
+/** Salts the roommate's rolls apart from the campus ones; no two days' inputs differ by it (checked for days 1 to 100). */
+const ROOMMATE_SALT = 0x9e3779b9;
 
 /**
  * The chance of catching a cold on an exposure (design doc 9.1): infBase, raised by the immune floor's load, by chronic stress,
@@ -537,6 +544,28 @@ function catchCold(d: DayRun, hospitalDay: boolean): boolean {
   const [tags, node] = derive(exposed, 'infection', at, causes, { chance });
   d.s = { ...s, tags, illness: { stage: 'throat', nights: k.throatDays, node } };
   return true;
+}
+
+/**
+ * The roommate's cold of the evening (design doc 9.1 and its event table: 15% a day for a host in the dorm, as the old sim's
+ * roommate_cold). The contact loads the immune floor that night whether or not the host catches it (design doc 8.4); a host
+ * already ill or in hospital catches nothing. Returns the tags, whether there was a contact, and whether the host caught it.
+ */
+function roommateCold(d: DayRun, tags0: TagState, hospitalDay: boolean, at: number): [TagState, boolean, boolean] {
+  const { dict, params: k } = d.ctx;
+  const s = d.s;
+  if (hospitalDay || illnessRoll(s.rng.setting ^ ROOMMATE_SALT, s.day, 0) >= k.roommateExposure) return [tags0, false, false];
+  const [sourced, contact] = source(tags0, 'event', 'roommate.cold', at);
+  const tags = setFlag(sourced, dict, 'roommate', true, contact, at);
+  if (s.illness !== undefined) return [tags, true, false];
+  const chronic = flag(tags, dict, 'chronic_stress');
+  const debt = amount(tags, dict, 'sleep_debt');
+  const chance = infectionChance(s.loads.immune, chronic, debt, strikes('immune', s.loads.immune, k), k);
+  if (illnessRoll(s.rng.setting ^ ROOMMATE_SALT, s.day, 1) >= chance) return [tags, true, false];
+  const causes = [...nodeOf(tags, 'roommate'), ...s.loadCauses.immune, ...(chronic ? nodeOf(tags, 'chronic_stress') : []), ...(debt >= k.debtInfAt ? nodeOf(tags, 'sleep_debt') : [])];
+  const [infected, node] = derive(tags, 'infection.roommate', at, causes, { chance });
+  d.s = { ...d.s, illness: { stage: 'throat', nights: k.throatDays, node } };
+  return [infected, true, true];
 }
 
 /**
@@ -605,6 +634,9 @@ function settle(d: DayRun, n: Night): Outcome {
   const mult = caffeineSleepCoef(residual, k) * (alcoholAtBed ? k.alcoholSleep : 1) * (d.lateSnack ? k.snackSleep : 1) * (chronicAtBed ? k.chronicSleep : 1);
   const effective = sleepHours * mult;
   let [tags, rule] = source(d.s.tags, 'rule', 'sleep', at, { bed: n.bedEnd, sleep: sleepHours, effective });
+  let roommate: boolean;
+  let caught: boolean;
+  [tags, roommate, caught] = roommateCold(d, tags, n.hospitalDay, at);
   tags = settleStress(d, tags, rule, effective, at);
   const chronic = flag(tags, dict, 'chronic_stress');
   let illness: SemesterState['illness'];
@@ -620,7 +652,7 @@ function settle(d: DayRun, n: Night): Outcome {
 
   const facts: DayFacts = {
     debtAfter, deadline: d.deadline, tolerant: flag(tags, dict, 'caffeine_tolerant'), lateSnack: d.lateSnack,
-    alcoholCups: d.alcoholCups, fasting: d.fasting, chronic, ...(dayStage !== undefined ? { illness: dayStage } : {}),
+    alcoholCups: d.alcoholCups, fasting: d.fasting, chronic, roommate, ...(dayStage !== undefined ? { illness: dayStage } : {}),
   };
   const add = contributions(facts, k);
   // A failed patrol still looked after the floor, so the neglect bonus is waived, but it cuts nothing.
@@ -650,7 +682,7 @@ function settle(d: DayRun, n: Night): Outcome {
     ],
     stomach: d.evidence.stomach,
     liver: d.evidence.liver,
-    immune: [...(chronic ? nodeOf(tags, 'chronic_stress') : []), ...dayIllness],
+    immune: [...(chronic ? nodeOf(tags, 'chronic_stress') : []), ...(roommate ? nodeOf(tags, 'roommate') : []), ...dayIllness],
     gut: [],
   };
   const behind = mapFloors((f) => [...new Set([...d.s.loadCauses[f], ...tonight[f]])]);
@@ -724,6 +756,8 @@ function settle(d: DayRun, n: Night): Outcome {
     stress: amount(tags, dict, 'stress'),
     ...(chronic ? { chronicStress: true as const } : {}),
     ...(illness !== undefined ? { illness: illness.stage } : {}),
+    ...(roommate ? { roommate: true as const } : {}),
+    ...(caught ? { caught: true as const } : {}),
     ...(staged > 0 ? { archive: { staged, rate, archived } } : {}),
     ...(struck.includes('liver') ? { liverStrike: { alcoholAtBed, dupMedication, orderBefore } } : {}),
     ...(crisis ? { crisis } : {}),
@@ -930,7 +964,7 @@ export function playDay(from: SemesterState, ctx: SemesterContext, strategy: Str
   const bedEnd = Math.max(bedEndAt(), k.bedMin);
   // A delay can carry bedtime past the planned wake-up hour; the day never starts before the night ends.
   const woke = Math.max(nextWake, Math.ceil(bedEnd) - 24);
-  const outcome = settle(d, { bedEnd, ...(d.lateStudy > 0 ? { studyEnd: k.bedMin + d.lateStudy } : {}), nextWake: woke, patrols, hospitalDay });
+  const { caught, ...outcome } = settle(d, { bedEnd, ...(d.lateStudy > 0 ? { studyEnd: k.bedMin + d.lateStudy } : {}), nextWake: woke, patrols, hospitalDay });
   const rec: DayRecord = {
     ...header,
     bedEnd,
@@ -946,7 +980,7 @@ export function playDay(from: SemesterState, ctx: SemesterContext, strategy: Str
     ...(d.rerolled ? { rerolled: true as const } : {}),
     ...(cardTaken !== undefined ? { card: cardTaken } : {}),
     ...(d.minutes > 0 ? { minutes: d.minutes } : {}),
-    ...(infected ? { infected: true as const } : {}),
+    ...(infected ? { infected: 'campus' as const } : caught ? { infected: 'roommate' as const } : {}),
     ...outcome,
   };
   const ended = d.s.bankrupt;
