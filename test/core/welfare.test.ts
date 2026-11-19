@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
-  BASE_PERKS, decode, EMPTY_LOADS, encode, EARLY_SLEEP_GAUGE, EARLY_SLEEP_HOURS, GRADES, minutesProgress, OFFER_SIZE, patrolKit, perksOf, playDay, RUN, startSemester, STOP_GAUGE,
+  BASE_PERKS, RECORDS_CAP, decode, EMPTY_LOADS, encode, EARLY_SLEEP_GAUGE, EARLY_SLEEP_HOURS, GRADES, minutesProgress, OFFER_SIZE, patrolKit, perksOf, playDay, RUN, startSemester, STOP_GAUGE,
   WELFARE_CARDS, welfareOffer,
   type DayView, type FloorChoice, type NightPlan, type SemesterContext, type SemesterState, type Strategy,
 } from '../../src/core/index.ts';
@@ -118,6 +118,10 @@ describe('what a patrol starts with', () => {
   it('turns every third perfect dodge into half a point of progress with 會議紀錄, and nothing without it', () => {
     expect([0, 2, 3, 5, 6, 10].map((n) => minutesProgress(['minutes'], n))).toEqual([0, 0, 0.5, 0.5, 1, 1.5]);
     expect(minutesProgress([], 12)).toBe(0);
+  });
+
+  it('counts no more than RECORDS_CAP records a patrol', () => {
+    expect([RECORDS_CAP, RECORDS_CAP + 3, 60].map((n) => minutesProgress(['minutes'], n))).toEqual([2, 2, 2]);
   });
 });
 

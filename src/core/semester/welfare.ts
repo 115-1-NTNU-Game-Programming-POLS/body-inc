@@ -42,6 +42,11 @@ export const EARLY_START_DAYS = 2;
 /** 會議紀錄: perfect dodges that make one minute, and the progress a minute is worth. */
 export const RECORDS_PER_MINUTE = 3;
 export const MINUTE_PROGRESS = 0.5;
+/**
+ * The records one patrol can count. Without a cap a fighter who dodges about every seven seconds passes the semester however
+ * late it sleeps, which design doc 9.6 forbids; `sim/semester/perks.ts` checks the cap holds.
+ */
+export const RECORDS_CAP = 12;
 
 /** What the night before is worth to a patrol: the sleep it gave and whether the contest was left in time. */
 export interface LastNight {
@@ -69,7 +74,7 @@ export function patrolKit(held: readonly string[], last: LastNight | undefined):
 
 /** Progress the minutes of a played patrol add, with 會議紀錄 held: one per three perfect dodges. */
 export const minutesProgress = (held: readonly string[], records: number): number =>
-  held.includes('minutes') ? Math.floor(records / RECORDS_PER_MINUTE) * MINUTE_PROGRESS : 0;
+  held.includes('minutes') ? Math.floor(Math.min(records, RECORDS_CAP) / RECORDS_PER_MINUTE) * MINUTE_PROGRESS : 0;
 
 export interface OfferRequest {
   /** Fixed for the run (the semester's setting stream), so the same day offers the same cards on every replay. */
