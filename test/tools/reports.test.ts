@@ -26,7 +26,7 @@ function contentWith(...edits: [file: string, fn: (j: Record<string, any>) => vo
   return dir;
 }
 
-// The smallest batch that reaches every key: below 8 seeds the roommate's cold leaves no campus infection in any notice.
+// Two seeds no longer reach every key: with the roommate's cold they leave no campus infection in any notice.
 const SMALL = 10;
 const problems = (dir: string) => checkReports({ contentDir: dir, seeds: SMALL }).problems;
 

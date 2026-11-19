@@ -160,6 +160,9 @@ interface DayRun {
   studyHours: number;
   /** Hours between the end of the evening and bedtime spent studying. */
   lateStudy: number;
+  /** The roommate had a cold this evening, and whether the host caught it (roommateCold). */
+  roommate: boolean;
+  caught: boolean;
   /** The events of the day behind each floor's contribution tonight, for the causal log. */
   evidence: Record<'brain' | 'stomach' | 'liver', number[]>;
   pending: SemesterEvent[];
@@ -512,7 +515,7 @@ function explainDebt(d: DayRun, tags: TagState, n: Night, residual: number, alco
  * semester. Day d's n = 2 would be day d + 1's n = 0, so another source of rolls takes its own `salt` instead of more n.
  */
 const illnessRoll = (salt: number, day: number, n: 0 | 1): number => nextFloat((salt ^ Math.imul(day * 2 + n + 1, 0x85ebca6b)) >>> 0)[0];
-/** Salts the roommate's rolls apart from the campus ones; no two days' inputs differ by it (checked for days 1 to 100). */
+/** Salts the roommate's rolls apart from the campus ones; no two days' inputs differ by it (checked for days 1 to 1000). */
 const ROOMMATE_SALT = 0x9e3779b9;
 
 /**
@@ -547,25 +550,29 @@ function catchCold(d: DayRun, hospitalDay: boolean): boolean {
 }
 
 /**
- * The roommate's cold of the evening (design doc 9.1 and its event table: 15% a day for a host in the dorm, as the old sim's
- * roommate_cold). The contact loads the immune floor that night whether or not the host catches it (design doc 8.4); a host
- * already ill or in hospital catches nothing. Returns the tags, whether there was a contact, and whether the host caught it.
+ * The roommate's cold of the evening (design doc 9.1 and its event table: 15% a day for a host in the dorm). It is rolled when
+ * the evening begins, before the strategy picks a bedtime, so a sore throat caught from the roommate shows in the view while
+ * the early night that stops it can still be chosen, as the old sim's evening roommate_cold came before the plan. The contact
+ * loads the immune floor that night whether or not the host catches it (design doc 8.4); a host already ill catches nothing.
  */
-function roommateCold(d: DayRun, tags0: TagState, hospitalDay: boolean, at: number): [TagState, boolean, boolean] {
+function roommateCold(d: DayRun): void {
   const { dict, params: k } = d.ctx;
   const s = d.s;
-  if (hospitalDay || illnessRoll(s.rng.setting ^ ROOMMATE_SALT, s.day, 0) >= k.roommateExposure) return [tags0, false, false];
-  const [sourced, contact] = source(tags0, 'event', 'roommate.cold', at);
-  const tags = setFlag(sourced, dict, 'roommate', true, contact, at);
-  if (s.illness !== undefined) return [tags, true, false];
+  if (illnessRoll(s.rng.setting ^ ROOMMATE_SALT, s.day, 0) >= k.roommateExposure) return;
+  const at = minuteOf(s.day, k.bedMin);
+  const [sourced, contact] = source(s.tags, 'event', 'event.roommate_cold.contact', at);
+  const tags = setFlag(sourced, dict, 'roommate_cold', true, contact, at);
+  d.s = { ...s, tags };
+  d.roommate = true;
+  if (s.illness !== undefined) return;
   const chronic = flag(tags, dict, 'chronic_stress');
   const debt = amount(tags, dict, 'sleep_debt');
   const chance = infectionChance(s.loads.immune, chronic, debt, strikes('immune', s.loads.immune, k), k);
-  if (illnessRoll(s.rng.setting ^ ROOMMATE_SALT, s.day, 1) >= chance) return [tags, true, false];
-  const causes = [...nodeOf(tags, 'roommate'), ...s.loadCauses.immune, ...(chronic ? nodeOf(tags, 'chronic_stress') : []), ...(debt >= k.debtInfAt ? nodeOf(tags, 'sleep_debt') : [])];
+  if (illnessRoll(s.rng.setting ^ ROOMMATE_SALT, s.day, 1) >= chance) return;
+  const causes = [...nodeOf(tags, 'roommate_cold'), ...s.loadCauses.immune, ...(chronic ? nodeOf(tags, 'chronic_stress') : []), ...(debt >= k.debtInfAt ? nodeOf(tags, 'sleep_debt') : [])];
   const [infected, node] = derive(tags, 'infection.roommate', at, causes, { chance });
-  d.s = { ...d.s, illness: { stage: 'throat', nights: k.throatDays, node } };
-  return [infected, true, true];
+  d.s = { ...d.s, tags: infected, illness: { stage: 'throat', nights: k.throatDays, node } };
+  d.caught = true;
 }
 
 /**
@@ -634,14 +641,13 @@ function settle(d: DayRun, n: Night): Outcome {
   const mult = caffeineSleepCoef(residual, k) * (alcoholAtBed ? k.alcoholSleep : 1) * (d.lateSnack ? k.snackSleep : 1) * (chronicAtBed ? k.chronicSleep : 1);
   const effective = sleepHours * mult;
   let [tags, rule] = source(d.s.tags, 'rule', 'sleep', at, { bed: n.bedEnd, sleep: sleepHours, effective });
-  let roommate: boolean;
-  let caught: boolean;
-  [tags, roommate, caught] = roommateCold(d, tags, n.hospitalDay, at);
+  const { roommate, caught } = d;
   tags = settleStress(d, tags, rule, effective, at);
   const chronic = flag(tags, dict, 'chronic_stress');
   let illness: SemesterState['illness'];
   // The load and the emergency room read the stage the day had, as the old sim did; tonight's step only sets tomorrow's.
-  const dayStage = d.s.illness?.stage;
+  // A sore throat caught from the roommate this evening is not a stage the day had.
+  const dayStage = caught ? undefined : d.s.illness?.stage;
   const dayIllness = dayStage === 'cold' || dayStage === 'fever' ? nodeOf(tags, dayStage) : [];
   [tags, illness] = settleIllness(d, tags, n.bedEnd, effective, at);
 
@@ -682,7 +688,7 @@ function settle(d: DayRun, n: Night): Outcome {
     ],
     stomach: d.evidence.stomach,
     liver: d.evidence.liver,
-    immune: [...(chronic ? nodeOf(tags, 'chronic_stress') : []), ...(roommate ? nodeOf(tags, 'roommate') : []), ...dayIllness],
+    immune: [...(chronic ? nodeOf(tags, 'chronic_stress') : []), ...(roommate ? nodeOf(tags, 'roommate_cold') : []), ...dayIllness],
     gut: [],
   };
   const behind = mapFloors((f) => [...new Set([...d.s.loadCauses[f], ...tonight[f]])]);
@@ -775,7 +781,7 @@ export function playDay(from: SemesterState, ctx: SemesterContext, strategy: Str
   const debt = amount(s0.tags, dict, 'sleep_debt');
   const d: DayRun = {
     s: s0, ctx, strategy, exam, S: sleepFactor(debt, k), brainStrike: strikes('brain', s0.loads.brain, k), paper: ctx.courses === undefined ? 0 : paperShare(ctx.courses), morningLoads: s0.loads,
-    cups: 0, coffee: [], rerolled: false, alcoholCups: 0, fasting: false, deadline: false, lateSnack: false, reading: hospitalDay || day !== 1 ? undefined : { load: s0.loads.liver, by: 'checkup' }, workLeft: 0, writeLeft: 0, writeIdx: -1, projectLeft: 0, projectHours: 0, gradeLeft: 0, walk: false, sit: 0, bedDelay: 0, overtimeDelay: 0, studyHours: 0, lateStudy: 0,
+    cups: 0, coffee: [], rerolled: false, alcoholCups: 0, fasting: false, deadline: false, lateSnack: false, reading: hospitalDay || day !== 1 ? undefined : { load: s0.loads.liver, by: 'checkup' }, workLeft: 0, writeLeft: 0, writeIdx: -1, projectLeft: 0, projectHours: 0, gradeLeft: 0, walk: false, sit: 0, bedDelay: 0, overtimeDelay: 0, studyHours: 0, lateStudy: 0, roommate: false, caught: false,
     evidence: { brain: [], stomach: [], liver: [] },
     pending: hospitalDay ? [] : (ctx.scenario[day] ?? []).map((id) => ctx.events.get(id)!).sort((a, b) => a.hour - b.hour),
     played: [],
@@ -891,6 +897,7 @@ export function playDay(from: SemesterState, ctx: SemesterContext, strategy: Str
     }
   }
 
+  if (!hospitalDay) roommateCold(d);
   const night = hospitalDay
     ? { bed: k.bed, nextWake: k.wake, lateNight: 'rest' as const }
     : strategy.night(viewOf(d));

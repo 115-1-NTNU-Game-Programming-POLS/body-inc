@@ -56,7 +56,7 @@
   "ignore": [
     "rule:*",
     "tag:stress",
-    "event:roommate.cold",
+    "event:event.roommate_cold.contact",
     "effect:stress.events",
     "effect:stress.chronic",
     "tag:caffeine",
@@ -141,9 +141,9 @@
       "score": "effect", "theme": "sleep",
       "single": ["report.effect.infection.roommate.single.1", "report.effect.infection.roommate.single.2"]
     },
-    "tag:roommate": {
+    "tag:roommate_cold": {
       "score": "tag", "theme": "sleep",
-      "single": ["report.tag.roommate.single.1", "report.tag.roommate.single.2"]
+      "single": ["report.tag.roommate_cold.single.1", "report.tag.roommate_cold.single.2"]
     },
     "tag:cold": {
       "score": "tag", "theme": "sleep",
