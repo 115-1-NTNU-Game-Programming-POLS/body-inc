@@ -194,14 +194,18 @@ describe('the roommate with a cold (design doc 9.1 and its event table)', () => 
     expect(after(withParams({ campusExposure: 0, roommateExposure: 1 }), ill('cold', 3, ROOMMATE)) - after(SHUT, ill('cold', 3))).toBe(5);
   });
 
-  it('gives the host a sore throat that evening, citing the roommate and what raised the chance', () => {
-    const s = playDay(startSemester(CATCHES, 1), CATCHES, late);
+  it('gives the host a sore throat that evening, before the bedtime is chosen, citing the roommate and what raised the chance', () => {
+    const seen: (Illness | undefined)[] = [];
+    const spy: Strategy = { ...late, night: (v) => { seen.push(v.illness); return late.night(v); } };
+    const s = playDay(startSemester(CATCHES, 1), CATCHES, spy);
+    expect(seen).toEqual(['throat']);
     const r = s.history[0]!;
     expect([r.roommate, r.infected, r.illness]).toEqual([true, 'roommate', 'cold']);
     const nodes = s.tags.log.nodes;
     const infection = nodes.find((n) => n.key === 'infection.roommate')!;
     expect(infection.kind).toBe('effect');
-    expect(infection.causes.map((c) => nodes[c.node]!.key)).toContain('roommate');
+    expect(infection.causes.map((c) => nodes[c.node]!.key)).toContain('roommate_cold');
+    expect(nodes.find((n) => n.key === 'event.roommate_cold.contact')!.at % 1440).toBe(CATCHES.params.bedMin * 60);
   });
 
   it('is stopped by the same early night as a cold from campus', () => {

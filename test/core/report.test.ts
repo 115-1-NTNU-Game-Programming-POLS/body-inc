@@ -632,7 +632,7 @@ describe('from the causal log to facts', () => {
     const crisis = nodes[end.history[3]!.crisis!.node]!;
     const facts = nodeFacts(nodes.filter((n) => n.at <= crisis.at), CFG, new Set(crisis.causes.map((c) => c.node)));
     // The roommate's cold of some evening loads the immune floor too; it is not the liver's story but it is traced.
-    expect(new Set(facts.map((f) => f.key))).toEqual(new Set(['choice:coffee', 'choice:drink_fasting', 'tag:sleep_debt', 'activity:stayed_up', 'strike', 'effect:caffeine_insomnia', 'effect:alcohol_sleep', 'tag:roommate', 'effect:infection.roommate'].filter((k) => facts.some((f) => f.key === k))));
+    expect(new Set(facts.map((f) => f.key))).toEqual(new Set(['choice:coffee', 'choice:drink_fasting', 'tag:sleep_debt', 'activity:stayed_up', 'strike', 'effect:caffeine_insomnia', 'effect:alcohol_sleep', 'tag:roommate_cold', 'effect:infection.roommate'].filter((k) => facts.some((f) => f.key === k))));
     expect(facts.some((f) => f.key.startsWith('rule:') || f.key === 'tag:alcohol')).toBe(false);
     const strike = facts.find((f) => f.key === 'strike')!;
     expect([strike.scope, strike.parent]).toEqual(['liver', true]);
