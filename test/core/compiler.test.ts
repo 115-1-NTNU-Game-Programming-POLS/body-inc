@@ -70,7 +70,7 @@ describe('the stuck point of sitting at the desk (design doc 8.3)', () => {
     expect(SIT_LIMIT).toBe(2);
   });
 
-  it('takes the walk off the stress at the walking rate for its quarter of an hour (design doc 9.1)', () => {
+  it('charges the quarter hour of a walk at the walking rate instead of the study rate (design doc 9.1)', () => {
     const ctx = ctxFor(WITH);
     const rest = [8, 9, 10, 11, 17, 19, 20, 21];
     const start = startSemester(ctx, 1);
@@ -78,7 +78,8 @@ describe('the stuck point of sitting at the desk (design doc 8.3)', () => {
     // High enough that the day's rest hours do not floor it at 0.
     const tags = setAmount({ ...start.tags, log }, ctx.dict, 'stress', 90, node, 0);
     const stress = (walk: boolean): number => day(ctx, free, { rest, project: 3, walk }, { tags }).history[0]!.stress!;
-    expect(stress(true)).toBeCloseTo(stress(false) + ctx.params.stressPerHour.walk * (1 - WALK_EFFORT), 9);
+    const { walk, study } = ctx.params.stressPerHour;
+    expect(stress(true)).toBeCloseTo(stress(false) + (walk - study) * (1 - WALK_EFFORT), 9);
     expect(stress(true)).toBeLessThan(stress(false));
   });
 
