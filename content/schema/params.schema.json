@@ -88,6 +88,8 @@
         "chronicAt",
         "chronicDays",
         "chronicOff",
+        "chronicClear",
+        "chronicClearNights",
         "lowSocial",
         "lowSocialStress",
         "socialPerHour",
@@ -449,6 +451,17 @@
         "chronicOff": {
           "type": "number"
         },
+        "chronicClear": {
+          "description": "Stress under which a night settlement counts toward clearing chronic stress in the semester.",
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "chronicClearNights": {
+          "description": "Night settlements in a row under chronicClear that clear chronic stress in the semester.",
+          "type": "integer",
+          "minimum": 1
+        },
         "lowSocial": {
           "type": "number"
         },
@@ -704,7 +717,9 @@
             "toleranceBrain",
             "lateSnackStomach",
             "alcoholLiver",
-            "fastingAlcoholMult"
+            "fastingAlcoholMult",
+            "chronicBrain",
+            "chronicImmune"
           ],
           "properties": {
             "debtBrain": {
@@ -736,6 +751,16 @@
               "description": "Multiplier on the alcohol load when drinking on an empty stomach.",
               "type": "number",
               "minimum": 1
+            },
+            "chronicBrain": {
+              "description": "Brain load on a night while chronic stress holds.",
+              "type": "number",
+              "minimum": 0
+            },
+            "chronicImmune": {
+              "description": "Immune load on a night while chronic stress holds.",
+              "type": "number",
+              "minimum": 0
             }
           }
         },

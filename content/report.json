@@ -55,6 +55,9 @@
   },
   "ignore": [
     "rule:*",
+    "tag:stress",
+    "effect:stress.events",
+    "effect:stress.chronic",
     "tag:caffeine",
     "tag:alcohol",
     "tag:fasting",
@@ -124,6 +127,10 @@
     "tag:sleep_debt": {
       "score": "tag", "theme": "sleep",
       "single": ["report.tag.sleep_debt.single.1", "report.tag.sleep_debt.single.2"]
+    },
+    "tag:chronic_stress": {
+      "score": "tag", "theme": "sleep",
+      "single": ["report.tag.chronic_stress.single.1", "report.tag.chronic_stress.single.2"]
     },
     "strike": {
       "score": "effect",

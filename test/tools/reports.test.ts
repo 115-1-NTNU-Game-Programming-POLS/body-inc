@@ -35,7 +35,7 @@ describe('report check (build plan P6)', { timeout: 60_000 }, () => {
     expect(r.problems).toEqual([]);
     expect(r.report).toContainEqual(expect.stringMatching(/^\d+ 個學期，停業整頓通知 \d+ 份、倒閉調查報告 \d+ 份/));
     expect(r.report).toContainEqual(expect.stringMatching(/^通用句比例：0 \/ \d+（目標 0）$/));
-    expect(r.report).toContainEqual('句型鍵 15 / 15 在批次中出現過');
+    expect(r.report).toContainEqual('句型鍵 16 / 16 在批次中出現過');
   });
 
   it('a sentence key with no template is named, with a run that produced it', () => {

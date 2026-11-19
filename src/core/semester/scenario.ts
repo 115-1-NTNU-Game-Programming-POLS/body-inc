@@ -14,7 +14,8 @@ export const EVENTS: readonly SemesterEvent[] = [
   },
   {
     id: 'deadline', hour: 14,
-    options: { squeeze: { deadline: true, workHours: 2 }, overtime: { deadline: true, bedDelay: 2 } },
+    // The program deadline of design doc 8.12 raises stress by 20 whichever way it is met.
+    options: { squeeze: { deadline: true, workHours: 2, stress: 20 }, overtime: { deadline: true, bedDelay: 2, stress: 20 } },
   },
   {
     id: 'late_snack', hour: 23,

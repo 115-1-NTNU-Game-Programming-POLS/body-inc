@@ -19,7 +19,8 @@ export type SemesterParams = SleepCoefficients & MetabolismParams & LoadParams &
   | 'meals' | 'classes' | 'sleepNeed' | 'repayRatio' | 'cup' | 'boostMin' | 'boost' | 'boostTolerant' | 'cafSleepK' | 'cafDeadZone'
   | 'tolDays' | 'tolCups' | 'tolResetDays' | 'withdrawal' | 'alcoholSleep' | 'snackSleep' | 'passMid' | 'passFin'
   | 'hospitalDebtMult' | 'hospitalFloorLoad' | 'hospitalSleep' | 'floorStrikeStudyMult' | 'overtimeBedDelay' | 'examPassPercent'
-  | 'shiftHours' | 'labHours'
+  | 'shiftHours' | 'labHours' | 'stress0' | 'stressPerHour' | 'stressSleep' | 'chronicAt' | 'chronicDays' | 'chronicClear'
+  | 'chronicClearNights' | 'chronicSleep' | 'hospitalStress'
 >;
 
 /** What one option of an event does to the day; only the fields it names. */
@@ -34,6 +35,8 @@ export interface EventOption {
   readonly bedDelay?: number;
   /** The health office's blood test (design doc 8.6): the day's record and every later view learn the liver's exact load. */
   readonly bloodTest?: boolean;
+  /** Stress the option adds to the day (design doc 8.12). */
+  readonly stress?: number;
 }
 
 export interface SemesterEvent {
@@ -147,6 +150,10 @@ export interface DayRecord {
   readonly grade?: { readonly hours: number; readonly done: boolean };
   /** Hours of sleep the night counted for, as the debt saw them (a hospital night counts as good sleep); absent on the final exam day. */
   readonly slept?: number;
+  /** Stress after the night settlement, 0 to 100 (design doc 9.1); absent on the final exam day. */
+  readonly stress?: number;
+  /** Chronic stress held after the night settlement; absent when it did not. */
+  readonly chronicStress?: true;
   /** Hours of the day a cup of coffee was drunk at; absent when none was. */
   readonly coffee?: readonly number[];
   /** The hours of grading the night itself took, which push bedtime back; absent when it took none. */
@@ -288,6 +295,9 @@ export interface DayView {
   readonly exam: 'mid' | 'fin' | null;
   readonly examTomorrow: boolean;
   readonly sleepDebt: number;
+  /** Stress as the day began, 0 to 100. */
+  readonly stress: number;
+  readonly chronicStress: boolean;
   readonly S: number;
   readonly caffeine: number;
   readonly progress: number;
