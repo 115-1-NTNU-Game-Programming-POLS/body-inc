@@ -3,7 +3,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 type Expectations = typeof import('../../sim/semester/expectations.ts');
 type Scoring = typeof import('../../src/core/exam/scoring.ts');
 
-const N = 40;
+// The seeds KNOWN_GAPS was measured over; at fewer the known gaps drift past GAP_SLACK on sampling alone.
+const N = 200;
 
 /** The expectations, loaded fresh, optionally with the exam scored as if the performance factor ran 0.75 to 2.0. */
 async function load(capTwo = false): Promise<Expectations> {
@@ -24,57 +25,68 @@ async function load(capTwo = false): Promise<Expectations> {
   return import('../../sim/semester/expectations.ts');
 }
 
-const failing = (e: Expectations, params: Record<string, number | boolean> = {}): string[] =>
-  e.expectations(N, params).filter((r) => !r.pass).map((r) => r.id);
+/** The verdict under `params`, naming each expectation that failed it with how. */
+function judged(e: Expectations, params: Record<string, number | boolean> = {}): { ok: boolean; failed: string[] } {
+  const results = e.expectations(N, params);
+  const { ok, lines } = e.verdict(results);
+  return { ok, failed: results.flatMap((r, i) => (/^(FAIL|WORSE|HOLDS)/.test(lines[i]!) ? [`${r.id} ${lines[i]!.slice(0, 5).trim()}`] : [])) };
+}
 
 afterEach(() => {
   vi.doUnmock('../../src/core/exam/scoring.ts');
   vi.resetModules();
 });
 
-describe('the four player archetypes of design doc 9.5', () => {
+describe('the four player archetypes of design doc 9.5', { timeout: 180_000 }, () => {
   it('hold for the rules as they are, the known gaps aside', async () => {
     const e = await load();
     const results = e.expectations(N);
     const { ok, lines } = e.verdict(results);
     expect(ok, lines.join('\n')).toBe(true);
     expect(results.filter((r) => !r.pass).map((r) => r.id).sort()).toEqual(Object.keys(e.KNOWN_GAPS).sort());
-  }, 120_000);
+  });
 
-  it('fail when the sleep debt barely slows study (sCoef 0.01, design doc 9.6)', async () => {
-    const e = await load();
-    expect(failing(e, { sCoef: 0.01 }).filter((id) => !(id in e.KNOWN_GAPS))).toEqual(['fighter.final']);
-  }, 120_000);
+  // The breakages of design doc 9.6. Each must fail the run; the figures that only just tip (the night owl's patrol gap,
+  // the pass rate of 兩者都不會) are not pinned, the fighters' final pass of about 90% against 30% is.
+  it('fail when the sleep debt barely slows study (sCoef 0.01)', async () => {
+    const r = judged(await load(), { sCoef: 0.01 });
+    expect(r.ok).toBe(false);
+    expect(r.failed).toContain('fighter.final FAIL');
+  });
 
-  it('fail when the exam is not discounted by the sleep of its morning (design doc 9.6)', async () => {
-    const e = await load();
-    expect(failing(e, { examDiscount: false }).filter((id) => !(id in e.KNOWN_GAPS))).toEqual(['fighter.final']);
-  }, 120_000);
+  it('fail when the exam is not discounted by the sleep of its morning', async () => {
+    const r = judged(await load(), { examDiscount: false });
+    expect(r.ok).toBe(false);
+    expect(r.failed).toContain('fighter.final FAIL');
+  });
 
-  it('move the informed player further from 70 when the performance factor reaches 2.0, which only that known gap reads', async () => {
-    // The third breakage of 9.6 is caught by no other expectation: the night owl's progress is too low for any factor to pass
-    // it. Until the informed player's average comes down to about 70, this breakage goes unreported by the run.
-    const grade = async (capTwo: boolean): Promise<number> =>
-      Number((await load(capTwo)).expectations(N).find((r) => r.id === 'informed.grade')!.detail.split(',')[0]);
-    const healthy = await grade(false);
-    expect(await grade(true)).toBeGreaterThan(healthy + 5);
-  }, 120_000);
+  it('fail when the performance factor reaches 2.0, through the known gap of the informed player moving away from 70', async () => {
+    // No other expectation catches it: the night owl's progress is too low for any factor to pass the final.
+    const r = judged(await load(true));
+    expect(r.ok).toBe(false);
+    expect(r.failed).toEqual(['informed.grade WORSE']);
+  });
 });
 
 describe('what a run means', () => {
-  const result = (id: string, pass: boolean) => ({ id, name: id, pass, detail: '' });
+  const result = (id: string, pass: boolean, value = 0) => ({ id, name: id, pass, detail: '', value });
 
-  it('passes when only the known gaps fail', async () => {
+  it('passes when only the known gaps fail, near where they were listed', async () => {
     const e = await load();
-    expect(e.verdict([result('both.grade', true), ...Object.keys(e.KNOWN_GAPS).map((id) => result(id, false))]).ok).toBe(true);
+    const gaps = Object.entries(e.KNOWN_GAPS).map(([id, g]) => result(id, false, g.at + g.worse * e.GAP_SLACK));
+    expect(e.verdict([result('both.grade', true), ...gaps]).ok).toBe(true);
   });
 
-  it('fails on any other failure, and on a known gap that has started to hold', async () => {
+  it('fails on any other failure, on a known gap that has started to hold, and on one that has moved further from the doc', async () => {
     const e = await load();
     expect(e.verdict([result('both.grade', false)]).ok).toBe(false);
-    const [gap] = Object.keys(e.KNOWN_GAPS);
-    const v = e.verdict([result(gap!, true)]);
-    expect(v.ok).toBe(false);
-    expect(v.lines[0]).toMatch(/take it off KNOWN_GAPS/);
+    const [id, gap] = Object.entries(e.KNOWN_GAPS)[0]!;
+    const holds = e.verdict([result(id, true)]);
+    expect(holds.ok).toBe(false);
+    expect(holds.lines[0]).toMatch(/take it off KNOWN_GAPS/);
+    const worse = e.verdict([result(id, false, gap.at + gap.worse * (e.GAP_SLACK + 0.1))]);
+    expect(worse.ok).toBe(false);
+    expect(worse.lines[0]).toMatch(/^WORSE/);
+    expect(e.verdict([result(id, false, gap.at - gap.worse * 20)]).ok).toBe(true);
   });
 });
