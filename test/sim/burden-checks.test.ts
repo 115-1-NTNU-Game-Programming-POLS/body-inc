@@ -48,6 +48,15 @@ describe('the burden guard rail of design doc 8.3', () => {
     expect(await failing(undefined, { campusExposure: 0 })).toEqual(['burden: the night owl with a heavy burden is in hospital clearly more often']);
   }, 120_000);
 
+  it('fails the third when short sleep stops costing, because a late studier then earns the most', async () => {
+    const b = await railWith();
+    const players = { responsive: b.candidates().responsive!, owl: b.candidates().owl!, late24: b.lateStudier(24), late24_5: b.lateStudier(24.5) };
+    const run = (params: Record<string, number>): string[] =>
+      b.burdenChecks(b.burdenRows(N, 0.5, SELECTIONS, players, params)).filter((c) => !c.pass).map((c) => c.name);
+    expect(run({})).toEqual([]);
+    expect(run({ sleepNeed: 6.5 })).toEqual(['burden: the best strategy of every selection sleeps 7 hours or more']);
+  }, 120_000);
+
   it('reads every legal selection of the full course table', async () => {
     const { allSelections } = await railWith();
     const all = allSelections();

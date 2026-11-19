@@ -5,10 +5,12 @@
  *
  * The three criteria are read by burden class means, as the 9.6 row compares classes, not single selections: heavy means a
  * selection of 16 credits or more (heavy and full). The best strategy of a selection is the candidate with the most year-end
- * points on average; its sleep is the mean effective sleep of its nights, a hospital night counting as the debt counts it.
+ * points on average, handbook pages left out; its sleep is the mean effective sleep of its nights, a hospital night counting
+ * as the debt counts it (hospitalSleep). Dropping a course (停修), which 8.3's responsive player may do, is not in the semester
+ * yet, so no candidate drops one.
  */
 import {
-  burdenOf, COURSES, creditsOf, runSemester, selectionProblem, yearEndPoints, type Burden, type SemesterContext, type Strategy,
+  burdenOf, COURSES, creditsOf, runSemester, selectionProblem, yearEndPoints, type Burden, type DayView, type SemesterContext, type Strategy,
 } from '../../src/core/index.ts';
 import { ARCHETYPES } from './archetypes.ts';
 import { mean } from './cards.ts';
@@ -36,14 +38,27 @@ export function allSelections(): string[][] {
   return out;
 }
 
+/** Bedtimes of the balanced player who studies late and still keeps the exam eve early: the ground between 22:30 and 01:00. */
+export const LATE_BEDS = [23, 23.5, 24, 24.5] as const;
+
+const CARD_STYLE = { rank: 2, rankBed: 22, debug: 2, walk: true, project: (v: DayView) => (v.project?.open && v.day >= 6 ? 3 : 0) };
+
+/** The balanced player studying until `bed` on every night but the exam eve, playing the cards as the responsive player does. */
+export function lateStudier(bed: number): Strategy {
+  const base = ARCHETYPES.balanced;
+  return playerOf({ ...base, night: (v) => (v.examTomorrow ? base.night(v) : { ...base.night(v), bed, lateNight: 'study' }) }, CARD_STYLE, true);
+}
+
 /**
- * The strategies the best of a selection is taken from: the responsive player and the owl, and every other archetype playing
- * the course cards the way the responsive player does, so that a strategy is not out of the running only for ignoring them.
+ * The strategies the best of a selection is taken from: the responsive player and the owl, every other archetype playing the
+ * course cards the way the responsive player does (so that none is out of the running only for ignoring them), and the late
+ * studiers of LATE_BEDS. Without the late studiers no candidate sleeps between the balanced player's 7.8 hours and the late
+ * archetypes' 4.4, and the third criterion could not fail: a rule that stops punishing short sleep would still pass it.
  */
 export function candidates(): Record<string, Strategy> {
   const out: Record<string, Strategy> = { responsive: responsiveOf(true), owl: owlOf(true) };
-  const style = { rank: 2, rankBed: 22, debug: 2, walk: true, project: (v: Parameters<Strategy['plan']>[0]) => (v.project?.open && v.day >= 6 ? 3 : 0) };
-  for (const [name, base] of Object.entries(ARCHETYPES)) if (name !== 'balanced' && name !== 'nightOwl') out[name] = playerOf(base, style, true);
+  for (const [name, base] of Object.entries(ARCHETYPES)) if (name !== 'balanced' && name !== 'nightOwl') out[name] = playerOf(base, CARD_STYLE, true);
+  for (const bed of LATE_BEDS) out[`late${bed}`] = lateStudier(bed);
   return out;
 }
 
