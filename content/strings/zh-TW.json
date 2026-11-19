@@ -797,6 +797,7 @@
     "semester.sum.ill.cold": { "text": "感冒了：讀書效率降為 0.8 倍，有一晚睡不到 7 小時就會升級成發燒", "fact": "" },
     "semester.sum.ill.fever": { "text": "發燒了：讀書效率減半，這時只要有一層樓罷工就會送急診", "fact": "" },
     "semester.sum.ill.well": { "text": "感冒好了", "fact": "" },
+    "semester.sum.ill.cured": { "text": "住院時醫生也看了感冒，出院時已經好了", "fact": "" },
     "semester.sum.ill.stopped": { "text": "早睡把喉嚨的不適擋下來了，沒有變成感冒", "fact": "" },
     "semester.sum.archive": { "text": "睡眠歸檔：暫存的 {staged} 點，歸入學業進度 {archived} 點（歸檔率 {rate}%）", "fact": "" },
     "semester.sum.archive.half": { "text": "沒歸檔的部分，明天只剩一半", "fact": "" },
