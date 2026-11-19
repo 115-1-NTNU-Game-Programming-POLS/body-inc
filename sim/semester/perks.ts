@@ -5,7 +5,11 @@
  * "Every combination" is read as the cards and nodes that change the semester's rules, all at once and in the player's favour:
  * every patrol and overtime patrol rated S with ACE_RECORDS perfect dodges, the brain card wanted most taken whenever an offer shows it (the general cards
  * change only the fights, which the S already stands for), 開局重抽 spent to reach it, 健檢提前's earlier blood test, and under
- * clause 2 each setting card 多一種開局卡 lets the player pick. 工單明細 only shows text, so it is left out.
+ * clause 2 each setting card 多一種開局卡 lets the player pick. 工單明細 only shows text, so it is left out. The earlier blood test
+ * is kept although it changes nothing for these players, who never patrol the liver on what it reads.
+ *
+ * Only the combinations that can differ are played: a course card is wanted first only by a player who takes its course, and the
+ * crammer, who always patrols the immune floor, is never offered a brain card, so only its clause plays vary.
  */
 import {
   BOOKED_BLOOD_TEST_DAY, runSemester, SETTING_IDS, summarize, welfareOffer, withBloodTestOn, withClause,
@@ -25,6 +29,7 @@ const ACE_SKILL = 1;
 export const ACE_RECORDS = 60;
 /** The brain cards; the course ones are offered only with their course, so the selection below takes both. */
 const BRAIN_CARDS = ['early_sleep', 'minutes', 'early_start', 'know_when_to_stop'] as const;
+const CARD_COURSE: Partial<Record<string, string>> = { early_start: 'os', know_when_to_stop: 'algorithms' };
 const PERK_COURSES = ['algorithms', 'os', 'database', 'networks'];
 
 /** `base`, with every patrol rated S with ACE_RECORDS perfect dodges and the cards picked in the order of `wanted`, drawing the offer again when that reaches a better one. */
@@ -54,11 +59,14 @@ export function aceOf(base: Strategy, courses: readonly string[] | undefined, wa
 interface PerkRow {
   readonly label: string;
   readonly pass: number;
+  /** The best seed's lower exam percent, which says how far the row is from passing when none does. */
+  readonly closest: number;
 }
 
 /** Pass percent over seeds 1 to `n` of `player` aced with `wanted` first, under `clause` and its `setting`, with every node. */
-function perkRow(n: number, player: (courses: readonly string[] | undefined) => Strategy, courses: readonly string[] | undefined, wanted: string, clause: number, setting: SettingId | undefined): number {
+function perkRow(n: number, player: (courses: readonly string[] | undefined) => Strategy, courses: readonly string[] | undefined, wanted: string, clause: number, setting: SettingId | undefined): Omit<PerkRow, 'label'> {
   const pass: number[] = [];
+  let closest = 0;
   const strategy = aceOf(player(courses), courses, [wanted, ...BRAIN_CARDS.filter((c) => c !== wanted)], true);
   for (let seed = 1; seed <= n; seed++) {
     const base = contextFor(ACE_SKILL, seed, courses === undefined ? {} : { courses });
@@ -66,29 +74,36 @@ function perkRow(n: number, player: (courses: readonly string[] | undefined) => 
     const ctx = withClause(booked, seed, clause, setting);
     const m = summarize(runSemester(ctx, strategy, seed), ctx);
     pass.push(m.passMid && m.passFin ? 100 : 0);
+    closest = Math.max(closest, Math.min(m.mid, m.fin));
   }
-  return mean(pass);
+  return { pass: mean(pass), closest };
 }
 
 /** The players of design doc 9.4 who fight well and ignore the body: the night owl and the crammer, and the owl who also works the course cards. */
-const PLAYERS: readonly { name: string; courses: readonly string[] | undefined; of: (c: readonly string[] | undefined) => Strategy }[] = [
-  { name: 'night owl', courses: undefined, of: () => ARCHETYPES.nightOwl },
-  { name: 'crammer', courses: undefined, of: () => ARCHETYPES.crammer },
-  { name: 'night owl with the course cards', courses: PERK_COURSES, of: () => owlOf(true) },
+const PLAYERS: readonly { name: string; courses: readonly string[] | undefined; brain: boolean; of: (c: readonly string[] | undefined) => Strategy }[] = [
+  { name: 'night owl', courses: undefined, brain: true, of: () => ARCHETYPES.nightOwl },
+  { name: 'crammer', courses: undefined, brain: false, of: () => ARCHETYPES.crammer },
+  { name: 'night owl with the course cards', courses: PERK_COURSES, brain: true, of: () => owlOf(true) },
 ];
 
 export function perkChecks(n = 100): CardCheck[] {
   const plays: readonly [number, SettingId | undefined][] = [[0, undefined], [1, undefined], ...SETTING_IDS.map((s) => [2, s] as [number, SettingId])];
   return PLAYERS.map((p) => {
     const rows: PerkRow[] = [];
-    for (const wanted of BRAIN_CARDS) {
-      for (const [clause, setting] of plays) rows.push({ label: `${wanted}, clause ${clause}${setting ? ` ${setting}` : ''}`, pass: perkRow(n, p.of, p.courses, wanted, clause, setting) });
+    const offered = (c: string): boolean => CARD_COURSE[c] === undefined || (p.courses ?? []).includes(CARD_COURSE[c]!);
+    const wants = p.brain ? BRAIN_CARDS.filter(offered) : [BRAIN_CARDS[0]];
+    for (const wanted of wants) {
+      for (const [clause, setting] of plays) {
+        const what = p.brain ? `${wanted}, ` : 'no brain card, ';
+        rows.push({ label: `${what}clause ${clause}${setting ? ` ${setting}` : ''}`, ...perkRow(n, p.of, p.courses, wanted, clause, setting) });
+      }
     }
-    const worst = rows.reduce((a, b) => (b.pass > a.pass ? b : a));
+    const worst = rows.reduce((a, b) => (b.pass > a.pass || (b.pass === a.pass && b.closest > a.closest) ? b : a));
+    const best = worst.pass > 0 ? `best ${worst.pass.toFixed(1)}% (${worst.label})` : `0.0% in every one, closest exam ${worst.closest.toFixed(1)}% (${worst.label})`;
     return {
       name: `perks: the ${p.name} passes under ${PERK_MAX_PASS}% whatever cards and nodes it holds`,
       pass: worst.pass < PERK_MAX_PASS,
-      detail: `best ${worst.pass.toFixed(1)}% (${worst.label}) of ${rows.length} combinations, wanted under ${PERK_MAX_PASS}%`,
+      detail: `${best} of ${rows.length} combinations, wanted under ${PERK_MAX_PASS}%`,
     };
   });
 }
