@@ -631,7 +631,8 @@ describe('from the causal log to facts', () => {
     const nodes = end.tags.log.nodes;
     const crisis = nodes[end.history[3]!.crisis!.node]!;
     const facts = nodeFacts(nodes.filter((n) => n.at <= crisis.at), CFG, new Set(crisis.causes.map((c) => c.node)));
-    expect(new Set(facts.map((f) => f.key))).toEqual(new Set(['choice:coffee', 'choice:drink_fasting', 'tag:sleep_debt', 'activity:stayed_up', 'strike', 'effect:caffeine_insomnia', 'effect:alcohol_sleep'].filter((k) => facts.some((f) => f.key === k))));
+    // The roommate's cold of some evening loads the immune floor too; it is not the liver's story but it is traced.
+    expect(new Set(facts.map((f) => f.key))).toEqual(new Set(['choice:coffee', 'choice:drink_fasting', 'tag:sleep_debt', 'activity:stayed_up', 'strike', 'effect:caffeine_insomnia', 'effect:alcohol_sleep', 'tag:roommate', 'effect:infection.roommate'].filter((k) => facts.some((f) => f.key === k))));
     expect(facts.some((f) => f.key.startsWith('rule:') || f.key === 'tag:alcohol')).toBe(false);
     const strike = facts.find((f) => f.key === 'strike')!;
     expect([strike.scope, strike.parent]).toEqual(['liver', true]);
@@ -640,8 +641,8 @@ describe('from the causal log to facts', () => {
   });
 
   it('keeps an entry that has no bank key as a fact worded by the fallback, labelled', () => {
-    const odd = [{ id: 0, kind: 'tag' as const, key: 'roommate', at: 100, causes: [] }];
-    expect(nodeFacts(odd, CFG, new Set())).toEqual([{ key: 'tag:roommate', at: 100, vars: { label: 'roommate' } }]);
+    const odd = [{ id: 0, kind: 'tag' as const, key: 'flu_vaccine', at: 100, causes: [] }];
+    expect(nodeFacts(odd, CFG, new Set())).toEqual([{ key: 'tag:flu_vaccine', at: 100, vars: { label: 'flu_vaccine' } }]);
   });
 
   it('rounds the caffeine left at bedtime for the sentence', () => {
@@ -818,7 +819,7 @@ describe('the input of each report', () => {
   const opts = { cfg: CFG, text, seed: 1 };
   const crunch0 = contextFor(0.5, 1, { scenario: crunchWeek(1) });
   // The pinned cram week is about a strike of two floors, so no cold is caught on campus.
-  const crunch = { ...crunch0, params: { ...crunch0.params, campusExposure: 0 } };
+  const crunch = { ...crunch0, params: { ...crunch0.params, campusExposure: 0, roommateExposure: 0 } };
   const crammed = runSemester(crunch, ARCHETYPES.crammer, 1);
 
   it('puts a visit on the ninth day into a stay on the final exam, issued that same day', () => {

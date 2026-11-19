@@ -21,7 +21,7 @@ export type SemesterParams = SleepCoefficients & MetabolismParams & LoadParams &
   | 'hospitalDebtMult' | 'hospitalFloorLoad' | 'hospitalSleep' | 'floorStrikeStudyMult' | 'overtimeBedDelay' | 'examPassPercent'
   | 'shiftHours' | 'labHours' | 'stress0' | 'stressPerHour' | 'stressSleep' | 'chronicAt' | 'chronicDays' | 'chronicClear'
   | 'chronicClearNights' | 'chronicSleep' | 'hospitalStress' | 'infBase' | 'chronicInf' | 'debtInf' | 'debtInfAt' | 'campusExposure'
-  | 'restBed' | 'restEff' | 'feverIfEffBelow' | 'throatDays' | 'coldDays' | 'feverDays' | 'coldFastSleep' | 'immuneStrikeInf' | 'coldStudy'
+  | 'roommateExposure' | 'restBed' | 'restEff' | 'feverIfEffBelow' | 'throatDays' | 'coldDays' | 'feverDays' | 'coldFastSleep' | 'immuneStrikeInf' | 'coldStudy'
   | 'feverStudy'
 >;
 
@@ -161,8 +161,10 @@ export interface DayRecord {
   readonly chronicStress?: true;
   /** The stage of the cold after the night settlement; absent when the host is well. */
   readonly illness?: Illness;
-  /** The host caught a cold today (design doc 9.1); absent on every other day. */
-  readonly infected?: true;
+  /** Where the host caught a cold today (design doc 9.1): on campus in the morning or from the roommate in the evening; absent on every other day. */
+  readonly infected?: 'campus' | 'roommate';
+  /** The roommate had a cold this evening, whether or not the host caught it; absent on every other day. */
+  readonly roommate?: true;
   /** Hours of the day a cup of coffee was drunk at; absent when none was. */
   readonly coffee?: readonly number[];
   /** The hours of grading the night itself took, which push bedtime back; absent when it took none. */

@@ -9,7 +9,7 @@ const base = contextFor(0.5, 1, { scenario: {} });
 const K = base.params;
 const withParams = (patch: Partial<SemesterContext['params']>): SemesterContext => ({ ...base, params: { ...base.params, ...patch } });
 // No exposure: the ladder tests start the cold themselves and nothing else is caught.
-const SHUT = withParams({ campusExposure: 0 });
+const SHUT = withParams({ campusExposure: 0, roommateExposure: 0 });
 
 const night = (bed: number, nextWake = 7): Strategy => ({
   plan: () => ({ coffee: [], rest: [] }),
@@ -48,14 +48,14 @@ describe('the chance of catching a cold (design doc 9.1)', () => {
     const spy: Strategy = { ...late, plan: (v) => { seen.push(v.illness); return late.plan(v); } };
     let s = startSemester(ctx, 1);
     for (let i = 0; i < 3; i++) s = playDay(s, ctx, spy);
-    expect(s.history.map((r) => r.infected === true)).toEqual([true, false, false]);
+    expect(s.history.map((r) => r.infected !== undefined)).toEqual([true, false, false]);
     expect(s.history.map((r) => r.illness)).toEqual(['cold', 'fever', 'fever']);
     expect(seen).toEqual(['throat', 'cold', 'fever']);
   });
 
   it('catches nothing when there is no exposure', () => {
     const end = runSemester(SHUT, ARCHETYPES.nightOwl, 1);
-    expect(end.history.some((r) => r.infected === true || r.illness !== undefined)).toBe(false);
+    expect(end.history.some((r) => r.infected !== undefined || r.illness !== undefined)).toBe(false);
   });
 
   it('moves no other draw of the semester', () => {
@@ -166,5 +166,79 @@ describe('a fever in the emergency room (design doc 8.11)', () => {
       if (r.crisis!.fever === true) expect(before === 'cold' || before === 'fever').toBe(true);
       else expect(r.strikes.length >= 2 || r.crisis!.fasting).toBe(true);
     }
+  });
+});
+
+describe('the roommate with a cold (design doc 9.1 and its event table)', () => {
+  const ROOMMATE = withParams({ campusExposure: 0, roommateExposure: 1 });
+  const CATCHES = withParams({ campusExposure: 0, roommateExposure: 1, infBase: 1 });
+
+  it('comes on 15% of evenings', () => {
+    let evenings = 0;
+    let contacts = 0;
+    for (let seed = 1; seed <= 200; seed++) {
+      const end = runSemester({ ...base, params: { ...K, campusExposure: 0 } }, early, seed);
+      for (const r of end.history.filter((x) => x.settled !== false && x.kind !== 'hospital')) {
+        evenings += 1;
+        if (r.roommate === true) contacts += 1;
+      }
+    }
+    expect(contacts / evenings).toBeGreaterThan(0.12);
+    expect(contacts / evenings).toBeLessThan(0.18);
+  });
+
+  it('loads the immune floor by 5 on the evening of the contact, whether or not the host catches it', () => {
+    const after = (ctx: SemesterContext, s = startSemester(ctx, 1)): number =>
+      playDay({ ...s, loads: { ...s.loads, immune: 50 } }, ctx, early).history[0]!.loadsAfter.immune;
+    expect(after(withParams({ campusExposure: 0, roommateExposure: 1, infBase: 0 })) - after(SHUT)).toBe(5);
+    expect(after(withParams({ campusExposure: 0, roommateExposure: 1 }), ill('cold', 3, ROOMMATE)) - after(SHUT, ill('cold', 3))).toBe(5);
+  });
+
+  it('gives the host a sore throat that evening, citing the roommate and what raised the chance', () => {
+    const s = playDay(startSemester(CATCHES, 1), CATCHES, late);
+    const r = s.history[0]!;
+    expect([r.roommate, r.infected, r.illness]).toEqual([true, 'roommate', 'cold']);
+    const nodes = s.tags.log.nodes;
+    const infection = nodes.find((n) => n.key === 'infection.roommate')!;
+    expect(infection.kind).toBe('effect');
+    expect(infection.causes.map((c) => nodes[c.node]!.key)).toContain('roommate');
+  });
+
+  it('is stopped by the same early night as a cold from campus', () => {
+    const r = playDay(startSemester(CATCHES, 1), CATCHES, early).history[0]!;
+    expect([r.infected, r.illness]).toEqual(['roommate', undefined]);
+  });
+
+  it('gives nothing to a host who is already ill, and is not met on a day in hospital', () => {
+    const s = playDay(ill('cold', 3, CATCHES), CATCHES, early);
+    expect([s.history[0]!.roommate, s.history[0]!.infected]).toEqual([true, undefined]);
+    const r = playDay({ ...startSemester(CATCHES, 1), hospitalDay: 1 }, CATCHES, early).history[0]!;
+    expect([r.kind, r.roommate, r.infected]).toEqual(['hospital', undefined, undefined]);
+  });
+
+  it('rolls apart from the campus, so an evening with the roommate says nothing of the next morning', () => {
+    // Before the roommate had its own salt, its roll of one day was the campus roll of the next.
+    const ctx = withParams({ campusExposure: 0.5, roommateExposure: 0.5, infBase: 1 });
+    let contactDays = 0;
+    let thenCampus = 0;
+    let campusDays = 0;
+    let sameEvening = 0;
+    for (let seed = 1; seed <= 200; seed++) {
+      const h = runSemester(ctx, early, seed).history;
+      for (let i = 0; i < h.length; i++) {
+        if (h[i]!.infected === 'campus') {
+          campusDays += 1;
+          if (h[i]!.roommate === true) sameEvening += 1;
+        }
+        if (i + 1 === h.length || h[i]!.roommate !== true || h[i]!.illness !== undefined) continue;
+        contactDays += 1;
+        if (h[i + 1]!.infected === 'campus') thenCampus += 1;
+      }
+    }
+    expect(Math.min(contactDays, campusDays)).toBeGreaterThan(100);
+    expect(thenCampus / contactDays).toBeGreaterThan(0.35);
+    expect(thenCampus / contactDays).toBeLessThan(0.65);
+    expect(sameEvening / campusDays).toBeGreaterThan(0.35);
+    expect(sameEvening / campusDays).toBeLessThan(0.65);
   });
 });

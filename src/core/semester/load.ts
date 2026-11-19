@@ -15,6 +15,7 @@ export interface FloorContrib {
   readonly chronicImmune: number;
   readonly coldImmune: number;
   readonly feverImmune: number;
+  readonly roommateImmune: number;
 }
 
 export interface LoadParams extends FloorThresholds {
@@ -42,6 +43,8 @@ export interface DayFacts {
   readonly fasting: boolean;
   /** Chronic stress holds after tonight's settlement. */
   readonly chronic: boolean;
+  /** The roommate had a cold this evening (design doc 8.4, 室友感冒（接觸）). */
+  readonly roommate?: boolean;
   /** The stage of the cold the day had (the old sim's timing); absent when the host was well. */
   readonly illness?: 'throat' | 'cold' | 'fever';
 }
@@ -59,7 +62,7 @@ export function contributions(f: DayFacts, k: LoadParams): Loads {
       case 'brain': return c.debtBrain * f.debtAfter + (f.deadline ? c.deadlineBrain : 0) + (f.tolerant ? c.toleranceBrain : 0) + (f.chronic ? c.chronicBrain : 0);
       case 'stomach': return f.lateSnack ? c.lateSnackStomach : 0;
       case 'liver': return c.alcoholLiver * f.alcoholCups * (f.fasting ? c.fastingAlcoholMult : 1);
-      case 'immune': return (f.chronic ? c.chronicImmune : 0) + (f.illness === 'cold' ? c.coldImmune : f.illness === 'fever' ? c.feverImmune : 0);
+      case 'immune': return (f.chronic ? c.chronicImmune : 0) + (f.roommate === true ? c.roommateImmune : 0) + (f.illness === 'cold' ? c.coldImmune : f.illness === 'fever' ? c.feverImmune : 0);
       case 'gut': return 0;
     }
   });

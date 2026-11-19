@@ -113,6 +113,7 @@
         "restBed",
         "restEff",
         "feverIfEffBelow",
+        "roommateExposure",
         "throatDays",
         "coldDays",
         "feverDays",
@@ -536,6 +537,11 @@
         "feverIfEffBelow": {
           "type": "number"
         },
+        "roommateExposure": {
+          "description": "Chance an evening of the semester brings the roommate's cold.",
+          "type": "number",
+          "minimum": 0
+        },
         "throatDays": {
           "description": "Nights a sore throat lasts in the semester before it becomes a cold, unless an early night ends it.",
           "type": "integer",
@@ -751,7 +757,8 @@
             "chronicBrain",
             "chronicImmune",
             "coldImmune",
-            "feverImmune"
+            "feverImmune",
+            "roommateImmune"
           ],
           "properties": {
             "debtBrain": {
@@ -801,6 +808,11 @@
             },
             "feverImmune": {
               "description": "Immune load on a night with a fever.",
+              "type": "number",
+              "minimum": 0
+            },
+            "roommateImmune": {
+              "description": "Immune load on an evening with the roommate's cold.",
               "type": "number",
               "minimum": 0
             }

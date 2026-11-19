@@ -10,12 +10,12 @@ const night = (bed: number): Strategy => ({
   floor: () => ({ patrol: 'brain' }),
   night: () => ({ bed, nextWake: 7, lateNight: 'rest' }),
 });
-const ILL = ['throat', 'cold', 'fever', 'well', 'stopped', 'cured'].map((k) => `semester.sum.ill.${k}`);
+const ILL = ['roommate', 'throat', 'throat_roommate', 'cold', 'fever', 'well', 'stopped', 'cured'].map((k) => `semester.sum.ill.${k}`);
 
-/** The illness lines of each day's summary, by their key. */
-function told(exposure: number, plan: readonly Strategy[]): string[][] {
+/** The illness lines of each day's summary, by their key; by default the campus alone, so each day's lines follow from one exposure. */
+function told(exposure: number, plan: readonly Strategy[], roommate = 0, infBase = 1): string[][] {
   const { ctx: base, state } = newSemester(1, []);
-  const ctx: SemesterContext = { ...base, params: { ...base.params, campusExposure: exposure, infBase: 1 } };
+  const ctx: SemesterContext = { ...base, params: { ...base.params, campusExposure: exposure, roommateExposure: roommate, infBase } };
   let s: SemesterState = state;
   const days: string[][] = [];
   for (const strategy of plan) {
@@ -58,7 +58,7 @@ describe('what the player is told about a cold (design doc 9.1)', () => {
 
   it('says nothing of the cold on the final exam day, which has no night', () => {
     const { ctx: base, state } = newSemester(1, []);
-    const ctx: SemesterContext = { ...base, params: { ...base.params, campusExposure: 0 } };
+    const ctx: SemesterContext = { ...base, params: { ...base.params, campusExposure: 0, roommateExposure: 0 } };
     let s: SemesterState = state;
     while (s.day < ctx.params.days) s = playDay(s, ctx, night(22));
     const [log, node] = record(s.tags.log, { kind: 'rule', key: 'test', at: 0 });
@@ -67,6 +67,12 @@ describe('what the player is told about a cold (design doc 9.1)', () => {
     expect(next.history.at(-1)!.settled).toBe(false);
     const lines = daySummary(ill, next, ctx);
     expect(ILL.filter((key) => lines.includes(str(key)))).toEqual([]);
+  });
+
+  it('says when the roommate had a cold, and when the host caught it from the roommate', () => {
+    expect(told(0, [night(22)], 1, 0)).toEqual([['roommate']]);
+    expect(told(0, [night(26)], 1)).toEqual([['roommate', 'throat_roommate', 'cold']]);
+    expect(told(0, [night(22)], 1)).toEqual([['roommate', 'throat_roommate', 'stopped']]);
   });
 
   it('says nothing about a cold when none was caught', () => {

@@ -61,10 +61,11 @@ describe('the four player archetypes of design doc 9.5', { timeout: 180_000 }, (
   });
 
   it('fail when the performance factor reaches 2.0, through the known gap of the informed player moving away from 70', async () => {
-    // No other expectation catches it: the night owl's progress is too low for any factor to pass the final.
+    // The fighters' final cannot catch it: the night owl's progress is too low for any factor to pass. The patrol gap may
+    // tip below 10% as well, but only just, so it is not pinned.
     const r = judged(await load(true));
     expect(r.ok).toBe(false);
-    expect(r.failed).toEqual(['informed.grade WORSE']);
+    expect(r.failed).toContain('informed.grade WORSE');
   });
 });
 

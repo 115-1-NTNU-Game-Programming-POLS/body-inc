@@ -726,7 +726,9 @@ describe('exams and hospital (design doc 8.9, 8.11)', () => {
     });
 
     it('sends two floors on strike to the emergency room, with lighter floors left as they are', () => {
-      const s = play(strained({ brain: 100, stomach: 100, immune: 30 }), CTX, gutPatrol);
+      // No roommate's cold tonight, which would add its 5 to the immune floor.
+      const quiet = { ...CTX, params: { ...K, roommateExposure: 0 } };
+      const s = play(strained({ brain: 100, stomach: 100, immune: 30 }), quiet, gutPatrol);
       const rec = last(s.history);
       expect(rec.strikes).toEqual(['brain', 'stomach']);
       expect(rec.hospitalized).toBe(true);
@@ -938,7 +940,7 @@ describe('the causal log of a semester', () => {
   it('records whether the liver struck on an empty stomach, which a strike of two floors never is', () => {
     expect(strikeDay.crisis!.fasting).toBe(true);
     const ctx0 = contextFor(0.5, 1, { scenario: crunchWeek(1) });
-    const ctx = { ...ctx0, params: { ...ctx0.params, campusExposure: 0 } };
+    const ctx = { ...ctx0, params: { ...ctx0.params, campusExposure: 0, roommateExposure: 0 } };
     const crammed = runSemester(ctx, ARCHETYPES.crammer, 1);
     const visit = crammed.history.find((r) => r.crisis)!;
     expect([visit.strikes, visit.crisis!.fasting]).toEqual([['brain', 'stomach'], false]);

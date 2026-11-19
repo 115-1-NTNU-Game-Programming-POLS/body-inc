@@ -387,8 +387,9 @@ export function daySummary(before: SemesterState, after: SemesterState, ctx: Sem
   if (rec.chronicStress === true && !wasChronic) lines.push(str('semester.sum.chronic.on'));
   if (rec.chronicStress !== true && wasChronic && rec.stress !== undefined) lines.push(str('semester.sum.chronic.off'));
   // The cold's step tonight, read from the stage the day began with and the one the night left (design doc 9.1).
-  if (rec.infected === true) lines.push(str('semester.sum.ill.throat'));
-  const wasIll = before.illness?.stage ?? (rec.infected === true ? 'throat' : undefined);
+  if (rec.roommate === true) lines.push(str('semester.sum.ill.roommate'));
+  if (rec.infected !== undefined) lines.push(str(rec.infected === 'roommate' ? 'semester.sum.ill.throat_roommate' : 'semester.sum.ill.throat'));
+  const wasIll = before.illness?.stage ?? (rec.infected !== undefined ? 'throat' : undefined);
   // The final exam day has no night, so the cold is where the day began.
   if (rec.settled && rec.illness !== undefined && rec.illness !== wasIll) lines.push(str(`semester.sum.ill.${rec.illness}`));
   if (rec.settled && rec.illness === undefined && wasIll !== undefined) {

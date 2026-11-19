@@ -51,8 +51,8 @@ export interface KnownGap {
 /** Expectations that do not hold yet; see the module comment. */
 export const KNOWN_GAPS: Readonly<Record<string, KnownGap>> = {
   'fighter.hospital': {
-    reason: 'the roommate cold of design doc 9.1 is not in the semester yet, so the night owl meets fewer colds',
-    at: 23.5,
+    reason: 'with the roommate cold the crammer is in hospital in most semesters, the night owl in just under half',
+    at: 49.5,
     worse: -1,
   },
   'informed.grade': { reason: 'the responsive player who cannot fight averages about 80, ten points over the doc', at: 80.6, worse: 1 },

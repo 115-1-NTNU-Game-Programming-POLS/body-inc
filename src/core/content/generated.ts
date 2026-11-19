@@ -1693,6 +1693,7 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
           "restBed",
           "restEff",
           "feverIfEffBelow",
+          "roommateExposure",
           "throatDays",
           "coldDays",
           "feverDays",
@@ -2116,6 +2117,11 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
           "feverIfEffBelow": {
             "type": "number"
           },
+          "roommateExposure": {
+            "description": "Chance an evening of the semester brings the roommate's cold.",
+            "type": "number",
+            "minimum": 0
+          },
           "throatDays": {
             "description": "Nights a sore throat lasts in the semester before it becomes a cold, unless an early night ends it.",
             "type": "integer",
@@ -2331,7 +2337,8 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
               "chronicBrain",
               "chronicImmune",
               "coldImmune",
-              "feverImmune"
+              "feverImmune",
+              "roommateImmune"
             ],
             "properties": {
               "debtBrain": {
@@ -2381,6 +2388,11 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
               },
               "feverImmune": {
                 "description": "Immune load on a night with a fever.",
+                "type": "number",
+                "minimum": 0
+              },
+              "roommateImmune": {
+                "description": "Immune load on an evening with the roommate's cold.",
                 "type": "number",
                 "minimum": 0
               }
@@ -4112,6 +4124,8 @@ export interface ParamsFile {
     readonly restBed: number;
     readonly restEff: number;
     readonly feverIfEffBelow: number;
+    /** Chance an evening of the semester brings the roommate's cold. */
+    readonly roommateExposure: number;
     /** Nights a sore throat lasts in the semester before it becomes a cold, unless an early night ends it. */
     readonly throatDays: number;
     /** Nights a cold lasts in the semester, unless a short night turns it into a fever. */
@@ -4196,6 +4210,8 @@ export interface ParamsFile {
       readonly coldImmune: number;
       /** Immune load on a night with a fever. */
       readonly feverImmune: number;
+      /** Immune load on an evening with the roommate's cold. */
+      readonly roommateImmune: number;
     };
     /** Hours an overtime patrol pushes bedtime back. */
     readonly overtimeBedDelay: number;

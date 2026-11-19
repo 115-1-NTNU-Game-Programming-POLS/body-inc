@@ -45,7 +45,7 @@ describe('the burden guard rail of design doc 8.3', () => {
   }, 120_000);
 
   it('fails the hospital half of the second when no one catches a cold', async () => {
-    expect(await failing(undefined, { campusExposure: 0 })).toEqual(['burden: the night owl with a heavy burden is in hospital clearly more often']);
+    expect(await failing(undefined, { campusExposure: 0, roommateExposure: 0 })).toEqual(['burden: the night owl with a heavy burden is in hospital clearly more often']);
   }, 120_000);
 
   it('fails the third when short sleep stops costing, because a late studier then earns the most', async () => {
