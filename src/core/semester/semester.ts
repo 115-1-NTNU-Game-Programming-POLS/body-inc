@@ -166,8 +166,10 @@ interface DayRun {
   played: { id: string; option: string }[];
   /** Progress the day's patrols added through 會議紀錄. */
   minutes: number;
-  /** Stress the day's hours and events add before the night's sleep takes its share off (design doc 9.1). */
-  stressDay: number;
+  /** Stress through the day, kept within 0 to 100 after every charge as the old sim's was (design doc 9.1). */
+  stress: number;
+  /** Hours of the next charge that a compiler walk takes, at the walking rate instead of the hour's own. */
+  walked: number;
   /** The events behind the day's stress, for the causal log. */
   stressCauses: number[];
 }
@@ -295,7 +297,7 @@ function applyEvents(d: DayRun, upTo: number, before = false): void {
       d.evidence.stomach.push(cause);
     }
     if (opt.stress !== undefined && opt.stress > 0) {
-      d.stressDay += opt.stress;
+      addStress(d, opt.stress);
       d.stressCauses.push(cause);
     }
     // Loads move only in the night settlement, so the afternoon's load is the morning's.
@@ -339,10 +341,16 @@ function activityAt(d: DayRun, h: number, rest: ReadonlySet<number>): Activity {
   return rest.has(h) ? 'rest' : 'study';
 }
 
+function addStress(d: DayRun, x: number): void {
+  d.stress = Math.min(100, Math.max(0, d.stress + x));
+}
+
 /** Spends `dur` hours on an activity; study moves the semester's progress, the paper-exam part of it into the staging pile, and the project a share of it at once. */
 function spend(d: DayRun, dur: number, activity: Activity, effort = 1, stressAs: StressKey = STRESS_OF[activity]): void {
   const { dict, params: k } = d.ctx;
-  d.stressDay += k.stressPerHour[stressAs] * dur;
+  addStress(d, k.stressPerHour.walk * d.walked);
+  addStress(d, k.stressPerHour[stressAs] * (dur - d.walked));
+  d.walked = 0;
   let { tags, progress, staging, project } = d.s;
   if (activity === 'study' || activity === 'project') {
     const boost = caffeineBoost(caffeineOf(tags, dict), flag(tags, dict, 'caffeine_tolerant'), k);
@@ -377,7 +385,7 @@ function sitting(d: DayRun, activity: Activity, dur: number): number {
   if (d.walk && d.sit >= SIT_LIMIT) {
     d.sit = 0;
     effort = 1 - (1 - WALK_EFFORT) / dur;
-    d.stressDay += d.ctx.params.stressPerHour.walk * (1 - WALK_EFFORT);
+    d.walked = 1 - WALK_EFFORT;
   }
   if (d.sit >= SIT_LIMIT) effort *= STUCK_MULT;
   d.sit += dur;
@@ -502,8 +510,7 @@ function settleStress(d: DayRun, tags0: TagState, rule: number, effective: numbe
   let tags = tags0;
   let cause = rule;
   if (d.stressCauses.length > 0) [tags, cause] = derive(tags, 'stress.events', at, d.stressCauses);
-  const raised = Math.min(100, Math.max(0, amount(tags, dict, 'stress') + d.stressDay));
-  const after = Math.max(0, raised + k.stressSleep * effective);
+  const after = Math.max(0, d.stress + k.stressSleep * effective);
   tags = setAmount(tags, dict, 'stress', after, cause, at);
   const before = d.s.history.flatMap((r) => (r.stress === undefined ? [] : [r.stress]));
   const run = (n: number): number[] | undefined => (before.length >= n - 1 ? [...before.slice(before.length - (n - 1)), after] : undefined);
@@ -656,7 +663,8 @@ export function playDay(from: SemesterState, ctx: SemesterContext, strategy: Str
     pending: hospitalDay ? [] : (ctx.scenario[day] ?? []).map((id) => ctx.events.get(id)!).sort((a, b) => a.hour - b.hour),
     played: [],
     minutes: 0,
-    stressDay: hospitalDay ? k.hospitalStress : 0,
+    stress: Math.min(100, amount(s0.tags, dict, 'stress') + (hospitalDay ? k.hospitalStress : 0)),
+    walked: 0,
     stressCauses: [],
   };
   const panel = elevatorPanel(s0.loads, k);

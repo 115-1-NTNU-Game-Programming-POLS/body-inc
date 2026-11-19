@@ -3,7 +3,7 @@ import {
   activeModifiers, advanceDay, amount, caffeineBoost, caffeineOf, caffeineSleepCoef, calculateSemesterGrade, contributions, drawFloat, elevatorPanel,
   examPerformance, FLOORS, flag,
   gradeFor, lightOf, liverClues, liverStrikes, nextLoad, nextSleepDebt, patrolReduction, playDay, record, runSemester, scoreExam, seedStreams,
-  semesterProblems, setFlag, sleepFactor, startSemester, strikes, summarize, trace, type DayRecord, type DayView, type Loads,
+  semesterProblems, setAmount, setFlag, sleepFactor, startSemester, strikes, summarize, trace, type DayRecord, type DayView, type Loads,
   type SemesterContext, type SemesterEvent, type SemesterState, type Strategy,
 } from '../../src/core/index.ts';
 import { ARCHETYPES } from '../../sim/semester/archetypes.ts';
@@ -510,6 +510,31 @@ describe('stress and chronic stress (design doc 9.1)', () => {
     expect(s.history.map((r) => r.stress)).toEqual([50.5, 71, 91.5, 93.25, 62.1, expect.closeTo(1.95, 6), 0, 0]);
   });
 
+  it('counts only nights in a row, both to begin and to end', () => {
+    // A quiet day adds a few points over its night, so setting the morning's stress picks which side of 70 or 50 the night settles on.
+    const from = (s: SemesterState, x: number): SemesterState => {
+      const [log, node] = record(s.tags.log, { kind: 'rule', key: 'test', at: last(s.tags.log.nodes).at });
+      return { ...s, tags: setAmount({ ...s.tags, log }, CTX.dict, 'stress', x, node, last(s.tags.log.nodes).at) };
+    };
+    let s = startSemester(CTX, 1);
+    for (const x of [80, 50, 80, 80, 30, 80, 30, 30]) s = play(from(s, x), CTX);
+    expect(s.history.map((r) => (r.stress! > 70 ? 'high' : r.stress! < 50 ? 'low' : 'mid'))).toEqual(['high', 'mid', 'high', 'high', 'low', 'high', 'low', 'low']);
+    expect(s.history.map((r) => r.chronicStress === true)).toEqual([false, false, false, true, true, true, true, false]);
+  });
+
+  it('keeps the stress within 0 to 100 after every hour, not only at the end of the day', () => {
+    // Rest late in the day: whatever the morning above 92, the study hours reach the ceiling first, so the night is the same.
+    const lateRest: Strategy = { ...quiet, plan: () => ({ coffee: [], rest: [17, 19, 20, 21] }) };
+    const [log, node] = record(startSemester(CTX, 1).tags.log, { kind: 'rule', key: 'test', at: 0 });
+    const morning = (x: number): SemesterState => {
+      const s = startSemester(CTX, 1);
+      return { ...s, tags: setAmount({ ...s.tags, log }, CTX.dict, 'stress', x, node, 0) };
+    };
+    const night = (x: number): number => play(morning(x), CTX, lateRest).history[0]!.stress!;
+    expect(night(95)).toBe(night(99));
+    expect(night(95)).toBeLessThan(95);
+  });
+
   it('costs a tenth of the sleep and loads the brain by 8 and the immune floor by 15 while it holds, citing the tag', () => {
     const base = { ...startSemester(CTX, 1), loads: loads({ brain: 50, immune: 50 }) };
     const [log, node] = record(base.tags.log, { kind: 'rule', key: 'test', at: 0 });
@@ -526,8 +551,11 @@ describe('stress and chronic stress (design doc 9.1)', () => {
     expect(held.loads.immune).toBeCloseTo(50 + 15 + 10 - 16.2);
     // One calm night is not two, so it still holds, and the immune floor's load cites it.
     expect(held.history[0]!.chronicStress).toBe(true);
-    expect(held.loadCauses.immune).toEqual([held.tags.values['chronic_stress']!.node]);
+    const tag = held.tags.values['chronic_stress']!.node;
+    expect(held.loadCauses.immune).toEqual([tag]);
+    expect(held.loadCauses.brain).toContain(tag);
     expect(plain.loadCauses.immune).toEqual([]);
+    expect(plain.loadCauses.brain).not.toContain(tag);
   });
 
   it('shows the player the stress and the chronic stress the day began with', () => {
