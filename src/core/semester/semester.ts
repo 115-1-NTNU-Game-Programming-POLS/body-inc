@@ -409,7 +409,8 @@ function sitExam(d: DayRun, kind: 'mid' | 'fin'): number {
   const load = d.ctx.courses === undefined ? 1 : thresholdMult(creditsOf(d.ctx.courses));
   const threshold = (kind === 'mid' ? k.passMid : k.passFin * (d.ctx.finMult ?? 1)) * load;
   const result = scoreExam({
-    kind: 'regular', progress: d.s.progress, sExamDay: d.S, passThreshold: threshold, ...examPerformance(d.ctx.skill, roll(d), k),
+    // examDiscount off is the breakage of design doc 9.6 that the archetype checks must catch.
+    kind: 'regular', progress: d.s.progress, sExamDay: k.examDiscount ? d.S : 1, passThreshold: threshold, ...examPerformance(d.ctx.skill, roll(d), k),
   });
   let percent = result.examPercent;
   if (kind === 'fin') {

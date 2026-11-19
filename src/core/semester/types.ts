@@ -16,7 +16,7 @@ import type { LastNight, PatrolKit } from './welfare.ts';
 export type SemesterParams = SleepCoefficients & MetabolismParams & LoadParams & SkillParams & Pick<
   ParamsFile['defaults'],
   | 'days' | 'midDay' | 'finDay' | 'weekend' | 'examHours' | 'examWake' | 'wake' | 'bed' | 'bedMin' | 'bedMax' | 'bedOverrun' | 'wakeCap'
-  | 'meals' | 'classes' | 'sleepNeed' | 'repayRatio' | 'cup' | 'boostMin' | 'boost' | 'boostTolerant' | 'cafSleepK' | 'cafDeadZone'
+  | 'meals' | 'classes' | 'examDiscount' | 'sleepNeed' | 'repayRatio' | 'cup' | 'boostMin' | 'boost' | 'boostTolerant' | 'cafSleepK' | 'cafDeadZone'
   | 'tolDays' | 'tolCups' | 'tolResetDays' | 'withdrawal' | 'alcoholSleep' | 'snackSleep' | 'passMid' | 'passFin'
   | 'hospitalDebtMult' | 'hospitalFloorLoad' | 'hospitalSleep' | 'floorStrikeStudyMult' | 'overtimeBedDelay' | 'examPassPercent'
   | 'shiftHours' | 'labHours' | 'stress0' | 'stressPerHour' | 'stressSleep' | 'chronicAt' | 'chronicDays' | 'chronicClear'
