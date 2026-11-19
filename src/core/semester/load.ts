@@ -42,7 +42,7 @@ export interface DayFacts {
   readonly fasting: boolean;
   /** Chronic stress holds after tonight's settlement. */
   readonly chronic: boolean;
-  /** The stage of the cold after tonight's settlement; absent when the host is well. */
+  /** The stage of the cold the day had (the old sim's timing); absent when the host was well. */
   readonly illness?: 'throat' | 'cold' | 'fever';
 }
 

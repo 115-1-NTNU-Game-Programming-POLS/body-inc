@@ -530,8 +530,10 @@ function catchCold(d: DayRun, hospitalDay: boolean): boolean {
   const chance = infectionChance(s.loads.immune, chronic, debt, strikes('immune', s.loads.immune, k), k);
   if (illnessRoll(s.rng.setting, s.day, 1) >= chance) return false;
   const at = minuteOf(s.day, s.wake);
-  const causes = [...(chronic ? nodeOf(s.tags, 'chronic_stress') : []), ...(debt >= k.debtInfAt ? nodeOf(s.tags, 'sleep_debt') : [])];
-  const [tags, node] = causes.length > 0 ? derive(s.tags, 'infection', at, causes, { chance }) : source(s.tags, 'rule', 'infection', at, { chance });
+  // The exposure is a rule entry, so the infection is always an effect the report can word, citing what raised its chance.
+  const [exposed, exposure] = source(s.tags, 'rule', 'campus.exposure', at);
+  const causes = [exposure, ...s.loadCauses.immune, ...(chronic ? nodeOf(s.tags, 'chronic_stress') : []), ...(debt >= k.debtInfAt ? nodeOf(s.tags, 'sleep_debt') : [])];
+  const [tags, node] = derive(exposed, 'infection', at, causes, { chance });
   d.s = { ...s, tags, illness: { stage: 'throat', nights: k.throatDays, node } };
   return true;
 }
@@ -605,6 +607,9 @@ function settle(d: DayRun, n: Night): Outcome {
   tags = settleStress(d, tags, rule, effective, at);
   const chronic = flag(tags, dict, 'chronic_stress');
   let illness: SemesterState['illness'];
+  // The load and the emergency room read the stage the day had, as the old sim did; tonight's step only sets tomorrow's.
+  const dayStage = d.s.illness?.stage;
+  const dayIllness = dayStage === 'cold' || dayStage === 'fever' ? nodeOf(tags, dayStage) : [];
   [tags, illness] = settleIllness(d, tags, n.bedEnd, effective, at);
 
   const debtBefore = amount(tags, dict, 'sleep_debt');
@@ -614,7 +619,7 @@ function settle(d: DayRun, n: Night): Outcome {
 
   const facts: DayFacts = {
     debtAfter, deadline: d.deadline, tolerant: flag(tags, dict, 'caffeine_tolerant'), lateSnack: d.lateSnack,
-    alcoholCups: d.alcoholCups, fasting: d.fasting, chronic, ...(illness !== undefined ? { illness: illness.stage } : {}),
+    alcoholCups: d.alcoholCups, fasting: d.fasting, chronic, ...(dayStage !== undefined ? { illness: dayStage } : {}),
   };
   const add = contributions(facts, k);
   // A failed patrol still looked after the floor, so the neglect bonus is waived, but it cuts nothing.
@@ -633,7 +638,7 @@ function settle(d: DayRun, n: Night): Outcome {
   // Design doc 8.6: a struck liver plus an empty stomach is the dizzy-and-sweating crisis.
   const crisisNight = struck.includes('liver') && d.fasting;
   // Design doc 8.11: one floor on strike with a crisis tag is enough; the fever is the cold's (the old sim's crisis tag).
-  const feverNight = struck.length >= 1 && illness?.stage === 'fever';
+  const feverNight = struck.length >= 1 && dayStage === 'fever';
   const er = struck.length >= 2 || crisisNight || feverNight;
 
   // A load is a running sum, so a floor's causes accumulate until it is calm again (under the yellow line).
@@ -644,7 +649,7 @@ function settle(d: DayRun, n: Night): Outcome {
     ],
     stomach: d.evidence.stomach,
     liver: d.evidence.liver,
-    immune: [...(chronic ? nodeOf(tags, 'chronic_stress') : []), ...nodeOf(tags, 'cold'), ...nodeOf(tags, 'fever')],
+    immune: [...(chronic ? nodeOf(tags, 'chronic_stress') : []), ...dayIllness],
     gut: [],
   };
   const behind = mapFloors((f) => [...new Set([...d.s.loadCauses[f], ...tonight[f]])]);
@@ -663,7 +668,7 @@ function settle(d: DayRun, n: Night): Outcome {
   let crisis: Outcome['crisis'];
   if (er) {
     hospitals += 1;
-    const [log, node] = record(tags.log, { kind: 'crisis', key: 'er', at, causes: [...strikeNodes, ...(feverNight ? nodeOf(tags, 'fever') : [])] });
+    const [log, node] = record(tags.log, { kind: 'crisis', key: 'er', at, causes: [...strikeNodes, ...(feverNight ? dayIllness : [])] });
     tags = { ...tags, log };
     crisis = { node, at, fasting: crisisNight, ...(feverNight ? { fever: true as const } : {}) };
     if (hospitals >= 2) {

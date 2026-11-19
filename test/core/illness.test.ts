@@ -83,30 +83,37 @@ describe('the ladder of a cold (design doc 9.1, the old sim)', () => {
     expect(stages(ill('cold', 2), SHUT, [night(23, 6)])).toEqual(['cold']);
   });
 
-  it('keeps the cold and fever tags in step with the stage, the fever citing the cold and the immune load citing both', () => {
-    // From an immune load of 30 the floor climbs past yellow, below which it cites nothing, without reaching a strike.
+  it('keeps the cold and fever tags in step with the stage, the fever citing the cold, and the immune load citing the stage of the day', () => {
+    // From an immune load of 45 the floor stays past yellow, below which it cites nothing; the omen cap keeps it from striking.
     const start = ill('throat', 1);
-    let s: SemesterState = { ...start, loads: { ...start.loads, immune: 30 } };
+    let s: SemesterState = { ...start, loads: { ...start.loads, immune: 45 } };
     s = playDay(s, SHUT, late);
     expect([flag(s.tags, SHUT.dict, 'cold'), flag(s.tags, SHUT.dict, 'fever')]).toEqual([true, false]);
     const coldNode = s.tags.values['cold']!.node;
-    expect(s.loadCauses.immune).toContain(coldNode);
+    // The day was a sore throat's, so the cold set tonight is not yet behind the load.
+    expect(s.loadCauses.immune).not.toContain(coldNode);
     s = playDay(s, SHUT, late);
-    expect(s.loadCauses.immune).toContain(s.tags.values['fever']!.node);
+    expect(s.loadCauses.immune).toContain(coldNode);
     expect([flag(s.tags, SHUT.dict, 'cold'), flag(s.tags, SHUT.dict, 'fever')]).toEqual([false, true]);
-    expect(s.tags.log.nodes[s.tags.values['fever']!.node]!.causes.map((c) => c.node)).toContain(coldNode);
-    s = playDay(playDay(s, SHUT, early), SHUT, early);
+    const feverNode = s.tags.values['fever']!.node;
+    expect(s.tags.log.nodes[feverNode]!.causes.map((c) => c.node)).toContain(coldNode);
+    s = playDay(s, SHUT, early);
+    expect(s.loadCauses.immune).toContain(feverNode);
+    s = playDay(s, SHUT, early);
     expect([flag(s.tags, SHUT.dict, 'cold'), flag(s.tags, SHUT.dict, 'fever')]).toEqual([false, false]);
   });
 
-  it('loads the immune floor by 25 a night with a cold and 40 with a fever', () => {
+  it('loads the immune floor by 25 a night with a cold and 40 with a fever, by the stage the day had (the old sim)', () => {
     // From an immune load of 50, so that the night's sleep does not floor it at zero.
-    const after = (s: SemesterState): number => playDay({ ...s, loads: { ...s.loads, immune: 50 } }, SHUT, early).history[0]!.loadsAfter.immune;
+    const after = (s: SemesterState, strategy = early): number => playDay({ ...s, loads: { ...s.loads, immune: 50 } }, SHUT, strategy).history[0]!.loadsAfter.immune;
     const well = after(startSemester(SHUT, 1));
-    // An early night ends a two-night cold, so only the longer one is still a cold after it.
-    expect(after(ill('cold', 2)) - well).toBe(0);
+    const wellLate = after(startSemester(SHUT, 1), night(24));
+    // A sore throat loads nothing, even on the night it becomes a cold.
+    expect(after(ill('throat', 1), night(24)) - wellLate).toBe(0);
+    // The last night of a cold, which an early night ends, still loads it.
+    expect(after(ill('cold', 2)) - well).toBe(25);
     expect(after(ill('cold', 3)) - well).toBe(25);
-    expect(after(ill('fever', 2)) - well).toBe(40);
+    expect(after(ill('fever', 1)) - well).toBe(40);
   });
 
   it('studies at 0.8 with a cold and 0.5 with a fever', () => {
@@ -118,6 +125,22 @@ describe('the ladder of a cold (design doc 9.1, the old sim)', () => {
 });
 
 describe('a fever in the emergency room (design doc 8.11)', () => {
+  it('counts a night as a fever night by the stage the day had, not the one the night turns it into', () => {
+    // An orange brain left unpatrolled strikes tonight; a single strike sends to hospital only on a day spent with a fever.
+    const away: Strategy = { ...late, floor: () => ({ patrol: 'gut' }) };
+    const night1 = (stage: Illness): SemesterState => {
+      const s = ill(stage, 2);
+      return playDay({ ...s, loads: { ...s.loads, brain: 84 } }, SHUT, away);
+    };
+    const fever = night1('fever').history[0]!;
+    const cold = night1('cold').history[0]!;
+    expect([fever.strikes, cold.strikes]).toEqual([['brain'], ['brain']]);
+    expect(fever.crisis?.fever).toBe(true);
+    // The cold turns into a fever tonight, but the day was a cold's.
+    expect(cold.illness).toBe('fever');
+    expect(cold.crisis).toBeUndefined();
+  });
+
   const owl = Array.from({ length: 60 }, (_, i) => i + 1).map((seed) => runSemester(contextFor(0.5, seed, { scenario: {} }), ARCHETYPES.nightOwl, seed));
   const visits = owl.flatMap((end) => end.history.flatMap((r, i) => (r.crisis !== undefined ? [{ end, r, i }] : [])));
   const fever = visits.filter(({ r }) => r.crisis!.fever === true);
