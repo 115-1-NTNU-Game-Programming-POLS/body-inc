@@ -15,7 +15,7 @@
     "boss": "boss"
   },
   "cues": {
-    "liver.typing": { "trimDb": 13, "voices": [
+    "liver.typing": { "trimDb": 18, "voices": [
       { "kind": "noise", "filter": "bandpass", "cutoff": 740, "q": 0.8, "dur": 0.043, "gain": 0.38 },
       { "kind": "noise", "filter": "bandpass", "cutoff": 900, "q": 1.2, "at": 0.086, "dur": 0.033, "gain": 0.35 },
       { "kind": "noise", "filter": "bandpass", "cutoff": 810, "q": 0.9, "at": 0.157, "dur": 0.040, "gain": 0.42 },

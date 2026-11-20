@@ -58,7 +58,6 @@
 | `cling` | 黏住 | `bound`, `clung`, `examStacked` |
 | `yawn` | 下行的哈欠 | `forcedLeave`, `bedUse`, `forcedNap`, `napped` |
 | `door` | 進門 | `doorEntered` |
-| `liver.typing` | 電梯開門時從辦公室傳來的一小串打字聲，畫面同時顯示文字提示 | 學期模式第一次選層前，電梯停在肝樓層時 |
 | `locked` | 門鎖住的兩聲；限時閘門關上時也用它，因為閘門關上就是一扇鎖住的門 | `doorLocked`, `portClosed` |
 | `pick` | 撿起東西的上行音 | `canTaken`, `teaTaken`, `pickedUp`, `parcelOut` |
 | `click` | 開關 | `switchChanged` |
@@ -172,11 +171,12 @@
 | `back` | 離開暫停選單的上一頁、返回 |
 | `page` | 員工手冊開啟、翻頁與關閉；也是 `examBreak` 與 `orderReturned`（退貨：翻紙退回去） |
 | `blip` | 對話逐句前進與選定回覆（第一句由 `dialogueOpened` 的嗶聲負責） |
+| `liver.typing` | 學期模式第一次選層前電梯停在肝樓層、開門時從辦公室傳來的一小串打字聲，畫面同時顯示文字提示。這是給玩家的線索而不是選單回饋，所以和 `tick` 一樣不算選單類，校準到一般效果的目標 |
 
 ## 音量與響度
 
 設定檔有「音樂音量」和「音效音量」兩個獨立的選項，各五檔（0%、25%、50%、75%、100%），0% 是關。A／D 一檔一檔調，到頭會繞回另一端；Enter 或點擊從 100% 繞回時跳過 0%、回到 25%，避免按一下就靜音。實際的增益是設定值的平方，所以 50% 聽起來像一半。音樂的增益是 0.5 乘設定值的平方，因為音樂檔在 -18 LUFS，音效校準後比它響。音效匯流排最後有一個限幅器（門檻 -2 dB），同時響起的多個 cue 不會破音。同一個 cue 在 `minGapMs`（預設 30 毫秒）內不會重新開始，避免連發的聲音疊成噪音。
 
-每個 cue 的 `trimDb` 是校準值。校準頁是 `tools/audio/calibrate.html`：以 `npm run dev` 啟動後開 `/tools/audio/calibrate.html`，它用 `OfflineAudioContext` 以遊戲同一套合成程式把每個 cue 離線算一遍（不套 `trimDb`），量整個 cue 的 RMS（超過 200 毫秒的取最響的 200 毫秒），再算出讓它到達所屬類別目標所需的修正，並印出可貼回 `content/audio.json` 的 JSON。類別與目標如下：一般效果 -22 dBFS、預警 -17 dBFS、選單 -28 dBFS、時鐘滴答 -26 dBFS。修正值以 0.5 dB 為單位捨去，並受峰值上限限制（一般 -3 dBFS，預警 -2 dBFS），所以幾個峰值很高、RMS 很低的 cue 到不了目標：`clink`（-22.7）、`telegraph.1`（-17.8）、`telegraph.2`（-22.0）和 `telegraph.3`（-20.6），括號內是套用修正後的 RMS。其餘 cue 都在目標的 0.5 dB 內。改了配方或新增 cue 之後要重跑校準。
+每個 cue 的 `trimDb` 是校準值。校準頁是 `tools/audio/calibrate.html`：以 `npm run dev` 啟動後開 `/tools/audio/calibrate.html`，它用 `OfflineAudioContext` 以遊戲同一套合成程式把每個 cue 離線算一遍（不套 `trimDb`），量整個 cue 的 RMS（超過 200 毫秒的取最響的 200 毫秒），再算出讓它到達所屬類別目標所需的修正，並印出可貼回 `content/audio.json` 的 JSON。類別與目標如下：一般效果 -22 dBFS、預警 -17 dBFS、選單 -28 dBFS、時鐘滴答 -26 dBFS。修正值以 0.5 dB 為單位捨去，並受峰值上限限制（一般 -3 dBFS，預警 -2 dBFS），所以幾個峰值很高、RMS 很低的 cue 到不了目標：`clink`（-22.7）、`telegraph.1`（-17.8）、`telegraph.2`（-22.0）、`telegraph.3`（-20.6）和 `liver.typing`（-23.1），括號內是套用修正後的 RMS。其餘 cue 都在目標的 0.5 dB 內。改了配方或新增 cue 之後要重跑校準。
 
 驗證過的事：在無頭 Chrome 裡，手勢之前沒有任何聲音，第一個按鍵之後音訊環境解鎖、音樂開始；`stampDown` 經過匯流排時量到峰值 0.36，音效音量 0% 時為 0，改回 100% 後恢復；音樂音量 0% 時播放器音量為 0；一顆心時的 `tick` 每秒一次。滴答以「這一幀跨過了新的一秒」判斷，不看 tick 是不是 60 的倍數：一幀可能跑兩個以上的規則 tick，用倍數判斷時，30 fps 且從奇數 tick 開始的畫面會一次都不響。`test/app/audio.test.ts` 用真的 `FixedStepLoop` 在 20 到 144 fps、不同起始 tick 下驗證。

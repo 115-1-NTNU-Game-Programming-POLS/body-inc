@@ -2,6 +2,8 @@ import { nextInt } from '../rng.ts';
 import type { FloorThresholds } from './floors.ts';
 
 const ELEVATOR_STOP_ONE_IN = 3;
+/** Its own multiplier: earlyDebug hashes the same salt with 0x9e3779b1 and the illness rolls with 0x85ebca6b. */
+const ELEVATOR_MIX = 0x27d4eb2f;
 
 /**
  * The liver never lights (design doc 8.6), so it gives itself away through four other channels.
@@ -22,7 +24,7 @@ export interface LiverClues {
 
 export function liverClues(load: number, orders: readonly number[], k: FloorThresholds, day: number, salt: number): LiverClues {
   // One roll per day, independent of event choices, patrols and the order in which the day is replayed.
-  const elevatorStops = load >= k.floorOrangeAt && nextInt(salt ^ Math.imul(day, 0x9e3779b1), ELEVATOR_STOP_ONE_IN)[0] === 0;
+  const elevatorStops = load >= k.floorOrangeAt && nextInt(salt ^ Math.imul(day, ELEVATOR_MIX), ELEVATOR_STOP_ONE_IN)[0] === 0;
   return { orders, stomachJam: stomachConveyorJammed(load, k), elevatorStops };
 }
 

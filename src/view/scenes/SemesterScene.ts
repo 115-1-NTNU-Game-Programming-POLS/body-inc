@@ -425,6 +425,11 @@ export class SemesterScene extends Phaser.Scene {
   }
 
   private showLiverStop(go: () => void): void {
+    // A card pick can open this screen inside the click that made it; the scene's own pointerdown would then dismiss it unseen.
+    this.busy = true;
+    this.time.delayedCall(CHOSEN_MS, () => {
+      this.busy = false;
+    });
     this.clear();
     const cx = this.scale.width / 2;
     const scale = this.textScale;
