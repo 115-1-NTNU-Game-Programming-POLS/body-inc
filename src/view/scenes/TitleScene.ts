@@ -4,10 +4,10 @@ import { tryResume } from '../../app/chapters.ts';
 import { AUDIO, DIALOGUES, SPEAKERS, str } from '../../app/content.ts';
 import { portraitsUsed } from '../../app/dialogue.ts';
 import { sharedKeys } from '../../app/input.ts';
-import { DEMO_RUN, STORY_DEMOS, storyDemo, type StoryDemoId } from '../../app/demo.ts';
+import { DEMO_RUN, REPORT_LAST, REPORT_RUN, STORY_DEMOS, storyDemo, type StoryDemoId } from '../../app/demo.ts';
 import { PRESENTER_KEY, presenterSettings, type Presenter } from '../../app/presenter.ts';
 import { resumeSemester } from '../../app/semester.ts';
-import type { ChapterContent, ChapterEntry, ChapterState, ProgressData, RunData, SemesterRun, Settings, StoryData } from '../../core/index.ts';
+import type { Answer, ChapterContent, ChapterEntry, ChapterState, ProgressData, RunData, SemesterRun, Settings, StoryData } from '../../core/index.ts';
 import { playCue, soundIn } from '../audio/installSound.ts';
 import { loadPortraits } from '../portraits.ts';
 import { addText } from '../text/fonts.ts';
@@ -113,9 +113,10 @@ export class TitleScene extends Phaser.Scene {
       else if (['Enter', 'NumpadEnter', 'KeyJ', 'Space'].includes(e.code) && !e.repeat) this.confirm(this.items[this.index]);
       // The presenter's ways in; they are not listed. No demo is saved, so none touches the player's own story or semester.
       else if (e.code === 'F9' && !e.repeat) this.present();
-      // F8 and F10 are kept for the next script node and the pre-generated report of ux-spec 6.
+      // F8 is kept for the next script node of ux-spec 6; F10 is its pre-generated report.
       else if (e.code === 'F2' && !e.repeat) this.presentStory('brain');
       else if (e.code === 'F4' && !e.repeat) this.presentStory('liver');
+      else if (e.code === 'F10' && !e.repeat) this.presentReport();
     };
     this.input.keyboard?.on('keydown', onKey);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.input.keyboard?.off('keydown', onKey));
@@ -158,12 +159,12 @@ export class TitleScene extends Phaser.Scene {
   }
 
   /** Semester mode has its own slot (the run slot) and never touches the story slot. */
-  private semester(resume?: SemesterRun, demo = false): void {
+  private semester(resume?: SemesterRun, demo = false, last?: readonly Answer[]): void {
     if (this.starting) return;
     this.starting = true;
     // Boot parses the dev URL (production leaves this unset), so a bad parameter stops there with a message.
     const dev = (this.registry.get('dev-semester') as SemesterData | undefined) ?? {};
-    const data: SemesterData = resume === undefined ? dev : { resume, ...(demo ? { demo } : {}) };
+    const data: SemesterData = resume === undefined ? dev : { resume, ...(demo ? { demo } : {}), ...(last ? { last } : {}) };
     // The first semester is the scripted week with its own courses; after it the player picks (design doc 8.3). A dev semester picks nothing.
     const done = (this.registry.get('progress') as ProgressData | undefined)?.semestersDone ?? 1;
     const picks = resume === undefined && dev.seed === undefined && dev.bbqDays === undefined && done > 0;
@@ -173,9 +174,7 @@ export class TitleScene extends Phaser.Scene {
   /** The demo save in presentation mode (larger text, lettered options), which the title gives back when it is shown again. */
   private present(): void {
     if (this.starting) return;
-    const before = this.registry.get('settings') as Settings;
-    this.registry.set(PRESENTER_KEY, { before } satisfies Presenter);
-    this.registry.set('settings', presenterSettings(before));
+    this.presenting();
     this.semester(DEMO_RUN, true);
   }
 
@@ -184,10 +183,22 @@ export class TitleScene extends Phaser.Scene {
     if (this.starting || !STORY_DEMOS.includes(id)) return;
     const ctx = (this.registry.get('chapters') as ReadonlyMap<string, ChapterContent>).get(id);
     if (!ctx) return;
-    const before = this.registry.get('settings') as Settings;
-    this.registry.set(PRESENTER_KEY, { before, story: true } satisfies Presenter);
-    this.registry.set('settings', presenterSettings(before));
+    this.presenting();
     this.play(ctx, storyDemo(ctx, id));
+  }
+
+  /** The pre-generated report (ux-spec 6): the last day of a semester that closes the company, ending in its evidence wall and report. */
+  private presentReport(): void {
+    if (this.starting) return;
+    this.presenting();
+    this.semester(REPORT_RUN, true, REPORT_LAST);
+  }
+
+  /** Turns the presentation mode on, with the settings to give back when the title is shown again. */
+  private presenting(): void {
+    const before = this.registry.get('settings') as Settings;
+    this.registry.set(PRESENTER_KEY, { before } satisfies Presenter);
+    this.registry.set('settings', presenterSettings(before));
   }
 
   private name(data: NameData): void {

@@ -26,6 +26,41 @@ export const DEMO_RUN: SemesterRun = {
   days: [day('early'), day('midnight', { kind: 'event', option: 'binge' }), day('midnight')],
 };
 
+const crunch = (coffee: readonly number[], rest: readonly number[], nextWake: number, between: readonly Answer[] = [], after: readonly Answer[] = []): Answer[] => [
+  { kind: 'plan', plan: { coffee: [...coffee], rest: [...rest] } },
+  ...between,
+  { kind: 'floor', choice: floorChoice('liver') },
+  { kind: 'night', plan: { bed: 25, nextWake, lateNight: 'study' } },
+  ...after,
+];
+const say = (option: string): Answer => ({ kind: 'event', option });
+
+/**
+ * The pre-generated report of the presentation (design doc 14.1, ux-spec 6): a semester of studying
+ * until one in the morning with two cups a day, the liver the only floor patrolled (the brain's
+ * floor is left to strike), which sends the operator to the emergency room on day 4 and closes the
+ * company on day 7. It is a run like any other, so the closure notice and the bankruptcy report are
+ * written by the rules from the causal log, not kept as text. The run stops at the morning of day 7;
+ * the title plays that last day from `REPORT_LAST`, so the evidence wall and the report it leads to
+ * open at once. The sleep page is the one this report unlocks, and a presentation never keeps it.
+ * test/app/demo-report.test.ts pins what the run leads to.
+ */
+export const REPORT_RUN: SemesterRun = {
+  seed: 46,
+  courses: [...TUTORIAL_COURSES],
+  days: [
+    crunch([8, 21], [17, 21], 7),
+    crunch([8, 21], [17, 21], 7, [say('decline')], [say('go')]),
+    crunch([8, 21], [17, 21], 7, [say('decline'), say('overtime')], [say('go')]),
+    crunch([8, 21], [17, 21], 7),
+    [],
+    crunch([8, 21], [13, 17, 21], 9),
+  ],
+};
+
+/** Day 7 of `REPORT_RUN`: the night that closes the company. */
+export const REPORT_LAST: readonly Answer[] = crunch([10, 21], [13, 17, 21], 9);
+
 /** The chapters the presentation plays a part of (design doc 14.1): the brain from 20:00 and the liver from the department barbecue. */
 export const STORY_DEMOS = ['brain', 'liver'] as const;
 export type StoryDemoId = (typeof STORY_DEMOS)[number];
