@@ -4,7 +4,8 @@ type Expectations = typeof import('../../sim/semester/expectations.ts');
 type Scoring = typeof import('../../src/core/exam/scoring.ts');
 
 // The healthy run is the default run KNOWN_GAPS was measured over, one semester per selection; at fewer the known gaps drift
-// past GAP_SLACK on sampling alone. The breakages are judged on a third of it, on figures far from their lines.
+// past GAP_SLACK on sampling alone, so a shorter run does not judge them. The breakages are judged on a third of it, on
+// figures far from their lines.
 const BREAK_N = 105;
 
 /** The expectations, loaded fresh, optionally with the exam scored as if the performance factor ran 0.75 to 2.0. */
@@ -29,7 +30,7 @@ async function load(capTwo = false): Promise<Expectations> {
 /** The verdict under `params`, naming each expectation that failed it with how. */
 function judged(e: Expectations, params: Record<string, number | boolean> = {}): { ok: boolean; failed: string[] } {
   const results = e.expectations(BREAK_N, params);
-  const { ok, lines } = e.verdict(results);
+  const { ok, lines } = e.verdict(results, BREAK_N);
   return { ok, failed: results.flatMap((r, i) => (/^(FAIL|WORSE|HOLDS)/.test(lines[i]!) ? [`${r.id} ${lines[i]!.slice(0, 5).trim()}`] : [])) };
 }
 
@@ -48,7 +49,7 @@ describe('the four player archetypes of design doc 9.5', { timeout: 300_000 }, (
   });
 
   // The breakages of design doc 9.6. Each must fail the run; the figures that only just tip (the informed player's average,
-  // the night owl's patrol gap, the pass rate of 兩者都不會) are not pinned, the fighters' final pass of 40% to 70% against
+  // the night owl's patrol gap, the pass rate of 兩者都不會) are not pinned, the fighters' final pass of 35% to 70% against
   // 30% is.
   it('fail when the sleep debt barely slows study (sCoef 0.01)', async () => {
     const r = judged(await load(), { sCoef: 0.01 });
@@ -91,5 +92,8 @@ describe('what a run means', () => {
     expect(worse.ok).toBe(false);
     expect(worse.lines[0]).toMatch(/^WORSE/);
     expect(e.verdict([result(id, false, gap.at - gap.worse * 20)]).ok).toBe(true);
+    // On a shorter run neither a gap that holds nor one that moved fails it; any other failure still does.
+    expect(e.verdict([result(id, true), result(id, false, gap.at + gap.worse * 20)], 105).ok).toBe(true);
+    expect(e.verdict([result('both.grade', false)], 105).ok).toBe(false);
   });
 });
