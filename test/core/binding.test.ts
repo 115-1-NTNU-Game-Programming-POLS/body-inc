@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
-  BIND, createGame, FOLDER, loadBossTable, loadEnemyTable, NO_INPUT, PARRY_BOOST, step, TICK_HZ, TILE,
+  BIND, createGame, FOLDER, loadBossTable, loadEnemyTable, NO_INPUT, PARRY_BOOST, step, STURDY_WRAP, TILE,
   type CaffeineParams, type DomainEvent, type EnteredRoom, type GameState, type TickInput,
 } from '../../src/core/index.ts';
 import { BASE_PERKS, type Perks } from '../../src/core/combat/perks.ts';
@@ -141,10 +141,11 @@ describe('binding (裝訂, design doc 8.8)', () => {
       return { bound, pin: at.pin, frozen: at.frozen };
     };
     const base = pinned();
-    const wrapped = pinned({ pinTicks: 2.5 * TICK_HZ });
+    const wrapped = pinned({ pinTicks: STURDY_WRAP.pinTicks });
+    expect(STURDY_WRAP.pinTicks).toBe(150);
     expect(base.pin).toBe(BIND.pinTicks);
-    expect(wrapped.pin).toBe(150);
-    expect(wrapped.frozen).toBeGreaterThanOrEqual(149);
+    expect(wrapped.pin).toBe(STURDY_WRAP.pinTicks);
+    expect(wrapped.frozen).toBeGreaterThanOrEqual(STURDY_WRAP.pinTicks - 1);
     expect(wrapped.bound).toBe(base.bound);
   });
 });

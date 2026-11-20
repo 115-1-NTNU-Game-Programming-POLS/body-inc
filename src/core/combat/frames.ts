@@ -160,6 +160,12 @@ export const BIND = {
 /** 退件加速 (design doc 8.8): the speed factor for `ticks` after a parry, with the card held. */
 export const PARRY_BOOST = { ticks: 2 * TICK_HZ, factor: 1.2 } as const;
 
+/** 重點標註 (design doc 8.8): how long the highlighter's mark lasts with the card held. */
+export const KEY_POINTS = { markTicks: 12 * TICK_HZ } as const;
+
+/** 加固包裝 (design doc 8.8): how long a binding pins with the card held. */
+export const STURDY_WRAP = { pinTicks: Math.round(2.5 * TICK_HZ) } as const;
+
 /**
  * Clinging (design doc 5.5, chapter 1): 5% slow per stack, three stacks is the 15% cap and
  * triggers a forced nap that advances the rule clock one hour. Drift speed and sensing range

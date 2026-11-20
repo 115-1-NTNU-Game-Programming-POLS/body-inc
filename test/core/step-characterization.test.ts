@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { BOSSES, DECKS, DIALOGUES, ENEMIES, EXAMS, PARAMS, RESCUES, TAGS } from '../../src/app/content.ts';
 import { tagsFromQuery } from '../../src/app/session.ts';
 import {
-  BASE_PERKS, createGame, FOLDER, LOCK_TICKS, parseRoom, proposalOpen, readContent, roomsOf, selectGauge, startChapter, stateHash, step, stepChapter, TILE,
+  BASE_PERKS, createGame, FOLDER, KEY_POINTS, LOCK_TICKS, parseRoom, proposalOpen, readContent, roomsOf, selectGauge, startChapter, stateHash, step, stepChapter, STURDY_WRAP, TILE,
   type Assists, type ChapterContent, type Shot, type ChapterState, type EnteredRoom, type GameState, type Perks, type TickInput, type TiledMap,
 } from '../../src/core/index.ts';
 
@@ -292,7 +292,9 @@ interface Scenario {
   readonly style?: Partial<Style>;
 }
 
-const ALL_PERKS: Perks = { ...BASE_PERKS, bindHits: 3, bindSplash: 1, parryBind: 2, parryBoost: true };
+const ALL_PERKS: Perks = {
+  ...BASE_PERKS, bindHits: 3, bindSplash: 1, parryBind: 2, parryBoost: true, markTicks: KEY_POINTS.markTicks, pinTicks: STURDY_WRAP.pinTicks,
+};
 
 const SCENARIOS: readonly Scenario[] = [
   { name: 'greybox room: salesman, flyer, adenosine, barrel, belt, lever, bed', start: () => open({ chapter: 'greybox', room: 'greybox/greybox-room' }), ticks: 2400, style: { react: 0.01 } },

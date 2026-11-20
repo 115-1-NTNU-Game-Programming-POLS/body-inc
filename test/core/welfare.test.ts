@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
   BASE_PERKS, RECORDS_CAP, decode, EMPTY_LOADS, encode, EARLY_SLEEP_GAUGE, EARLY_SLEEP_HOURS, GRADES, minutesProgress, OFFER_SIZE, patrolKit, perksOf, playDay, RUN, startSemester, STOP_GAUGE,
-  TICK_HZ, WELFARE_CARDS, welfareOffer,
+  KEY_POINTS, STURDY_WRAP, WELFARE_CARDS, welfareOffer,
   type DayView, type FloorChoice, type NightPlan, type SemesterContext, type SemesterState, type Strategy,
 } from '../../src/core/index.ts';
 import { contextFor } from '../../sim/semester/scenario.ts';
@@ -41,13 +41,12 @@ describe('the welfare cards (design doc 8.8)', () => {
     expect(perksOf(['bind_master'])).toEqual({ ...BASE_PERKS, bindSplash: 1 });
     expect(perksOf(['recycle'])).toEqual({ ...BASE_PERKS, parryBind: 2 });
     expect(perksOf(['fast_return'])).toEqual({ ...BASE_PERKS, parryBoost: true });
-    expect(perksOf(['key_points'])).toEqual({ ...BASE_PERKS, markTicks: 12 * TICK_HZ });
-    expect(perksOf(['sturdy_wrap'])).toEqual({ ...BASE_PERKS, pinTicks: 2.5 * TICK_HZ });
+    expect(perksOf(['key_points'])).toEqual({ ...BASE_PERKS, markTicks: KEY_POINTS.markTicks });
+    expect(perksOf(['sturdy_wrap'])).toEqual({ ...BASE_PERKS, pinTicks: STURDY_WRAP.pinTicks });
     expect(perksOf(['early_sleep', 'minutes', 'early_start', 'know_when_to_stop'])).toEqual(BASE_PERKS);
     expect(perksOf(['quick_bind', 'recycle', 'fast_return', 'bind_master', 'key_points', 'sturdy_wrap'])).toEqual({
-      bindHits: 2, bindSplash: 1, parryBind: 2, parryBoost: true, markTicks: 12 * TICK_HZ, pinTicks: 2.5 * TICK_HZ,
+      bindHits: 2, bindSplash: 1, parryBind: 2, parryBoost: true, markTicks: KEY_POINTS.markTicks, pinTicks: STURDY_WRAP.pinTicks,
     });
-    // The mark is longer than the highlighter's own 8 seconds, never shorter.
     expect(perksOf(['key_points']).markTicks).toBeGreaterThan(BASE_PERKS.markTicks);
     expect(perksOf(['sturdy_wrap']).pinTicks).toBeGreaterThan(BASE_PERKS.pinTicks);
   });
@@ -91,6 +90,8 @@ describe('the offer of a rated patrol', () => {
     // The liver gives the general affairs office's cards and its own, and none of the brain's; the liver's own are given by no other floor.
     expect([...all({ floor: 'liver', courses: ['os', 'algorithms'] })].sort()).toEqual(['bind_master', 'fast_return', 'key_points', 'quick_bind', 'recycle', 'sturdy_wrap']);
     expect(all({ floor: 'brain', courses: ['os', 'algorithms'] }).has('sturdy_wrap')).toBe(false);
+    // The brain's patrol carries no highlighter, so a longer mark would be a card that does nothing there.
+    expect(all({ floor: 'brain', courses: ['os', 'algorithms'] }).has('key_points')).toBe(false);
     expect(all({ floor: 'immune' }).has('minutes')).toBe(false);
   });
 

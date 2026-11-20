@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { BOSSES, DIALOGUES, ENEMIES, PARAMS, TAGS } from '../../src/app/content.ts';
 import {
-  circleCentre, createGame, FOLDER, GAUGE, HIGHLIGHTER, isMarked, loadEnemyTable, NO_INPUT, parseRoom, perksOf, readContent, roomsOf, selectTool, startChapter,
+  circleCentre, createGame, FOLDER, GAUGE, HIGHLIGHTER, isMarked, KEY_POINTS, loadEnemyTable, NO_INPUT, parseRoom, perksOf, readContent, roomsOf, selectTool, startChapter,
   step, stepChapter, TICK_HZ, TILE,
   type ChapterContent, type DomainEvent, type EnteredRoom, type EnemyState, type GameState, type TickInput, type TiledMap,
 } from '../../src/core/index.ts';
@@ -167,7 +167,8 @@ describe('the circle and the mark (issue #76, decisions 3 and 5)', () => {
       return enemy(r.state).markedUntil! - firstTick(r, 'marked');
     };
     expect(lasts([])).toBe(8 * TICK_HZ);
-    expect(lasts(['key_points'])).toBe(12 * TICK_HZ);
+    expect(KEY_POINTS.markTicks).toBe(12 * TICK_HZ);
+    expect(lasts(['key_points'])).toBe(KEY_POINTS.markTicks);
   });
 
   it('a key kept down draws one circle, however long it stays down', () => {

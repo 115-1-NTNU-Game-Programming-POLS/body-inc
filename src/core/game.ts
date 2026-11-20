@@ -248,7 +248,7 @@ export type DomainEvent =
   | { readonly type: 'telegraph'; readonly source: number; readonly tier: 1 | 2 | 3; readonly move?: string; readonly ticks?: number }
   | { readonly type: 'hit'; readonly target: number; readonly enemy: string; readonly hpLeft: number }
   | { readonly type: 'caseClosed'; readonly target: number; readonly enemy: string }
-  /** 裝訂: enough staple hits in a row pinned the enemy for BIND.pinTicks. */
+  /** 裝訂: enough staple hits in a row pinned the enemy for `Perks.pinTicks` (BIND.pinTicks without 加固包裝). */
   | { readonly type: 'bound'; readonly target: number; readonly enemy: string }
   | { readonly type: 'dispersed'; readonly target: number; readonly enemy: string }
   | { readonly type: 'reformed'; readonly target: number; readonly enemy: string }
