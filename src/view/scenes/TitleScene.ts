@@ -4,7 +4,7 @@ import { tryResume } from '../../app/chapters.ts';
 import { AUDIO, DIALOGUES, SPEAKERS, str } from '../../app/content.ts';
 import { portraitsUsed } from '../../app/dialogue.ts';
 import { sharedKeys } from '../../app/input.ts';
-import { DEMO_RUN, REPORT_LAST, REPORT_RUN, storyDemo, type StoryDemoId } from '../../app/demo.ts';
+import { DEMO_RUN, REPORT_LAST, REPORT_RUN, storyDemo, type StoryDemoId, type StoryPart } from '../../app/demo.ts';
 import { isPresenting, PRESENTER_KEY, presenterSettings, type Presenter } from '../../app/presenter.ts';
 import { resumeSemester } from '../../app/semester.ts';
 import type { Answer, ChapterContent, ChapterEntry, ChapterState, ProgressData, RunData, SemesterRun, Settings, StoryData } from '../../core/index.ts';
@@ -115,11 +115,12 @@ export class TitleScene extends Phaser.Scene {
       else if (e.code === 'F9' && !e.repeat) this.present();
       // F8 is kept for the next script node of ux-spec 6; F10 is its pre-generated report.
       else if (e.code === 'F2' && !e.repeat) this.presentStory('brain');
+      else if (e.code === 'F3' && !e.repeat) this.presentStory('brain', 'arena');
       else if (e.code === 'F4' && !e.repeat) this.presentStory('liver');
       else if (e.code === 'F10' && !e.repeat) this.presentReport();
     };
     // Without a capture Phaser does not preventDefault, and a browser binds some of the presenter's keys itself.
-    this.input.keyboard?.addCapture('F2,F4,F9,F10');
+    this.input.keyboard?.addCapture('F2,F3,F4,F9,F10');
     this.input.keyboard?.on('keydown', onKey);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.input.keyboard?.off('keydown', onKey));
   }
@@ -180,13 +181,13 @@ export class TitleScene extends Phaser.Scene {
     this.semester(DEMO_RUN, true);
   }
 
-  /** A chapter demo (design doc 14.1) in presentation mode: the brain from 20:00, or the liver from the barbecue. */
-  private presentStory(id: StoryDemoId): void {
+  /** A chapter demo (design doc 14.1) in presentation mode: the brain from 20:00 or at the boss's power cut, or the liver from the barbecue. */
+  private presentStory(id: StoryDemoId, part: StoryPart = 'start'): void {
     if (this.starting) return;
     const ctx = (this.registry.get('chapters') as ReadonlyMap<string, ChapterContent>).get(id);
     if (!ctx) return;
     // Built first: a demo that cannot be built must not leave the presentation mode on for the player's own game.
-    const state = storyDemo(ctx);
+    const state = storyDemo(ctx, part);
     this.startPresenting();
     this.play(ctx, state);
   }

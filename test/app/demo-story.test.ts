@@ -4,8 +4,8 @@ import { chapterContent } from '../../src/app/chapters.ts';
 import { CHAPTERS, DIALOGUES, TAGS } from '../../src/app/content.ts';
 import { STORY_DEMOS, storyDemo, type StoryDemoId } from '../../src/app/demo.ts';
 import {
-  amount, flag, holds, hourOf, roomsOf, stateHash, stepChapter, storyOf, TICK_HZ,
-  type ChapterContent, type ChapterState, type TiledMap, type TickInput,
+  amount, flag, holds, hourOf, roomsOf, STAMP, stateHash, stepChapter, storyOf, TICK_HZ,
+  type CaffeineDef, type CaffeineState, type ChapterContent, type ChapterState, type TiledMap, type TickInput,
 } from '../../src/core/index.ts';
 
 const IDLE: TickInput = { move: { x: 0, y: 0 } };
@@ -29,6 +29,7 @@ describe('the chapter demos (design doc 14.1)', () => {
     expect(STORY_DEMOS).toEqual(['brain', 'liver']);
     const other = { ...brain, chapter: { ...brain.chapter, id: 'prologue' } };
     expect(() => storyDemo(other)).toThrow(/there is no demo of chapter "prologue"/);
+    expect(() => storyDemo(liver, 'arena')).toThrow(/the liver has no arena demo/);
   });
 
   describe('the brain from 20:00', () => {
@@ -66,6 +67,52 @@ describe('the chapter demos (design doc 14.1)', () => {
       const b = stateHash(idle(storyDemo(brain), 600));
       expect(a).toBe(b);
       expect(a).not.toBe(stateHash(idle(storyDemo(brain), 601)));
+    });
+  });
+
+  describe('the brain at the power cut of the caffeine boss', () => {
+    const start = storyDemo(brain, 'arena');
+    const boss = start.game.enemies.find((e) => e.boss)!;
+    const state = (s: ChapterState) => s.game.enemies.find((e) => e.boss)!.boss as CaffeineState;
+    const def = start.game.bosses[state(start).def] as CaffeineDef;
+
+    it('stands in the arena after the cloak has fallen, with the third stage begun and the boss unable to act', () => {
+      expect(start.run.roomId).toBe('brain/arena');
+      expect(hourOf(start.game.clock)).toBeGreaterThanOrEqual(22);
+      expect(start.run.tools).toEqual(['stamp', 'folder']);
+      expect(state(start).stage).toBe(3);
+      expect(state(start).stunned).toBeGreaterThan(0);
+      expect(boss.hp).toBe(def.stage2Budget);
+    });
+
+    it('has the adenosine at his feet piled onto him and none on the operator, who has full hearts and a full gauge', () => {
+      const summoned = start.game.enemies.filter((e) => e.summoner === boss.id);
+      expect(summoned.length).toBeGreaterThan(0);
+      expect(summoned.every((e) => e.phase === 'pinned')).toBe(true);
+      expect(start.game.enemies.some((e) => e.phase === 'attached')).toBe(false);
+      expect(start.game.operator.halves).toBe(start.game.operator.maxHalves);
+      expect(start.game.operator.maxHalves).toBeLessThan(999);
+      expect(start.game.operator.gauge).toBe(STAMP.gaugeMax);
+      expect(start.game.shots).toEqual([]);
+    });
+
+    it('goes on by the rules: no conversation opens, the cut ends after its seconds and he drinks a burst again', () => {
+      let s = start;
+      const seen = new Set<string>();
+      for (let i = 0; i < def.powerCutTicks + 8 * TICK_HZ; i++) {
+        const r = stepChapter(brain, s, IDLE);
+        s = r.state;
+        r.events.forEach((e) => seen.add(e.type));
+        // A conversation would freeze the room, and the boss would never leave the cut.
+        expect(s.dialogue).toBeNull();
+      }
+      expect(state(s).stunned).toBe(0);
+      expect(seen.has('bossDrink')).toBe(true);
+      expect(storyOf(start.run).checkpoint).toMatchObject({ roomId: 'brain/arena' });
+    });
+
+    it('is the same from every start', () => {
+      expect(stateHash(storyDemo(brain, 'arena'))).toBe(stateHash(start));
     });
   });
 
