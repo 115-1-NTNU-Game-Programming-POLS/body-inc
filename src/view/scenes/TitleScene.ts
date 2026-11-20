@@ -4,7 +4,7 @@ import { tryResume } from '../../app/chapters.ts';
 import { AUDIO, DIALOGUES, SPEAKERS, str } from '../../app/content.ts';
 import { portraitsUsed } from '../../app/dialogue.ts';
 import { sharedKeys } from '../../app/input.ts';
-import { DEMO_RUN } from '../../app/demo.ts';
+import { DEMO_RUN, STORY_DEMOS, storyDemo, type StoryDemoId } from '../../app/demo.ts';
 import { PRESENTER_KEY, presenterSettings, type Presenter } from '../../app/presenter.ts';
 import { resumeSemester } from '../../app/semester.ts';
 import type { ChapterContent, ChapterEntry, ChapterState, ProgressData, RunData, SemesterRun, Settings, StoryData } from '../../core/index.ts';
@@ -111,8 +111,11 @@ export class TitleScene extends Phaser.Scene {
       if (e.code === 'KeyW' || e.code === 'ArrowUp') this.move(-1);
       else if (e.code === 'KeyS' || e.code === 'ArrowDown') this.move(1);
       else if (['Enter', 'NumpadEnter', 'KeyJ', 'Space'].includes(e.code) && !e.repeat) this.confirm(this.items[this.index]);
-      // The presenter's way in; it is not listed. The demo is never saved, so it leaves the player's own semester alone.
+      // The presenter's ways in; they are not listed. No demo is saved, so none touches the player's own story or semester.
       else if (e.code === 'F9' && !e.repeat) this.present();
+      // F8 and F10 are kept for the next script node and the pre-generated report of ux-spec 6.
+      else if (e.code === 'F2' && !e.repeat) this.presentStory('brain');
+      else if (e.code === 'F4' && !e.repeat) this.presentStory('liver');
     };
     this.input.keyboard?.on('keydown', onKey);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.input.keyboard?.off('keydown', onKey));
@@ -174,6 +177,17 @@ export class TitleScene extends Phaser.Scene {
     this.registry.set(PRESENTER_KEY, { before } satisfies Presenter);
     this.registry.set('settings', presenterSettings(before));
     this.semester(DEMO_RUN, true);
+  }
+
+  /** A chapter demo (design doc 14.1) in presentation mode: the brain from 20:00, or the liver from the barbecue. */
+  private presentStory(id: StoryDemoId): void {
+    if (this.starting || !STORY_DEMOS.includes(id)) return;
+    const ctx = (this.registry.get('chapters') as ReadonlyMap<string, ChapterContent>).get(id);
+    if (!ctx) return;
+    const before = this.registry.get('settings') as Settings;
+    this.registry.set(PRESENTER_KEY, { before, story: true } satisfies Presenter);
+    this.registry.set('settings', presenterSettings(before));
+    this.play(ctx, storyDemo(ctx, id));
   }
 
   private name(data: NameData): void {

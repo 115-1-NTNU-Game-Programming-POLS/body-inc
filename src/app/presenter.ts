@@ -9,6 +9,8 @@ export const PRESENTER_KEY = 'presenter';
 
 export interface Presenter {
   readonly before: Settings;
+  /** A chapter demo is the run: its punches, pages and end must not reach the player's own story slot or handbook. */
+  readonly story?: true;
 }
 
 export const presenterSettings = (settings: Settings): Settings => ({ ...settings, textScale: 1.25 });
