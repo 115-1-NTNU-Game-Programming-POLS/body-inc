@@ -128,24 +128,44 @@ describe('the liver (design doc 8.6)', () => {
     expect(liverStrikes({ ...base, orders: [] }, K)).toBe(false);
   });
 
+  const stopsAt = (seed: number, day: number, load = 60): boolean => liverClues(load, [2], K, day, seedStreams(seed).setting).elevatorStops;
+  /** The first day from 1 on which seed 2 rolls a stop at load 60, and the first on which it does not. */
+  const STOP_DAY = Array.from({ length: 30 }, (_, i) => i + 1).find((d) => stopsAt(2, d))!;
+  const QUIET_DAY = Array.from({ length: 30 }, (_, i) => i + 1).find((d) => !stopsAt(2, d))!;
+
   it('jams the conveyor from 40 and allows the seeded elevator stop from 60', () => {
     const salt = seedStreams(2).setting;
-    expect(liverClues(39.9, [], K, 3, salt)).toEqual({ orders: [], stomachJam: false, elevatorStops: false });
-    expect(liverClues(40, [2], K, 3, salt)).toEqual({ orders: [2], stomachJam: true, elevatorStops: false });
-    expect(liverClues(59.9, [2], K, 3, salt).elevatorStops).toBe(false);
-    expect(liverClues(60, [2], K, 3, salt).elevatorStops).toBe(true);
-    expect(liverClues(60, [2], K, 2, salt).elevatorStops).toBe(false);
-    expect(liverClues(60, [2], K, 3, seedStreams(1).setting).elevatorStops).toBe(false);
+    expect(liverClues(39.9, [], K, STOP_DAY, salt)).toEqual({ orders: [], stomachJam: false, elevatorStops: false });
+    expect(liverClues(40, [2], K, STOP_DAY, salt)).toEqual({ orders: [2], stomachJam: true, elevatorStops: false });
+    expect(stopsAt(2, STOP_DAY, 59.9)).toBe(false);
+    expect(stopsAt(2, STOP_DAY)).toBe(true);
+    expect(stopsAt(2, QUIET_DAY)).toBe(false);
+  });
+
+  it('stops on about one eligible day in three, by day and seed', () => {
+    let stops = 0;
+    for (let seed = 1; seed <= 300; seed++) for (let day = 1; day <= 10; day++) if (stopsAt(seed, day)) stops++;
+    const share = stops / 3000;
+    expect(share).toBeGreaterThan(0.3);
+    expect(share).toBeLessThan(0.37);
+    // The same day stops for some seeds and not others, so the roll is not the day alone.
+    expect(new Set(Array.from({ length: 20 }, (_, i) => stopsAt(i + 1, STOP_DAY))).size).toBe(2);
   });
 
   it('replays the stop as part of the floor question and leaves the liver plate dark', () => {
-    const state = { ...startSemester(CTX, 2), day: 3, loads: loads({ liver: 60 }) };
+    const state = { ...startSemester(CTX, 2), day: STOP_DAY, loads: loads({ liver: 60 }) };
     const answers = [{ kind: 'plan', plan: { coffee: [], rest: [] } }] as const;
     const step = advanceDay(state, CTX, answers);
     if (step.done || step.ask.kind !== 'floor') throw new Error('expected the floor question');
     expect(step.ask.view.liverClues.elevatorStops).toBe(true);
     expect(step.ask.view.panel.buttons.find((b) => b.floor === 'liver')).toMatchObject({ light: 'off', note: 'liver_ok' });
-    expect(advanceDay(state, CTX, answers)).toEqual(step);
+    // Another morning plan reaches the same floor question with the same stop: the roll does not read the answers.
+    const other = advanceDay(state, CTX, [{ kind: 'plan', plan: { coffee: [8], rest: [] } }]);
+    if (other.done || other.ask.kind !== 'floor') throw new Error('expected the floor question');
+    expect(other.ask.view.liverClues.elevatorStops).toBe(true);
+    const quiet = advanceDay({ ...state, day: QUIET_DAY }, CTX, answers);
+    if (quiet.done || quiet.ask.kind !== 'floor') throw new Error('expected the floor question');
+    expect(quiet.ask.view.liverClues.elevatorStops).toBe(false);
   });
 
   it('does not strike through the other floors rule', () => {
