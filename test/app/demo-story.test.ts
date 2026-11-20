@@ -27,11 +27,12 @@ const idle = (s: ChapterState, ticks: number): ChapterState => {
 describe('the chapter demos (design doc 14.1)', () => {
   it('are the brain and the liver, each from the chapter it names', () => {
     expect(STORY_DEMOS).toEqual(['brain', 'liver']);
-    expect(() => storyDemo(brain, 'liver')).toThrow(/was given chapter "brain"/);
+    const other = { ...brain, chapter: { ...brain.chapter, id: 'prologue' } };
+    expect(() => storyDemo(other)).toThrow(/there is no demo of chapter "prologue"/);
   });
 
   describe('the brain from 20:00', () => {
-    const start = storyDemo(brain, 'brain');
+    const start = storyDemo(brain);
 
     it('stands in the open office at 20:00 with the stamp and the folder and a checkpoint to come back to', () => {
       expect(start.run.roomId).toBe('brain/open-office');
@@ -53,23 +54,23 @@ describe('the chapter demos (design doc 14.1)', () => {
     });
 
     it('lets the cloak fall within the first two minutes, as the caffeine of the 17:00 cup does by 22:00', () => {
-      const after = idle(start, 3 * 60 * TICK_HZ);
+      const after = idle(start, 2 * 60 * TICK_HZ);
       expect(hourOf(after.game.clock)).toBeGreaterThanOrEqual(22);
       expect(amount(after.run.tags, TAGS, 'caffeine')).toBeLessThan(50);
       expect(holds(after.run.tags, TAGS, bedRequires)).toBe(true);
       expect(amount(start.run.tags, TAGS, 'caffeine')).toBeGreaterThanOrEqual(50);
     });
 
-    it('plays the same from every start: one second of play leaves the same state hash', () => {
-      const a = stateHash(idle(storyDemo(brain, 'brain'), 600));
-      const b = stateHash(idle(storyDemo(brain, 'brain'), 600));
+    it('plays the same from every start: ten seconds of play leave the same state hash', () => {
+      const a = stateHash(idle(storyDemo(brain), 600));
+      const b = stateHash(idle(storyDemo(brain), 600));
       expect(a).toBe(b);
-      expect(a).not.toBe(stateHash(idle(storyDemo(brain, 'brain'), 601)));
+      expect(a).not.toBe(stateHash(idle(storyDemo(brain), 601)));
     });
   });
 
   describe('the liver from the barbecue', () => {
-    const start = storyDemo(liver, 'liver');
+    const start = storyDemo(liver);
 
     it('opens as a new game does: the chapter\'s first room with its introduction waiting, which begins with the guardrail', () => {
       expect(start.run.roomId).toBe(CHAPTERS.get('liver')!.start);
