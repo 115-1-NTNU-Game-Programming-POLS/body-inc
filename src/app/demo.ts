@@ -35,7 +35,8 @@ const crunch = (before: readonly Answer[] = [], after: readonly Answer[] = []): 
   { kind: 'night', plan: nightPlan('late') },
   ...after,
 ];
-const say = (option: string): Answer => ({ kind: 'event', option });
+/** Every event of the sample was settled by a show of hands, which its report then says. */
+const say = (option: string): Answer => ({ kind: 'event', option, byVote: true });
 
 /**
  * The run behind the pre-generated report (design doc 14.1, ux-spec 6). Every answer is one the menus

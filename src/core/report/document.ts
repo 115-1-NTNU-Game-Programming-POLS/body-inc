@@ -64,7 +64,8 @@ function candidates(input: ReportInput, env: RenderEnv): SentenceGroup[] {
 
 function lineOf(g: SentenceGroup, prev: SentenceGroup | undefined, env: RenderEnv): IncidentLine {
   const r = renderGroup(g, prev, env);
-  return { key: g.key, ...(g.scope !== undefined ? { scope: g.scope } : {}), form: g.form, text: r.text, firstDay: g.firstDay, lastDay: g.lastDay, at: g.at, generic: r.generic };
+  const said = g.voted ? fillTemplate(env.text(env.cfg.doc.voted), { text: r.text }) : r.text;
+  return { key: g.key, ...(g.scope !== undefined ? { scope: g.scope } : {}), form: g.form, text: said, firstDay: g.firstDay, lastDay: g.lastDay, at: g.at, generic: r.generic };
 }
 
 /**

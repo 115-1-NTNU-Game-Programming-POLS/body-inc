@@ -199,6 +199,7 @@
     "explain": "report.doc.explain",
     "incidentHead": "report.doc.incident_head",
     "incidentItem": "report.doc.incident_item",
+    "voted": "report.doc.voted",
     "copyTo": "report.doc.copy_to",
     "copyCc": "report.doc.copy_cc",
     "chair": "report.doc.chair",

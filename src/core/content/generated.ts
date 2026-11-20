@@ -2839,6 +2839,7 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
           "explain",
           "incidentHead",
           "incidentItem",
+          "voted",
           "copyTo",
           "copyCc",
           "chair",
@@ -2898,6 +2899,10 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
             "minLength": 1
           },
           "incidentItem": {
+            "type": "string",
+            "minLength": 1
+          },
+          "voted": {
             "type": "string",
             "minLength": 1
           },
@@ -4341,6 +4346,7 @@ export interface ReportDoc {
   readonly explain: string;
   readonly incidentHead: string;
   readonly incidentItem: string;
+  readonly voted: string;
   readonly copyTo: string;
   readonly copyCc: string;
   readonly chair: string;

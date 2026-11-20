@@ -321,7 +321,7 @@ const ANSWER: Schema = {
         },
       },
     },
-    { type: 'object', additionalProperties: false, required: ['kind', 'option'], properties: { kind: { const: 'event' }, option: { type: 'string', minLength: 1 } } },
+    { type: 'object', additionalProperties: false, required: ['kind', 'option'], properties: { kind: { const: 'event' }, option: { type: 'string', minLength: 1 }, byVote: { const: true } } },
     {
       type: 'object',
       additionalProperties: false,
@@ -370,7 +370,7 @@ const ANSWER: Schema = {
 
 export const RUN: SlotDef<RunData> = {
   name: 'run',
-  version: 12,
+  version: 13,
   schema: {
     type: 'object',
     additionalProperties: false,
@@ -397,8 +397,8 @@ export const RUN: SlotDef<RunData> = {
     },
   },
   defaults: () => ({ semester: null }),
-  // Versions 2 to 12 add optional fields (the course list; the hours of writing and debugging; the contest hours; the project hours and the walk; the grading hours; the overtime clause; the results of the patrols played; the welfare card picked and the records a patrol made; the highlighter's reading of the liver in a patrol; the career tree nodes owned at the start; the setting card picked and the welfare offer drawn again); an older run is valid without them.
-  migrations: { 1: (data) => data, 2: (data) => data, 3: (data) => data, 4: (data) => data, 5: (data) => data, 6: (data) => data, 7: (data) => data, 8: (data) => data, 9: (data) => data, 10: (data) => data, 11: (data) => data },
+  // Versions 2 to 13 add optional fields (the course list; the hours of writing and debugging; the contest hours; the project hours and the walk; the grading hours; the overtime clause; the results of the patrols played; the welfare card picked and the records a patrol made; the highlighter's reading of the liver in a patrol; the career tree nodes owned at the start; the setting card picked and the welfare offer drawn again; the mark of an event answered by a show of hands); an older run is valid without them.
+  migrations: { 1: (data) => data, 2: (data) => data, 3: (data) => data, 4: (data) => data, 5: (data) => data, 6: (data) => data, 7: (data) => data, 8: (data) => data, 9: (data) => data, 10: (data) => data, 11: (data) => data, 12: (data) => data },
 };
 
 export const SLOTS = [SETTINGS, STORY, PROGRESS, RUN] as const;

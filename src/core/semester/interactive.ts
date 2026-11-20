@@ -14,7 +14,7 @@ export type Ask =
 
 export type Answer =
   | { readonly kind: 'plan'; readonly plan: MorningPlan }
-  | { readonly kind: 'event'; readonly option: string }
+  | { readonly kind: 'event'; readonly option: string; readonly byVote?: true }
   | { readonly kind: 'floor'; readonly choice: FloorChoice }
   | { readonly kind: 'night'; readonly plan: NightPlan };
 
@@ -48,13 +48,16 @@ export function advanceDay(s: SemesterState, ctx: SemesterContext, answers: read
     next += 1;
     return a as Extract<Answer, { kind: K }>;
   };
+  let byVote = false;
   const strategy: Strategy = {
     plan: (view) => take({ kind: 'plan', view }).plan,
     choose: (id, options, view) => {
-      const { option } = take({ kind: 'event', view, id, options });
-      if (!options.includes(option)) throw new RangeError(`"${option}" is not an option of event "${id}" (${options.join(', ')})`);
-      return option;
+      const answer = take({ kind: 'event', view, id, options });
+      if (!options.includes(answer.option)) throw new RangeError(`"${answer.option}" is not an option of event "${id}" (${options.join(', ')})`);
+      byVote = answer.byVote === true;
+      return answer.option;
     },
+    voted: () => byVote,
     floor: (view, tags, liverLoad) => take({ kind: 'floor', view, tags, liverLoad }).choice,
     night: (view) => take({ kind: 'night', view }).plan,
   };

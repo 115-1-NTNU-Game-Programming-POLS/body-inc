@@ -360,6 +360,8 @@ export interface LiverReading {
 export interface Strategy {
   plan(view: DayView): MorningPlan;
   choose(eventId: string, options: readonly string[], view: DayView): string;
+  /** True when the event `choose` just settled was decided by a show of hands (the presentation mode), which the report then says. */
+  voted?(eventId: string): boolean;
   /**
    * `tags` are the body's as the elevator is reached, which the rooms of a played patrol are entered with. `liverLoad` is the figure
    * the highlighter shows over the liver in its patrol: a screen draws it only once lit, and a strategy that plays no rooms has no

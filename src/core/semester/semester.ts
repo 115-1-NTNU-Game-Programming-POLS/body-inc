@@ -276,7 +276,8 @@ function applyEvents(d: DayRun, upTo: number, before = false): void {
     if (opt === undefined) throw new RangeError(`strategy chose "${pick}" for event "${ev.id}"; its options are ${keys.join(', ')}`);
     const at = minuteOf(d.s.day, upTo);
     // Every choice is logged, even one that changes nothing, so the report can tell what was chosen.
-    let [tags, cause] = source(d.s.tags, 'event', `event.${ev.id}.${pick}`, at, { cups: opt.alcohol ?? 0 });
+    const voted = d.strategy.voted?.(ev.id) === true;
+    let [tags, cause] = source(d.s.tags, 'event', `event.${ev.id}.${pick}`, at, { cups: opt.alcohol ?? 0, ...(voted ? { vote: true } : {}) });
     let orders = d.s.liverOrders;
     let workOrders = d.s.workOrders;
     if (opt.alcohol !== undefined && opt.alcohol > 0) {

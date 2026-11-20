@@ -362,6 +362,7 @@
     "report.doc.explain": { "text": "說明：", "fact": "" },
     "report.doc.incident_head": { "text": "一、事故經過：", "fact": "" },
     "report.doc.incident_item": { "text": "（{n}）{text}。", "fact": "" },
+    "report.doc.voted": { "text": "{text}（經股東會舉手表決）", "fact": "" },
     "report.doc.copy_to": { "text": "正本：營運長", "fact": "" },
     "report.doc.copy_cc": { "text": "副本：大腦董事長、全體部門、夜班清潔隊", "fact": "" },
     "report.doc.chair": { "text": "調查委員會　主任委員　肝（未出席，書面意見：「{opinion}」）", "fact": "" },
