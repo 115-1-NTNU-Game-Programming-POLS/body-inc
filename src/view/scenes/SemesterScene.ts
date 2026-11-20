@@ -7,6 +7,7 @@ import {
 import { musicFor, UI } from '../../app/audio.ts';
 import { AUDIO, fillStr, REPORT, str } from '../../app/content.ts';
 import { keepPage } from '../../app/handbook.ts';
+import { isPresenting } from '../../app/presenter.ts';
 import { patrolChapter, patrolLoop, type PatrolSession } from '../../app/patrol.ts';
 import type { SaveStore } from '../../app/storage.ts';
 import {
@@ -52,6 +53,8 @@ export interface SemesterData {
   readonly clause?: number;
   /** The presentation's demo save: played from the run given in `resume`, but never written to the run slot or counted. */
   readonly demo?: boolean;
+  /** The answers of the day the run stops at, already given: the scene goes straight to the end of that day (the pre-generated report). */
+  readonly last?: readonly Answer[];
 }
 
 /** Whatever is on screen that a choice is made from: a row of cards or the elevator panel. */
@@ -140,7 +143,7 @@ export class SemesterScene extends Phaser.Scene {
     const choices = back === undefined && this.keep ? settingChoices(seed, courses, data.clause ?? 0, this.career) : [];
     this.seed = seed;
     this.finished = data.resume === undefined ? [] : [...data.resume.days];
-    this.answers = [];
+    this.answers = data.last === undefined ? [] : [...data.last];
     this.menu = undefined;
     this.cursor = 0;
     this.busy = false;
@@ -684,6 +687,8 @@ export class SemesterScene extends Phaser.Scene {
   }
 
   private keepReportPage(id: string, progress: ProgressData, saves: SaveStore): void {
+    // A presentation shows the page and keeps nothing, so the presenter's own handbook is as it was.
+    if (isPresenting(this.registry)) return;
     const kept = keepPage(saves, progress, id);
     if (kept.issues.length > 0) this.game.events.emit('save-issues', kept.issues);
     this.registry.set('progress', kept.progress);
@@ -846,7 +851,8 @@ export class SemesterScene extends Phaser.Scene {
     let doc: ReportDocument | undefined;
     if (progress !== undefined && saves !== undefined) {
       try {
-        doc = visitReport(after, this.ctx, this.seed, new Set(progress.handbook));
+        // A presentation shows every page as new, so what the presenter has found of their own does not change the report.
+        doc = visitReport(after, this.ctx, this.seed, new Set(isPresenting(this.registry) ? [] : progress.handbook));
       } catch (err) {
         console.error('close-out report skipped:', err);
       }

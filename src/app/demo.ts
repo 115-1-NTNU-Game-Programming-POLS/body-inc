@@ -26,6 +26,37 @@ export const DEMO_RUN: SemesterRun = {
   days: [day('early'), day('midnight', { kind: 'event', option: 'binge' }), day('midnight')],
 };
 
+/** A day of studying until 01:00 on two cups, the liver the floor visited: `before` answers the events that come before the floor, `after` those after the night. */
+const crunch = (before: readonly Answer[] = [], after: readonly Answer[] = []): Answer[] => [
+  { kind: 'plan', plan: morningPlan('two', 'balanced') },
+  ...before,
+  { kind: 'floor', choice: floorChoice('liver') },
+  { kind: 'night', plan: nightPlan('late') },
+  ...after,
+];
+const say = (option: string): Answer => ({ kind: 'event', option });
+
+/**
+ * The run behind the pre-generated report (design doc 14.1, ux-spec 6). Every answer is one the menus
+ * offer, so a player can play it; seed 46 closes the company on day 7. docs/build-plan.md says how
+ * it was found and what test/app/demo-report.test.ts pins.
+ */
+export const REPORT_RUN: SemesterRun = {
+  seed: 46,
+  courses: [...TUTORIAL_COURSES],
+  days: [
+    crunch(),
+    crunch([say('decline')], [say('go')]),
+    crunch([say('decline'), say('squeeze')], [say('go')]),
+    crunch(),
+    [],
+    crunch(),
+  ],
+};
+
+/** The answers of day 7, the night that closes the company: the title plays it so the wall and the report open at once. */
+export const REPORT_LAST: readonly Answer[] = crunch();
+
 /** The chapters the presentation plays a part of (design doc 14.1); docs/build-plan.md says what each demo shows. */
 export const STORY_DEMOS = ['brain', 'liver'] as const;
 export type StoryDemoId = (typeof STORY_DEMOS)[number];
