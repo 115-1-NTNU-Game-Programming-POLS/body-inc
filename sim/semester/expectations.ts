@@ -6,8 +6,8 @@
  *
  * The semesters are played as 9.5 asks, at overtime clause 0, with skill 0.2 for a player who cannot fight and 0.9 for one
  * who can, and over the legal course selections, since every semester of the game has one: semester i of a run plays seed i
- * and the selection STRIDE steps along from the last, so the default run of SELECTION_COUNT semesters plays each selection
- * once and a shorter run still spreads over all of them.
+ * and the i-th selection of RUN_ORDER, so the default run of SELECTION_COUNT semesters plays each selection once and a
+ * shorter run keeps the mix of course loads of the whole.
  * Every archetype plays the course cards as the burden rail's candidates do (the responsive player's way, the night owl its
  * own). 「兩者都不會」 is the balanced player and the seven archetypes below it, averaged. 「約」 is read as within ABOUT of
  * the doc's figure. The doc's last paragraph adds that a fixed patrol order must score at least FIXED_MIN_GAP less than
@@ -15,7 +15,8 @@
  * floors never light, courses or not, and the two orders cannot differ there.
  *
  * Some expectations do not hold yet. They are listed in KNOWN_GAPS with the reason and the value measured over the default
- * run, so the run reports them without failing. A gap that starts to hold fails until it is taken off the list, so the list cannot go
+ * run, so the run reports them without failing. A shorter run samples a pass rate only to within several points, so it
+ * reports the known gaps without judging them. A gap that starts to hold fails until it is taken off the list, so the list cannot go
  * stale, and a gap that moves more than GAP_SLACK the wrong way fails too, so a known gap cannot hide a regression.
  */
 import { FLOORS, runSemester, summarize, yearEndPoints, type SemesterContext, type Strategy } from '../../src/core/index.ts';
@@ -24,14 +25,39 @@ import { allSelections, CARD_STYLE } from './burden.ts';
 import { mean } from './cards.ts';
 import { owlOf, playerOf, responsiveOf } from './players.ts';
 import { contextFor, scenarioFor } from './scenario.ts';
+import { burdenOf, creditsOf, type Burden } from '../../src/core/semester/courses.ts';
+import { nextInt, seedRng } from '../../src/core/rng.ts';
 
-const SELECTIONS = allSelections();
+const ORDER_SEED = 1;
+
+/**
+ * The selections in the order a run plays them. allSelections() lists them depth first, so neighbours share most courses and
+ * a plain prefix is nearly all of one load; instead each load class is shuffled with a fixed seed and the classes are
+ * interleaved by their share, so every prefix keeps the mix of loads of the whole and spreads over the courses.
+ */
+export function runOrder(selections: readonly (readonly string[])[], seed = ORDER_SEED): (readonly string[])[] {
+  const classes = new Map<Burden, (readonly string[])[]>();
+  for (const sel of selections) {
+    const b = burdenOf(creditsOf(sel));
+    classes.set(b, [...(classes.get(b) ?? []), sel]);
+  }
+  let rng = seedRng(seed);
+  const keyed: { key: number; sel: readonly string[] }[] = [];
+  for (const list of classes.values()) {
+    const shuffled = [...list];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      let j: number;
+      [j, rng] = nextInt(rng, i + 1);
+      [shuffled[i], shuffled[j]] = [shuffled[j]!, shuffled[i]!];
+    }
+    shuffled.forEach((sel, i) => keyed.push({ key: (i + 0.5) / shuffled.length, sel }));
+  }
+  return keyed.sort((a, b) => a.key - b.key).map((k) => k.sel);
+}
+
+const RUN_ORDER = runOrder(allSelections());
 /** A run of this many semesters plays every legal selection once. */
-export const SELECTION_COUNT = SELECTIONS.length;
-/** Coprime with SELECTION_COUNT (315 = 3 x 3 x 5 x 7), so stepping by it visits every selection before any repeats. */
-const STRIDE = 97;
-const gcd = (a: number, b: number): number => (b === 0 ? a : gcd(b, a % b));
-if (gcd(STRIDE, SELECTION_COUNT) !== 1) throw new Error(`STRIDE ${STRIDE} must be coprime with the ${SELECTION_COUNT} selections`);
+export const SELECTION_COUNT = RUN_ORDER.length;
 
 export const SKILL_LOW = 0.2;
 export const SKILL_HIGH = 0.9;
@@ -65,7 +91,7 @@ export interface KnownGap {
 export const KNOWN_GAPS: Readonly<Record<string, KnownGap>> = {
   'informed.pass': {
     reason: 'the heavy selections pull the unskilled responsive player under the pass line, though it averages about 75',
-    at: 75.6,
+    at: 78.7,
     worse: -1,
   },
 };
@@ -81,7 +107,7 @@ interface Row {
 /** Semester `seed` of a run: the selection it plays and its scenario; `params` lays tuning over the game's, for the breakages. */
 function semesterOf(skill: number, seed: number, params: Partial<SemesterContext['params']>): SemesterContext {
   const game = contextFor(skill, seed, {});
-  return { ...game, params: { ...game.params, ...params }, courses: SELECTIONS[((seed - 1) * STRIDE) % SELECTIONS.length]!, scenario: scenarioFor(seed) };
+  return { ...game, params: { ...game.params, ...params }, courses: RUN_ORDER[(seed - 1) % RUN_ORDER.length]!, scenario: scenarioFor(seed) };
 }
 
 /** The archetype playing the course cards, as the burden rail's candidates do. */
@@ -204,15 +230,18 @@ export function expectations(n: number, params: Partial<SemesterContext['params'
 }
 
 /**
- * What a run of `expectations` means: a known gap that fails within GAP_SLACK of its listed value is reported; a known gap
- * that holds or has moved further from the doc, and any other failure, fail the run.
+ * What a run of `n` semesters of `expectations` means: a known gap that fails within GAP_SLACK of its listed value is
+ * reported; a known gap that holds or has moved further from the doc, and any other failure, fail the run. A known gap is
+ * only judged on a run as long as the one it was listed from.
  */
-export function verdict(results: readonly Expectation[]): { readonly ok: boolean; readonly lines: string[] } {
+export function verdict(results: readonly Expectation[], n = SELECTION_COUNT): { readonly ok: boolean; readonly lines: string[] } {
   const lines: string[] = [];
   let ok = true;
   for (const r of results) {
     const known = KNOWN_GAPS[r.id];
-    if (r.pass && known !== undefined) {
+    if (known !== undefined && n !== SELECTION_COUNT) {
+      lines.push(`gap?  ${r.name}: ${r.detail} (a known gap, not judged on a run of ${n}; it was listed from ${SELECTION_COUNT})`);
+    } else if (r.pass && known !== undefined) {
       ok = false;
       lines.push(`HOLDS ${r.name}: ${r.detail} (listed as a known gap; take it off KNOWN_GAPS)`);
     } else if (r.pass) {
