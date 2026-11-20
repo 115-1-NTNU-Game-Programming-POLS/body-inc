@@ -8,7 +8,7 @@ import { keepPage, titleKey } from '../../app/handbook.ts';
 import { assistsOf, mayOpenOverlay, panelOpen, speedOf, togglesAttack, withAssists } from '../../app/pause.ts';
 import { sharedKeys, type KeyboardInput } from '../../app/input.ts';
 import type { PatrolSession } from '../../app/patrol.ts';
-import { PRESENTER_KEY, type Presenter } from '../../app/presenter.ts';
+import { isPresenting } from '../../app/presenter.ts';
 import type { WallSession } from '../../app/wall.ts';
 import type { FixedStepLoop } from '../../app/loop.ts';
 import type { SaveStore } from '../../app/storage.ts';
@@ -265,12 +265,12 @@ export class WorldScene extends Phaser.Scene {
   private react(e: GameEvent): void {
     switch (e.type) {
       case 'checkpointSaved': {
-        if (!this.patrolSession && !this.storyDemo()) saveStory(this, storyOf(this.loop.state.run));
+        if (!this.patrolSession && !isPresenting(this.registry)) saveStory(this, storyOf(this.loop.state.run));
         break;
       }
       case 'handbookUnlocked': {
         // A demo shows the page as new and keeps nothing, so the presenter's own handbook is as it was.
-        const kept = this.storyDemo()
+        const kept = isPresenting(this.registry)
           ? { progress: this.registry.get('progress') as ProgressData, isNew: true, issues: [] }
           : keepPage(this.registry.get('saves') as SaveStore, this.registry.get('progress') as ProgressData, e.id);
         if (kept.issues.length > 0) this.game.events.emit('save-issues', kept.issues);
@@ -297,7 +297,7 @@ export class WorldScene extends Phaser.Scene {
           break;
         }
         // A demo ends where its part of the chapter does: back to the title, with the story slot as it was.
-        if (this.storyDemo()) {
+        if (isPresenting(this.registry)) {
           this.leave(() => {
             this.scene.stop('Hud');
             this.scene.start('Title');
@@ -388,11 +388,6 @@ export class WorldScene extends Phaser.Scene {
   }
 
   /** Fades out with the rules stopped, then runs `then`; the next room starts from the loop's state. */
-  /** True while a chapter demo of the presentation is the run (app/demo.ts); it writes nothing the player keeps. */
-  private storyDemo(): boolean {
-    return (this.registry.get(PRESENTER_KEY) as Presenter | undefined)?.story === true;
-  }
-
   private leave(then: () => void): void {
     if (this.leaving) return;
     this.leaving = true;

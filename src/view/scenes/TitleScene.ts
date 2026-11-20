@@ -4,8 +4,8 @@ import { tryResume } from '../../app/chapters.ts';
 import { AUDIO, DIALOGUES, SPEAKERS, str } from '../../app/content.ts';
 import { portraitsUsed } from '../../app/dialogue.ts';
 import { sharedKeys } from '../../app/input.ts';
-import { DEMO_RUN, STORY_DEMOS, storyDemo, type StoryDemoId } from '../../app/demo.ts';
-import { PRESENTER_KEY, presenterSettings, type Presenter } from '../../app/presenter.ts';
+import { DEMO_RUN, storyDemo, type StoryDemoId } from '../../app/demo.ts';
+import { isPresenting, PRESENTER_KEY, presenterSettings, type Presenter } from '../../app/presenter.ts';
 import { resumeSemester } from '../../app/semester.ts';
 import type { ChapterContent, ChapterEntry, ChapterState, ProgressData, RunData, SemesterRun, Settings, StoryData } from '../../core/index.ts';
 import { playCue, soundIn } from '../audio/installSound.ts';
@@ -117,6 +117,8 @@ export class TitleScene extends Phaser.Scene {
       else if (e.code === 'F2' && !e.repeat) this.presentStory('brain');
       else if (e.code === 'F4' && !e.repeat) this.presentStory('liver');
     };
+    // Without a capture Phaser does not preventDefault, and a browser binds some of the presenter's keys itself.
+    this.input.keyboard?.addCapture('F2,F4,F9');
     this.input.keyboard?.on('keydown', onKey);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.input.keyboard?.off('keydown', onKey));
   }
@@ -173,21 +175,27 @@ export class TitleScene extends Phaser.Scene {
   /** The demo save in presentation mode (larger text, lettered options), which the title gives back when it is shown again. */
   private present(): void {
     if (this.starting) return;
-    const before = this.registry.get('settings') as Settings;
-    this.registry.set(PRESENTER_KEY, { before } satisfies Presenter);
-    this.registry.set('settings', presenterSettings(before));
+    this.startPresenting();
     this.semester(DEMO_RUN, true);
   }
 
   /** A chapter demo (design doc 14.1) in presentation mode: the brain from 20:00, or the liver from the barbecue. */
   private presentStory(id: StoryDemoId): void {
-    if (this.starting || !STORY_DEMOS.includes(id)) return;
+    if (this.starting) return;
     const ctx = (this.registry.get('chapters') as ReadonlyMap<string, ChapterContent>).get(id);
     if (!ctx) return;
+    // Built first: a demo that cannot be built must not leave the presentation mode on for the player's own game.
+    const state = storyDemo(ctx);
+    this.startPresenting();
+    this.play(ctx, state);
+  }
+
+  /** Turns the presentation mode on, keeping the settings to give back; a second call keeps the first ones. */
+  private startPresenting(): void {
+    if (isPresenting(this.registry)) return;
     const before = this.registry.get('settings') as Settings;
-    this.registry.set(PRESENTER_KEY, { before, story: true } satisfies Presenter);
+    this.registry.set(PRESENTER_KEY, { before } satisfies Presenter);
     this.registry.set('settings', presenterSettings(before));
-    this.play(ctx, storyDemo(ctx, id));
   }
 
   private name(data: NameData): void {

@@ -9,9 +9,13 @@ export const PRESENTER_KEY = 'presenter';
 
 export interface Presenter {
   readonly before: Settings;
-  /** A chapter demo is the run: its punches, pages and end must not reach the player's own story slot or handbook. */
-  readonly story?: true;
 }
+
+/**
+ * True while a demo of the presentation is the run. A demo is played for the audience and must not
+ * reach the player's own story slot, handbook or settings, so every scene that writes one asks this first.
+ */
+export const isPresenting = (registry: { get(key: string): unknown }): boolean => registry.get(PRESENTER_KEY) !== undefined;
 
 export const presenterSettings = (settings: Settings): Settings => ({ ...settings, textScale: 1.25 });
 
