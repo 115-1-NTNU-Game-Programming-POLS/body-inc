@@ -1,3 +1,4 @@
+import { KEY_POINTS, STURDY_WRAP } from '../combat/frames.ts';
 import { BASE_PERKS, type Perks } from '../combat/perks.ts';
 import { seedStreams, drawInt } from '../rng.ts';
 import { takes } from './courses.ts';
@@ -26,6 +27,8 @@ export const WELFARE_CARDS: readonly WelfareCard[] = [
   { id: 'bind_master', source: 'general', perks: { bindSplash: 1 } },
   { id: 'recycle', source: 'general', perks: { parryBind: 2 } },
   { id: 'fast_return', source: 'general', perks: { parryBoost: true } },
+  { id: 'key_points', source: 'liver', perks: { markTicks: KEY_POINTS.markTicks } },
+  { id: 'sturdy_wrap', source: 'liver', perks: { pinTicks: STURDY_WRAP.pinTicks } },
 ];
 
 /** The cards offered for a rating (design doc 8.8): one for C, two for B, three for A and S. */

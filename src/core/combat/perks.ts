@@ -1,4 +1,4 @@
-import { BIND } from './frames.ts';
+import { BIND, HIGHLIGHTER } from './frames.ts';
 
 /**
  * What the welfare cards a run holds change in a fight (design doc 8.8). The fight reads this and
@@ -13,6 +13,10 @@ export interface Perks {
   readonly parryBind: number;
   /** A parry speeds the operator up for a while. */
   readonly parryBoost: boolean;
+  /** Ticks a mark of the highlighter's circle lasts on an enemy. */
+  readonly markTicks: number;
+  /** Ticks a bound enemy stays pinned. */
+  readonly pinTicks: number;
 }
 
-export const BASE_PERKS: Perks = { bindHits: BIND.hits, bindSplash: 0, parryBind: 0, parryBoost: false };
+export const BASE_PERKS: Perks = { bindHits: BIND.hits, bindSplash: 0, parryBind: 0, parryBoost: false, markTicks: HIGHLIGHTER.markTicks, pinTicks: BIND.pinTicks };

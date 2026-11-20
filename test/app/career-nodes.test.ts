@@ -107,7 +107,7 @@ describe('開局重抽', () => {
   });
 
   it('is not offered when the cards left cannot fill a whole offer, and such a pick is refused', () => {
-    // The liver's pool is the four general cards: an A shows three and leaves one.
+    // With two of the liver's six cards already held, an A shows three of the four left and leaves one.
     const liver: Strategy = { ...quiet, floor: (v) => {
       const req = { salt: v.welfare.salt, day: v.day, floor: 'liver' as const, grade: 'A' as const, held: v.welfare.held, courses: undefined };
       const first = welfareOffer(req);
@@ -116,7 +116,8 @@ describe('開局重抽', () => {
       expect(rerollOffer(v, ctxOf(true), 'liver', { grade: 'A' }, first)).toEqual([]);
       return { patrol: 'liver', played: [{ grade: 'A' }], card: again[0]!, reroll: true };
     } };
-    expect(() => play(ctxOf(true), liver, 1)).toThrow(/only 1 cards are left/);
+    const holding = { ...startSemester(ctxOf(true), 1), welfare: ['quick_bind', 'bind_master'] };
+    expect(() => playDay(holding, ctxOf(true), liver)).toThrow(/only 1 cards are left/);
   });
 
   it('refuses the offer drawn again without the node, or without a card picked from it', () => {

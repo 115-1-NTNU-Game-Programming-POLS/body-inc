@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { fillStr, str } from '../../src/app/content.ts';
 import { daySummary, floorChoice, kitWith, newSemester, patrolOffer, resumeSemester, welfareCaption, welfareText } from '../../src/app/semester.ts';
-import { BASE_PERKS, GRADES, playDay, WELFARE_CARDS, welfareOffer, type DayView, type Strategy } from '../../src/core/index.ts';
+import { BASE_PERKS, GRADES, KEY_POINTS, playDay, STURDY_WRAP, WELFARE_CARDS, welfareOffer, type DayView, type Strategy } from '../../src/core/index.ts';
 
 const player = (choice: ReturnType<typeof floorChoice>, seen: DayView[] = []): Strategy => ({
   plan: () => ({ coffee: [], rest: [] }),
@@ -84,5 +84,7 @@ describe('the welfare cards on the screens', () => {
     expect(view.welfare.kit.perks).toEqual({ ...BASE_PERKS, parryBoost: true });
     expect(kitWith(view, undefined)).toBe(view.welfare.kit);
     expect(kitWith(view, 'quick_bind').perks).toEqual({ ...BASE_PERKS, parryBoost: true, bindHits: 2 });
+    expect(kitWith(view, 'key_points').perks).toEqual({ ...BASE_PERKS, parryBoost: true, markTicks: KEY_POINTS.markTicks });
+    expect(kitWith(view, 'sturdy_wrap').perks).toEqual({ ...BASE_PERKS, parryBoost: true, pinTicks: STURDY_WRAP.pinTicks });
   });
 });

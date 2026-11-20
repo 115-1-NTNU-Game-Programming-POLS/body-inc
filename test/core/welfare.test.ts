@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
   BASE_PERKS, RECORDS_CAP, decode, EMPTY_LOADS, encode, EARLY_SLEEP_GAUGE, EARLY_SLEEP_HOURS, GRADES, minutesProgress, OFFER_SIZE, patrolKit, perksOf, playDay, RUN, startSemester, STOP_GAUGE,
-  WELFARE_CARDS, welfareOffer,
+  KEY_POINTS, STURDY_WRAP, WELFARE_CARDS, welfareOffer,
   type DayView, type FloorChoice, type NightPlan, type SemesterContext, type SemesterState, type Strategy,
 } from '../../src/core/index.ts';
 import { contextFor } from '../../sim/semester/scenario.ts';
@@ -26,8 +26,8 @@ function day(choice: FloorChoice, night: Partial<NightPlan> = {}, plan: { write?
 const from = (c: SemesterContext, d: number, extra: Partial<SemesterState> = {}): SemesterState => ({ ...startSemester(c, 1), day: d, ...extra });
 
 describe('the welfare cards (design doc 8.8)', () => {
-  it('are the eight the rooms and the semester can carry out, each with its words', () => {
-    expect(WELFARE_CARDS.map((c) => c.id).sort()).toEqual(['bind_master', 'early_sleep', 'early_start', 'fast_return', 'know_when_to_stop', 'minutes', 'quick_bind', 'recycle']);
+  it('are the ten the rooms and the semester can carry out, each with its words', () => {
+    expect(WELFARE_CARDS.map((c) => c.id).sort()).toEqual(['bind_master', 'early_sleep', 'early_start', 'fast_return', 'key_points', 'know_when_to_stop', 'minutes', 'quick_bind', 'recycle', 'sturdy_wrap']);
     const strings = JSON.parse(readFileSync('content/strings/zh-TW.json', 'utf8')).strings as Record<string, { text: string }>;
     for (const { id } of WELFARE_CARDS) {
       expect(strings[`welfare.${id}.name`]?.text, id).toBeTruthy();
@@ -41,8 +41,14 @@ describe('the welfare cards (design doc 8.8)', () => {
     expect(perksOf(['bind_master'])).toEqual({ ...BASE_PERKS, bindSplash: 1 });
     expect(perksOf(['recycle'])).toEqual({ ...BASE_PERKS, parryBind: 2 });
     expect(perksOf(['fast_return'])).toEqual({ ...BASE_PERKS, parryBoost: true });
+    expect(perksOf(['key_points'])).toEqual({ ...BASE_PERKS, markTicks: KEY_POINTS.markTicks });
+    expect(perksOf(['sturdy_wrap'])).toEqual({ ...BASE_PERKS, pinTicks: STURDY_WRAP.pinTicks });
     expect(perksOf(['early_sleep', 'minutes', 'early_start', 'know_when_to_stop'])).toEqual(BASE_PERKS);
-    expect(perksOf(['quick_bind', 'recycle', 'fast_return', 'bind_master'])).toEqual({ bindHits: 2, bindSplash: 1, parryBind: 2, parryBoost: true });
+    expect(perksOf(['quick_bind', 'recycle', 'fast_return', 'bind_master', 'key_points', 'sturdy_wrap'])).toEqual({
+      bindHits: 2, bindSplash: 1, parryBind: 2, parryBoost: true, markTicks: KEY_POINTS.markTicks, pinTicks: STURDY_WRAP.pinTicks,
+    });
+    expect(perksOf(['key_points']).markTicks).toBeGreaterThan(BASE_PERKS.markTicks);
+    expect(perksOf(['sturdy_wrap']).pinTicks).toBeGreaterThan(BASE_PERKS.pinTicks);
   });
 });
 
@@ -81,8 +87,11 @@ describe('the offer of a rated patrol', () => {
     expect(all({ courses: ['os'] }).has('know_when_to_stop')).toBe(false);
     expect(all({ courses: ['algorithms'] }).has('know_when_to_stop')).toBe(true);
     expect(all({ held: ['minutes'] }).has('minutes')).toBe(false);
-    // The liver gives the general affairs office's cards and none of the brain's.
-    expect([...all({ floor: 'liver', courses: ['os', 'algorithms'] })].sort()).toEqual(['bind_master', 'fast_return', 'quick_bind', 'recycle']);
+    // The liver gives the general affairs office's cards and its own, and none of the brain's; the liver's own are given by no other floor.
+    expect([...all({ floor: 'liver', courses: ['os', 'algorithms'] })].sort()).toEqual(['bind_master', 'fast_return', 'key_points', 'quick_bind', 'recycle', 'sturdy_wrap']);
+    expect(all({ floor: 'brain', courses: ['os', 'algorithms'] }).has('sturdy_wrap')).toBe(false);
+    // The brain's patrol carries no highlighter, so a longer mark would be a card that does nothing there.
+    expect(all({ floor: 'brain', courses: ['os', 'algorithms'] }).has('key_points')).toBe(false);
     expect(all({ floor: 'immune' }).has('minutes')).toBe(false);
   });
 

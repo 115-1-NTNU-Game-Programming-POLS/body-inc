@@ -248,7 +248,7 @@ export type DomainEvent =
   | { readonly type: 'telegraph'; readonly source: number; readonly tier: 1 | 2 | 3; readonly move?: string; readonly ticks?: number }
   | { readonly type: 'hit'; readonly target: number; readonly enemy: string; readonly hpLeft: number }
   | { readonly type: 'caseClosed'; readonly target: number; readonly enemy: string }
-  /** 裝訂: enough staple hits in a row pinned the enemy for BIND.pinTicks. */
+  /** 裝訂: enough staple hits in a row pinned the enemy for `Perks.pinTicks` (BIND.pinTicks without 加固包裝). */
   | { readonly type: 'bound'; readonly target: number; readonly enemy: string }
   | { readonly type: 'dispersed'; readonly target: number; readonly enemy: string }
   | { readonly type: 'reformed'; readonly target: number; readonly enemy: string }
@@ -1276,7 +1276,7 @@ export function step(state: GameState, pressed: TickInput): StepResult {
     }
     bind = { target: e.id, hits: 0, at: now };
     events.push({ type: 'bound', target: e.id, enemy: e.type });
-    return { ...e, frozen: Math.max(e.frozen, BIND.pinTicks), pin: BIND.pinTicks };
+    return { ...e, frozen: Math.max(e.frozen, perks.pinTicks), pin: perks.pinTicks };
   };
 
   // 裝訂大師: a hit on a bound enemy chips the ordinary enemies around it. The splash binds nothing and splashes nothing.
@@ -1349,7 +1349,7 @@ export function step(state: GameState, pressed: TickInput): StepResult {
         enemies.set(e.id, { ...e, phase: 'dispersed', phaseTicks: 0, frozen: 0 });
         events.push({ type: 'dispersed', target: e.id, enemy: e.type });
       } else {
-        enemies.set(e.id, { ...e, markedUntil: now + HIGHLIGHTER.markTicks });
+        enemies.set(e.id, { ...e, markedUntil: now + perks.markTicks });
         events.push({ type: 'marked', target: e.id, enemy: e.type });
       }
     }
