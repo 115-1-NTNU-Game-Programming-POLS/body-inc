@@ -1276,7 +1276,7 @@ export function step(state: GameState, pressed: TickInput): StepResult {
     }
     bind = { target: e.id, hits: 0, at: now };
     events.push({ type: 'bound', target: e.id, enemy: e.type });
-    return { ...e, frozen: Math.max(e.frozen, BIND.pinTicks), pin: BIND.pinTicks };
+    return { ...e, frozen: Math.max(e.frozen, perks.pinTicks), pin: perks.pinTicks };
   };
 
   // 裝訂大師: a hit on a bound enemy chips the ordinary enemies around it. The splash binds nothing and splashes nothing.

@@ -86,5 +86,6 @@ describe('the welfare cards on the screens', () => {
     expect(kitWith(view, 'quick_bind').perks).toEqual({ ...BASE_PERKS, parryBoost: true, bindHits: 2 });
     // 重點標註 reaches the patrol the same way: a longer mark, nothing else of the fight.
     expect(kitWith(view, 'key_points').perks).toEqual({ ...BASE_PERKS, parryBoost: true, markTicks: 12 * TICK_HZ });
+    expect(kitWith(view, 'sturdy_wrap').perks).toEqual({ ...BASE_PERKS, parryBoost: true, pinTicks: 2.5 * TICK_HZ });
   });
 });

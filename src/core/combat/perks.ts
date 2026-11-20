@@ -15,6 +15,8 @@ export interface Perks {
   readonly parryBoost: boolean;
   /** Ticks a mark of the highlighter's circle lasts on an enemy. */
   readonly markTicks: number;
+  /** Ticks a bound enemy stays pinned. */
+  readonly pinTicks: number;
 }
 
-export const BASE_PERKS: Perks = { bindHits: BIND.hits, bindSplash: 0, parryBind: 0, parryBoost: false, markTicks: HIGHLIGHTER.markTicks };
+export const BASE_PERKS: Perks = { bindHits: BIND.hits, bindSplash: 0, parryBind: 0, parryBoost: false, markTicks: HIGHLIGHTER.markTicks, pinTicks: BIND.pinTicks };

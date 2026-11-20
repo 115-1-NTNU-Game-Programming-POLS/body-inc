@@ -28,6 +28,7 @@ export const WELFARE_CARDS: readonly WelfareCard[] = [
   { id: 'recycle', source: 'general', perks: { parryBind: 2 } },
   { id: 'fast_return', source: 'general', perks: { parryBoost: true } },
   { id: 'key_points', source: 'general', perks: { markTicks: 12 * TICK_HZ } },
+  { id: 'sturdy_wrap', source: 'liver', perks: { pinTicks: Math.round(2.5 * TICK_HZ) } },
 ];
 
 /** The cards offered for a rating (design doc 8.8): one for C, two for B, three for A and S. */
