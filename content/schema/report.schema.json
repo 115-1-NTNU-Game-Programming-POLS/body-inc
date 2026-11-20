@@ -81,7 +81,7 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "letterhead", "recipient", "explain", "incidentHead", "incidentItem", "copyTo", "copyCc", "chair", "liverNote",
+        "letterhead", "recipient", "explain", "incidentHead", "incidentItem", "voted", "copyTo", "copyCc", "chair", "liverNote",
         "causeSingle", "causeMulti", "causeLiverFasting", "causeFever", "unlockNew", "unlockKnown", "examMid", "examFin",
         "noticeDate", "noticeNumber", "noticeSubject", "noticePenalty", "noticeMissed", "noticeAdvice", "noticeWarning",
         "bankruptDate", "bankruptNumber", "bankruptPrevious", "bankruptSubject", "bankruptResult",
@@ -94,6 +94,7 @@
         "explain": { "type": "string", "minLength": 1 },
         "incidentHead": { "type": "string", "minLength": 1 },
         "incidentItem": { "type": "string", "minLength": 1 },
+        "voted": { "type": "string", "minLength": 1 },
         "copyTo": { "type": "string", "minLength": 1 },
         "copyCc": { "type": "string", "minLength": 1 },
         "chair": { "type": "string", "minLength": 1 },

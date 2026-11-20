@@ -127,12 +127,19 @@ describe('merging facts (ux-spec 4.6)', () => {
     const [g] = merged([fact('a', 3, 25.5)]);
     expect([g!.firstDay, g!.members[0]!.minute]).toEqual([3, 25 * 60 + 30]);
   });
+
+  it('calls a group decided by a show of hands only when every one of its facts was', () => {
+    const [all] = merged([fact('a', 4, 20, { voted: true }), fact('a', 5, 20, { voted: true })]);
+    const [mixed] = merged([fact('a', 4, 20, { voted: true }), fact('a', 5, 20)]);
+    const [none] = merged([fact('a', 4, 20)]);
+    expect([all!.voted, mixed!.voted, none!.voted]).toEqual([true, false, false]);
+  });
 });
 
 describe('choosing the five (ux-spec 4.6)', () => {
   const group = (key: string, day: number, extra: { parent?: boolean; n?: number } = {}): SentenceGroup => {
     const members = Array.from({ length: extra.n ?? 1 }, () => ({ fact: { key, at: at(day, 12) }, day, minute: 12 * 60 }));
-    return { key, form: 'single', members, days: [day], firstDay: day, lastDay: day, at: at(day, 12), parent: extra.parent ?? false };
+    return { key, form: 'single', members, days: [day], firstDay: day, lastDay: day, at: at(day, 12), parent: extra.parent ?? false, voted: false };
   };
   const score: Record<string, number> = { choice: 5, warning: 4, tag: 3, external: 2, effect: 1 };
   const by = (g: SentenceGroup): number => score[g.key.split('.')[0]!]!;

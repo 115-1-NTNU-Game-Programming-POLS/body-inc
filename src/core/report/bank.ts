@@ -15,6 +15,7 @@ export const DOC_PLACEHOLDERS: Readonly<Record<keyof Doc, readonly string[]>> = 
   letterhead: [], recipient: [], explain: [], incidentHead: [], copyTo: [], copyCc: [], liverNote: [],
   unlockNew: [], unlockKnown: [], examMid: [], examFin: [], noticeWarning: [], bankruptAdviceHead: [],
   incidentItem: ['n', 'text'],
+  voted: ['text'],
   chair: ['opinion'],
   causeSingle: ['list'], causeMulti: ['list'], causeLiverFasting: ['list'], causeFever: ['list'],
   noticeDate: ['day', 'time'], bankruptDate: ['day', 'time'],
