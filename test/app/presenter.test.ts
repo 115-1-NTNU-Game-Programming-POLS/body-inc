@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { optionMark, presenterSettings } from '../../src/app/presenter.ts';
+import { isPresenting, optionMark, PRESENTER_KEY, presenterSettings } from '../../src/app/presenter.ts';
 import { decode, encode, SETTINGS } from '../../src/core/index.ts';
 
 describe('the presentation mode (ux-spec 6.1)', () => {
@@ -13,5 +13,14 @@ describe('the presentation mode (ux-spec 6.1)', () => {
     const shown = presenterSettings(slow);
     expect(shown).toEqual({ ...slow, textScale: 1.25 });
     expect(decode(SETTINGS, encode(SETTINGS, shown)).kind).toBe('ok');
+  });
+
+  it('is on exactly while the marker is in the registry, which the scenes that write a slot ask first', () => {
+    const registry = new Map<string, unknown>();
+    expect(isPresenting(registry)).toBe(false);
+    registry.set(PRESENTER_KEY, { before: SETTINGS.defaults() });
+    expect(isPresenting(registry)).toBe(true);
+    registry.delete(PRESENTER_KEY);
+    expect(isPresenting(registry)).toBe(false);
   });
 });

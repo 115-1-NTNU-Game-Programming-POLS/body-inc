@@ -12,6 +12,12 @@ export interface Presenter {
   readonly before: Settings;
 }
 
+/**
+ * True while a demo of the presentation is the run. A demo is played for the audience and must not
+ * reach the player's own story slot, handbook or settings, so every scene that writes one asks this first.
+ */
+export const isPresenting = (registry: { get(key: string): unknown }): boolean => registry.get(PRESENTER_KEY) !== undefined;
+
 export const presenterSettings = (settings: Settings): Settings => ({ ...settings, textScale: 1.25 });
 
 /** The mark on the badge of option `i`: A, B, C while presenting, else 1, 2, 3. */

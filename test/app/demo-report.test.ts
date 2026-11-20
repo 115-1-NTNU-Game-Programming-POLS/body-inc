@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { REPORT_LAST, REPORT_RUN } from '../../src/app/demo.ts';
-import { resumeSemester, visitReport } from '../../src/app/semester.ts';
+import { resumeSemester, REST_PLANS, visitReport } from '../../src/app/semester.ts';
 import { advanceDay, decode, encode, RUN, type Answer, type SemesterState } from '../../src/core/index.ts';
 
 /** Plays the run and then the last day, giving the report the scene would build on each day's end. */
-function play(run = REPORT_RUN, last: readonly Answer[] = REPORT_LAST) {
-  const back = resumeSemester(run);
+function play() {
+  const back = resumeSemester(REPORT_RUN);
   if (back === undefined) throw new Error('the report run no longer replays');
-  const step = advanceDay(back.state, back.ctx, last);
+  const step = advanceDay(back.state, back.ctx, REPORT_LAST);
   if (!step.done) throw new Error('the last day asks for more than it is given');
   return { ...back, morning: back.state, after: step.state };
 }
@@ -56,8 +56,9 @@ describe('the pre-generated report (design doc 14.1, ux-spec 6)', () => {
     expect(step.done).toBe(false);
   });
 
-  it('is moved by its answers: without the cups of coffee the days no longer play out as written', () => {
-    const days = REPORT_RUN.days.map((answers) => answers.map((a): Answer => (a.kind === 'plan' ? { kind: 'plan', plan: { ...a.plan, coffee: [] } } : a)));
-    expect(reports(days)).not.toEqual(reports());
+  it('is moved by its answers: with the long rest of the menu the operator is still sent away on day 4 but the company stays open', () => {
+    const days = REPORT_RUN.days.map((answers) => answers.map((a): Answer => (a.kind === 'plan' ? { kind: 'plan', plan: { ...a.plan, rest: [...REST_PLANS.easy] } } : a)));
+    // Not a string: a day that asks for more than it is given would differ too, and prove nothing about the rules.
+    expect(reports(days)).toEqual([{ day: 4, kind: 'notice' }]);
   });
 });
