@@ -16,10 +16,10 @@
  "source_name": "ChatGPT 下載的 webp",
  "post": {
   "select": true,
-  "outline": "程式補成連續的 #0C2D5E 外框後由江兆耘手修",
+  "outline": "程式補成連續的 #0C2D5E 外框後由江兆耘手修；之後由 Isaries 補上 13 個描邊缺口（提案格手臂右緣 8 像素與另 2 像素、丟擲正面、喝、驚訝各 1 像素，改為 #0C2D5E）",
   "quantize": "縮成 64×64，西裝統一為 3B3F4A / 2C2F38、鞋 393237、徽章 FFC83D，全部在 body-inc-pixel.gpl 內（共 13 色）",
   "remove-text": "n/a",
-  "pixel-cleanup": "杯頭由程式繪製；身體、手、集點卡、文件由江兆耘手修",
+  "pixel-cleanup": "杯頭由程式繪製；身體、手、集點卡、文件由江兆耘手修；之後由 Isaries 依美術指南第 4 節把待機兩格、丟擲正面、喝、提案、驚訝共六格胸前的四芒星（拾取物符號）塗回西裝 3B3F4A，改蓋 tools/art/make_stopgaps.py 的 5 × 6 閃電徽章（FFC83D，四鄰補 #0C2D5E 外圈，只落在西裝上）；審查兩格的徽章被提案書遮住，留給作者處理；審查兩格整格下移 1 像素，讓腳落在錨點列 62",
   "style-board-check": "待審"
  },
  "hours": {
