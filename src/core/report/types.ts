@@ -24,6 +24,8 @@ export interface ReportFact {
   readonly vars?: ReportVars;
   /** A direct parent of the crisis: it is always reported (ux-spec 4.6). */
   readonly parent?: boolean;
+  /** Decided by a show of hands in the presentation mode (ux-spec 6.2); the sentence says so. */
+  readonly voted?: true;
 }
 
 /** A fact placed on the narrative calendar. */
@@ -49,6 +51,8 @@ export interface SentenceGroup {
   /** Rule minute of the earliest member; the group sorts by it. */
   readonly at: number;
   readonly parent: boolean;
+  /** Every member was decided by a show of hands. */
+  readonly voted: boolean;
 }
 
 export interface IncidentLine {

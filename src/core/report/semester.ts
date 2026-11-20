@@ -37,7 +37,7 @@ export function nodeFacts(nodes: readonly CausalNode[], cfg: ReportFile, parents
     }
     if (entry === undefined) vars['label'] = n.key;
     const scope = typeof n.data?.['floor'] === 'string' ? n.data['floor'] : undefined;
-    out.push({ key, ...(scope !== undefined ? { scope } : {}), at: n.at, vars, ...(parents.has(n.id) ? { parent: true } : {}) });
+    out.push({ key, ...(scope !== undefined ? { scope } : {}), at: n.at, vars, ...(parents.has(n.id) ? { parent: true } : {}), ...(n.data?.['vote'] === true ? { voted: true as const } : {}) });
   }
   return out;
 }

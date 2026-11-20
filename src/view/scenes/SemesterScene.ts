@@ -385,7 +385,8 @@ export class SemesterScene extends Phaser.Scene {
     this.banner(view, 'event');
     const labels = options.map((o) => ({ label: str(`semester.event.${id}.${o}`), note: str(`semester.event.${id}.${o}.note`) }));
     this.cards(labels, str(`semester.event.${id}.title`), servesAlcohol(id) ? str('semester.alcohol.notice') : undefined, (i) => {
-      this.answer({ kind: 'event', option: options[i]! });
+      // In the presentation mode the audience raises hands for an option, which the report then says.
+      this.answer({ kind: 'event', option: options[i]!, ...(isPresenting(this.registry) ? { byVote: true as const } : {}) });
     });
   }
 
