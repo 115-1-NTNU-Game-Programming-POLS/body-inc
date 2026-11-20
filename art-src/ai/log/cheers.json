@@ -18,10 +18,10 @@
  "source_name": "n/a",
  "post": {
   "select": true,
-  "outline": "江兆耘手修",
-  "quantize": "全部在 body-inc-pixel.gpl 內（共 15 色）",
+  "outline": "江兆耘手修；之後由 Isaries 依美術指南第 4 節在小旗碰到透明處的外側補 1 像素 #0C2D5E 描邊（七格共 30 像素；出招側面的旗子碎片留給作者重畫，未補），並補上出招側面 1 像素的描邊針孔",
+  "quantize": "全部在 body-inc-pixel.gpl 內（共 15 色）；之後由 Isaries 把杯身的員工黃暗面 E09A2E（保留色，美術指南 3.1 節）與同色階的 EBBD74 換成肝臟章的酒精琥珀：EBBD74 → D9A441、E09A2E → A08349；泡沫與旗面的 FDD98B 不是保留色，維持不變，全圖仍為 15 色",
   "remove-text": "n/a",
-  "pixel-cleanup": "江兆耘手修（頭的傾斜、旗與臂章位置）",
+  "pixel-cleanup": "江兆耘手修（頭的傾斜、旗與臂章位置）；之後由 Isaries 刪除受擊側面杯外 2 像素沿用自 suit-base O 形嘴的 6E1A27 雜點",
   "style-board-check": "待審"
  },
  "hours": {
