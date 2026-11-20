@@ -1,6 +1,6 @@
 {
  "id": "caffeine",
- "title": "卡費因 Boss 10 格像素圖集（AI 姿勢表只當造型與姿勢參考；杯頭程式繪製；身體與手由江兆耘手繪修整）",
+ "title": "卡費因 Boss 10 格像素圖集（AI 產生造型定稿與姿勢底稿，縮成 64×64 後統一色號；杯頭程式繪製；身體與手由江兆耘手繪修整）",
  "batch": "caffeine-boss-poses",
  "tool": "ChatGPT (gpt-image)",
  "model": "不在憑證中",
@@ -17,18 +17,23 @@
  "post": {
   "select": true,
   "outline": "程式補成連續的 #0C2D5E 外框後由江兆耘手修",
-  "quantize": "縮成 64×64，西裝統一為 3B3F4A / 2C2F38、鞋 393237、徽章 FFC83D，全部在 body-inc-pixel.gpl 內（共 11 色）",
+  "quantize": "縮成 64×64，西裝統一為 3B3F4A / 2C2F38、鞋 393237、徽章 FFC83D，全部在 body-inc-pixel.gpl 內（共 13 色）",
   "remove-text": "n/a",
   "pixel-cleanup": "杯頭由程式繪製；身體、手、集點卡、文件由江兆耘手修",
   "style-board-check": "待審"
  },
- "hours": null,
+ "hours": {
+  "cleanup_minutes": 70,
+  "generation_minutes": null,
+  "hand_estimate_minutes": null,
+  "note": "手修約 70 分鐘（作者自述，PR #126）；生圖時間未記錄；杯頭與外框的繪圖腳本未入庫，時間未記錄；維護者補正未計時"
+ },
  "status": "hand-finished",
  "processed": {
   "outputs": [
    "public/assets/atlases/caffeine.png",
    "public/assets/atlases/caffeine.json"
   ],
-  "png_colors": 11
+  "png_colors": 13
  }
 }
