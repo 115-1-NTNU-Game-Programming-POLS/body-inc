@@ -4,21 +4,34 @@
  * coefficient at 0.01, no exam discount, the performance factor capped at 2.0), because a check that still passes then cannot
  * tell a healthy rule from a broken one.
  *
- * The semesters are played as 9.5 asks: overtime clause 0, no course cards, skill 0.2 for a player who cannot fight and 0.9
- * for one who can. 「兩者都不會」 is the balanced player and the seven archetypes below it, averaged. 「約」 is read as within
- * ABOUT of the doc's figure. The doc's last paragraph adds that a fixed patrol order must score at least FIXED_MIN_GAP less
- * than patrolling by the lights and the work orders; it is played on the night owl without overtime, since the balanced
- * player's floors never light and the two orders cannot differ there.
+ * The semesters are played as 9.5 asks, at overtime clause 0, with skill 0.2 for a player who cannot fight and 0.9 for one
+ * who can, and over the legal course selections, since every semester of the game has one: semester i of a run plays seed i
+ * and the selection STRIDE steps along from the last, so the default run of SELECTION_COUNT semesters plays each selection
+ * once and a shorter run still spreads over all of them.
+ * Every archetype plays the course cards as the burden rail's candidates do (the responsive player's way, the night owl its
+ * own). 「兩者都不會」 is the balanced player and the seven archetypes below it, averaged. 「約」 is read as within ABOUT of
+ * the doc's figure. The doc's last paragraph adds that a fixed patrol order must score at least FIXED_MIN_GAP less than
+ * patrolling by the lights and the work orders; it is played on the night owl without overtime, since the balanced player's
+ * floors never light, courses or not, and the two orders cannot differ there.
  *
- * Some expectations do not hold yet. They are listed in KNOWN_GAPS with the reason and the value measured over 200 seeds, so
- * the run reports them without failing. A gap that starts to hold fails until it is taken off the list, so the list cannot go
+ * Some expectations do not hold yet. They are listed in KNOWN_GAPS with the reason and the value measured over the default
+ * run, so the run reports them without failing. A gap that starts to hold fails until it is taken off the list, so the list cannot go
  * stale, and a gap that moves more than GAP_SLACK the wrong way fails too, so a known gap cannot hide a regression.
  */
 import { FLOORS, runSemester, summarize, yearEndPoints, type SemesterContext, type Strategy } from '../../src/core/index.ts';
-import { ARCHETYPES } from './archetypes.ts';
+import { ARCHETYPES, type ArchetypeName } from './archetypes.ts';
+import { allSelections, CARD_STYLE } from './burden.ts';
 import { mean } from './cards.ts';
-import { responsiveOf } from './players.ts';
+import { owlOf, playerOf, responsiveOf } from './players.ts';
 import { contextFor, scenarioFor } from './scenario.ts';
+
+const SELECTIONS = allSelections();
+/** A run of this many semesters plays every legal selection once. */
+export const SELECTION_COUNT = SELECTIONS.length;
+/** Coprime with SELECTION_COUNT (315 = 3 x 3 x 5 x 7), so stepping by it visits every selection before any repeats. */
+const STRIDE = 97;
+const gcd = (a: number, b: number): number => (b === 0 ? a : gcd(b, a % b));
+if (gcd(STRIDE, SELECTION_COUNT) !== 1) throw new Error(`STRIDE ${STRIDE} must be coprime with the ${SELECTION_COUNT} selections`);
 
 export const SKILL_LOW = 0.2;
 export const SKILL_HIGH = 0.9;
@@ -42,7 +55,7 @@ export interface Expectation {
 
 export interface KnownGap {
   readonly reason: string;
-  /** The value over 200 seeds when the gap was listed. */
+  /** The value over the default run when the gap was listed. */
   readonly at: number;
   /** Which way is worse: 1 when a higher value is further from the doc, -1 when a lower one is. */
   readonly worse: 1 | -1;
@@ -50,12 +63,11 @@ export interface KnownGap {
 
 /** Expectations that do not hold yet; see the module comment. */
 export const KNOWN_GAPS: Readonly<Record<string, KnownGap>> = {
-  'fighter.hospital': {
-    reason: 'with the roommate cold the crammer is in hospital in most semesters, the night owl in just under half',
-    at: 49.5,
+  'informed.pass': {
+    reason: 'the heavy selections pull the unskilled responsive player under the pass line, though it averages about 75',
+    at: 75.6,
     worse: -1,
   },
-  'informed.grade': { reason: 'the responsive player who cannot fight averages about 80, ten points over the doc', at: 80.6, worse: 1 },
 };
 
 interface Row {
@@ -66,15 +78,26 @@ interface Row {
   readonly points: number;
 }
 
-/** `params` lays tuning over the game's, for the breakages. */
+/** Semester `seed` of a run: the selection it plays and its scenario; `params` lays tuning over the game's, for the breakages. */
+function semesterOf(skill: number, seed: number, params: Partial<SemesterContext['params']>): SemesterContext {
+  const game = contextFor(skill, seed, {});
+  return { ...game, params: { ...game.params, ...params }, courses: SELECTIONS[((seed - 1) * STRIDE) % SELECTIONS.length]!, scenario: scenarioFor(seed) };
+}
+
+/** The archetype playing the course cards, as the burden rail's candidates do. */
+export function withCards(name: ArchetypeName): Strategy {
+  if (name === 'balanced') return responsiveOf(true);
+  if (name === 'nightOwl') return owlOf(true);
+  return playerOf(ARCHETYPES[name], CARD_STYLE, true);
+}
+
 export function rowOf(n: number, skill: number, strategy: Strategy, params: Partial<SemesterContext['params']> = {}): Row {
   const pct = (xs: readonly boolean[]): number => (100 * xs.filter(Boolean).length) / Math.max(1, xs.length);
   const sums = [];
   const points: number[] = [];
   const hospital: boolean[] = [];
   for (let seed = 1; seed <= n; seed++) {
-    const game = contextFor(skill, seed, {});
-    const ctx: SemesterContext = { ...game, params: { ...game.params, ...params }, scenario: scenarioFor(seed) };
+    const ctx = semesterOf(skill, seed, params);
     const end = runSemester(ctx, strategy, seed);
     sums.push(summarize(end, ctx));
     points.push(yearEndPoints(end, ctx, 0));
@@ -101,10 +124,7 @@ export function litShare(n: number, skill: number, strategy: Strategy, params: P
       return strategy.floor(v, tags, liverLoad);
     },
   };
-  for (let seed = 1; seed <= n; seed++) {
-    const game = contextFor(skill, seed, {});
-    runSemester({ ...game, params: { ...game.params, ...params }, scenario: scenarioFor(seed) }, spy, seed);
-  }
+  for (let seed = 1; seed <= n; seed++) runSemester(semesterOf(skill, seed, params), spy, seed);
   return lit / Math.max(1, days);
 }
 
@@ -125,10 +145,10 @@ export function expectations(n: number, params: Partial<SemesterContext['params'
   const responsive = responsiveOf(true);
   const both = row(SKILL_HIGH, responsive);
   const informed = row(SKILL_LOW, responsive);
-  const fighters = { nightOwl: row(SKILL_HIGH, ARCHETYPES.nightOwl), crammer: row(SKILL_HIGH, ARCHETYPES.crammer) };
-  const neither = BELOW_BALANCED.map((name) => row(SKILL_LOW, ARCHETYPES[name]));
+  const fighters = { nightOwl: row(SKILL_HIGH, withCards('nightOwl')), crammer: row(SKILL_HIGH, withCards('crammer')) };
+  const neither = BELOW_BALANCED.map((name) => row(SKILL_LOW, withCards(name)));
   const neitherPass = mean(neither.map((r) => r.pass));
-  const owl = byLights(ARCHETYPES.nightOwl);
+  const owl = byLights(withCards('nightOwl'));
   const lights = row(SKILL_HIGH, owl);
   const fixed = row(SKILL_HIGH, fixedOrder(owl, contextFor(SKILL_HIGH, 1, {}).params.midDay));
   const gap = (lights.points - fixed.points) / Math.max(1e-9, fixed.points);

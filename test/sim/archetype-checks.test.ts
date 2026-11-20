@@ -3,8 +3,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 type Expectations = typeof import('../../sim/semester/expectations.ts');
 type Scoring = typeof import('../../src/core/exam/scoring.ts');
 
-// The seeds KNOWN_GAPS was measured over; at fewer the known gaps drift past GAP_SLACK on sampling alone.
-const N = 200;
+// The healthy run is the default run KNOWN_GAPS was measured over, one semester per selection; at fewer the known gaps drift
+// past GAP_SLACK on sampling alone. The breakages are judged on a third of it, on figures far from their lines.
+const BREAK_N = 105;
 
 /** The expectations, loaded fresh, optionally with the exam scored as if the performance factor ran 0.75 to 2.0. */
 async function load(capTwo = false): Promise<Expectations> {
@@ -27,7 +28,7 @@ async function load(capTwo = false): Promise<Expectations> {
 
 /** The verdict under `params`, naming each expectation that failed it with how. */
 function judged(e: Expectations, params: Record<string, number | boolean> = {}): { ok: boolean; failed: string[] } {
-  const results = e.expectations(N, params);
+  const results = e.expectations(BREAK_N, params);
   const { ok, lines } = e.verdict(results);
   return { ok, failed: results.flatMap((r, i) => (/^(FAIL|WORSE|HOLDS)/.test(lines[i]!) ? [`${r.id} ${lines[i]!.slice(0, 5).trim()}`] : [])) };
 }
@@ -37,17 +38,18 @@ afterEach(() => {
   vi.resetModules();
 });
 
-describe('the four player archetypes of design doc 9.5', { timeout: 180_000 }, () => {
+describe('the four player archetypes of design doc 9.5', { timeout: 300_000 }, () => {
   it('hold for the rules as they are, the known gaps aside', async () => {
     const e = await load();
-    const results = e.expectations(N);
+    const results = e.expectations(e.SELECTION_COUNT);
     const { ok, lines } = e.verdict(results);
     expect(ok, lines.join('\n')).toBe(true);
     expect(results.filter((r) => !r.pass).map((r) => r.id).sort()).toEqual(Object.keys(e.KNOWN_GAPS).sort());
   });
 
-  // The breakages of design doc 9.6. Each must fail the run; the figures that only just tip (the night owl's patrol gap,
-  // the pass rate of 兩者都不會) are not pinned, the fighters' final pass of about 90% against 30% is.
+  // The breakages of design doc 9.6. Each must fail the run; the figures that only just tip (the informed player's average,
+  // the night owl's patrol gap, the pass rate of 兩者都不會) are not pinned, the fighters' final pass of 40% to 70% against
+  // 30% is.
   it('fail when the sleep debt barely slows study (sCoef 0.01)', async () => {
     const r = judged(await load(), { sCoef: 0.01 });
     expect(r.ok).toBe(false);
@@ -60,12 +62,12 @@ describe('the four player archetypes of design doc 9.5', { timeout: 180_000 }, (
     expect(r.failed).toContain('fighter.final FAIL');
   });
 
-  it('fail when the performance factor reaches 2.0, through the known gap of the informed player moving away from 70', async () => {
-    // The fighters' final cannot catch it: the night owl's progress is too low for any factor to pass. The patrol gap may
-    // tip below 10% as well, but only just, so it is not pinned.
+  it('fail when the performance factor reaches 2.0, through the informed player averaging over 80', async () => {
+    // The fighters' final cannot catch it: the night owl's progress is too low for any factor to pass. The patrol gap tips
+    // below 10% as well, but only just, so it is not pinned.
     const r = judged(await load(true));
     expect(r.ok).toBe(false);
-    expect(r.failed).toContain('informed.grade WORSE');
+    expect(r.failed).toContain('informed.grade FAIL');
   });
 });
 

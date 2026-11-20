@@ -41,7 +41,8 @@ export function allSelections(): string[][] {
 /** Bedtimes of the balanced player who studies late and still keeps the exam eve early: the ground between 22:30 and 01:00. */
 export const LATE_BEDS = [23, 23.5, 24, 24.5] as const;
 
-const CARD_STYLE = { rank: 2, rankBed: 22, debug: 2, walk: true, project: (v: DayView) => (v.project?.open && v.day >= 6 ? 3 : 0) };
+/** How the responsive player plays the course cards, lent to the other archetypes. */
+export const CARD_STYLE = { rank: 2, rankBed: 22, debug: 2, walk: true, project: (v: DayView) => (v.project?.open && v.day >= 6 ? 3 : 0) };
 
 /** The balanced player studying until `bed` on every night but the exam eve, playing the cards as the responsive player does. */
 export function lateStudier(bed: number): Strategy {
