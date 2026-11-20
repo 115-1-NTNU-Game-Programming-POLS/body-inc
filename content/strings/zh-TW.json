@@ -787,6 +787,8 @@
     "welfare.know_when_to_stop.effect": { "text": "排行榜熬夜在午夜前收手，隔天巡視的蓋章量表從 30 開始。", "fact": "" },
     "welfare.quick_bind.name": { "text": "快速裝訂", "fact": "" },
     "welfare.quick_bind.effect": { "text": "連續 2 發釘書針打中同一個敵人就裝訂定住（原本要 3 發）。", "fact": "" },
+    "welfare.key_points.name": { "text": "重點標註", "fact": "" },
+    "welfare.key_points.effect": { "text": "螢光筆圈出來的標記持續 12 秒（原本 8 秒），標記期間釘書機與公文夾對它的傷害加倍。", "fact": "" },
     "welfare.bind_master.name": { "text": "裝訂大師", "fact": "" },
     "welfare.bind_master.effect": { "text": "打中被裝訂的敵人時，身邊 1.5 格內的一般敵人也受到 1 點傷害。", "fact": "" },
     "welfare.recycle.name": { "text": "公文回收", "fact": "" },

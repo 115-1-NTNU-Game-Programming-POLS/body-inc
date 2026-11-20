@@ -1,5 +1,6 @@
 import { BASE_PERKS, type Perks } from '../combat/perks.ts';
 import { seedStreams, drawInt } from '../rng.ts';
+import { TICK_HZ } from '../time.ts';
 import { takes } from './courses.ts';
 import type { FloorId } from './floors.ts';
 import { GRADES, type Grade } from './load.ts';
@@ -26,6 +27,7 @@ export const WELFARE_CARDS: readonly WelfareCard[] = [
   { id: 'bind_master', source: 'general', perks: { bindSplash: 1 } },
   { id: 'recycle', source: 'general', perks: { parryBind: 2 } },
   { id: 'fast_return', source: 'general', perks: { parryBoost: true } },
+  { id: 'key_points', source: 'general', perks: { markTicks: 12 * TICK_HZ } },
 ];
 
 /** The cards offered for a rating (design doc 8.8): one for C, two for B, three for A and S. */

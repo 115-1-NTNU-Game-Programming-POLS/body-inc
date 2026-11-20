@@ -1349,7 +1349,7 @@ export function step(state: GameState, pressed: TickInput): StepResult {
         enemies.set(e.id, { ...e, phase: 'dispersed', phaseTicks: 0, frozen: 0 });
         events.push({ type: 'dispersed', target: e.id, enemy: e.type });
       } else {
-        enemies.set(e.id, { ...e, markedUntil: now + HIGHLIGHTER.markTicks });
+        enemies.set(e.id, { ...e, markedUntil: now + perks.markTicks });
         events.push({ type: 'marked', target: e.id, enemy: e.type });
       }
     }
