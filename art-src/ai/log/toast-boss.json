@@ -1,0 +1,41 @@
+{
+ "id": "toast-boss",
+ "title": "敬酒部長 Boss 7 格像素圖集（AI 姿勢表縮成 64×64 作為底，杯頭由程式繪製，身體、手與道具由江兆耘手繪重畫）",
+ "batch": "toast-boss-poses",
+ "tool": "ChatGPT (gpt-image)",
+ "model": "不在憑證中",
+ "date": "2026-11-21",
+ "template": "toast-boss-pose-sheet-v1",
+ "prompt": [
+  "【提示詞 1：造型定稿，ChatGPT】Generate exactly ONE image: a single character, front view, standing, full body, centered. Not a sheet, not multiple variations.",
+  "Style: chunky pixel-art-friendly character, thick 1-pixel-equivalent dark navy outline (#0C2D5E), flat colors, one-step shading only, no gradients, no texture, crisp square pixels, simple readable shapes that will still read when shrunk to 64x64 pixels.",
+  "Subject: a big, enthusiastic corporate boss monster, 'the Toast Minister'. Broad shoulders, wide stance, much larger and bulkier than a normal office worker (about 1.5 times the body width of a regular chibi enemy). His head is a giant round-mouthed toasting cup, like a big stein: a round open rim on top with a ring of cream foam, a cup body with wine-red (#9B2335) and amber-gold (#D9A441) vertical stripes, and a small side handle. His face is drawn on the cup body: wide round shiny eyes and a huge warm open smile, extremely friendly and over-enthusiastic, never angry, never blushing, never drunk. He wears a charcoal suit (#3B3F4A), white shirt, wine-red necktie (#9B2335). On the left chest a small plain gold lightning-bolt pin (#FFC83D) with a navy ring around it. A cream-colored blank sash (no writing) runs diagonally from one shoulder to the opposite hip, passing on the side away from the chest pin so the pin stays fully visible. In one hand he holds a karaoke microphone, in the other hand he raises a small cup in a cheerful toast. Powerful, loud, warm and a bit too eager, funny rather than scary, no blood.",
+  "Background: plain solid pure white, no floor, no shadow, no scenery.",
+  "Avoid: text, letters, numbers, Chinese characters, fake writing, logos, watermark, blush, red face, drunk expression, wobbling, burping, bottles, weapons, realistic anatomy, 3D render, photo, gradients, glossy highlights, multiple panels.",
+  "【提示詞 2：姿勢表，附提示詞 1 選定的圖當參考】The attached image is my pixel-art game boss. Keep this character EXACTLY as attached: same giant round-mouthed toasting cup head with foam ring and wine-red and amber stripes, same side handle, same friendly face, same charcoal suit, wine-red tie, gold lightning pin on the chest, same blank cream sash, same thick navy outline, same flat colors, same proportions and size.",
+  "Generate exactly ONE image: a horizontal sprite sheet with 7 poses of the SAME character in a single row, same size, feet on the same baseline (the sitting pose rests on the same baseline), plain solid pure white background, no floor, no shadow.",
+  "Poses, left to right, all front view: 1. idle A: standing, singing into the microphone with his mouth open in a happy song, the other hand holding the small cup at chest height. 2. idle B: the same standing singing pose, but a slightly different moment: mouth a little more closed, microphone lowered a bit, cup slightly higher. 3. wave: stepping forward with BOTH arms spread wide open, as if going in for an over-enthusiastic big hug toward the viewer, microphone still in one hand and the cup in the other, big warm smile. 4. breath: bent forward, both hands resting on his knees, panting for breath, the cup head tilted down a little, tired but still friendly, the whole silhouette clearly shorter than the standing poses. 5. propose: standing tall with BOTH arms raised straight up above his head, microphone in one raised hand and the cup in the other raised hand, the tallest silhouette of all poses, chest pin fully visible. 6. review: sitting on the floor cross-legged, hugging a blank folded proposal document that has a stamp mark on it, cup head tilted down, the shortest silhouette. 7. surprised: wide round eyes and an open round mouth, both hands raised beside his head, still holding the microphone and the cup.",
+  "Keep the torso upright, do not change his face into an angry one in any pose. No text, no letters, no numbers, no motion lines, no sparkles, no sweat drops, no light beams, no effects."
+ ],
+ "references": "造型定稿檔名：＿＿＿＿；姿勢表檔名：＿＿＿＿（ChatGPT 下載的原始檔名，作者填寫）；美術指南 §5.5 與 §14.4（Boss 剪影規則：提案姿勢最高、審核中最矮）",
+ "candidates": null,
+ "selected": "造型定稿與姿勢表各選 1 張（生成圖未入庫）",
+ "source_name": "ChatGPT 下載的 webp",
+ "post": {
+  "select": true,
+  "outline": "程式補成連續的 #0C2D5E 外框後由江兆耘手修",
+  "quantize": "縮成 64×64 並對到固定色集（西裝 3B3F4A / 2C2F38、鞋 393237、徽章 FFC83D、領帶 9B2335 等），全部在 body-inc-pixel.gpl 內",
+  "remove-text": "n/a",
+  "pixel-cleanup": "杯頭與外框由 Python 腳本在本機一次性繪製（腳本未入庫）；身體、手、麥克風、杯子、彩帶由江兆耘手修重畫；胸前徽章由腳本依 tools/art/make_stopgaps.py 的 5×6 閃電（FFC83D，四鄰外圈 0C2D5E，落在西裝上）重蓋；站立四格整格下移 1 像素對齊錨點列 62",
+  "style-board-check": "待審"
+ },
+ "hours": null,
+ "status": "hand-finished",
+ "processed": {
+  "outputs": [
+   "public/assets/atlases/toast-boss.png",
+   "public/assets/atlases/toast-boss.json"
+  ],
+  "png_colors": 13
+ }
+}
