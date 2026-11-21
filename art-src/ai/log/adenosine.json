@@ -1,0 +1,33 @@
+{
+ "id": "adenosine",
+ "title": "腺苷漂浮 2 格像素圖集（底為暫代圖，江兆耘手修臉部與帳單；輪廓以腳本改為紫色虛線）",
+ "batch": "adenosine-sprites",
+ "tool": "stopgap 底圖（原為 ChatGPT 生成的腺苷頭像，由 tools/art/make_stopgaps.py 縮成像素圖）",
+ "model": "不在憑證中",
+ "date": "2026-11-21",
+ "template": "n/a",
+ "prompt": [
+  "本素材沒有新的 AI 生成：底圖是 tools/art/make_stopgaps.py 由 ChatGPT 生成的腺苷頭像縮成的暫代圖（頭像紀錄見 portrait-adenosine-base.json）。江兆耘手修眼睛、嘴與帳單；輪廓由腳本把墨藍實線改為 6A5FB8 虛線（沿輪廓每 3 像素擦 1 像素）。"
+ ],
+ "references": "public/assets/atlases/stopgap/adenosine.png（暫代圖）；美術指南 §5.5（腺苷：約 20×18 半透明棉花團、兩隻點眼、微笑、帳房帽、胸前白色帳單、#6A5FB8 虛線輪廓 2 實 1 空）；art-src/ai/log/portrait-adenosine-base.json（頭像的生成紀錄）",
+ "candidates": null,
+ "selected": "n/a",
+ "source_name": "stopgap/adenosine.png",
+ "post": {
+  "select": true,
+  "outline": "江兆耘手修臉部後，輪廓由腳本改成 #6A5FB8 虛線（沿輪廓每 3 像素擦 1 像素）",
+  "quantize": "全部在 body-inc-pixel.gpl 內",
+  "remove-text": "n/a",
+  "pixel-cleanup": "江兆耘手修（眼睛、嘴、帳單）",
+  "style-board-check": "待審"
+ },
+ "hours": null,
+ "status": "hand-finished",
+ "processed": {
+  "outputs": [
+   "public/assets/atlases/adenosine.png",
+   "public/assets/atlases/adenosine.json"
+  ],
+  "png_colors": 9
+ }
+}
