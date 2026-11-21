@@ -1,0 +1,33 @@
+{
+ "id": "phone-sprite",
+ "title": "手機精「再一支」臉 2 格像素圖集（只畫臉，外框與螢幕字由程式處理；由程式繪製，江兆耘審定）",
+ "batch": "phone-faces",
+ "tool": "none（程式繪製）",
+ "model": "n/a",
+ "date": "2026-11-21",
+ "template": "n/a",
+ "prompt": [
+  "本素材沒有 AI 生成。2 格臉（賊笑、眨眼張嘴）由 Python 腳本在本機一次性繪製（腳本未入庫），32×32，背景透明，只畫臉，不畫手機外框；由江兆耘審定後採用。"
+ ],
+ "references": "美術指南 §5.2（手機精：32×32，程式畫手機外框，江兆耘只畫臉 2 格，螢幕內容由程式貼字）；設計文件（手機精「再一支」不攻擊，只用對話吃時間）",
+ "candidates": null,
+ "selected": "n/a",
+ "source_name": "n/a",
+ "post": {
+  "select": true,
+  "outline": "n/a",
+  "quantize": "全部在 body-inc-pixel.gpl 內",
+  "remove-text": "n/a",
+  "pixel-cleanup": "n/a（程式繪製，作者審定，未另行手修）",
+  "style-board-check": "待審"
+ },
+ "hours": null,
+ "status": "final",
+ "processed": {
+  "outputs": [
+   "public/assets/atlases/phone-sprite.png",
+   "public/assets/atlases/phone-sprite.json"
+  ],
+  "png_colors": 3
+ }
+}
