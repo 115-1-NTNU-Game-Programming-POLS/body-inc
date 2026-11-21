@@ -1,7 +1,7 @@
 {
  "operator": "assets/atlases/operator",
  "suit-base": "assets/atlases/suit-base",
- "energy-seller": "assets/atlases/stopgap/energy-seller",
+ "energy-seller": "assets/atlases/energy-seller",
  "cheers": "assets/atlases/stopgap/cheers",
  "consultant": "assets/atlases/consultant",
  "flyer": "assets/atlases/flyer",
