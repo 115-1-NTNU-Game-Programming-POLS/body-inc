@@ -27,7 +27,12 @@
   "pixel-cleanup": "江兆耘手修（臉、月牙徽章、吸塵器、腿）；手修時曾放大編輯，由腳本以多數色取樣縮回 32×48",
   "style-board-check": "待審"
  },
- "hours": null,
+ "hours": {
+  "cleanup_minutes": 20,
+  "generation_minutes": null,
+  "hand_estimate_minutes": null,
+  "note": "作者於 PR 回報。"
+ },
  "status": "hand-finished",
  "processed": {
   "outputs": [
