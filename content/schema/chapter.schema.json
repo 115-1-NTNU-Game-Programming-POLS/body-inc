@@ -13,9 +13,9 @@
     "next": { "description": "The chapter that follows once this one ends, after its closing cards. Absent: the game returns to the title.", "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
     "intro": { "description": "A conversation that opens as a new game of this chapter starts (the prologue's interview). Not replayed on continue.", "type": "string", "minLength": 1 },
     "tools": {
-      "description": "Tools the operator has from the start of this chapter. Absent means every tool; the prologue lists none, since the chairman hands over the stamp at its end (design doc 5.4). Tools granted earlier in the run are kept.",
+      "description": "Tools the operator has from the start of this chapter. Absent means the stamp and the folder (core/tools.ts DEFAULT_TOOLS), never the highlighter, which only a chapter that lists it or a grant hands over; the prologue lists none, since the chairman hands over the stamp at its end (design doc 5.4). Tools granted earlier in the run are kept.",
       "type": "array",
-      "items": { "enum": ["stamp"] },
+      "items": { "enum": ["stamp", "folder", "highlighter"] },
       "uniqueItems": true
     },
     "partner": { "description": "The partner who walks with the operator through this chapter. The chairman gives the L key his pie shield (design doc 5.1): it stops thrown shots for a few seconds, its size and duration times S, and then has to cool down. The stomach logistics chief gives it his acid (design doc 6.2): a zone spat ahead that hurts and shoves back ordinary enemies for 3 seconds, with a cooldown of 9. Absent: L does nothing.", "enum": ["chairman", "logistics"] },
@@ -54,14 +54,15 @@
       "additionalProperties": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" }
     },
     "climax": {
-      "description": "The choice an event card offers before the boss (design doc 7.4): a boolean tag it sets, and what that costs. With the flag on, the boss summons `summonFactor` times as many enemies at once and may keep that many times as many alive, and going to bed files only `archiveFactor` of the desk.",
+      "description": "The choice an event card offers before the boss (design doc 7.4, 7.5): a boolean tag it sets, and what that costs. With the flag on, the boss summons `summonFactor` times as many enemies at once and may keep that many times as many alive, the stomach boss throws his stage-2 boxes `paceFactor` times as often, and going to bed files only `archiveFactor` of the desk.",
       "type": "object",
       "additionalProperties": false,
       "required": ["flag"],
       "properties": {
         "flag": { "description": "Boolean tag the choice sets.", "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
         "summonFactor": { "description": "Multiplier on the boss's summon count and cap while the flag is on.", "type": "number", "minimum": 1, "maximum": 4 },
-        "archiveFactor": { "description": "Multiplier on what sleep files while the flag is on.", "type": "number", "minimum": 0, "maximum": 1 }
+        "archiveFactor": { "description": "Multiplier on what sleep files while the flag is on.", "type": "number", "minimum": 0, "maximum": 1 },
+        "paceFactor": { "description": "Multiplier on how often the stomach boss throws in his stage 2 (加大份量) while the flag is on; the time between boxes is divided by it.", "type": "number", "minimum": 1, "maximum": 2 }
       }
     }
   },

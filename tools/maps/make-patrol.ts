@@ -86,6 +86,10 @@ function chain(world: string, seed: number, doors: { w: boolean; e: boolean }) {
   return s;
 }
 
+/** A reveal switch (issue #76) over tiles, with nothing to open: only the highlighter's line or circle lights it. */
+const reveal = (id: number, name: string, col: number, row: number, cols: number, rows: number, extra: object[] = []) =>
+  rect(id, name, 'Switch', col * T, row * T, cols * T, rows * T, [str('mode', 'SwitchMode', 'reveal'), ...extra]);
+
 for (const floor of ['brain', 'liver'] as const) {
   const folder = `patrol-${floor}`;
   const seed = floor === 'brain' ? 101 : 131;
@@ -97,7 +101,9 @@ for (const floor of ['brain', 'liver'] as const) {
       start(3, 6),
       door(2, 'E'),
       npc(3, floor, `patrol.${floor}.lobby`, 9, 5),
-    ]));
+      // The liver's load, which the highlighter shows over him (design doc 8.6); the patrol carries it for this.
+      ...(floor === 'liver' ? [reveal(4, 'load', 8, 4, 3, 3, [str('dialogueId', undefined, 'patrol.liver.found'), str('figure', 'RevealFigure', 'liver_load')])] : []),
+    ], floor === 'liver' ? [{ name: 'needs', type: 'string', value: 'highlighter' }] : []));
   }
 }
 

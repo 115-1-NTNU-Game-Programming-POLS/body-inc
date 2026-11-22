@@ -41,6 +41,14 @@ describe('the rating of a played patrol (design doc 8.5)', () => {
     expect(ratePatrol({ hits: 0, forced: true, records: 0 }, goals(true, true))).toEqual({ failed: true });
   });
 
+  it('reports the liver read by the highlighter on every rating, a failure included, since what was seen stays seen', () => {
+    const read = { ...goals(true, true), read: true };
+    expect(ratePatrol(NO_TALLY, read)).toEqual({ grade: 'S', liverRead: true });
+    expect(ratePatrol(NO_TALLY, { ...read, core: false })).toEqual({ grade: 'C', liverRead: true });
+    expect(ratePatrol({ hits: 0, forced: true, records: 0 }, read)).toEqual({ failed: true, liverRead: true });
+    expect(ratePatrol(NO_TALLY, goals(true, true))).toEqual({ grade: 'S' });
+  });
+
   it('counts the perfect dodges as records, and puts them on the rating only when there are some', () => {
     const t = tallyPatrol(NO_TALLY, [{ type: 'perfectDodge' }, { type: 'dodge' }, { type: 'perfectDodge' }, { type: 'perfectDodge' }]);
     expect(t).toEqual({ hits: 0, forced: false, records: 3 });
@@ -112,7 +120,7 @@ describe('a played patrol in the semester', () => {
       const drawn = new Map(baseline.history.map((r) => [r.day, r.patrols.map((p): PatrolResult => ({ grade: p.grade }))]));
       const played: Strategy = {
         ...base,
-        floor: (view, tags) => ({ ...base.floor(view, tags), ...(drawn.get(view.day)?.length ? { played: drawn.get(view.day)! } : {}) }),
+        floor: (view, tags, load) => ({ ...base.floor(view, tags, load), ...(drawn.get(view.day)?.length ? { played: drawn.get(view.day)! } : {}) }),
       };
       expect(baseline.history.some((r) => r.patrols.length > 0), name).toBe(true);
       expect(runSemester(ctx, played, 4), name).toEqual(baseline);
@@ -143,7 +151,7 @@ describe('a played patrol in the semester', () => {
 });
 
 describe('the run slot with played patrols', () => {
-  const played = [{ grade: 'A' as const }, { failed: true as const }, null];
+  const played = [{ grade: 'A' as const }, { failed: true as const }, null, { grade: 'C' as const, liverRead: true as const }, { failed: true as const, liverRead: true as const }];
   const run = {
     semester: {
       seed: 3,
@@ -161,9 +169,9 @@ describe('the run slot with played patrols', () => {
   });
 
   it('refuses a result that is neither a rating nor a failure', () => {
-    for (const bad of [{ grade: 'Z' }, { failed: false }, {}, { grade: 'A', failed: true }]) {
+    for (const bad of [{ grade: 'Z' }, { failed: false }, {}, { grade: 'A', failed: true }, { grade: 'A', liverRead: false }, { failed: true, liverRead: 1 }]) {
       const data = { semester: { seed: 3, days: [[{ kind: 'floor', choice: { patrol: 'brain', played: [bad] } }]] } };
-      expect(decode(RUN, JSON.stringify({ schema: 9, data })).kind, JSON.stringify(bad)).toBe('invalid');
+      expect(decode(RUN, JSON.stringify({ schema: 10, data })).kind, JSON.stringify(bad)).toBe('invalid');
     }
   });
 });

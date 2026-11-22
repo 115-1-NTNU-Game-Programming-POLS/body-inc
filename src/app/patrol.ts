@@ -18,12 +18,16 @@ export interface PatrolPlay {
   readonly loop: FixedStepLoop<ChapterState, GameEvent>;
   /** The result as it stands: what the rooms' goals and the hits so far rate, or a failure once the operator was sent home. */
   readonly rate: () => PatrolResult;
+  /** The result of a patrol given up or cut short: a failure, which still keeps what the highlighter read (design doc 8.6). */
+  readonly giveUp: () => PatrolResult;
 }
 
 /** What the registry holds while a patrol is up: the way the rooms are played, and what to do once they are through with. */
 export interface PatrolSession {
   readonly floor: FloorId;
   readonly play: PatrolPlay;
+  /** The liver's load of the day, the figure the highlighter shows over the liver once lit (design doc 8.6). */
+  readonly liverLoad: number;
   readonly done: (result: PatrolResult) => void;
 }
 
@@ -40,5 +44,8 @@ export function patrolLoop(base: ChapterContent, floor: FloorId, tags: TagState 
   loop.onEvent((e) => {
     tally = tallyPatrol(tally, [e]);
   });
-  return { ctx: base, loop, rate: () => ratePatrol(tally, patrolGoals(base, loop.state)) };
+  return {
+    ctx: base, loop, rate: () => ratePatrol(tally, patrolGoals(base, loop.state)),
+    giveUp: () => ({ failed: true, ...(patrolGoals(base, loop.state).read ? { liverRead: true as const } : {}) }),
+  };
 }

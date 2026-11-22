@@ -52,12 +52,17 @@ export interface Setting {
  * that could land on one has nothing to show. Drawn from the seed alone, so a saved run replays it. The hours never fall on an
  * exam day, nor on an evening with a barbecue, whose hour they would cover.
  */
-export function settingFor(seed: number, level: number, params: Pick<SemesterParams, 'days' | 'midDay' | 'finDay' | 'weekend' | 'shiftHours' | 'labHours'>, scenario: Scenario): Setting | undefined {
-  if (level < DISRUPT_FROM) return undefined;
+export function settingFor(seed: number, level: number, params: Pick<SemesterParams, 'days' | 'midDay' | 'finDay' | 'weekend' | 'shiftHours' | 'labHours'>, scenario: Scenario, pick?: SettingId): Setting | undefined {
+  if (level < DISRUPT_FROM) {
+    if (pick !== undefined) throw new RangeError(`clause ${level} draws no setting card to pick "${pick}" from`);
+    return undefined;
+  }
+  if (pick !== undefined && !SETTING_IDS.includes(pick)) throw new RangeError(`"${String(pick)}" is not a setting card`);
   let s = seedStreams(seed);
   let i: number;
+  // The draw is made even when the card is picked, so the stream its days come from is the same either way.
   [i, s] = drawInt(s, 'setting', SETTING_IDS.length);
-  const id = SETTING_IDS[i]!;
+  const id = pick ?? SETTING_IDS[i]!;
   const days = Array.from({ length: params.days }, (_, d) => d + 1)
     .filter((d) => d !== params.midDay && d !== params.finDay && !(scenario[d] ?? []).includes('bbq'))
     .filter((d) => id === 'shifts' || !params.weekend.includes(d));
@@ -74,10 +79,11 @@ export const settingHours = (setting: Setting | undefined, day: number): readonl
  * read as it stands, so a context whose events change afterwards must be given the clause after that, and only once: the final
  * multiplier would compound.
  */
-export function withClause(ctx: SemesterContext, seed: number, level: number): SemesterContext {
+export function withClause(ctx: SemesterContext, seed: number, level: number, pick?: SettingId): SemesterContext {
   if (!validClause(level)) throw new RangeError(`the overtime clause must be a whole level from 0 to ${MAX_CLAUSE}, got ${String(level)}`);
   if (ctx.clause !== undefined) throw new RangeError(`the context already carries overtime clause ${ctx.clause}`);
+  if (level === 0 && pick !== undefined) throw new RangeError(`clause 0 draws no setting card to pick "${pick}" from`);
   if (level === 0) return ctx;
-  const setting = settingFor(seed, level, ctx.params, ctx.scenario);
+  const setting = settingFor(seed, level, ctx.params, ctx.scenario, pick);
   return { ...ctx, clause: level, finMult: (ctx.finMult ?? 1) * clauseFinMult(level), ...(setting === undefined ? {} : { setting }) };
 }

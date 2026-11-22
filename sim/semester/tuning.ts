@@ -8,7 +8,7 @@
  * comparison (every night of 2 hours against the last two nights of 4 hours). The `plain cards` yardstick swaps networks
  * for algorithms, so it differs in the paper-study share as well as in the card.
  */
-import { creditsOf, rankGain, reviewPoints, runSemester, summarize, PROJECT_NEED, PROJECT_REVIEW, type SemesterContext, type SemesterState, type Strategy } from '../../src/core/index.ts';
+import { PROJECT_NEED, rankGain, runSemester, summarize, yearEndPoints, type SemesterContext, type SemesterState, type Strategy } from '../../src/core/index.ts';
 import { contest, mean, project } from './cards.ts';
 import { contextFor, scenarioFor } from './scenario.ts';
 
@@ -42,11 +42,8 @@ function report(title: string, rows: readonly Row[], extra: (s: SemesterState) =
         ctxs.push(ctx);
       }
       const sums = ends.map((s, i) => summarize(s, ctxs[i]!));
-      const credits = creditsOf(row.courses);
-      const review = sums.map((m, i) => {
-        const bonus = row.courses.includes('compiler') && ends[i]!.project >= PROJECT_NEED ? PROJECT_REVIEW : 0;
-        return m.passMid && m.passFin ? reviewPoints(m.grade, credits, bonus) : 0;
-      });
+      // The year-end points a passed run would bank, with no handbook pages counted, as the review column has always shown only passed runs.
+      const review = sums.map((m, i) => (m.passMid && m.passFin ? yearEndPoints(ends[i]!, ctxs[i]!, 0) : 0));
       console.log([
         row.label.padEnd(22), skill.toFixed(1).padStart(5), f1(mean(sums.map((m) => m.fin))), f1(mean(sums.map((m) => m.grade))), f1(mean(review)),
         f1(pct(sums.map((m) => m.passMid && m.passFin))), f1(pct(sums.map((m) => m.hospitalized))), f1(mean(ends.map(sleepOf))), f1(mean(ends.map(extra))).padStart(8),

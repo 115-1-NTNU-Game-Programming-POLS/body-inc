@@ -260,9 +260,15 @@ function toastDef(f: BossFile, where: string, problems: string[]): ToastDef {
   };
 }
 
-function deliveryOf(d: NonNullable<BossFile['deliveries']>, name: string, where: string, problems: string[]): SnackDelivery {
+/** The most a chapter's climax may speed up the stomach boss's stage 2 (chapter schema `climax.paceFactor`). */
+export const PACE_MAX = 2;
+
+/** `pace` is the most the rhythm can be sped up by: stage 2 is checked as a climax at PACE_MAX would leave it. */
+function deliveryOf(d: NonNullable<BossFile['deliveries']>, name: string, where: string, problems: string[], pace = 1): SnackDelivery {
   const everyTicks = ticks(d.everySeconds);
-  if (everyTicks <= TELEGRAPH.tier1Ticks) problems.push(`${where}: ${name}.everySeconds must be longer than the 0.5 s tier-1 telegraph`);
+  if (Math.round(everyTicks / pace) <= TELEGRAPH.tier1Ticks) {
+    problems.push(`${where}: ${name}.everySeconds must be longer than the 0.5 s tier-1 telegraph${pace > 1 ? ` even when a climax divides it by ${pace}` : ''}`);
+  }
   if (d.halves !== 1) problems.push(`${where}: ${name}.halves: a delivery is a tier-1 hit and costs half a heart (halves 1)`);
   return { startTicks: ticks(d.startSeconds), everyTicks, speed: tilesPerSecond(d.speedTiles), portion: d.portion, halves: d.halves, returnDamage: d.returnDamage };
 }
@@ -270,7 +276,7 @@ function deliveryOf(d: NonNullable<BossFile['deliveries']>, name: string, where:
 function snackDef(f: BossFile, where: string, problems: string[]): SnackDef {
   const p = f.protest!;
   const one = deliveryOf(f.deliveries!, 'deliveries', where, problems);
-  const two = deliveryOf(f.stage2!.deliveries, 'stage2.deliveries', where, problems);
+  const two = deliveryOf(f.stage2!.deliveries, 'stage2.deliveries', where, problems, PACE_MAX);
   const three = deliveryOf(f.stage3!.deliveries, 'stage3.deliveries', where, problems);
   if (f.stage2!.budget >= f.budget) problems.push(`${where}: stage2.budget must be below budget`);
   if (f.stage3!.budget >= f.stage2!.budget) problems.push(`${where}: stage3.budget must be below stage2.budget`);

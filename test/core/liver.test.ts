@@ -202,12 +202,13 @@ describe('the factory room', () => {
     expect(spawned(r.state)).toEqual([]);
   });
 
-  it('the east door waits for the line and nothing else', () => {
+  it('the east door waits for the line and the health check in the office, and nothing else', () => {
     const door = liver.rooms.get(FACTORY)!.objects.find((o) => o.kind === 'Door' && o.props['socket'] === 'E')!;
     expect(door.props['lock']).toBe('resource');
     const cond = compileCondition(TAGS, String(door.props['lockParam']));
-    expect(holds(tags('alcohol:1'), TAGS, cond)).toBe(false);
-    expect(holds(runLine(tags('alcohol:1'), TAGS, 600, LINE, 0).tags, TAGS, cond)).toBe(true);
+    expect(holds(tags('alcohol:1,liver_found'), TAGS, cond)).toBe(false);
+    expect(holds(runLine(tags('alcohol:1'), TAGS, 600, LINE, 0).tags, TAGS, cond)).toBe(false);
+    expect(holds(runLine(tags('alcohol:1,liver_found'), TAGS, 600, LINE, 0).tags, TAGS, cond)).toBe(true);
   });
 
   it('the parser refuses a line room missing a stage, and an authored acetaldehyde box', () => {
@@ -264,7 +265,8 @@ describe('the glycogen warehouse shut on an empty stomach (fact 31)', () => {
   });
 
   it('in the chapter the warehouse shuts only for alcohol on an empty stomach, and dizziness slows the operator', () => {
-    const fasting = withTags(at(FACTORY), 'alcohol:1,fasting,glucose:35');
+    // Found out already, so the note before the queued door does not stop the walk.
+    const fasting = withTags(at(FACTORY), 'alcohol:1,fasting,glucose:35,liver_found');
     const walked = run(place(fasting, 4 * TILE, 7.5 * TILE), { move: { x: 1, y: 0 } }, GLUCOSE.drainTicks + 1).state;
     expect(isDizzy(walked.run.tags)).toBe(true);
     const next = run(walked, NONE, 1).state;
@@ -274,14 +276,14 @@ describe('the glycogen warehouse shut on an empty stomach (fact 31)', () => {
       return run(start, { move: { x: 1, y: 0 } }, 30).state.game.operator.x - start.game.operator.x;
     };
     const dizzyStride = stride(next);
-    const steadyStride = stride(withTags(at(FACTORY), 'alcohol:1,glucose:50'));
+    const steadyStride = stride(withTags(at(FACTORY), 'alcohol:1,glucose:50,liver_found'));
     expect(dizzyStride).toBeLessThan(steadyStride * 0.9);
     // Another slow source is kept beside it, not overwritten.
     // From an operator not yet marked dizzy, so the chapter has to set the dizzy slow on this tick.
     const { bodySlow: _, ...fresh } = next.game.operator;
     const syrup = { ...next, game: { ...next.game, operator: { ...fresh, slows: [0.2] } } };
     expect(run(syrup, NONE, 1).state.game.operator).toMatchObject({ slows: [0.2], bodySlow: GLUCOSE.dizzySlow });
-    const fed = withTags(at(FACTORY), 'alcohol:1,glucose:40');
+    const fed = withTags(at(FACTORY), 'alcohol:1,glucose:40,liver_found');
     expect(isDizzy(run(place(fed, 4 * TILE, 7.5 * TILE), { move: { x: 1, y: 0 } }, GLUCOSE.drainTicks + 1).state.run.tags)).toBe(false);
   });
 });

@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
-  BIND, createGame, FOLDER, loadBossTable, loadEnemyTable, NO_INPUT, PARRY_BOOST, step, TILE,
+  BIND, createGame, FOLDER, loadBossTable, loadEnemyTable, NO_INPUT, PARRY_BOOST, step, STURDY_WRAP, TILE,
   type CaffeineParams, type DomainEvent, type EnteredRoom, type GameState, type TickInput,
 } from '../../src/core/index.ts';
 import { BASE_PERKS, type Perks } from '../../src/core/combat/perks.ts';
@@ -132,6 +132,21 @@ describe('binding (裝訂, design doc 8.8)', () => {
     const r = run(dummies(ONE, { bindHits: 2 }), 120, fire);
     const hitsBefore = r.events.slice(0, firstTick(r, 'bound') + 1).flat().filter((e) => e.type === 'hit').length;
     expect(hitsBefore).toBe(2);
+  });
+
+  it('holds the enemy for pinTicks: 2.5 s with 加固包裝, the old 1.5 s without, and the same count of hits to get there', () => {
+    const pinned = (perks?: Partial<Perks>) => {
+      const bound = firstTick(run(dummies(ONE, perks), 120, fire), 'bound');
+      const at = run(dummies(ONE, perks), bound + 1, fire).state.enemies[0]!;
+      return { bound, pin: at.pin, frozen: at.frozen };
+    };
+    const base = pinned();
+    const wrapped = pinned({ pinTicks: STURDY_WRAP.pinTicks });
+    expect(STURDY_WRAP.pinTicks).toBe(150);
+    expect(base.pin).toBe(BIND.pinTicks);
+    expect(wrapped.pin).toBe(STURDY_WRAP.pinTicks);
+    expect(wrapped.frozen).toBeGreaterThanOrEqual(STURDY_WRAP.pinTicks - 1);
+    expect(wrapped.bound).toBe(base.bound);
   });
 });
 

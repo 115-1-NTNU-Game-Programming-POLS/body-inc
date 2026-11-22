@@ -10,6 +10,8 @@ export const WALL_CHAPTER = 'wall';
 export interface WallSession {
   readonly wall: Wall;
   readonly done: () => void;
+  /** Called as soon as the report desk's page is kept, before the wall closes, so a tab closed on the wall still pays for it. */
+  readonly onPage?: () => void;
 }
 
 /**

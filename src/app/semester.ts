@@ -1,6 +1,6 @@
 import {
-  advanceDay, amount, BURDEN_REWARD, burdenOf, clauseFinMult, CLAUSE_CREDIT_CAP, commitmentsOf, composeReport, creditsOf, EVENTS, fixedHour, GRADE_HOURS, GRADE_PAPERS, gradeDays, HOMEWORK_MISS_PENALTY, HOMEWORK_PROGRESS, isFailed, patrolKit, PROJECT_FIN_PENALTY, PROJECT_NEED, PROJECT_REVIEW, projectDue, RANK_FULL, rankNights, RANK_SHARE, rankSharePercent, reviewPoints, PROGRESS, takes, prototypeContext, semesterInputs, settingHours, SIT_LIMIT, startSemester, summarize, unlockedAfter, welfareOffer, withBarbecueOn, withClause,
-  type DayView, type FloorChoice, type FloorId, type MorningPlan, type NightPlan, type PatrolKit, type PatrolResult, type ProgressData, type ReportDocument, type Scenario, type SemesterContext, type SemesterRun, type SemesterState,
+  advanceDay, amount, BOOKED_BLOOD_TEST_DAY, SETTING_IDS, CAREER_NODES, CAREER_ORDER, cannotBuy, withBloodTestOn, yearEndPoints, BURDEN_REWARD, burdenOf, clauseFinMult, CLAUSE_CREDIT_CAP, commitmentsOf, composeReport, creditsOf, EVENTS, fixedHour, GRADE_HOURS, GRADE_PAPERS, gradeDays, HOMEWORK_MISS_PENALTY, HOMEWORK_PROGRESS, isFailed, patrolKit, PROJECT_FIN_PENALTY, PROJECT_NEED, PROJECT_REVIEW, projectDue, RANK_FULL, rankNights, RANK_SHARE, rankSharePercent, PROGRESS, takes, prototypeContext, semesterInputs, settingHours, SIT_LIMIT, startSemester, summarize, unlockedAfter, welfareOffer, withBarbecueOn, withClause,
+  type AchievementId, type CareerNode, type Setting, type SettingId, type WorkOrder, type DayView, type FloorChoice, type FloorId, type MorningPlan, type NightPlan, type PatrolKit, type PatrolResult, type ProgressData, type ReportDocument, type Scenario, type SemesterContext, type SemesterRun, type SemesterState,
 } from '../core/index.ts';
 import { fillStr as fill, PARAMS, REPORT, str, STRINGS, TAGS } from './content.ts';
 import type { SaveIssue, SaveStore } from './storage.ts';
@@ -34,10 +34,78 @@ export const freshSeed = (semestersDone: number, now: number): number => (semest
  * The progress after a semester ran to its end, and issues from writing it; the registry copy follows even when the write failed.
  * `played` is the clause level the semester was played at and whether it was cleared, which decides what the next start may pick.
  */
-export function finishSemester(saves: SaveStore, progress: ProgressData, played?: { readonly level: number; readonly cleared: boolean }): { progress: ProgressData; issues: SaveIssue[] } {
+export function finishSemester(
+  saves: SaveStore, progress: ProgressData, played?: { readonly level: number; readonly cleared: boolean }, earned: readonly AchievementId[] = [], points = 0,
+): { progress: ProgressData; issues: SaveIssue[]; commended: AchievementId[] } {
   const unlocked = played === undefined ? undefined : unlockedAfter(progress.clauseUnlocked ?? 0, played.level, played.cleared);
-  const next = { ...progress, semestersDone: progress.semestersDone + 1, ...(unlocked === undefined ? {} : { clauseUnlocked: unlocked }) };
+  const had = progress.achievements ?? [];
+  const commended = earned.filter((id) => !had.includes(id));
+  const next = {
+    ...progress, semestersDone: progress.semestersDone + 1, ...(unlocked === undefined ? {} : { clauseUnlocked: unlocked }),
+    ...(commended.length > 0 ? { achievements: [...had, ...commended] } : {}),
+    ...(points > 0 ? { careerPoints: (progress.careerPoints ?? 0) + points } : {}),
+  };
+  return { progress: next, issues: saves.save(PROGRESS, next), commended };
+}
+
+/** Progress with `points` more banked for the career tree, saved; used when a semester's points grow after it was counted. */
+export function bankPoints(saves: SaveStore, progress: ProgressData, points: number): { progress: ProgressData; issues: SaveIssue[] } {
+  if (!Number.isInteger(points) || points < 0) throw new RangeError(`cannot bank ${points} points`);
+  if (points === 0) return { progress, issues: [] };
+  const next = { ...progress, careerPoints: (progress.careerPoints ?? 0) + points };
   return { progress: next, issues: saves.save(PROGRESS, next) };
+}
+
+/** Progress with `id` bought, or why it cannot be (owned already, or the points fall short); a bought node is saved at once. */
+export function buyCareerNode(saves: SaveStore, progress: ProgressData, id: CareerNode): { progress: ProgressData; issues: SaveIssue[] } | { refused: 'owned' | 'short' } {
+  const owned = progress.career ?? [];
+  const points = progress.careerPoints ?? 0;
+  const refused = cannotBuy(id, points, owned);
+  if (refused !== undefined) return { refused };
+  const next = { ...progress, careerPoints: points - CAREER_NODES[id].price, career: [...owned, id] };
+  return { progress: next, issues: saves.save(PROGRESS, next) };
+}
+
+/** The career tree's cards: one per node, with its price or that it is owned, and last the way out. */
+export function careerCards(progress: ProgressData): { title: string; caption: string; cards: { label: string; note: string; node?: CareerNode; allowed: boolean }[] } {
+  const owned = progress.career ?? [];
+  const points = progress.careerPoints ?? 0;
+  const cards = CAREER_ORDER.map((node) => {
+    const refused = cannotBuy(node, points, owned);
+    const price = refused === 'owned' ? str('career.owned') : fill('career.price', { n: CAREER_NODES[node].price });
+    const note = str(`career.node.${node}.note`);
+    return { label: `${str(`career.node.${node}`)}（${price}）`, note: refused === 'short' ? `${note}${str('career.short')}` : note, node, allowed: refused === undefined };
+  });
+  return {
+    title: fill('career.title', { points }), caption: str('career.caption'),
+    cards: [...cards, { label: str('career.leave'), note: str('career.leave.note'), allowed: true }],
+  };
+}
+
+export const hasAchievement = (progress: ProgressData | undefined, id: AchievementId): boolean => progress?.achievements?.includes(id) === true;
+
+/** The commendation (嘉獎令) of an achievement just earned: its name, why it was earned and what it unlocks. */
+export function commendation(id: AchievementId): { title: string; lines: string[] } {
+  return { title: str('semester.commend.title'), lines: [str(`achievement.${id}.name`), str(`achievement.${id}.why`), str(`achievement.${id}.unlock`)] };
+}
+
+/**
+ * The liver's work-order tray in the lobby (design doc 8.6), which 主動健檢 unlocks: how many work orders the liver was sent this
+ * semester, and still no load. With the career node 工單明細 (design doc 8.14) `details` lists the day and the cause of each.
+ */
+export function workOrderTray(orders: readonly number[], details?: readonly WorkOrder[]): string {
+  if (orders.length === 0) return str('semester.tray.none');
+  const count = fill('semester.tray.some', { n: orders.length });
+  if (details === undefined || details.length === 0) return count;
+  const list = details.map((o) => fill('semester.tray.order', { day: o.day, cause: str(`semester.event.${o.event}.name`), option: str(`semester.event.${o.event}.${o.option}`) }));
+  return `${count}\n${list.join('、')}`;
+}
+
+/** The commendation's seal, read as a square seal is: columns from the right, each from the top. */
+export function sealColumns(): string[][] {
+  const chars = [...str('semester.commend.seal')];
+  const side = Math.ceil(Math.sqrt(chars.length));
+  return Array.from({ length: side }, (_, c) => chars.slice(c * side, c * side + side));
 }
 
 /** Whether the semester passed both exams, which is what clears its clause level. */
@@ -61,6 +129,24 @@ export function clauseNote(level: number): string {
 /** The first and last-plus-one hour of a block of fixed hours, as the texts name them. */
 const spanOf = (hours: readonly number[]): { from: number; to: number } => ({ from: Math.min(...hours), to: Math.max(...hours) + 1 });
 
+/** The setting card's whole schedule, as the first morning and the pick of 多一種開局卡 tell it. */
+function settingIntro(setting: Setting): string {
+  const first = setting.commitments[0];
+  return fill(`semester.setting.intro.${setting.id}`, { days: setting.commitments.map((c) => c.day).join('、'), ...(first === undefined ? { from: 0, to: 0 } : spanOf(first.hours)) });
+}
+
+/**
+ * The setting cards a new semester offers to pick from, or none when it deals its own: the career node 多一種開局卡 draws both
+ * cards there are (design doc 8.14 says two of a pool; the pool has only two so far) under a clause that draws one at all.
+ */
+export function settingChoices(seed: number, courses: readonly string[] | undefined, clause: number, career: readonly string[]): { id: SettingId; label: string; note: string }[] {
+  if (seed === TUTORIAL_SEED || !career.includes('two_settings') || newSemester(seed, undefined, courses, clause, career).ctx.setting === undefined) return [];
+  return SETTING_IDS.map((id) => {
+    const setting = newSemester(seed, undefined, courses, clause, career, id).ctx.setting!;
+    return { id, label: str(`semester.setting.name.${id}`), note: settingIntro(setting) };
+  });
+}
+
 /**
  * What the morning of `day` tells of the clause and the setting card: on the first day the clause and the card's whole schedule,
  * on a day the card falls on a reminder of its hours.
@@ -72,9 +158,7 @@ export function settingLines(ctx: SemesterContext, day: number): string[] {
   if (day === 1) {
     if (level > 0) lines.push(fill('semester.clause.intro', { level, name: clauseName(level), mult: clauseFinMult(level) }));
     const first = setting?.commitments[0];
-    if (setting !== undefined && first !== undefined) {
-      lines.push(fill(`semester.setting.intro.${setting.id}`, { days: setting.commitments.map((c) => c.day).join('、'), ...spanOf(first.hours) }));
-    }
+    if (setting !== undefined && first !== undefined) lines.push(settingIntro(setting));
     return lines;
   }
   const hours = settingHours(setting, day);
@@ -128,6 +212,28 @@ export function walkPrompt(): { title: string; caption: string; options: { label
   };
 }
 
+/** The liver's load as a figure to show: whole points, against the red line. */
+export const liverFigure = (load: number): string => fill('semester.liver.figure', { value: Math.round(load), cap: PARAMS.floorRedAt });
+
+/** The line kept on screen with the latest reading of the liver and the day it was read (design doc 8.6); none before the first. */
+export const latestReading = (reading: DayView['liverReading']): string | undefined =>
+  reading === undefined ? undefined : `${fill('semester.liver.latest', { day: reading.day, label: str(`semester.reader.${reading.by}`) })}${liverFigure(reading.load)}`;
+
+/**
+ * A report on the liver (design doc 8.6), from the start-of-term checkup or the health office's blood test: the load read, against
+ * the floor lines the elevator would light at if the liver ever lit, and one card to go back to the day.
+ */
+export function readingPrompt(reading: { readonly load: number; readonly by: 'checkup' | 'blood_test' }): { title: string; caption: string; options: { label: string; note: string }[] } {
+  const { load } = reading;
+  const band = load >= PARAMS.floorRedAt ? 'red' : load >= PARAMS.floorOrangeAt ? 'orange' : load >= PARAMS.floorYellowAt ? 'yellow' : 'ok';
+  return {
+    title: `${str(`semester.${reading.by}.result`)}${liverFigure(load)}`,
+    caption: `${str(`semester.blood_test.${band}`)}
+${str('semester.blood_test.why')}`,
+    options: [{ label: str('semester.blood_test.back'), note: str('semester.blood_test.back.note') }],
+  };
+}
+
 /** The chairman's line for the morning of `day`, or undefined when the semester is not the tutorial or the day has none. */
 export const tutorLine = (seed: number, day: number): string | undefined =>
   seed === TUTORIAL_SEED && (TUTOR_DAYS as readonly number[]).includes(day) ? str(`semester.tutor.${day}`) : undefined;
@@ -143,14 +249,21 @@ export function semesterContext(seed: number, courses?: readonly string[]): Seme
 }
 
 /**
- * `bbqDays` is a dev override (app/session.ts semesterFromQuery); a normal game takes the events its seed deals. `clause` is the
- * overtime clause level; the scripted first week is level 0 whatever is asked, and the clause comes last so the setting card
- * sees the events the semester really has.
+ * A semester from its seed and what the player chose. `bbqDays` is a dev override (app/session.ts semesterFromQuery); a normal
+ * game takes the events its seed deals. `clause` is the overtime clause level; the scripted first week is level 0 whatever is
+ * asked, and the clause comes last so the setting card sees the events the semester really has. `career` is the career tree
+ * nodes owned at its start, which the tutorial week ignores, since its schedule is scripted. `setting` is the card picked with
+ * 多一種開局卡, which a semester without that node, or without a clause that draws a card, cannot have.
  */
-export const newSemester = (seed: number, bbqDays?: readonly number[], courses?: readonly string[], clause = 0): { ctx: SemesterContext; state: SemesterState } => {
+export const newSemester = (seed: number, bbqDays?: readonly number[], courses?: readonly string[], clause = 0, career: readonly string[] = [], setting?: string): { ctx: SemesterContext; state: SemesterState } => {
+  if (setting !== undefined && !career.includes('two_settings')) throw new RangeError(`the setting card "${setting}" was picked without the career node 多一種開局卡`);
+  if (setting !== undefined && !(SETTING_IDS as readonly string[]).includes(setting)) throw new RangeError(`"${setting}" is not a setting card`);
+  const tutorial = seed === TUTORIAL_SEED;
   const dealt = semesterContext(seed, courses);
-  const scened = bbqDays === undefined ? dealt : { ...dealt, scenario: withBarbecueOn(dealt.scenario, bbqDays) };
-  const ctx = withClause(scened, seed, seed === TUTORIAL_SEED ? 0 : clause);
+  const barbecued = bbqDays === undefined ? dealt.scenario : withBarbecueOn(dealt.scenario, bbqDays);
+  const booked = !tutorial && career.includes('early_checkup') ? withBloodTestOn(barbecued, BOOKED_BLOOD_TEST_DAY) : barbecued;
+  const clauses = withClause({ ...dealt, scenario: booked }, seed, tutorial ? 0 : clause, setting as SettingId | undefined);
+  const ctx: SemesterContext = !tutorial && career.includes('reroll') ? { ...clauses, reroll: true } : clauses;
   return { ctx, state: startSemester(ctx, seed) };
 };
 
@@ -162,7 +275,7 @@ export const newSemester = (seed: number, bbqDays?: readonly number[], courses?:
  */
 export function resumeSemester(run: SemesterRun): { ctx: SemesterContext; state: SemesterState } | undefined {
   try {
-    const { ctx, state: start } = newSemester(run.seed, undefined, run.courses, run.clause);
+    const { ctx, state: start } = newSemester(run.seed, undefined, run.courses, run.clause, run.career, run.setting);
     let state = start;
     for (const answers of run.days) {
       const step = advanceDay(state, ctx, answers);
@@ -208,12 +321,22 @@ export const morningPlan = (coffee: CoffeePlanId, rest: RestPlanId, write = 0, p
 export const nightPlan = (id: NightPlanId, debug = 0, rank = 0, grade = 0): NightPlan =>
   ({ ...NIGHT_PLANS[id], nextWake: PARAMS.wake, ...(debug > 0 ? { debug } : {}), ...(rank > 0 ? { rank } : {}), ...(grade > 0 ? { grade } : {}) });
 
-export const floorChoice = (patrol: FloorId, overtime?: FloorId, played?: readonly (PatrolResult | null)[], card?: string): FloorChoice =>
-  ({ patrol, ...(overtime === undefined ? {} : { overtime }), ...(played === undefined || played.every((r) => r === null) ? {} : { played }), ...(card === undefined ? {} : { card }) });
+export const floorChoice = (patrol: FloorId, overtime?: FloorId, played?: readonly (PatrolResult | null)[], card?: string, reroll = false): FloorChoice =>
+  ({ patrol, ...(overtime === undefined ? {} : { overtime }), ...(played === undefined || played.every((r) => r === null) ? {} : { played }), ...(card === undefined ? {} : { card }), ...(reroll ? { reroll: true as const } : {}) });
 
 /** The welfare cards the day's first patrol offers (design doc 8.8): none unless its rooms were played and it was not failed. */
 export const patrolOffer = (view: DayView, ctx: SemesterContext, floor: FloorId, result: PatrolResult | null): readonly string[] =>
   result === null || isFailed(result) ? [] : welfareOffer({ salt: view.welfare.salt, day: view.day, floor, grade: result.grade, held: view.welfare.held, courses: ctx.courses });
+
+/**
+ * The offer drawn again in place of `offer` with the career node 開局重抽 (design doc 8.14), or none when the semester may not
+ * draw again: without the node, once it has, or when the cards the first offer did not show cannot fill as many again.
+ */
+export function rerollOffer(view: DayView, ctx: SemesterContext, floor: FloorId, result: PatrolResult | null, offer: readonly string[]): readonly string[] {
+  if (ctx.reroll !== true || view.welfare.rerolled || result === null || isFailed(result) || offer.length === 0) return [];
+  const again = welfareOffer({ salt: view.welfare.salt, day: view.day, floor, grade: result.grade, held: view.welfare.held, courses: ctx.courses, instead: offer });
+  return again.length < offer.length ? [] : again;
+}
 
 export const welfareText = (id: string): { label: string; note: string } => ({ label: str(`welfare.${id}.name`), note: str(`welfare.${id}.effect`) });
 
@@ -259,6 +382,19 @@ export function daySummary(before: SemesterState, after: SemesterState, ctx: Sem
   if (rec.card !== undefined) lines.push(fill('semester.sum.card', { name: str(`welfare.${rec.card}.name`) }));
   if (rec.minutes !== undefined) lines.push(fill('semester.sum.minutes', { p: oneDecimal(rec.minutes) }));
   lines.push(fill('semester.sum.debt', { debt: oneDecimal(amount(after.tags, ctx.dict, 'sleep_debt')) }));
+  if (rec.stress !== undefined) lines.push(fill('semester.sum.stress', { p: percent(rec.stress) }));
+  const wasChronic = before.history[before.history.length - 1]?.chronicStress === true;
+  if (rec.chronicStress === true && !wasChronic) lines.push(str('semester.sum.chronic.on'));
+  if (rec.chronicStress !== true && wasChronic && rec.stress !== undefined) lines.push(str('semester.sum.chronic.off'));
+  // The cold's step tonight, read from the stage the day began with and the one the night left (design doc 9.1).
+  if (rec.roommate === true) lines.push(str('semester.sum.ill.roommate'));
+  if (rec.infected !== undefined) lines.push(str(rec.infected === 'roommate' ? 'semester.sum.ill.throat_roommate' : 'semester.sum.ill.throat'));
+  const wasIll = before.illness?.stage ?? (rec.infected !== undefined ? 'throat' : undefined);
+  // The final exam day has no night, so the cold is where the day began.
+  if (rec.settled && rec.illness !== undefined && rec.illness !== wasIll) lines.push(str(`semester.sum.ill.${rec.illness}`));
+  if (rec.settled && rec.illness === undefined && wasIll !== undefined) {
+    lines.push(str(rec.hospitalized ? 'semester.sum.ill.cured' : wasIll === 'throat' ? 'semester.sum.ill.stopped' : 'semester.sum.ill.well'));
+  }
   // Only the hours nothing else (class, meal, a course) already held are the card's to count.
   const taken = settingHours(ctx.setting, before.day).filter((h) => h < k.bedMin && fixedHour(k, ctx.courses, before.day, rec.wake, rec.kind === 'exam', h) === undefined);
   if (ctx.setting !== undefined && taken.length > 0 && rec.kind !== 'hospital') lines.push(fill('semester.sum.setting', { name: str(`semester.setting.name.${ctx.setting.id}`), hours: taken.length }));
@@ -312,7 +448,7 @@ export function visitReport(state: SemesterState, ctx: SemesterContext, seed: nu
  * The semester's result once it has ended: the two exams, the grade, and how the semester went. `opened` is the clause level
  * the clear just unlocked, which only the progress knows.
  */
-export function endSummary(state: SemesterState, ctx: SemesterContext, opened?: number): string[] {
+export function endSummary(state: SemesterState, ctx: SemesterContext, opened?: number, pages = 0): string[] {
   if (!state.ended) throw new RangeError('the semester has not ended');
   const sum = summarize(state, ctx);
   const passed = sum.passMid && sum.passFin;
@@ -331,10 +467,10 @@ export function endSummary(state: SemesterState, ctx: SemesterContext, opened?: 
   if (sum.bankrupt) lines.push(str('semester.end.bankrupt'));
   else if (sum.hospitalized) lines.push(str('semester.end.hospital'));
   lines.push(fill('semester.end.debt', { debt: oneDecimal(sum.finalDebt) }));
-  // The review points of a finished project are only paid into a passed semester's review below.
-  if (takes(ctx.courses, 'compiler') && !sum.bankrupt) {
-    if (projectDone && passed) lines.push(fill('semester.end.project.done', { points: PROJECT_REVIEW }));
-    else if (!projectDone && !hospitalFinal) lines.push(fill('semester.end.project.fail', { points: PROJECT_FIN_PENALTY }));
+  // A finished project's points go into the year-end points of any semester, passed or not.
+  if (takes(ctx.courses, 'compiler')) {
+    if (projectDone) lines.push(fill('semester.end.project.done', { points: PROJECT_REVIEW }));
+    else if (!sum.bankrupt && !hospitalFinal) lines.push(fill('semester.end.project.fail', { points: PROJECT_FIN_PENALTY }));
   }
   // Late grades cost nothing but the line in the review (design doc 8.3), so the line only has a meaning to a semester that was not lost to bankruptcy.
   if (takes(ctx.courses, 'ta') && !sum.bankrupt) {
@@ -343,11 +479,10 @@ export function endSummary(state: SemesterState, ctx: SemesterContext, opened?: 
   }
   const missed = state.homework.filter((a) => a.missed).length;
   if (missed > 0 && !sum.bankrupt && !hospitalFinal) lines.push(fill('semester.end.homework.missed', { missed, points: missed * HOMEWORK_MISS_PENALTY }));
+  const points = yearEndPoints(state, ctx, pages);
   if (ctx.courses !== undefined && passed) {
-    const credits = creditsOf(ctx.courses);
-    const burden = burdenOf(credits);
-    const bonus = takes(ctx.courses, 'compiler') && projectDone ? PROJECT_REVIEW : 0;
-    lines.push(fill('semester.end.review', { points: percent(reviewPoints(sum.grade, credits, bonus)), burden: str(`semester.burden.${burden}`), reward: BURDEN_REWARD[burden].toFixed(2) }));
-  }
+    const burden = burdenOf(creditsOf(ctx.courses));
+    lines.push(fill('semester.end.review', { points, burden: str(`semester.burden.${burden}`), reward: BURDEN_REWARD[burden].toFixed(2) }));
+  } else lines.push(fill('semester.end.points', { points }));
   return lines;
 }

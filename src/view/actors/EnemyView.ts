@@ -1,6 +1,9 @@
 import Phaser from 'phaser';
 import { motionOf, tagKey, type ManifestEntry } from '../../app/assets.ts';
-import { isBound, MANAGER, REFORM_TICKS, shielded, TICK_HZ, type EnemyState } from '../../core/index.ts';
+import { isBound, isMarked, MANAGER, REFORM_TICKS, shielded, TICK_HZ, type EnemyState } from '../../core/index.ts';
+
+/** Highlighter yellow of the palette (art direction, `#FFE873`): the mark under a marked enemy's feet. */
+const MARK_INK = 0xffe873;
 import { FlashPainter } from '../fx/FlashPainter.ts';
 import { warningAt } from '../fx/telegraph.ts';
 import { REFORM_STAGES } from '../fx/textures.ts';
@@ -46,6 +49,7 @@ export class EnemyView {
   private flashUntil = 0;
   private walkSince: number | undefined;
   private shield: Phaser.GameObjects.Graphics | undefined;
+  private mark: Phaser.GameObjects.Graphics | undefined;
 
   constructor(scene: Phaser.Scene, entry: ManifestEntry) {
     this.entry = entry;
@@ -74,6 +78,7 @@ export class EnemyView {
     const y = p.y + (cur.y - p.y) * alpha;
     this.sprite.setVisible(!hidden);
     this.drawShield(cur, x, y, hidden);
+    this.drawMark(cur, x, y, hidden, tick);
     this.ring.setVisible(cur.phase === 'dispersed');
     if (cur.phase === 'dispersed') {
       const stage = Math.min(REFORM_STAGES, 1 + Math.floor((cur.phaseTicks / REFORM_TICKS) * REFORM_STAGES));
@@ -131,6 +136,15 @@ export class EnemyView {
     g.lineStyle(2, SHIELD_PAPER).beginPath().arc(cx, cy, SHIELD_RADIUS, a - half, a + half).strokePath();
   }
 
+  /** The highlighter's mark: a yellow ring under the feet while it lasts (issue #76). Made only once an enemy is first marked. */
+  private drawMark(cur: Readonly<EnemyState>, x: number, y: number, hidden: boolean, tick: number): void {
+    if (cur.markedUntil === undefined && !this.mark) return;
+    this.mark ??= this.sprite.scene.add.graphics();
+    const g = this.mark.clear();
+    if (hidden || !isMarked(cur, tick)) return;
+    g.setDepth(y - 0.5).lineStyle(2, MARK_INK, 0.9).strokeEllipse(Math.round(x), Math.round(y), 22, 9);
+  }
+
   /** Soft bounce for immune objects: no hit-stop, only a squash (art direction 9.2). */
   bounce(): void {
     // Held fire bounces every 167 ms but the squash lasts 200 ms; restart from scale 1 so
@@ -157,6 +171,7 @@ export class EnemyView {
   destroy(): void {
     this.flasher.destroy();
     this.shield?.destroy();
+    this.mark?.destroy();
     this.sprite.destroy();
     this.bubble.destroy();
     this.ring.destroy();

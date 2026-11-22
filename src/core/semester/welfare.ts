@@ -1,3 +1,4 @@
+import { KEY_POINTS, STURDY_WRAP } from '../combat/frames.ts';
 import { BASE_PERKS, type Perks } from '../combat/perks.ts';
 import { seedStreams, drawInt } from '../rng.ts';
 import { takes } from './courses.ts';
@@ -26,6 +27,8 @@ export const WELFARE_CARDS: readonly WelfareCard[] = [
   { id: 'bind_master', source: 'general', perks: { bindSplash: 1 } },
   { id: 'recycle', source: 'general', perks: { parryBind: 2 } },
   { id: 'fast_return', source: 'general', perks: { parryBoost: true } },
+  { id: 'key_points', source: 'liver', perks: { markTicks: KEY_POINTS.markTicks } },
+  { id: 'sturdy_wrap', source: 'liver', perks: { pinTicks: STURDY_WRAP.pinTicks } },
 ];
 
 /** The cards offered for a rating (design doc 8.8): one for C, two for B, three for A and S. */
@@ -42,6 +45,11 @@ export const EARLY_START_DAYS = 2;
 /** 會議紀錄: perfect dodges that make one minute, and the progress a minute is worth. */
 export const RECORDS_PER_MINUTE = 3;
 export const MINUTE_PROGRESS = 0.5;
+/**
+ * The records one patrol can count. Without a cap a fighter who dodges about every seven seconds passes the semester however
+ * late it sleeps, which design doc 9.6 forbids; `sim/semester/perks.ts` checks the cap holds.
+ */
+export const RECORDS_CAP = 12;
 
 /** What the night before is worth to a patrol: the sleep it gave and whether the contest was left in time. */
 export interface LastNight {
@@ -69,7 +77,7 @@ export function patrolKit(held: readonly string[], last: LastNight | undefined):
 
 /** Progress the minutes of a played patrol add, with 會議紀錄 held: one per three perfect dodges. */
 export const minutesProgress = (held: readonly string[], records: number): number =>
-  held.includes('minutes') ? Math.floor(records / RECORDS_PER_MINUTE) * MINUTE_PROGRESS : 0;
+  held.includes('minutes') ? Math.floor(Math.min(records, RECORDS_CAP) / RECORDS_PER_MINUTE) * MINUTE_PROGRESS : 0;
 
 export interface OfferRequest {
   /** Fixed for the run (the semester's setting stream), so the same day offers the same cards on every replay. */
@@ -79,6 +87,8 @@ export interface OfferRequest {
   readonly grade: Grade;
   readonly held: readonly string[];
   readonly courses: readonly string[] | undefined;
+  /** The offer being drawn again (開局重抽): its cards are left out of the new one, which comes from a stream of its own. */
+  readonly instead?: readonly string[];
 }
 
 /** The cards a played patrol offers, in the order they are shown: the pool of its floor, not yet held, drawn without a repeat. */
@@ -86,8 +96,9 @@ export function welfareOffer(r: OfferRequest): readonly string[] {
   if (!GRADES.includes(r.grade)) throw new RangeError(`"${String(r.grade)}" is not a rating`);
   const pool = WELFARE_CARDS
     .filter((c) => (c.source === 'general' || c.source === r.floor) && !r.held.includes(c.id) && (c.course === undefined || takes(r.courses, c.course)))
+    .filter((c) => r.instead === undefined || !r.instead.includes(c.id))
     .map((c) => c.id);
-  let streams = seedStreams(Math.imul(r.salt ^ 0x9e3779b9, 31) + r.day);
+  let streams = seedStreams(Math.imul(r.salt ^ (r.instead === undefined ? 0x9e3779b9 : 0x85ebca6b), 31) + r.day);
   const out: string[] = [];
   for (let i = 0; i < OFFER_SIZE[r.grade] && pool.length > 0; i++) {
     let j: number;

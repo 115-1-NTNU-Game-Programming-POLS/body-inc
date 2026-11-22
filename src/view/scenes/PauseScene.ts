@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { UI } from '../../app/audio.ts';
 import { str } from '../../app/content.ts';
+import { isPresenting } from '../../app/presenter.ts';
 import { choicesOf, cycleSetting, percent, stepSetting, toggleSetting, type ChoiceKey } from '../../app/pause.ts';
 import type { SaveStore } from '../../app/storage.ts';
 import { ASSIST_FLAGS, SETTINGS, type AssistFlag, type Settings } from '../../core/index.ts';
@@ -127,7 +128,8 @@ export class PauseScene extends Phaser.Scene {
 
   private save(next: Settings): void {
     this.registry.set('settings', next);
-    const issues = (this.registry.get('saves') as SaveStore).save(SETTINGS, next);
+    // A presentation changes the settings for the stage only: the slot holds the player's own, which the title gives back.
+    const issues = isPresenting(this.registry) ? [] : (this.registry.get('saves') as SaveStore).save(SETTINGS, next);
     if (issues.length > 0) this.game.events.emit('save-issues', issues);
     this.rebuild();
   }

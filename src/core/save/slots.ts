@@ -74,7 +74,7 @@ export interface Checkpoint {
   readonly tags: TagState;
   readonly clock: RuleClock;
   readonly fired: readonly string[];
-  /** Toggle switches that were on at the punch, as `roomId#objectId`. */
+  /** Levers and reveal switches that were on at the punch, as `roomId#objectId`. */
   readonly switches: readonly string[];
   /** Where boxes were last left, by `roomId#objectId`; entering a room settles them (core/rooms/boxes.ts). */
   readonly boxes: readonly BoxPlace[];
@@ -210,8 +210,8 @@ export const STORY: SlotDef<StoryData> = {
 };
 
 /**
- * Cross-run progress (design doc 13.5): what outlives every run and every chapter. The handbook
- * and the host's name so far; achievements, the career tree and the rest join it when they exist.
+ * Cross-run progress (design doc 13.5): what outlives every run and every chapter. The handbook,
+ * the host's name, the achievements and the career tree so far.
  */
 export interface ProgressData {
   /** Unlocked handbook page ids, in the order they were found. */
@@ -222,11 +222,17 @@ export interface ProgressData {
   readonly semestersDone: number;
   /** The highest overtime clause level the player may start at (design doc 8.14); absent is 0. A clear of that level opens the next. */
   readonly clauseUnlocked?: number;
+  /** Achievement ids earned (design doc 8.14, core/semester/achievements.ts), in the order they were earned; absent is none. */
+  readonly achievements?: readonly string[];
+  /** Year-end review points not yet spent on the career tree (design doc 8.14); absent is 0. */
+  readonly careerPoints?: number;
+  /** Career tree nodes bought (core/semester/career.ts), in the order they were bought; absent is none. */
+  readonly career?: readonly string[];
 }
 
 export const PROGRESS: SlotDef<ProgressData> = {
   name: 'progress',
-  version: 4,
+  version: 6,
   schema: {
     type: 'object',
     additionalProperties: false,
@@ -238,6 +244,11 @@ export const PROGRESS: SlotDef<ProgressData> = {
       semestersDone: INT,
       // The levels that exist are the rules' business (core/semester/clauses.ts); the save only keeps a count.
       clauseUnlocked: INT,
+      // Ids the rules no longer know are kept, so a save is never thinned by an older build; the game reads only the ones it knows.
+      achievements: { type: 'array', uniqueItems: true, items: { type: 'string', minLength: 1 } },
+      careerPoints: INT,
+      // As with achievements, a node this build does not know is kept and not applied.
+      career: { type: 'array', uniqueItems: true, items: { type: 'string', minLength: 1 } },
     },
   },
   defaults: () => ({ handbook: [], hostName: DEFAULT_HOST, semestersDone: 0 }),
@@ -248,6 +259,10 @@ export const PROGRESS: SlotDef<ProgressData> = {
     2: (data) => (isRecord(data) ? { ...data, semestersDone: 0 } : data),
     // Version 4 adds the unlocked clause level as an optional field; a save from before it has unlocked none.
     3: (data) => data,
+    // Version 5 adds the achievements as an optional field; a save from before it has earned none.
+    4: (data) => data,
+    // Version 6 adds the career tree's points and nodes as optional fields; a save from before it has neither.
+    5: (data) => data,
   },
 };
 
@@ -276,6 +291,10 @@ export interface SemesterRun {
   readonly courses?: readonly string[];
   /** The overtime clause level (design doc 8.14); absent is level 0, which is what a run saved before the clauses replays as. */
   readonly clause?: number;
+  /** The career tree nodes owned when the semester began, which shape its schedule; absent is none. */
+  readonly career?: readonly string[];
+  /** The setting card picked with the career node 多一種開局卡; absent is the one the seed deals. */
+  readonly setting?: string;
   /** The answers of each finished day, in the order the day asked its questions. */
   readonly days: readonly (readonly Answer[])[];
 }
@@ -302,7 +321,7 @@ const ANSWER: Schema = {
         },
       },
     },
-    { type: 'object', additionalProperties: false, required: ['kind', 'option'], properties: { kind: { const: 'event' }, option: { type: 'string', minLength: 1 } } },
+    { type: 'object', additionalProperties: false, required: ['kind', 'option'], properties: { kind: { const: 'event' }, option: { type: 'string', minLength: 1 }, byVote: { const: true } } },
     {
       type: 'object',
       additionalProperties: false,
@@ -321,12 +340,13 @@ const ANSWER: Schema = {
               items: {
                 anyOf: [
                   { type: 'null' },
-                  { type: 'object', additionalProperties: false, required: ['grade'], properties: { grade: { enum: [...GRADES] }, records: INT } },
-                  { type: 'object', additionalProperties: false, required: ['failed'], properties: { failed: { const: true } } },
+                  { type: 'object', additionalProperties: false, required: ['grade'], properties: { grade: { enum: [...GRADES] }, records: INT, liverRead: { const: true } } },
+                  { type: 'object', additionalProperties: false, required: ['failed'], properties: { failed: { const: true }, liverRead: { const: true } } },
                 ],
               },
             },
             card: { type: 'string', minLength: 1 },
+            reroll: { const: true },
           },
         },
       },
@@ -350,7 +370,7 @@ const ANSWER: Schema = {
 
 export const RUN: SlotDef<RunData> = {
   name: 'run',
-  version: 9,
+  version: 13,
   schema: {
     type: 'object',
     additionalProperties: false,
@@ -367,6 +387,8 @@ export const RUN: SlotDef<RunData> = {
               seed: INT,
               courses: { type: 'array', items: { type: 'string', minLength: 1 } },
               clause: INT,
+              career: { type: 'array', uniqueItems: true, items: { type: 'string', minLength: 1 } },
+              setting: { type: 'string', minLength: 1 },
               days: { type: 'array', items: { type: 'array', items: ANSWER } },
             },
           },
@@ -375,8 +397,8 @@ export const RUN: SlotDef<RunData> = {
     },
   },
   defaults: () => ({ semester: null }),
-  // Versions 2 to 9 add optional fields (the course list; the hours of writing and debugging; the contest hours; the project hours and the walk; the grading hours; the overtime clause; the results of the patrols played; the welfare card picked and the records a patrol made); an older run is valid without them.
-  migrations: { 1: (data) => data, 2: (data) => data, 3: (data) => data, 4: (data) => data, 5: (data) => data, 6: (data) => data, 7: (data) => data, 8: (data) => data },
+  // Versions 2 to 13 add optional fields (the course list; the hours of writing and debugging; the contest hours; the project hours and the walk; the grading hours; the overtime clause; the results of the patrols played; the welfare card picked and the records a patrol made; the highlighter's reading of the liver in a patrol; the career tree nodes owned at the start; the setting card picked and the welfare offer drawn again; the mark of an event answered by a show of hands); an older run is valid without them.
+  migrations: { 1: (data) => data, 2: (data) => data, 3: (data) => data, 4: (data) => data, 5: (data) => data, 6: (data) => data, 7: (data) => data, 8: (data) => data, 9: (data) => data, 10: (data) => data, 11: (data) => data, 12: (data) => data },
 };
 
 export const SLOTS = [SETTINGS, STORY, PROGRESS, RUN] as const;
