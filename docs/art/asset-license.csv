@@ -41,3 +41,5 @@ public/assets/atlases/energy-seller.png,能量飲料推銷員圖集（9 格）,�
 public/assets/atlases/energy-seller.json,能量飲料推銷員圖集資料,江兆耘,,team-original,,none,,,,江兆耘,2026-11-15,
 public/assets/atlases/toast-boss.png,敬酒部長 Boss 圖集（7 格）,江兆耘,,team-original,,ai-generated,ChatGPT（gpt-image，AI 姿勢表縮成 64×64 作為底）,art-src/ai/log/toast-boss.json,AI 姿勢表縮成 64×64 後統一色號；杯頭由程式繪製；身體與道具由江兆耘手繪重畫,江兆耘,2026-11-21,
 public/assets/atlases/toast-boss.json,敬酒部長 Boss 圖集資料,江兆耘,,team-original,,none,,,,江兆耘,2026-11-21,
+public/assets/atlases/exam.png,期中考卷臉圖集（6 格）,江兆耘,,team-original,,none,,,6 格臉由程式繪製，江兆耘審定,江兆耘,2026-11-21,
+public/assets/atlases/exam.json,期中考卷臉圖集資料,江兆耘,,team-original,,none,,,,江兆耘,2026-11-21,
