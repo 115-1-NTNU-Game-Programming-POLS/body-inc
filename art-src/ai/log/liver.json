@@ -1,0 +1,38 @@
+{
+ "id": "liver",
+ "title": "肝夥伴 3 格像素圖集（底為暫代圖，江兆耘手修）",
+ "batch": "partner-sprites",
+ "tool": "stopgap 底圖（原為江兆耘的肝器官立繪，由 tools/art/make_stopgaps.py 縮成像素圖）",
+ "model": "不在憑證中",
+ "date": "2026-11-21",
+ "template": "n/a",
+ "prompt": [
+  "本素材沒有新的 AI 生成：底圖是 tools/art/make_stopgaps.py 由肝器官立繪（含 AI 底稿，見 portrait-liver-memo.json 等頭像紀錄）縮成的暫代圖。江兆耘手修：移除立繪的咖啡杯與雜點，改畫便利貼、清楚的臉；待機、跳躍、技能三格各自修整。"
+ ],
+ "references": "public/assets/atlases/stopgap/liver.png（暫代圖）；美術指南 §5.7（肝的身分道具為便利貼，黃色 6×6 方塊舉在頭旁；立繪的咖啡杯不進世界精靈）；art-src/ai/log/portrait-liver-memo.json",
+ "candidates": null,
+ "selected": "n/a",
+ "source_name": "stopgap/liver.png",
+ "post": {
+  "select": true,
+  "outline": "沿用暫代圖的墨藍描邊",
+  "quantize": "全部在 body-inc-pixel.gpl 內",
+  "remove-text": "n/a",
+  "pixel-cleanup": "江兆耘手修（待機、跳躍、技能三格）；維護者將跳躍格改為朝右的單眼側面；便利貼顏色由腳本把淡米色 F2DCC8 換成便利貼黃 FFF1A8（肝體上的淡色直帶不動）",
+  "style-board-check": "待審"
+ },
+ "hours": {
+  "cleanup_minutes": 15,
+  "generation_minutes": 0,
+  "hand_estimate_minutes": null,
+  "note": "作者於 PR 回報。"
+ },
+ "status": "hand-finished",
+ "processed": {
+  "outputs": [
+   "public/assets/atlases/liver.png",
+   "public/assets/atlases/liver.json"
+  ],
+  "png_colors": 7
+ }
+}

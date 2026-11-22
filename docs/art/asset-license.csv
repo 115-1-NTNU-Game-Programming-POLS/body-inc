@@ -49,3 +49,5 @@ public/assets/atlases/adenosine-mini.png,腺苷黏身迷你圖集（1 格）,江
 public/assets/atlases/adenosine-mini.json,腺苷黏身迷你圖集資料,江兆耘,,team-original,,none,,,,江兆耘,2026-11-21,
 public/assets/atlases/brain.png,大腦夥伴圖集（3 格）,江兆耘,,team-original,,ai-generated,ChatGPT（gpt-image，器官立繪的 AI 底稿經暫代圖轉為像素底）,art-src/ai/log/brain.json,暫代圖為底；江兆耘手修待機、跳躍、技能；維護者修正朝右跳躍格,江兆耘,2026-11-21,
 public/assets/atlases/brain.json,大腦夥伴圖集資料,江兆耘,,team-original,,none,,,,江兆耘,2026-11-21,
+public/assets/atlases/liver.png,肝夥伴圖集（3 格）,江兆耘,,team-original,,ai-generated,ChatGPT（gpt-image，器官立繪的 AI 底稿經暫代圖轉為像素底）,art-src/ai/log/liver.json,暫代圖為底；江兆耘手修待機、跳躍、技能；移除立繪的咖啡杯，改畫便利貼,江兆耘,2026-11-21,
+public/assets/atlases/liver.json,肝夥伴圖集資料,江兆耘,,team-original,,none,,,,江兆耘,2026-11-21,
