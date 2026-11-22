@@ -53,3 +53,5 @@ public/assets/atlases/liver.png,肝夥伴圖集（3 格）,江兆耘,,team-origi
 public/assets/atlases/liver.json,肝夥伴圖集資料,江兆耘,,team-original,,none,,,,江兆耘,2026-11-21,
 public/assets/atlases/night-crew.png,夜班清潔隊圖集（2 格）,江兆耘,,team-original,,ai-generated,ChatGPT（gpt-image，AI 姿勢圖縮成 32×48 作為底）,art-src/ai/log/night-crew.json,AI 姿勢圖縮成 32×48 後統一色號；江兆耘手修臉、月牙徽章、吸塵器與腿,江兆耘,2026-11-21,
 public/assets/atlases/night-crew.json,夜班清潔隊圖集資料,江兆耘,,team-original,,none,,,,江兆耘,2026-11-21,
+public/assets/atlases/phone-sprite.png,手機精臉圖集（2 格）,江兆耘,,team-original,,none,,,2 格臉由程式繪製，江兆耘審定,江兆耘,2026-11-21,
+public/assets/atlases/phone-sprite.json,手機精臉圖集資料,江兆耘,,team-original,,none,,,,江兆耘,2026-11-21,
