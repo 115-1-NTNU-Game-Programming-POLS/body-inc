@@ -1,0 +1,40 @@
+{
+ "id": "energy-seller",
+ "title": "能量飲料推銷員 9 格像素圖集（身體格沿用顧問西裝範本；罐頭頭與提籃由程式繪製，江兆耘手修）",
+ "batch": "energy-seller-from-suit-base",
+ "tool": "ChatGPT (gpt-image)（間接：身體格沿用 suit-base 的 AI 姿勢底稿，見 suit-base.json；本次沒有新的 AI 生成，罐頭頭與提籃為程式繪製）",
+ "model": "n/a",
+ "date": "2026-11-15",
+ "template": "suit-base-pose-sheet-v1",
+ "prompt": [
+  "本角色沒有新的 AI 生成：身體格取自 main 上的 suit-base 九格。",
+  "罐頭頭：以腳本（未入庫）把 suit-base 的頭去掉，貼上 11 × 約 16 像素的高窄罐頭（上蓋、銀色罐口、冰白標籤、描邊 #0C2D5E），臉為 2 眼 + 微笑，受擊格為圓眼 + O 嘴。",
+  "試喝籃：5 × 5 像素的提籃，走路格由腳本加在角色左手，其餘六格由腳本加在手下；之後由江兆耘手修細節；罐頭維持直立，起手靠頭部下移與手臂姿勢表現。"
+ ],
+ "references": "suit-base 九格；美術指南 §5.4（道具不得蓋住胸前徽章）",
+ "candidates": null,
+ "selected": "n/a",
+ "source_name": "n/a",
+ "post": {
+  "select": true,
+  "outline": "江兆耘手修；之後由 Isaries 補上拿掉人頭後留下的描邊缺口（起手側面 2 像素、出招側面 1 像素、受擊正面 2 像素，填 #0C2D5E）",
+  "quantize": "全部在 body-inc-pixel.gpl 內（共 14 色）；之後由 Isaries 把罐口的石灰 8A8F98（打不動專用，美術指南 3.1 節）改為 949FB1（仍比罐緣亮部 B3B6B9 暗），走路三格提籃的條紋由 B3B6B9 改為與其餘六格相同的 A6B4C8，全圖仍為 14 色",
+  "remove-text": "n/a",
+  "pixel-cleanup": "江兆耘手修細節（九格的罐頭頭型一致）",
+  "style-board-check": "待審"
+ },
+ "hours": {
+  "cleanup_minutes": 30,
+  "generation_minutes": 0,
+  "hand_estimate_minutes": null,
+  "note": "手修約 30 分鐘（作者自述，PR #124）；本次沒有新的 AI 生成，身體格沿用 suit-base；罐頭頭與提籃的繪圖腳本時間未記錄；維護者補正未計時"
+ },
+ "status": "hand-finished",
+ "processed": {
+  "outputs": [
+   "public/assets/atlases/energy-seller.png",
+   "public/assets/atlases/energy-seller.json"
+  ],
+  "png_colors": 14
+ }
+}

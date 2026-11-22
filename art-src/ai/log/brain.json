@@ -1,0 +1,38 @@
+{
+ "id": "brain",
+ "title": "大腦夥伴 3 格像素圖集（底為暫代圖，江兆耘手修）",
+ "batch": "partner-sprites",
+ "tool": "stopgap 底圖（原為江兆耘的大腦器官立繪，由 tools/art/make_stopgaps.py 縮成像素圖）",
+ "model": "不在憑證中",
+ "date": "2026-11-21",
+ "template": "n/a",
+ "prompt": [
+  "本素材沒有新的 AI 生成：底圖是 tools/art/make_stopgaps.py 由大腦器官立繪（含 AI 底稿，見 portrait-brain-base.json）縮成的暫代圖。待機沿用暫代圖並修整；跳躍為拉長離地的草稿由江兆耘修；技能格由江兆耘把大餅與旗子舉高並畫出手臂。"
+ ],
+ "references": "public/assets/atlases/stopgap/brain.png（暫代圖）；美術指南 §5.7（董事長主體約 40×30、下緣兩個 3 像素小圓點代替腳、大餅 10×8 舉在左手）；art-src/ai/log/portrait-brain-base.json",
+ "candidates": null,
+ "selected": "n/a",
+ "source_name": "stopgap/brain.png",
+ "post": {
+  "select": true,
+  "outline": "沿用暫代圖的墨藍描邊",
+  "quantize": "全部在 body-inc-pixel.gpl 內",
+  "remove-text": "n/a",
+  "pixel-cleanup": "江兆耘手修（待機、跳躍、技能三格）；維護者將跳躍格改為朝右的單眼側面",
+  "style-board-check": "待審"
+ },
+ "hours": {
+  "cleanup_minutes": 15,
+  "generation_minutes": 0,
+  "hand_estimate_minutes": null,
+  "note": "作者於 PR 回報。"
+ },
+ "status": "hand-finished",
+ "processed": {
+  "outputs": [
+   "public/assets/atlases/brain.png",
+   "public/assets/atlases/brain.json"
+  ],
+  "png_colors": 11
+ }
+}
