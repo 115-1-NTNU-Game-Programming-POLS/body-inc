@@ -13,7 +13,7 @@
  "exam": "assets/atlases/exam",
  "brain": "assets/atlases/brain",
  "liver": "assets/atlases/liver",
- "night-crew": "assets/atlases/placeholder/night-crew",
+ "night-crew": "assets/atlases/night-crew",
  "alcohol-barrel": "assets/atlases/stopgap/alcohol-barrel",
  "glucose-box": "assets/atlases/stopgap/glucose-box"
 }
