@@ -29,7 +29,12 @@
   "pixel-cleanup": "杯頭與外框由 Python 腳本在本機一次性繪製（腳本未入庫）；身體、手、麥克風、杯子、彩帶由江兆耘手修重畫；胸前徽章由腳本依 tools/art/make_stopgaps.py 的 5×6 閃電（FFC83D，四鄰外圈 0C2D5E，落在西裝上）重蓋；站立四格整格下移 1 像素對齊錨點列 62",
   "style-board-check": "待審"
  },
- "hours": null,
+ "hours": {
+  "cleanup_minutes": 70,
+  "generation_minutes": null,
+  "hand_estimate_minutes": null,
+  "note": "作者於 PR 回報。"
+ },
  "status": "hand-finished",
  "processed": {
   "outputs": [
