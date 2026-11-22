@@ -6,6 +6,7 @@
   "intro": "stomach.intro",
   "partner": "logistics",
   "carry": ["exam_practice", "exam_archived"],
+  "climax": { "flag": "late_snack", "paceFactor": 1.5 },
   "closedCases": { "sugar_seller": "sugar_seller_closed", "courier": "courier_closed" },
   "caseDrops": { "sugar_seller": "sugar_fatigue" },
   "links": [

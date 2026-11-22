@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  decode, encode, playDay, PROJECT_DAY_MAX, PROJECT_FIN_PENALTY, PROJECT_FROM_DAY, PROJECT_NEED, PROJECT_PRACTICE_SHARE, PROJECT_REVIEW, projectRoom, RUN, SIT_LIMIT, startSemester, STUCK_MULT, WALK_EFFORT, WRITE_HOURS,
+  decode, encode, playDay, PROJECT_DAY_MAX, record, setAmount, PROJECT_FIN_PENALTY, PROJECT_FROM_DAY, PROJECT_NEED, PROJECT_PRACTICE_SHARE, PROJECT_REVIEW, projectRoom, RUN, SIT_LIMIT, startSemester, STUCK_MULT, WALK_EFFORT, WRITE_HOURS,
   type Answer, type DayView, type MorningPlan, type SemesterContext, type SemesterState, type Strategy,
 } from '../../src/core/index.ts';
 import { contextFor } from '../../sim/semester/scenario.ts';
@@ -68,6 +68,19 @@ describe('the stuck point of sitting at the desk (design doc 8.3)', () => {
     expect(hours(3, true)).toBeCloseTo(e * (2 + WALK_EFFORT), 9);
     expect(hours(4, true)).toBeCloseTo(e * (3 + WALK_EFFORT), 9);
     expect(SIT_LIMIT).toBe(2);
+  });
+
+  it('charges the quarter hour of a walk at the walking rate instead of the study rate (design doc 9.1)', () => {
+    const ctx = ctxFor(WITH);
+    const rest = [8, 9, 10, 11, 17, 19, 20, 21];
+    const start = startSemester(ctx, 1);
+    const [log, node] = record(start.tags.log, { kind: 'rule', key: 'test', at: 0 });
+    // High enough that the day's rest hours do not floor it at 0.
+    const tags = setAmount({ ...start.tags, log }, ctx.dict, 'stress', 90, node, 0);
+    const stress = (walk: boolean): number => day(ctx, free, { rest, project: 3, walk }, { tags }).history[0]!.stress!;
+    const { walk, study } = ctx.params.stressPerHour;
+    expect(stress(true)).toBeCloseTo(stress(false) + (walk - study) * (1 - WALK_EFFORT), 9);
+    expect(stress(true)).toBeLessThan(stress(false));
   });
 
   it('reaches the late-night study, where a planned walk costs a quarter of an hour as it does by day (issue 50)', () => {

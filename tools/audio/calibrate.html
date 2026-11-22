@@ -31,7 +31,7 @@ const CEILING = { effect: -3, warning: -2, menu: -3, clock: -3 };
 /** Target RMS in dBFS by class: the warnings stand out, the menu sounds and the clock stay under the rest. */
 const TARGET = { effect: -22, warning: -17, menu: -28, clock: -26 };
 const MENU = new Set([...Object.values(UI), 'blip', 'click', 'swap']);
-const classOf = (id) => (id.startsWith('telegraph.') ? 'warning' : id === 'tick' ? 'clock' : MENU.has(id) && id !== UI.lowHeart ? 'menu' : 'effect');
+const classOf = (id) => (id.startsWith('telegraph.') ? 'warning' : id === 'tick' ? 'clock' : MENU.has(id) && id !== UI.lowHeart && id !== UI.liverTyping ? 'menu' : 'effect');
 
 const db = (x) => 20 * Math.log10(Math.max(x, 1e-9));
 

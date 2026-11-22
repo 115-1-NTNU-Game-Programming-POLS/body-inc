@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "chapter": "stomach",
+  "opening": [
+    {
+      "id": "dinner",
+      "options": [
+        { "id": "bento", "effect": "gauge:10" },
+        { "id": "buffet", "effect": "tag:light_dinner" },
+        { "id": "fried", "effect": "tag:sugar_fatigue;gauge:25" }
+      ]
+    },
+    {
+      "id": "bedtime",
+      "options": [
+        { "id": "fix_only", "effect": "" },
+        { "id": "past_papers", "effect": "tag:exam_practice+15;tag:sleep_debt+2" }
+      ]
+    }
+  ],
+  "events": [
+    {
+      "id": "roommate",
+      "options": [
+        { "id": "go_small", "effect": "tag:snack_run;gauge:25" },
+        { "id": "sleep", "effect": "tag:early_night" },
+        { "id": "bring", "effect": "tag:snack_saved;gauge:10" }
+      ]
+    },
+    {
+      "id": "climax",
+      "options": [
+        { "id": "eat", "effect": "tag:late_snack;gauge:25" },
+        { "id": "save", "effect": "" }
+      ]
+    }
+  ]
+}

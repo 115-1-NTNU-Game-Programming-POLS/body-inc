@@ -18,6 +18,7 @@ import { DIALOGUE_COLUMNS, DictionaryError, HOST_WORST, OPERATOR_SPEAKER, fillHo
 import { modelMeasure } from '../src/view/text/measure.ts';
 import { DIALOGUE, MEMO, REPLY, TEXT_SCALES } from '../src/view/text/styles.ts';
 import { wrapCJK } from '../src/view/text/wrap.ts';
+import { STAMP } from '../src/core/combat/frames.ts';
 import { placeholderProblems } from './check-content.ts';
 import { conditionMessage } from './check-maps.ts';
 
@@ -31,13 +32,16 @@ export interface DialogueCheckOptions {
 
 type Speakers = ContentTypes['speakers']['speakers'];
 
-const EFFECT_FORMS = '可寫 tag:標籤、tag:標籤=數字、tag:標籤+數字、clock:分鐘 或 unlock:手冊頁代號，多個效果用分號隔開';
+export const EFFECT_FORMS = '可寫 tag:標籤、tag:標籤=數字、tag:標籤+數字、clock:分鐘、unlock:手冊頁代號 或 gauge:點數，多個效果用分號隔開';
+
+/** A gauge effect whose points are out of range, in words, shared with the deck check. */
+export const gaugeMessage = (part: string): string => `effect「${part}」的 gauge: 後面必須是 1 到 ${STAMP.gaugeMax} 的整數，例如 gauge:25`;
 
 /** Design doc 5.1's alcohol rules in words, shared with the deck check. */
 export function alcoholMessage(code: 'alcohol-set' | 'alcohol-buff', part: string): string {
   return code === 'alcohol-set'
     ? `effect「${part}」不行；酒精只能由肝臟產線處理掉，內容不能直接設定 alcohol，只能用 tag:alcohol+數字 加杯數`
-    : `effect「${part}」不能和加酒精的效果寫在同一格；喝酒永遠不能換到工具、精神、咖啡因或血糖（設計文件 5.1）`;
+    : `effect「${part}」不能和加酒精的效果寫在同一格；喝酒永遠不能換到工具、駁回量表、精神、咖啡因或血糖（設計文件 5.1）`;
 }
 
 function effectMessage(p: DialogueProblem): string {
@@ -50,6 +54,7 @@ function effectMessage(p: DialogueProblem): string {
     case 'tag-source': return `effect 的標籤「${tag}」不是故事事件或章節設定的標籤，對話不能改它；字典裡它的 sources 要包含 event 或 chapter`;
     case 'tag-form': return `effect「${part}」寫法和標籤型別不符：布林標籤寫 tag:${tag}，數值標籤寫 tag:${tag}=數字 或 tag:${tag}+數字`;
     case 'minutes': return `effect「${part}」的 clock: 後面必須是分鐘數，1 到 4 位數的整數，例如 clock:10`;
+    case 'gauge': return gaugeMessage(part);
     case 'alcohol-set':
     case 'alcohol-buff': return alcoholMessage(p.effect, part);
     default: return `effect「${part}」有誤`;

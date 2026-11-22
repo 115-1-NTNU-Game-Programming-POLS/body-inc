@@ -2,7 +2,7 @@ import { advance, startClock, wholeMinutes, type RuleClock } from '../clock.ts';
 import { owing } from '../combat/assists.ts';
 import type { BossTable } from '../combat/bosses/boss.ts';
 import type { EnemyTable } from '../combat/enemies.ts';
-import { BASE_HALVES } from '../combat/frames.ts';
+import { BASE_HALVES, SUGAR_FOG } from '../combat/frames.ts';
 import { OPERATOR_BODY, type TickInput } from '../combat/operator.ts';
 import type { Perks } from '../combat/perks.ts';
 import type { ChapterFile } from '../content/generated.ts';
@@ -30,11 +30,11 @@ import { record } from '../tags/causal.ts';
 import type { TagDictionary } from '../tags/dictionary.ts';
 import { amount, EMPTY_TAGS, flag, holds, setAmount, setFlag, type TagState } from '../tags/store.ts';
 import { TICK_HZ } from '../time.ts';
-import { isTool, TOOLS, type Tool } from '../tools.ts';
+import { DEFAULT_TOOLS, isTool, TOOLS, type Tool } from '../tools.ts';
 import { caffeineOf, senseCap, type MetabolismParams } from '../outer/caffeine.ts';
-import type { Deck } from '../outer/deck.ts';
+import type { Deck, Opening } from '../outer/deck.ts';
 import { openCard, stepCard, type CardState } from './cards.ts';
-import { applyEffects } from './effects.ts';
+import { applyEffects, raisedGauge } from './effects.ts';
 import { GLUCOSE, isDizzy, openGlucose, stepGlucose, type GlucoseEvent } from './glucose.ts';
 import { onCan, type CanEvent } from './can.ts';
 import { onRefusal, onToast, type RefusalEvent } from './refusal.ts';
@@ -60,7 +60,7 @@ export interface Run {
   /** One-time triggers, beds and pickups already used, as `roomId#objectId`. */
   readonly fired: readonly string[];
   /**
-   * Toggle switches that are on, as `roomId#objectId`. A room is rebuilt on every entry, so the
+   * Levers and reveal switches that are on, as `roomId#objectId`. A room is rebuilt on every entry, so the
    * run keeps them; a solved mechanism stays solved, through doors and forced leaves alike.
    */
   readonly switches: readonly string[];
@@ -124,6 +124,9 @@ export type ChapterEvent =
   | { readonly type: 'returnedToCheckpoint'; readonly room: string }
   /** A conversation handed the operator a tool; the HUD shows it from now on. */
   | { readonly type: 'toolGranted'; readonly tool: Tool }
+  | { readonly type: 'gaugeRaised'; readonly points: number }
+  /** The same cue as the room's own gaugeFull, for a gauge an effect filled (talk.ts withTools). */
+  | { readonly type: 'gaugeFull' }
   | GlucoseEvent
   | { readonly type: 'rescueOpened'; readonly rescue: string }
   /** An action on the rescue panel; `done` is how many correct steps are done after it. */
@@ -231,6 +234,7 @@ function build(ctx: ChapterContent, run: Run, place: Place, carry: Carry): GameS
     boxes: boxesHere(run),
     stampLocked: !run.tools.includes('stamp'),
     folderLocked: !run.tools.includes('folder'),
+    highlighter: run.tools.includes('highlighter'),
     pie: ctx.chapter.partner === 'chairman',
     unload: ctx.chapter.partner === 'logistics',
     ...(run.perks ? { perks: run.perks } : {}),
@@ -317,9 +321,9 @@ export interface StartOptions {
   readonly perks?: Perks;
 }
 
-/** The tools a chapter starts with: what was carried in, plus its own list (every tool when it has none). */
+/** The tools a chapter starts with: what was carried in, plus its own list (DEFAULT_TOOLS when it has none). */
 export function toolsAtStart(chapter: ChapterFile, carried: readonly Tool[] = []): Tool[] {
-  const own = (chapter.tools ?? TOOLS).filter(isTool);
+  const own = (chapter.tools ?? DEFAULT_TOOLS).filter(isTool);
   return TOOLS.filter((t) => carried.includes(t) || own.includes(t));
 }
 
@@ -341,12 +345,20 @@ export function startChapter(ctx: ChapterContent, options: StartOptions = {}): C
     tools: toolsAtStart(ctx.chapter, options.tools),
     ...(options.perks ? { perks: options.perks } : {}),
   };
+  // The fog is the operator's, not the tag's (the sugar salesman's tea starts it in the room), so a chapter
+  // that opens with the tag, as after the stomach chapter's fried-chicken dinner, opens in it.
+  const fogged = ctx.dict.tags.has('sugar_fatigue') && flag(run.tags, ctx.dict, 'sugar_fatigue');
   const game = build(ctx, run, { kind: 'start' }, {
-    clock, gauge: options.gauge ?? 0, halves: options.halves ?? BASE_HALVES, stacks: 0,
+    clock, gauge: options.gauge ?? 0, halves: options.halves ?? BASE_HALVES, stacks: 0, ...(fogged ? { fatigue: SUGAR_FOG.ticks } : {}),
   });
   // Only a start at the chapter's own start room is the story's start; a dev build may open anywhere.
   const intro = run.roomId === ctx.chapter.start ? ctx.chapter.intro : undefined;
   return { run: remember(run, game), game, dialogue: null, card: null, ...(intro !== undefined ? { pending: intro } : {}) };
+}
+
+/** A new chapter after its opening cards: their tags and clock, and the gauge their `gauge:` effects raised. */
+export function startOpened(ctx: ChapterContent, opening: Opening, tools: readonly Tool[] = []): ChapterState {
+  return startChapter(ctx, { tags: opening.tags, clock: opening.clock, tools, gauge: raisedGauge(0, opening.events) });
 }
 
 /** Continue from a saved checkpoint: its room and place, its tags and clock, full hearts. The intro is not played again. */
@@ -465,10 +477,10 @@ function onTrigger(ctx: ChapterContent, run: Run, game: GameState, e: Extract<Do
 }
 
 /** What the climax choice costs right now: the factors of the chapter's `climax` while its flag is on, otherwise 1. */
-function climax(ctx: ChapterContent, run: Run): { readonly summon: number; readonly archive: number } {
+function climax(ctx: ChapterContent, run: Run): { readonly summon: number; readonly archive: number; readonly pace: number } {
   const c = ctx.chapter.climax;
-  if (c === undefined || !flag(run.tags, ctx.dict, c.flag)) return { summon: 1, archive: 1 };
-  return { summon: c.summonFactor ?? 1, archive: c.archiveFactor ?? 1 };
+  if (c === undefined || !flag(run.tags, ctx.dict, c.flag)) return { summon: 1, archive: 1, pace: 1 };
+  return { summon: c.summonFactor ?? 1, archive: c.archiveFactor ?? 1, pace: c.paceFactor ?? 1 };
 }
 
 /**
@@ -564,7 +576,9 @@ const undoneByReturn = (ctx: ChapterContent, key: string): boolean => {
   if (id === CONCESSION) return true;
   return ctx.rooms.get(room)?.objects.some((o) => String(o.id) === id
     && (o.kind === 'Bed' || (o.kind === 'Pickup' && o.props['itemType'] !== 'handbook')
-      || (o.kind === 'Trigger' && SCENES.includes(String(o.props['event']))))) ?? false;
+      || (o.kind === 'Trigger' && SCENES.includes(String(o.props['event'])))
+      // The switch stays found, but the tags its conversation set go back, so it is shown again on the next visit.
+      || (o.kind === 'Switch' && o.props['mode'] === 'reveal' && String(o.props['dialogueId'] ?? '').trim() !== ''))) ?? false;
 };
 
 /** A conversation or an event card. Only one is on screen at a time, and only one opens per tick. */
@@ -597,19 +611,24 @@ function openPending(ctx: ChapterContent, state: ChapterState): ChapterResult {
 function cloaked(ctx: ChapterContent, run: Run, game: GameState): GameState {
   // In the exam the residue runs on the boss clock (exam/fight.ts), not the chapter's.
   const cap = senseCap(sitting(game.exam) ? game.exam!.residue : caffeineOf(run.tags, ctx.dict));
-  const scaled = summonScaled(ctx, run, game);
+  const scaled = climaxScaled(ctx, run, game);
   if (cap !== undefined) return scaled.senseCapPx === cap ? scaled : { ...scaled, senseCapPx: cap };
   if (scaled.senseCapPx === undefined) return scaled;
   const { senseCapPx: _, ...rest } = scaled;
   return rest;
 }
 
-/** The boss's summons follow the climax choice; the room knows no tags, so the chapter sets the scale. */
-function summonScaled(ctx: ChapterContent, run: Run, game: GameState): GameState {
-  const scale = climax(ctx, run).summon;
-  if (scale === (game.summonScale ?? 1)) return game;
-  if (scale !== 1) return { ...game, summonScale: scale };
-  const { summonScale: _, ...rest } = game;
+/** The boss's summons and pace follow the climax choice; the room knows no tags, so the chapter sets the scales. */
+function climaxScaled(ctx: ChapterContent, run: Run, game: GameState): GameState {
+  const c = climax(ctx, run);
+  return scaled(scaled(game, 'summonScale', c.summon), 'paceScale', c.pace);
+}
+
+/** `game` with `key` at `value`, or without it at 1, so a chapter without a climax keeps the state it had. */
+function scaled(game: GameState, key: 'summonScale' | 'paceScale', value: number): GameState {
+  if (value === (game[key] ?? 1)) return game;
+  if (value !== 1) return { ...game, [key]: value };
+  const { [key]: _, ...rest } = game;
   return rest;
 }
 
@@ -708,6 +727,22 @@ function stepRoom(ctx: ChapterContent, state: ChapterState, input: TickInput): C
     opening = { kind: 'dialogue', id, spent: key };
   };
   /**
+   * A lit reveal switch's conversation (the liver found out, design doc 7.7) is owed the same way,
+   * lowest id first, one per tick, so a circle that lights two shows both in turn.
+   */
+  const claimReveal = () => {
+    if (opening) return;
+    for (const o of [...game.room.objects].sort((a, b) => a.id - b.id)) {
+      if (o.kind !== 'Switch' || o.props['mode'] !== 'reveal' || !game.switches.includes(o.id)) continue;
+      const id = String(o.props['dialogueId'] ?? '').trim();
+      const key = `${run.roomId}#${o.id}`;
+      if (id === '' || run.fired.includes(key)) continue;
+      run = { ...run, fired: [...run.fired, key] };
+      opening = { kind: 'dialogue', id, spent: key };
+      return;
+    }
+  };
+  /**
    * A boss's concession (design doc 7.5, 7.7) is owed like a filled port's conversation: asked
    * for on every tick a given-up boss with a concedeDialogue stands in the room until it is shown,
    * since that conversation is where his contract is rewritten and what lets the chapter go on.
@@ -726,8 +761,8 @@ function stepRoom(ctx: ChapterContent, state: ChapterState, input: TickInput): C
   for (const e of r.events) {
     switch (e.type) {
       case 'switchChanged': {
-        // Only a toggle switch outlives the moment; a plate is down only while stood on.
-        if (e.mode !== 'toggle') break;
+        // A lever and a reveal switch outlive the moment; a plate is down only while stood on.
+        if (e.mode !== 'toggle' && e.mode !== 'reveal') break;
         const key = `${run.roomId}#${e.object}`;
         run = { ...run, switches: e.on ? [...run.switches.filter((k) => k !== key), key] : run.switches.filter((k) => k !== key) };
         break;
@@ -874,6 +909,7 @@ function stepRoom(ctx: ChapterContent, state: ChapterState, input: TickInput): C
     return done(plain(run, game), []);
   }
   claimPort();
+  claimReveal();
   claimConcession();
   // A door crossed on the same tick waits: it is forgotten as touched, so it fires again once the
   // conversation or card is over.

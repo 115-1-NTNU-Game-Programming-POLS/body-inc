@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
-  activeModifiers, amount, caffeineBoost, caffeineOf, caffeineSleepCoef, calculateSemesterGrade, contributions, drawFloat, elevatorPanel,
+  activeModifiers, advanceDay, amount, caffeineBoost, caffeineOf, caffeineSleepCoef, calculateSemesterGrade, contributions, drawFloat, elevatorPanel,
   examPerformance, FLOORS, flag,
   gradeFor, lightOf, liverClues, liverStrikes, nextLoad, nextSleepDebt, patrolReduction, playDay, record, runSemester, scoreExam, seedStreams,
-  semesterProblems, setFlag, sleepFactor, startSemester, strikes, summarize, trace, type DayRecord, type DayView, type Loads,
+  semesterProblems, setAmount, setFlag, sleepFactor, startSemester, strikes, summarize, trace, type DayRecord, type DayView, type Loads,
   type SemesterContext, type SemesterEvent, type SemesterState, type Strategy,
 } from '../../src/core/index.ts';
 import { ARCHETYPES } from '../../sim/semester/archetypes.ts';
@@ -102,8 +102,12 @@ describe('the nightly load (design doc 8.4)', () => {
   });
 
   it('reads the contribution column of 8.4 for the behaviours the prototype models', () => {
-    const base = { debtAfter: 0, deadline: false, tolerant: false, lateSnack: false, alcoholCups: 0, fasting: false };
+    const base = { debtAfter: 0, deadline: false, tolerant: false, lateSnack: false, alcoholCups: 0, fasting: false, chronic: false };
     expect(contributions({ ...base, debtAfter: 2, deadline: true, tolerant: true }, K)).toEqual(loads({ brain: 24 }));
+    expect(contributions({ ...base, chronic: true }, K)).toEqual(loads({ brain: 8, immune: 15 }));
+    expect(contributions({ ...base, illness: 'throat' }, K)).toEqual(loads({}));
+    expect(contributions({ ...base, illness: 'cold' }, K)).toEqual(loads({ immune: 25 }));
+    expect(contributions({ ...base, chronic: true, illness: 'fever' }, K)).toEqual(loads({ brain: 8, immune: 55 }));
     expect(contributions({ ...base, lateSnack: true }, K)).toEqual(loads({ stomach: 15 }));
     expect(contributions({ ...base, alcoholCups: 3 }, K).liver).toBe(24);
     expect(contributions({ ...base, alcoholCups: 3, fasting: true }, K).liver).toBe(36);
@@ -124,11 +128,44 @@ describe('the liver (design doc 8.6)', () => {
     expect(liverStrikes({ ...base, orders: [] }, K)).toBe(false);
   });
 
-  it('shows the cross-floor clues from 40 and the elevator stop from 60, while the light stays off', () => {
-    expect(liverClues(39.9, [], K)).toEqual({ orders: [], stomachJam: false, elevatorStops: false });
-    expect(liverClues(40, [2], K)).toEqual({ orders: [2], stomachJam: true, elevatorStops: false });
-    expect(liverClues(60, [2], K)).toEqual({ orders: [2], stomachJam: true, elevatorStops: true });
-    expect(lightOf('liver', 60, K)).toBe('off');
+  const stopsAt = (seed: number, day: number, load = 60): boolean => liverClues(load, [2], K, day, seedStreams(seed).setting).elevatorStops;
+  /** The first day from 1 on which seed 2 rolls a stop at load 60, and the first on which it does not. */
+  const STOP_DAY = Array.from({ length: 30 }, (_, i) => i + 1).find((d) => stopsAt(2, d))!;
+  const QUIET_DAY = Array.from({ length: 30 }, (_, i) => i + 1).find((d) => !stopsAt(2, d))!;
+
+  it('jams the conveyor from 40 and allows the seeded elevator stop from 60', () => {
+    const salt = seedStreams(2).setting;
+    expect(liverClues(39.9, [], K, STOP_DAY, salt)).toEqual({ orders: [], stomachJam: false, elevatorStops: false });
+    expect(liverClues(40, [2], K, STOP_DAY, salt)).toEqual({ orders: [2], stomachJam: true, elevatorStops: false });
+    expect(stopsAt(2, STOP_DAY, 59.9)).toBe(false);
+    expect(stopsAt(2, STOP_DAY)).toBe(true);
+    expect(stopsAt(2, QUIET_DAY)).toBe(false);
+  });
+
+  it('stops on about one eligible day in three, by day and seed', () => {
+    let stops = 0;
+    for (let seed = 1; seed <= 300; seed++) for (let day = 1; day <= 10; day++) if (stopsAt(seed, day)) stops++;
+    const share = stops / 3000;
+    expect(share).toBeGreaterThan(0.3);
+    expect(share).toBeLessThan(0.37);
+    // The same day stops for some seeds and not others, so the roll is not the day alone.
+    expect(new Set(Array.from({ length: 20 }, (_, i) => stopsAt(i + 1, STOP_DAY))).size).toBe(2);
+  });
+
+  it('replays the stop as part of the floor question and leaves the liver plate dark', () => {
+    const state = { ...startSemester(CTX, 2), day: STOP_DAY, loads: loads({ liver: 60 }) };
+    const answers = [{ kind: 'plan', plan: { coffee: [], rest: [] } }] as const;
+    const step = advanceDay(state, CTX, answers);
+    if (step.done || step.ask.kind !== 'floor') throw new Error('expected the floor question');
+    expect(step.ask.view.liverClues.elevatorStops).toBe(true);
+    expect(step.ask.view.panel.buttons.find((b) => b.floor === 'liver')).toMatchObject({ light: 'off', note: 'liver_ok' });
+    // Another morning plan reaches the same floor question with the same stop: the roll does not read the answers.
+    const other = advanceDay(state, CTX, [{ kind: 'plan', plan: { coffee: [8], rest: [] } }]);
+    if (other.done || other.ask.kind !== 'floor') throw new Error('expected the floor question');
+    expect(other.ask.view.liverClues.elevatorStops).toBe(true);
+    const quiet = advanceDay({ ...state, day: QUIET_DAY }, CTX, answers);
+    if (quiet.done || quiet.ask.kind !== 'floor') throw new Error('expected the floor question');
+    expect(quiet.ask.view.liverClues.elevatorStops).toBe(false);
   });
 
   it('does not strike through the other floors rule', () => {
@@ -448,6 +485,112 @@ describe('events and tags', () => {
   });
 });
 
+describe('stress and chronic stress (design doc 9.1)', () => {
+  const stressOf = (s: SemesterState): number => amount(s.tags, CTX.dict, 'stress');
+  const cram: Strategy = { ...quiet, night: () => ({ bed: 26, nextWake: 7, lateNight: 'study' }) };
+  const calm: Strategy = { ...quiet, plan: () => ({ coffee: [], rest: [8, 9, 10, 11, 13, 14, 15, 16, 17, 19, 20, 21] }) };
+
+  it('starts at 30, charges each hour by what it was spent on and takes 1.5 off per hour of effective sleep', () => {
+    expect(stressOf(startSemester(CTX, 1))).toBe(30);
+    // 8 hours of study at 2 and 4 of class at 1, then 9 hours of sleep at 1.5.
+    expect(play(startSemester(CTX, 1), CTX).history[0]!.stress).toBe(36.5);
+    // Three of the study hours spent resting instead, at -4 each.
+    const resting: Strategy = { ...quiet, plan: () => ({ coffee: [], rest: [8, 9, 16] }) };
+    expect(play(startSemester(CTX, 1), CTX, resting).history[0]!.stress).toBe(18.5);
+  });
+
+  it('charges the hours kept up past the planned bedtime as work', () => {
+    const at = (floor: Strategy['floor']) => play(startSemester(CTX, 1), CTX, { ...quiet, floor, night: () => ({ bed: 23, nextWake: 7, lateNight: 'rest' }) }).history[0]!.stress;
+    // 22:00 to 23:00 is leisure either way; the overtime hour is work at 1.5 instead of an hour of sleep.
+    expect(at(() => ({ patrol: 'brain' }))).toBe(34);
+    expect(at(() => ({ patrol: 'brain', overtime: 'gut' }))).toBe(37);
+  });
+
+  it('adds 20 for a program deadline and traces the stress back to it', () => {
+    const ctx = contextFor(0.5, 1, { scenario: { 1: ['deadline'] } });
+    const s = play(startSemester(ctx, 1), ctx);
+    // The squeeze takes two study hours as work: 30 + 12 + 3 + 4 + 20 - 13.5.
+    expect(s.history[0]!.stress).toBe(55.5);
+    const nodes = s.tags.log.nodes;
+    const step = nodes[s.tags.values['stress']!.node]!.causes.map((c) => nodes[c.node]!).find((n) => n.key === 'stress.events')!;
+    expect(step.causes.map((c) => nodes[c.node]!.key)).toEqual(['event.deadline.squeeze']);
+  });
+
+  it('adds 15 on a hospital day, whose hours cost none', () => {
+    const s = play({ ...startSemester(CTX, 1), hospitalDay: 1 }, CTX);
+    expect(s.history[0]!.kind).toBe('hospital');
+    expect(s.history[0]!.stress).toBe(30 + 15 - 1.5 * s.history[0]!.slept!);
+  });
+
+  it('begins after two nights in a row above 70 and ends after two in a row under 50', () => {
+    let s = startSemester(CTX, 1);
+    for (let i = 0; i < 4; i++) s = play(s, CTX, cram);
+    for (let i = 0; i < 4; i++) s = play(s, CTX, calm);
+    expect(s.history.map((r) => r.stress! > 70)).toEqual([false, true, true, true, false, false, false, false]);
+    expect(s.history.map((r) => r.stress! < 50)).toEqual([false, false, false, false, false, true, true, true]);
+    expect(s.history.map((r) => r.chronicStress === true)).toEqual([false, false, true, true, true, true, false, false]);
+    // The stress itself stays within 0 to 100.
+    expect(s.history.map((r) => r.stress)).toEqual([50.5, 71, 91.5, 93.25, 62.1, expect.closeTo(1.95, 6), 0, 0]);
+  });
+
+  it('counts only nights in a row, both to begin and to end', () => {
+    // A quiet day adds a few points over its night, so setting the morning's stress picks which side of 70 or 50 the night settles on.
+    const from = (s: SemesterState, x: number): SemesterState => {
+      const [log, node] = record(s.tags.log, { kind: 'rule', key: 'test', at: last(s.tags.log.nodes).at });
+      return { ...s, tags: setAmount({ ...s.tags, log }, CTX.dict, 'stress', x, node, last(s.tags.log.nodes).at) };
+    };
+    let s = startSemester(CTX, 1);
+    for (const x of [80, 50, 80, 80, 30, 80, 30, 30]) s = play(from(s, x), CTX);
+    expect(s.history.map((r) => (r.stress! > 70 ? 'high' : r.stress! < 50 ? 'low' : 'mid'))).toEqual(['high', 'mid', 'high', 'high', 'low', 'high', 'low', 'low']);
+    expect(s.history.map((r) => r.chronicStress === true)).toEqual([false, false, false, true, true, true, true, false]);
+  });
+
+  it('keeps the stress within 0 to 100 after every hour, not only at the end of the day', () => {
+    // Rest late in the day: whatever the morning above 92, the study hours reach the ceiling first, so the night is the same.
+    const lateRest: Strategy = { ...quiet, plan: () => ({ coffee: [], rest: [17, 19, 20, 21] }) };
+    const [log, node] = record(startSemester(CTX, 1).tags.log, { kind: 'rule', key: 'test', at: 0 });
+    const morning = (x: number): SemesterState => {
+      const s = startSemester(CTX, 1);
+      return { ...s, tags: setAmount({ ...s.tags, log }, CTX.dict, 'stress', x, node, 0) };
+    };
+    const night = (x: number): number => play(morning(x), CTX, lateRest).history[0]!.stress!;
+    expect(night(95)).toBe(night(99));
+    expect(night(95)).toBeLessThan(95);
+  });
+
+  it('costs a tenth of the sleep and loads the brain by 8 and the immune floor by 15 while it holds, citing the tag', () => {
+    const base = { ...startSemester(CTX, 1), loads: loads({ brain: 50, immune: 50 }) };
+    const [log, node] = record(base.tags.log, { kind: 'rule', key: 'test', at: 0 });
+    const chronic = { ...base, tags: setFlag({ ...base.tags, log }, CTX.dict, 'chronic_stress', true, node, 0) };
+    const away: Strategy = { ...quiet, floor: () => ({ patrol: 'gut' }) };
+    const plain = play(base, CTX, away);
+    const held = play(chronic, CTX, away);
+    expect(plain.history[0]!.slept).toBe(9);
+    expect(held.history[0]!.slept).toBeCloseTo(8.1);
+    // Both floors are unpatrolled and over 40, so both take the neglect bonus.
+    expect(plain.loads.brain).toBe(50 + 10 - 18);
+    expect(plain.loads.immune).toBe(50 + 10 - 18);
+    expect(held.loads.brain).toBeCloseTo(50 + 8 + 10 - 16.2);
+    expect(held.loads.immune).toBeCloseTo(50 + 15 + 10 - 16.2);
+    // One calm night is not two, so it still holds, and the immune floor's load cites it.
+    expect(held.history[0]!.chronicStress).toBe(true);
+    const tag = held.tags.values['chronic_stress']!.node;
+    expect(held.loadCauses.immune).toEqual([tag]);
+    expect(held.loadCauses.brain).toContain(tag);
+    expect(plain.loadCauses.immune).toEqual([]);
+    expect(plain.loadCauses.brain).not.toContain(tag);
+  });
+
+  it('shows the player the stress and the chronic stress the day began with', () => {
+    const views: DayView[] = [];
+    const spy: Strategy = { ...cram, plan: (v) => (views.push(v), cram.plan(v)) };
+    let s = startSemester(CTX, 1);
+    for (let i = 0; i < 4; i++) s = play(s, CTX, spy);
+    expect(views.map((v) => v.stress)).toEqual([30, 50.5, 71, 91.5]);
+    expect(views.map((v) => v.chronicStress)).toEqual([false, false, false, true]);
+  });
+});
+
 describe('caffeine tolerance (design doc 9.1)', () => {
   const cups = (n: number): Strategy => ({ ...quiet, plan: () => ({ coffee: Array.from({ length: n }, (_, i) => 8 + i), rest: [] }) });
 
@@ -603,7 +746,9 @@ describe('exams and hospital (design doc 8.9, 8.11)', () => {
     });
 
     it('sends two floors on strike to the emergency room, with lighter floors left as they are', () => {
-      const s = play(strained({ brain: 100, stomach: 100, immune: 30 }), CTX, gutPatrol);
+      // No roommate's cold tonight, which would add its 5 to the immune floor.
+      const quiet = { ...CTX, params: { ...K, roommateExposure: 0 } };
+      const s = play(strained({ brain: 100, stomach: 100, immune: 30 }), quiet, gutPatrol);
       const rec = last(s.history);
       expect(rec.strikes).toEqual(['brain', 'stomach']);
       expect(rec.hospitalized).toBe(true);
@@ -680,14 +825,16 @@ describe('exams and hospital (design doc 8.9, 8.11)', () => {
 describe('what the player is allowed to see', () => {
   it('hands strategies lights and clues but no floor load', () => {
     const views: DayView[] = [];
-    const spy: Strategy = { ...ARCHETYPES.drinkerBlind, floor: (v, t) => { views.push(v); return ARCHETYPES.drinkerBlind.floor(v, t); } };
+    const spy: Strategy = { ...ARCHETYPES.drinkerBlind, floor: (v, t, l) => { views.push(v); return ARCHETYPES.drinkerBlind.floor(v, t, l); } };
     const ctx = contextFor(0.5, 1, { scenario: { 2: ['bbq'], 3: ['bbq'] } });
     runSemester(ctx, spy, 1);
     expect(views.length).toBeGreaterThan(5);
     for (const v of views) {
       expect(Object.keys(v).sort()).toEqual([
-        'S', 'bedDelay', 'caffeine', 'day', 'examTomorrow', 'exam', 'homework', 'hospitals', 'liverClues', 'modifiers', 'panel', 'progress', 'sleepDebt', 'staging', 'wake', 'weekend', 'welfare',
+        'S', 'bedDelay', 'caffeine', 'day', 'examTomorrow', 'exam', 'homework', 'hospitals', 'liverClues', 'liverReading', 'modifiers', 'panel', 'progress', 'sleepDebt', 'staging', 'stress', 'chronicStress', 'wake', 'weekend', 'welfare', 'workOrders', ...(v.illness !== undefined ? ['illness'] : []),
       ].sort());
+      // The one load a view holds is a reading paid for; with no blood test and no patrol lit, that is the day-1 checkup.
+      expect(v.liverReading).toEqual({ day: 1, by: 'checkup', load: 0 });
       for (const b of v.panel.buttons) expect(Object.keys(b).every((k) => ['floor', 'light', 'note'].includes(k))).toBe(true);
     }
     // after a binge the clue is on while the light is not
@@ -812,7 +959,8 @@ describe('the causal log of a semester', () => {
 
   it('records whether the liver struck on an empty stomach, which a strike of two floors never is', () => {
     expect(strikeDay.crisis!.fasting).toBe(true);
-    const ctx = contextFor(0.5, 1, { scenario: crunchWeek(1) });
+    const ctx0 = contextFor(0.5, 1, { scenario: crunchWeek(1) });
+    const ctx = { ...ctx0, params: { ...ctx0.params, campusExposure: 0, roommateExposure: 0 } };
     const crammed = runSemester(ctx, ARCHETYPES.crammer, 1);
     const visit = crammed.history.find((r) => r.crisis)!;
     expect([visit.strikes, visit.crisis!.fasting]).toEqual([['brain', 'stomach'], false]);

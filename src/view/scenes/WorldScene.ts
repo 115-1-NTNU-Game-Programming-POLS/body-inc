@@ -1,18 +1,20 @@
 import Phaser from 'phaser';
 import { SCENE_ATLASES, type Manifest, type ManifestEntry } from '../../app/assets.ts';
 import { lowHeartBeat, musicFor, secondOf, UI } from '../../app/audio.ts';
-import { AUDIO, FEEDBACK, str, STRINGS } from '../../app/content.ts';
+import { AUDIO, FEEDBACK, fillStr, PARAMS, str, STRINGS, TAGS } from '../../app/content.ts';
+import { liverFigure } from '../../app/semester.ts';
 import { releaseKeysOnClose } from '../../app/dialogue.ts';
 import { keepPage, titleKey } from '../../app/handbook.ts';
 import { assistsOf, mayOpenOverlay, panelOpen, speedOf, togglesAttack, withAssists } from '../../app/pause.ts';
 import { sharedKeys, type KeyboardInput } from '../../app/input.ts';
 import type { PatrolSession } from '../../app/patrol.ts';
+import { isPresenting } from '../../app/presenter.ts';
 import type { WallSession } from '../../app/wall.ts';
 import type { FixedStepLoop } from '../../app/loop.ts';
 import type { SaveStore } from '../../app/storage.ts';
 import { WallContact } from '../../app/wallContact.ts';
 import {
-  carriedTags, CELL_COLS, DELIVERY_HALF, listProps, selectBoss, selectFightSleep, selectEnemies, selectOperator, selectProjectiles, storyAtEnd, storyOf, TILE, visibleProps,
+  carriedTags, CELL_COLS, DELIVERY_HALF, listProps, overtimeHours, selectBoss, selectFightSleep, selectEnemies, selectOperator, selectProjectiles, storyAtEnd, storyOf, TILE, visibleProps,
   type ChapterContent, type ChapterState, type EnemyState, type GameEvent, type GameState, type PatrolResult, type ProgressData, type Settings, type TiledMapFile,
 } from '../../core/index.ts';
 import type { CardsData } from './OpeningScene.ts';
@@ -143,7 +145,7 @@ export class WorldScene extends Phaser.Scene {
     if (this.wallSession) this.input.keyboard?.on('keydown-ESC', () => this.finishWall());
     this.patrolSession = this.registry.get('patrol') as PatrolSession | undefined;
     // Giving up is a failed patrol, not a way out of one that is going badly: it cuts no load and gives no card (design doc 8.4).
-    if (this.patrolSession) this.input.keyboard?.on('keydown-ESC', () => this.finishPatrol({ failed: true }));
+    if (this.patrolSession) this.input.keyboard?.on('keydown-ESC', () => this.patrolSession && this.finishPatrol(this.patrolSession.play.giveUp()));
     // Esc already means "leave" on the wall and in a patrol, so the menu belongs to the story rooms.
     if (!this.wallSession && !this.patrolSession) this.input.keyboard?.on('keydown-ESC', (e: KeyboardEvent) => this.openPause(e));
 
@@ -239,7 +241,12 @@ export class WorldScene extends Phaser.Scene {
     }
 
     this.hazards.render(prevState, state, alpha);
-    this.mechanisms.render(state);
+    this.mechanisms.render(state, (kind) => {
+      if (kind === 'liver_load') return this.patrolSession ? liverFigure(this.patrolSession.liverLoad) : '';
+      if (kind !== 'liver_overtime') return '';
+      const hours = overtimeHours(chapter.run.tags, TAGS, PARAMS);
+      return hours > 0 ? fillStr('liver.overtime', { hours: hours.toFixed(1) }) : str('liver.overtime_none');
+    });
     this.renderStaples(prevState, alpha);
     this.overlay.render(state);
     const bumps = this.walls.starts(this.pending, tick, cur.action.kind === 'free' || cur.action.kind === 'guard');
@@ -258,13 +265,17 @@ export class WorldScene extends Phaser.Scene {
   private react(e: GameEvent): void {
     switch (e.type) {
       case 'checkpointSaved': {
-        if (!this.patrolSession) saveStory(this, storyOf(this.loop.state.run));
+        if (!this.patrolSession && !isPresenting(this.registry)) saveStory(this, storyOf(this.loop.state.run));
         break;
       }
       case 'handbookUnlocked': {
-        const kept = keepPage(this.registry.get('saves') as SaveStore, this.registry.get('progress') as ProgressData, e.id);
+        // A demo shows the page as new and keeps nothing, so the presenter's own handbook is as it was.
+        const kept = isPresenting(this.registry)
+          ? { progress: this.registry.get('progress') as ProgressData, isNew: true, issues: [] }
+          : keepPage(this.registry.get('saves') as SaveStore, this.registry.get('progress') as ProgressData, e.id);
         if (kept.issues.length > 0) this.game.events.emit('save-issues', kept.issues);
         this.registry.set('progress', kept.progress);
+        this.wallSession?.onPage?.();
         this.note(str(kept.isNew ? 'handbook.unlocked' : 'handbook.known').replace('{title}', str(titleKey(e.id))));
         // Taking the page from the report desk is the end of the wall; the note gets a moment on screen first.
         if (this.wallSession && !this.leaving) this.time.delayedCall(WALL_END_MS, () => this.finishWall());
@@ -278,11 +289,19 @@ export class WorldScene extends Phaser.Scene {
         this.leave(() => this.scene.restart());
         break;
       case 'forcedLeave':
-        if (this.patrolSession) this.finishPatrol({ failed: true });
+        if (this.patrolSession) this.finishPatrol(this.patrolSession.play.giveUp());
         break;
       case 'chapterEnded': {
         if (this.patrolSession) {
           this.finishPatrol(this.patrolSession.play.rate());
+          break;
+        }
+        // A demo ends where its part of the chapter does: back to the title, with the story slot as it was.
+        if (isPresenting(this.registry)) {
+          this.leave(() => {
+            this.scene.stop('Hud');
+            this.scene.start('Title');
+          });
           break;
         }
         const { run } = this.loop.state;

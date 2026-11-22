@@ -11,6 +11,11 @@ export interface FloorContrib {
   readonly lateSnackStomach: number;
   readonly alcoholLiver: number;
   readonly fastingAlcoholMult: number;
+  readonly chronicBrain: number;
+  readonly chronicImmune: number;
+  readonly coldImmune: number;
+  readonly feverImmune: number;
+  readonly roommateImmune: number;
 }
 
 export interface LoadParams extends FloorThresholds {
@@ -36,24 +41,29 @@ export interface DayFacts {
   readonly lateSnack: boolean;
   readonly alcoholCups: number;
   readonly fasting: boolean;
+  /** Chronic stress holds after tonight's settlement. */
+  readonly chronic: boolean;
+  /** The roommate had a cold this evening (design doc 8.4, 室友感冒（接觸）). */
+  readonly roommate?: boolean;
+  /** The stage of the cold the day had (the old sim's timing); absent when the host was well. */
+  readonly illness?: 'throat' | 'cold' | 'fever';
 }
 
 const round6 = (x: number): number => Math.round(x * 1e6) / 1e6;
 
 /**
  * The tag contribution column of design doc 8.4, for the behaviours the prototype produces.
- * Immune and gut have no producer yet, so they always return 0.
+ * The gut has no producer yet, so it always returns 0.
  */
 export function contributions(f: DayFacts, k: LoadParams): Loads {
   const c = k.floorContrib;
   return mapFloors((floor): number => {
     switch (floor) {
-      case 'brain': return c.debtBrain * f.debtAfter + (f.deadline ? c.deadlineBrain : 0) + (f.tolerant ? c.toleranceBrain : 0);
+      case 'brain': return c.debtBrain * f.debtAfter + (f.deadline ? c.deadlineBrain : 0) + (f.tolerant ? c.toleranceBrain : 0) + (f.chronic ? c.chronicBrain : 0);
       case 'stomach': return f.lateSnack ? c.lateSnackStomach : 0;
       case 'liver': return c.alcoholLiver * f.alcoholCups * (f.fasting ? c.fastingAlcoholMult : 1);
-      case 'immune':
-      case 'gut':
-        return 0;
+      case 'immune': return (f.chronic ? c.chronicImmune : 0) + (f.roommate === true ? c.roommateImmune : 0) + (f.illness === 'cold' ? c.coldImmune : f.illness === 'fever' ? c.feverImmune : 0);
+      case 'gut': return 0;
     }
   });
 }

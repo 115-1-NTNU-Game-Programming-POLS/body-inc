@@ -15,6 +15,7 @@ export * from './chapter/chapter.ts';
 export * from './chapter/patrol.ts';
 export { eventCard, type CardState } from './chapter/cards.ts';
 export * from './chapter/playable.ts';
+export { raisedGauge } from './chapter/effects.ts';
 export type { EffectEvent, EffectSource } from './chapter/effects.ts';
 export * from './outer/deck.ts';
 export * from './outer/caffeine.ts';

@@ -747,11 +747,13 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
         "minLength": 1
       },
       "tools": {
-        "description": "Tools the operator has from the start of this chapter. Absent means every tool; the prologue lists none, since the chairman hands over the stamp at its end (design doc 5.4). Tools granted earlier in the run are kept.",
+        "description": "Tools the operator has from the start of this chapter. Absent means the stamp and the folder (core/tools.ts DEFAULT_TOOLS), never the highlighter, which only a chapter that lists it or a grant hands over; the prologue lists none, since the chairman hands over the stamp at its end (design doc 5.4). Tools granted earlier in the run are kept.",
         "type": "array",
         "items": {
           "enum": [
-            "stamp"
+            "stamp",
+            "folder",
+            "highlighter"
           ]
         },
         "uniqueItems": true
@@ -842,7 +844,7 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
         }
       },
       "climax": {
-        "description": "The choice an event card offers before the boss (design doc 7.4): a boolean tag it sets, and what that costs. With the flag on, the boss summons `summonFactor` times as many enemies at once and may keep that many times as many alive, and going to bed files only `archiveFactor` of the desk.",
+        "description": "The choice an event card offers before the boss (design doc 7.4, 7.5): a boolean tag it sets, and what that costs. With the flag on, the boss summons `summonFactor` times as many enemies at once and may keep that many times as many alive, the stomach boss throws his stage-2 boxes `paceFactor` times as often, and going to bed files only `archiveFactor` of the desk.",
         "type": "object",
         "additionalProperties": false,
         "required": [
@@ -865,6 +867,12 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
             "type": "number",
             "minimum": 0,
             "maximum": 1
+          },
+          "paceFactor": {
+            "description": "Multiplier on how often the stomach boss throws in his stage 2 (加大份量) while the flag is on; the time between boxes is divided by it.",
+            "type": "number",
+            "minimum": 1,
+            "maximum": 2
           }
         }
       }
@@ -1660,6 +1668,8 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
           "chronicAt",
           "chronicDays",
           "chronicOff",
+          "chronicClear",
+          "chronicClearNights",
           "lowSocial",
           "lowSocialStress",
           "socialPerHour",
@@ -1683,6 +1693,12 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
           "restBed",
           "restEff",
           "feverIfEffBelow",
+          "roommateExposure",
+          "throatDays",
+          "coldDays",
+          "feverDays",
+          "coldFastSleep",
+          "immuneStrikeInf",
           "passMid",
           "passFin",
           "difficulty",
@@ -2021,6 +2037,17 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
           "chronicOff": {
             "type": "number"
           },
+          "chronicClear": {
+            "description": "Stress under which a night settlement counts toward clearing chronic stress in the semester.",
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "chronicClearNights": {
+            "description": "Night settlements in a row under chronicClear that clear chronic stress in the semester.",
+            "type": "integer",
+            "minimum": 1
+          },
           "lowSocial": {
             "type": "number"
           },
@@ -2089,6 +2116,36 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
           },
           "feverIfEffBelow": {
             "type": "number"
+          },
+          "roommateExposure": {
+            "description": "Chance an evening of the semester brings the roommate's cold.",
+            "type": "number",
+            "minimum": 0
+          },
+          "throatDays": {
+            "description": "Nights a sore throat lasts in the semester before it becomes a cold, unless an early night ends it.",
+            "type": "integer",
+            "minimum": 1
+          },
+          "coldDays": {
+            "description": "Nights a cold lasts in the semester, unless a short night turns it into a fever.",
+            "type": "integer",
+            "minimum": 1
+          },
+          "feverDays": {
+            "description": "Nights a fever lasts in the semester.",
+            "type": "integer",
+            "minimum": 1
+          },
+          "coldFastSleep": {
+            "description": "Effective sleep from which one night counts as two nights of a cold.",
+            "type": "number",
+            "minimum": 0
+          },
+          "immuneStrikeInf": {
+            "description": "Multiplier on the infection chance while the immune floor strikes.",
+            "type": "number",
+            "minimum": 1
           },
           "passMid": {
             "type": "number"
@@ -2276,7 +2333,12 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
               "toleranceBrain",
               "lateSnackStomach",
               "alcoholLiver",
-              "fastingAlcoholMult"
+              "fastingAlcoholMult",
+              "chronicBrain",
+              "chronicImmune",
+              "coldImmune",
+              "feverImmune",
+              "roommateImmune"
             ],
             "properties": {
               "debtBrain": {
@@ -2308,6 +2370,31 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
                 "description": "Multiplier on the alcohol load when drinking on an empty stomach.",
                 "type": "number",
                 "minimum": 1
+              },
+              "chronicBrain": {
+                "description": "Brain load on a night while chronic stress holds.",
+                "type": "number",
+                "minimum": 0
+              },
+              "chronicImmune": {
+                "description": "Immune load on a night while chronic stress holds.",
+                "type": "number",
+                "minimum": 0
+              },
+              "coldImmune": {
+                "description": "Immune load on a night with a cold.",
+                "type": "number",
+                "minimum": 0
+              },
+              "feverImmune": {
+                "description": "Immune load on a night with a fever.",
+                "type": "number",
+                "minimum": 0
+              },
+              "roommateImmune": {
+                "description": "Immune load on an evening with the roommate's cold.",
+                "type": "number",
+                "minimum": 0
               }
             }
           },
@@ -2752,6 +2839,7 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
           "explain",
           "incidentHead",
           "incidentItem",
+          "voted",
           "copyTo",
           "copyCc",
           "chair",
@@ -2759,6 +2847,7 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
           "causeSingle",
           "causeMulti",
           "causeLiverFasting",
+          "causeFever",
           "unlockNew",
           "unlockKnown",
           "examMid",
@@ -2813,6 +2902,10 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
             "type": "string",
             "minLength": 1
           },
+          "voted": {
+            "type": "string",
+            "minLength": 1
+          },
           "copyTo": {
             "type": "string",
             "minLength": 1
@@ -2838,6 +2931,10 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
             "minLength": 1
           },
           "causeLiverFasting": {
+            "type": "string",
+            "minLength": 1
+          },
+          "causeFever": {
             "type": "string",
             "minLength": 1
           },
@@ -3680,8 +3777,8 @@ export interface ChapterFile {
   readonly next?: string;
   /** A conversation that opens as a new game of this chapter starts (the prologue's interview). Not replayed on continue. */
   readonly intro?: string;
-  /** Tools the operator has from the start of this chapter. Absent means every tool; the prologue lists none, since the chairman hands over the stamp at its end (design doc 5.4). Tools granted earlier in the run are kept. */
-  readonly tools?: readonly "stamp"[];
+  /** Tools the operator has from the start of this chapter. Absent means the stamp and the folder (core/tools.ts DEFAULT_TOOLS), never the highlighter, which only a chapter that lists it or a grant hands over; the prologue lists none, since the chairman hands over the stamp at its end (design doc 5.4). Tools granted earlier in the run are kept. */
+  readonly tools?: readonly ("stamp" | "folder" | "highlighter")[];
   /** The partner who walks with the operator through this chapter. The chairman gives the L key his pie shield (design doc 5.1): it stops thrown shots for a few seconds, its size and duration times S, and then has to cool down. The stomach logistics chief gives it his acid (design doc 6.2): a zone spat ahead that hurts and shoves back ordinary enemies for 3 seconds, with a cooldown of 9. Absent: L does nothing. */
   readonly partner?: "chairman" | "logistics";
   /** Shows the blood glucose meter and runs its rules in this chapter (design doc 7.3). */
@@ -3707,7 +3804,7 @@ export interface ChapterFile {
   readonly closedCases?: Readonly<Record<string, string>>;
   /** Enemy types that leave a handbook page when their case is closed, as enemy id to page id (design doc 7.5: the sugar salesman drops 〈糖分與疲倦〉). The page is kept like any unlocked page, so a forced leave does not take it back. */
   readonly caseDrops?: Readonly<Record<string, string>>;
-  /** The choice an event card offers before the boss (design doc 7.4): a boolean tag it sets, and what that costs. With the flag on, the boss summons `summonFactor` times as many enemies at once and may keep that many times as many alive, and going to bed files only `archiveFactor` of the desk. */
+  /** The choice an event card offers before the boss (design doc 7.4, 7.5): a boolean tag it sets, and what that costs. With the flag on, the boss summons `summonFactor` times as many enemies at once and may keep that many times as many alive, the stomach boss throws his stage-2 boxes `paceFactor` times as often, and going to bed files only `archiveFactor` of the desk. */
   readonly climax?: {
     /** Boolean tag the choice sets. */
     readonly flag: string;
@@ -3715,6 +3812,8 @@ export interface ChapterFile {
     readonly summonFactor?: number;
     /** Multiplier on what sleep files while the flag is on. */
     readonly archiveFactor?: number;
+    /** Multiplier on how often the stomach boss throws in his stage 2 (加大份量) while the flag is on; the time between boxes is divided by it. */
+    readonly paceFactor?: number;
   };
 }
 
@@ -4003,6 +4102,10 @@ export interface ParamsFile {
     readonly chronicAt: number;
     readonly chronicDays: number;
     readonly chronicOff: number;
+    /** Stress under which a night settlement counts toward clearing chronic stress in the semester. */
+    readonly chronicClear: number;
+    /** Night settlements in a row under chronicClear that clear chronic stress in the semester. */
+    readonly chronicClearNights: number;
     readonly lowSocial: number;
     readonly lowSocialStress: number;
     readonly socialPerHour: number;
@@ -4026,6 +4129,18 @@ export interface ParamsFile {
     readonly restBed: number;
     readonly restEff: number;
     readonly feverIfEffBelow: number;
+    /** Chance an evening of the semester brings the roommate's cold. */
+    readonly roommateExposure: number;
+    /** Nights a sore throat lasts in the semester before it becomes a cold, unless an early night ends it. */
+    readonly throatDays: number;
+    /** Nights a cold lasts in the semester, unless a short night turns it into a fever. */
+    readonly coldDays: number;
+    /** Nights a fever lasts in the semester. */
+    readonly feverDays: number;
+    /** Effective sleep from which one night counts as two nights of a cold. */
+    readonly coldFastSleep: number;
+    /** Multiplier on the infection chance while the immune floor strikes. */
+    readonly immuneStrikeInf: number;
     readonly passMid: number;
     readonly passFin: number;
     readonly difficulty: number;
@@ -4092,6 +4207,16 @@ export interface ParamsFile {
       readonly alcoholLiver: number;
       /** Multiplier on the alcohol load when drinking on an empty stomach. */
       readonly fastingAlcoholMult: number;
+      /** Brain load on a night while chronic stress holds. */
+      readonly chronicBrain: number;
+      /** Immune load on a night while chronic stress holds. */
+      readonly chronicImmune: number;
+      /** Immune load on a night with a cold. */
+      readonly coldImmune: number;
+      /** Immune load on a night with a fever. */
+      readonly feverImmune: number;
+      /** Immune load on an evening with the roommate's cold. */
+      readonly roommateImmune: number;
     };
     /** Hours an overtime patrol pushes bedtime back. */
     readonly overtimeBedDelay: number;
@@ -4221,6 +4346,7 @@ export interface ReportDoc {
   readonly explain: string;
   readonly incidentHead: string;
   readonly incidentItem: string;
+  readonly voted: string;
   readonly copyTo: string;
   readonly copyCc: string;
   readonly chair: string;
@@ -4228,6 +4354,7 @@ export interface ReportDoc {
   readonly causeSingle: string;
   readonly causeMulti: string;
   readonly causeLiverFasting: string;
+  readonly causeFever: string;
   readonly unlockNew: string;
   readonly unlockKnown: string;
   readonly examMid: string;

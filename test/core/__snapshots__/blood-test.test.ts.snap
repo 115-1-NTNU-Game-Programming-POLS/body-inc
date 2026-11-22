@@ -1,0 +1,938 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`the blood test (design doc 8.6) > is drawn after every other event, so their days are what they were 1`] = `
+{
+  "2": [
+    "bbq",
+    "late_snack",
+  ],
+  "4": [
+    "bbq",
+    "deadline",
+  ],
+  "7": [
+    "late_snack",
+  ],
+  "8": [
+    "deadline",
+  ],
+}
+`;
+
+exports[`the blood test (design doc 8.6) > is drawn after every other event, so their days are what they were 2`] = `
+{
+  "2": [
+    "bbq",
+  ],
+  "3": [
+    "deadline",
+  ],
+  "6": [
+    "late_snack",
+  ],
+  "7": [
+    "late_snack",
+  ],
+  "8": [
+    "deadline",
+  ],
+}
+`;
+
+exports[`the blood test (design doc 8.6) > is drawn after every other event, so their days are what they were 3`] = `
+{
+  "2": [
+    "bbq",
+  ],
+  "3": [
+    "bbq",
+    "deadline",
+  ],
+  "4": [
+    "late_snack",
+  ],
+  "9": [
+    "deadline",
+    "late_snack",
+  ],
+}
+`;
+
+exports[`the blood test (design doc 8.6) > is drawn after every other event, so their days are what they were 4`] = `
+{
+  "2": [
+    "bbq",
+  ],
+  "3": [
+    "bbq",
+  ],
+  "4": [
+    "late_snack",
+  ],
+  "8": [
+    "deadline",
+  ],
+  "9": [
+    "deadline",
+    "late_snack",
+  ],
+}
+`;
+
+exports[`the blood test (design doc 8.6) > is drawn after every other event, so their days are what they were 5`] = `
+{
+  "3": [
+    "bbq",
+  ],
+  "4": [
+    "deadline",
+    "late_snack",
+  ],
+  "8": [
+    "deadline",
+    "late_snack",
+  ],
+}
+`;
+
+exports[`the blood test (design doc 8.6) > is drawn after every other event, so their days are what they were 6`] = `
+{
+  "2": [
+    "bbq",
+  ],
+  "3": [
+    "bbq",
+    "late_snack",
+  ],
+  "4": [
+    "deadline",
+  ],
+  "9": [
+    "deadline",
+    "late_snack",
+  ],
+}
+`;
+
+exports[`the blood test (design doc 8.6) > is drawn after every other event, so their days are what they were 7`] = `
+{
+  "2": [
+    "late_snack",
+  ],
+  "4": [
+    "bbq",
+  ],
+  "8": [
+    "deadline",
+    "late_snack",
+  ],
+  "9": [
+    "deadline",
+  ],
+}
+`;
+
+exports[`the blood test (design doc 8.6) > is drawn after every other event, so their days are what they were 8`] = `
+{
+  "2": [
+    "bbq",
+  ],
+  "4": [
+    "deadline",
+  ],
+  "6": [
+    "late_snack",
+  ],
+  "9": [
+    "deadline",
+    "late_snack",
+  ],
+}
+`;
+
+exports[`the blood test (design doc 8.6) > is drawn after every other event, so their days are what they were 9`] = `
+{
+  "3": [
+    "deadline",
+  ],
+  "4": [
+    "bbq",
+    "deadline",
+  ],
+  "6": [
+    "late_snack",
+  ],
+  "8": [
+    "late_snack",
+  ],
+}
+`;
+
+exports[`the blood test (design doc 8.6) > is drawn after every other event, so their days are what they were 10`] = `
+{
+  "3": [
+    "bbq",
+  ],
+  "4": [
+    "bbq",
+    "late_snack",
+  ],
+  "8": [
+    "deadline",
+    "late_snack",
+  ],
+  "9": [
+    "deadline",
+  ],
+}
+`;
+
+exports[`the blood test (design doc 8.6) > is drawn after every other event, so their days are what they were 11`] = `
+{
+  "2": [
+    "bbq",
+  ],
+  "3": [
+    "deadline",
+  ],
+  "6": [
+    "late_snack",
+  ],
+  "8": [
+    "late_snack",
+  ],
+  "9": [
+    "deadline",
+  ],
+}
+`;
+
+exports[`the blood test (design doc 8.6) > is drawn after every other event, so their days are what they were 12`] = `
+{
+  "2": [
+    "bbq",
+    "late_snack",
+  ],
+  "3": [
+    "bbq",
+  ],
+  "8": [
+    "deadline",
+  ],
+  "9": [
+    "deadline",
+    "late_snack",
+  ],
+}
+`;
+
+exports[`the blood test (design doc 8.6) > is drawn after every other event, so their days are what they were 13`] = `
+{
+  "2": [
+    "bbq",
+    "late_snack",
+  ],
+  "3": [
+    "bbq",
+    "deadline",
+  ],
+  "9": [
+    "deadline",
+    "late_snack",
+  ],
+}
+`;
+
+exports[`the blood test (design doc 8.6) > is drawn after every other event, so their days are what they were 14`] = `
+{
+  "2": [
+    "late_snack",
+  ],
+  "3": [
+    "bbq",
+  ],
+  "8": [
+    "deadline",
+  ],
+  "9": [
+    "deadline",
+    "late_snack",
+  ],
+}
+`;
+
+exports[`the blood test (design doc 8.6) > is drawn after every other event, so their days are what they were 15`] = `
+{
+  "2": [
+    "bbq",
+  ],
+  "4": [
+    "deadline",
+  ],
+  "8": [
+    "late_snack",
+  ],
+  "9": [
+    "deadline",
+    "late_snack",
+  ],
+}
+`;
+
+exports[`the blood test (design doc 8.6) > is drawn after every other event, so their days are what they were 16`] = `
+{
+  "2": [
+    "bbq",
+  ],
+  "3": [
+    "bbq",
+    "deadline",
+  ],
+  "4": [
+    "deadline",
+  ],
+  "7": [
+    "late_snack",
+  ],
+  "8": [
+    "late_snack",
+  ],
+}
+`;
+
+exports[`the blood test (design doc 8.6) > is drawn after every other event, so their days are what they were 17`] = `
+{
+  "3": [
+    "bbq",
+    "deadline",
+    "late_snack",
+  ],
+  "4": [
+    "bbq",
+  ],
+  "9": [
+    "deadline",
+    "late_snack",
+  ],
+}
+`;
+
+exports[`the blood test (design doc 8.6) > is drawn after every other event, so their days are what they were 18`] = `
+{
+  "2": [
+    "late_snack",
+  ],
+  "3": [
+    "bbq",
+    "deadline",
+  ],
+  "4": [
+    "late_snack",
+  ],
+  "9": [
+    "deadline",
+  ],
+}
+`;
+
+exports[`the blood test (design doc 8.6) > is drawn after every other event, so their days are what they were 19`] = `
+{
+  "3": [
+    "bbq",
+  ],
+  "4": [
+    "deadline",
+    "late_snack",
+  ],
+  "6": [
+    "late_snack",
+  ],
+  "9": [
+    "deadline",
+  ],
+}
+`;
+
+exports[`the blood test (design doc 8.6) > is drawn after every other event, so their days are what they were 20`] = `
+{
+  "3": [
+    "bbq",
+    "deadline",
+  ],
+  "6": [
+    "late_snack",
+  ],
+  "7": [
+    "late_snack",
+  ],
+  "8": [
+    "deadline",
+  ],
+}
+`;
+
+exports[`the blood test (design doc 8.6) > is drawn after every other event, so their days are what they were 21`] = `
+{
+  "3": [
+    "bbq",
+    "late_snack",
+  ],
+  "4": [
+    "bbq",
+    "deadline",
+  ],
+  "6": [
+    "late_snack",
+  ],
+  "9": [
+    "deadline",
+  ],
+}
+`;
+
+exports[`the blood test (design doc 8.6) > is drawn after every other event, so their days are what they were 22`] = `
+{
+  "2": [
+    "bbq",
+  ],
+  "3": [
+    "deadline",
+  ],
+  "4": [
+    "late_snack",
+  ],
+  "8": [
+    "deadline",
+  ],
+  "9": [
+    "late_snack",
+  ],
+}
+`;
+
+exports[`the blood test (design doc 8.6) > is drawn after every other event, so their days are what they were 23`] = `
+{
+  "2": [
+    "bbq",
+    "late_snack",
+  ],
+  "3": [
+    "bbq",
+  ],
+  "4": [
+    "deadline",
+  ],
+  "8": [
+    "late_snack",
+  ],
+  "9": [
+    "deadline",
+  ],
+}
+`;
+
+exports[`the blood test (design doc 8.6) > is drawn after every other event, so their days are what they were 24`] = `
+{
+  "2": [
+    "bbq",
+  ],
+  "3": [
+    "deadline",
+    "late_snack",
+  ],
+  "4": [
+    "bbq",
+    "deadline",
+  ],
+  "9": [
+    "late_snack",
+  ],
+}
+`;
+
+exports[`the blood test (design doc 8.6) > is drawn after every other event, so their days are what they were 25`] = `
+{
+  "2": [
+    "bbq",
+  ],
+  "3": [
+    "deadline",
+    "late_snack",
+  ],
+  "4": [
+    "deadline",
+  ],
+  "8": [
+    "late_snack",
+  ],
+}
+`;
+
+exports[`the blood test (design doc 8.6) > is drawn after every other event, so their days are what they were 26`] = `
+{
+  "2": [
+    "bbq",
+    "late_snack",
+  ],
+  "3": [
+    "bbq",
+    "deadline",
+  ],
+  "8": [
+    "deadline",
+    "late_snack",
+  ],
+}
+`;
+
+exports[`the blood test (design doc 8.6) > is drawn after every other event, so their days are what they were 27`] = `
+{
+  "4": [
+    "bbq",
+    "late_snack",
+  ],
+  "6": [
+    "late_snack",
+  ],
+  "8": [
+    "deadline",
+  ],
+  "9": [
+    "deadline",
+  ],
+}
+`;
+
+exports[`the blood test (design doc 8.6) > is drawn after every other event, so their days are what they were 28`] = `
+{
+  "2": [
+    "bbq",
+  ],
+  "3": [
+    "bbq",
+    "deadline",
+  ],
+  "4": [
+    "late_snack",
+  ],
+  "6": [
+    "late_snack",
+  ],
+  "9": [
+    "deadline",
+  ],
+}
+`;
+
+exports[`the blood test (design doc 8.6) > is drawn after every other event, so their days are what they were 29`] = `
+{
+  "2": [
+    "bbq",
+  ],
+  "3": [
+    "deadline",
+  ],
+  "6": [
+    "late_snack",
+  ],
+  "8": [
+    "late_snack",
+  ],
+  "9": [
+    "deadline",
+  ],
+}
+`;
+
+exports[`the blood test (design doc 8.6) > is drawn after every other event, so their days are what they were 30`] = `
+{
+  "3": [
+    "deadline",
+  ],
+  "4": [
+    "bbq",
+    "deadline",
+  ],
+  "7": [
+    "late_snack",
+  ],
+  "9": [
+    "late_snack",
+  ],
+}
+`;
+
+exports[`the blood test (design doc 8.6) > is drawn after every other event, so their days are what they were 31`] = `
+{
+  "2": [
+    "bbq",
+  ],
+  "4": [
+    "late_snack",
+  ],
+  "6": [
+    "late_snack",
+  ],
+  "8": [
+    "deadline",
+  ],
+  "9": [
+    "deadline",
+  ],
+}
+`;
+
+exports[`the blood test (design doc 8.6) > is drawn after every other event, so their days are what they were 32`] = `
+{
+  "2": [
+    "bbq",
+  ],
+  "3": [
+    "deadline",
+  ],
+  "4": [
+    "bbq",
+    "late_snack",
+  ],
+  "6": [
+    "late_snack",
+  ],
+  "8": [
+    "deadline",
+  ],
+}
+`;
+
+exports[`the blood test (design doc 8.6) > is drawn after every other event, so their days are what they were 33`] = `
+{
+  "3": [
+    "late_snack",
+  ],
+  "4": [
+    "bbq",
+  ],
+  "8": [
+    "deadline",
+    "late_snack",
+  ],
+  "9": [
+    "deadline",
+  ],
+}
+`;
+
+exports[`the blood test (design doc 8.6) > is drawn after every other event, so their days are what they were 34`] = `
+{
+  "3": [
+    "bbq",
+    "deadline",
+  ],
+  "6": [
+    "late_snack",
+  ],
+  "9": [
+    "deadline",
+    "late_snack",
+  ],
+}
+`;
+
+exports[`the blood test (design doc 8.6) > is drawn after every other event, so their days are what they were 35`] = `
+{
+  "2": [
+    "bbq",
+  ],
+  "3": [
+    "deadline",
+    "late_snack",
+  ],
+  "4": [
+    "deadline",
+  ],
+  "8": [
+    "late_snack",
+  ],
+}
+`;
+
+exports[`the blood test (design doc 8.6) > is drawn after every other event, so their days are what they were 36`] = `
+{
+  "2": [
+    "bbq",
+  ],
+  "3": [
+    "deadline",
+    "late_snack",
+  ],
+  "4": [
+    "bbq",
+    "late_snack",
+  ],
+  "8": [
+    "deadline",
+  ],
+}
+`;
+
+exports[`the blood test (design doc 8.6) > is drawn after every other event, so their days are what they were 37`] = `
+{
+  "2": [
+    "bbq",
+  ],
+  "4": [
+    "bbq",
+    "deadline",
+    "late_snack",
+  ],
+  "6": [
+    "late_snack",
+  ],
+  "8": [
+    "deadline",
+  ],
+}
+`;
+
+exports[`the blood test (design doc 8.6) > is drawn after every other event, so their days are what they were 38`] = `
+{
+  "2": [
+    "bbq",
+  ],
+  "4": [
+    "deadline",
+  ],
+  "7": [
+    "late_snack",
+  ],
+  "8": [
+    "late_snack",
+  ],
+  "9": [
+    "deadline",
+  ],
+}
+`;
+
+exports[`the blood test (design doc 8.6) > is drawn after every other event, so their days are what they were 39`] = `
+{
+  "2": [
+    "bbq",
+    "late_snack",
+  ],
+  "4": [
+    "bbq",
+    "deadline",
+  ],
+  "8": [
+    "deadline",
+    "late_snack",
+  ],
+}
+`;
+
+exports[`the blood test (design doc 8.6) > is drawn after every other event, so their days are what they were 40`] = `
+{
+  "2": [
+    "bbq",
+  ],
+  "3": [
+    "deadline",
+  ],
+  "4": [
+    "bbq",
+  ],
+  "7": [
+    "late_snack",
+  ],
+  "8": [
+    "deadline",
+    "late_snack",
+  ],
+}
+`;
+
+exports[`the blood test (design doc 8.6) > is drawn after every other event, so their days are what they were 41`] = `
+{
+  "2": [
+    "bbq",
+    "late_snack",
+  ],
+  "3": [
+    "bbq",
+  ],
+  "8": [
+    "deadline",
+  ],
+  "9": [
+    "deadline",
+    "late_snack",
+  ],
+}
+`;
+
+exports[`the blood test (design doc 8.6) > is drawn after every other event, so their days are what they were 42`] = `
+{
+  "3": [
+    "bbq",
+    "deadline",
+  ],
+  "7": [
+    "late_snack",
+  ],
+  "8": [
+    "deadline",
+  ],
+  "9": [
+    "late_snack",
+  ],
+}
+`;
+
+exports[`the blood test (design doc 8.6) > is drawn after every other event, so their days are what they were 43`] = `
+{
+  "2": [
+    "bbq",
+  ],
+  "3": [
+    "late_snack",
+  ],
+  "4": [
+    "bbq",
+    "deadline",
+    "late_snack",
+  ],
+  "8": [
+    "deadline",
+  ],
+}
+`;
+
+exports[`the blood test (design doc 8.6) > is drawn after every other event, so their days are what they were 44`] = `
+{
+  "3": [
+    "late_snack",
+  ],
+  "4": [
+    "bbq",
+    "deadline",
+    "late_snack",
+  ],
+  "9": [
+    "deadline",
+  ],
+}
+`;
+
+exports[`the blood test (design doc 8.6) > is drawn after every other event, so their days are what they were 45`] = `
+{
+  "2": [
+    "late_snack",
+  ],
+  "3": [
+    "bbq",
+    "deadline",
+  ],
+  "4": [
+    "bbq",
+  ],
+  "8": [
+    "deadline",
+  ],
+  "9": [
+    "late_snack",
+  ],
+}
+`;
+
+exports[`the blood test (design doc 8.6) > is drawn after every other event, so their days are what they were 46`] = `
+{
+  "2": [
+    "bbq",
+    "late_snack",
+  ],
+  "3": [
+    "deadline",
+    "late_snack",
+  ],
+  "9": [
+    "deadline",
+  ],
+}
+`;
+
+exports[`the blood test (design doc 8.6) > is drawn after every other event, so their days are what they were 47`] = `
+{
+  "3": [
+    "deadline",
+    "late_snack",
+  ],
+  "4": [
+    "bbq",
+  ],
+  "8": [
+    "deadline",
+    "late_snack",
+  ],
+}
+`;
+
+exports[`the blood test (design doc 8.6) > is drawn after every other event, so their days are what they were 48`] = `
+{
+  "2": [
+    "bbq",
+  ],
+  "3": [
+    "late_snack",
+  ],
+  "4": [
+    "bbq",
+    "deadline",
+    "late_snack",
+  ],
+  "8": [
+    "deadline",
+  ],
+}
+`;
+
+exports[`the blood test (design doc 8.6) > is drawn after every other event, so their days are what they were 49`] = `
+{
+  "2": [
+    "late_snack",
+  ],
+  "3": [
+    "bbq",
+    "deadline",
+  ],
+  "4": [
+    "bbq",
+  ],
+  "8": [
+    "deadline",
+  ],
+  "9": [
+    "late_snack",
+  ],
+}
+`;
+
+exports[`the blood test (design doc 8.6) > is drawn after every other event, so their days are what they were 50`] = `
+{
+  "2": [
+    "bbq",
+    "late_snack",
+  ],
+  "3": [
+    "deadline",
+  ],
+  "4": [
+    "bbq",
+  ],
+  "7": [
+    "late_snack",
+  ],
+  "8": [
+    "deadline",
+  ],
+}
+`;

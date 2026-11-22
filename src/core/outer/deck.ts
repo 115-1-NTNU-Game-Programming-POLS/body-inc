@@ -85,6 +85,10 @@ export function readDeck(raw: unknown, dict: TagDictionary): { deck: Deck | unde
       ids.add(o.id);
       const parsed = parseEffects(o.effect, dict, sources);
       for (const p of parsed.problems) problems.push({ code: 'effect', section, card: c.id, option: o.id, part: p.part, effect: p.code });
+      // A closing card hands the next chapter its tags only, so a gauge it raised would be lost on the way.
+      if (section === 'closing') {
+        for (const e of parsed.effects) if (e.kind === 'gauge') problems.push({ code: 'effect', section, card: c.id, option: o.id, part: `gauge:${e.points}`, effect: 'closing' });
+      }
       return { id: o.id, effects: parsed.effects };
     });
     return { id: c.id, options };

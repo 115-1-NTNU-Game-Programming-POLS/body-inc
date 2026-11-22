@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { BOSSES, DIALOGUES, ENEMIES, PARAMS, TAGS } from '../../src/app/content.ts';
 import {
   answeredCards, bedAfter, decode, EMPTY_TAGS, encode, GLUCOSE, glucoseOf, loadDialogueTable, openingFor, OuterError, parseRoom, playCards,
-  PUSH, readDeck, resumeChapter, selectPort, setAmount, setFlag, STAMP, startChapter, stepChapter, stepGlucose, STORY, storyAtEnd, TALK_REST_TICKS, TOOLS, toolsAtStart,
+  PUSH, readDeck, resumeChapter, selectPort, setAmount, setFlag, STAMP, startChapter, stepChapter, stepGlucose, STORY, storyAtEnd, TALK_REST_TICKS, DEFAULT_TOOLS, toolsAtStart,
   record, type ChapterContent, type ChapterFile, type ChapterState, type Checkpoint, type DialogueTable, type GameEvent, type TagState, type TickInput, type TiledMap,
 } from '../../src/core/index.ts';
 
@@ -287,9 +287,10 @@ describe('the stamp is handed over (design doc 7.3)', () => {
     expect(s.run.tools).toEqual([]);
     expect(s.game.stampLocked).toBe(true);
     expect(types(run(locked, s, STAMP_KEY, 3).events)).not.toContain('stampRaised');
-    // The control: every tool is the default.
+    // The control: the stamp and the folder are the default; the highlighter never is (issue #76).
     const open = chapter([]);
-    expect(startChapter(open).run.tools).toEqual([...TOOLS]);
+    expect(startChapter(open).run.tools).toEqual([...DEFAULT_TOOLS]);
+    expect(startChapter(open).run.tools).not.toContain('highlighter');
     expect(types(run(open, full(startChapter(open)), STAMP_KEY, 3).events)).toContain('stampRaised');
   });
 
@@ -333,7 +334,9 @@ describe('the stamp is handed over (design doc 7.3)', () => {
     const base: ChapterFile = { version: 1, id: 'x', start: 'x/a', links: [] };
     expect(toolsAtStart({ ...base, tools: [] })).toEqual([]);
     expect(toolsAtStart({ ...base, tools: [] }, ['stamp'])).toEqual(['stamp']);
-    expect(toolsAtStart(base)).toEqual([...TOOLS]);
+    expect(toolsAtStart(base)).toEqual([...DEFAULT_TOOLS]);
+    expect(toolsAtStart(base, ['highlighter'])).toEqual(['stamp', 'folder', 'highlighter']);
+    expect(toolsAtStart({ ...base, tools: ['highlighter'] })).toEqual(['highlighter']);
   });
 
   it('an event card may hand out a tool; an opening or closing card may not', () => {

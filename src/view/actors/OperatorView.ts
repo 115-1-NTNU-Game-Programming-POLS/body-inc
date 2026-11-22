@@ -3,7 +3,10 @@ import { tagKey, type ManifestEntry } from '../../app/assets.ts';
 import { invulnAlpha } from '../../app/comfort.ts';
 import { comfortIn } from '../fx/comfortIn.ts';
 import { FlashPainter } from '../fx/FlashPainter.ts';
-import { DODGE, FOLDER, inDodgeIframes, parryOpen, STAMP_LAND, STAPLER, swingBox, type OperatorState } from '../../core/index.ts';
+import { circleCentre, DODGE, FOLDER, HIGHLIGHTER, inDodgeIframes, lineOf, parryOpen, STAMP_LAND, STAPLER, swingBox, type OperatorState } from '../../core/index.ts';
+
+/** Highlighter yellow of the palette (art direction, `#FFE873`). */
+const HIGHLIGHT = 0xffe873;
 
 /**
  * Where clinging stacks ride, in latch order: back, left shoulder, top of the head (art
@@ -86,6 +89,9 @@ export class OperatorView {
     } else if (a.kind === 'swing' || a.kind === 'guard') {
       // The stapler's push pose stands in until the atlas has folder frames (art direction 5.3).
       this.still(`attack_${dir}`, a.kind === 'swing' && a.frame >= FOLDER.hitFrame ? 1 : 0);
+    } else if (a.kind === 'line' || a.kind === 'circle') {
+      // The attack frames are shared by every piece of stationery (art direction 5.3).
+      this.still(`attack_${dir}`, a.kind === 'line' ? (a.frame >= HIGHLIGHTER.hitFrame ? 1 : 0) : (a.frame >= HIGHLIGHTER.circleMarkFrame ? 1 : 0));
     } else if (tick - this.lastFireTick < STAPLER.intervalTicks) {
       // Push 5 frames, recoil 5: one cycle per staple.
       this.still(`attack_${dir}`, tick - this.lastFireTick < 5 ? 1 : 0);
@@ -120,6 +126,18 @@ export class OperatorView {
       const b = swingBox(cur);
       g.fillStyle(lessFlash ? 0x2a9d8f : 0xffffff, 0.5);
       g.fillEllipse((b.left + b.right) / 2, (b.top + b.bottom) / 2, b.right - b.left, b.bottom - b.top);
+    } else if (a.kind === 'line' && a.frame >= HIGHLIGHTER.hitFrame) {
+      // The stroke stays while the line recovers and fades out with it.
+      const { from, to } = lineOf(cur);
+      const left = 1 - (a.frame - HIGHLIGHTER.hitFrame) / (HIGHLIGHTER.lineTicks - HIGHLIGHTER.hitFrame + 1);
+      g.lineStyle(HIGHLIGHTER.lineHalfW * 2, HIGHLIGHT, 0.7 * left).lineBetween(from.x, from.y, to.x, to.y);
+    } else if (a.kind === 'circle') {
+      // Drawn round as the frames pass, closed on the marking frame, then fading through the recovery.
+      const c = circleCentre(cur);
+      const share = Math.min(1, a.frame / HIGHLIGHTER.circleMarkFrame);
+      const fade = a.frame <= HIGHLIGHTER.circleMarkFrame ? 1 : 1 - (a.frame - HIGHLIGHTER.circleMarkFrame) / (HIGHLIGHTER.circleTicks - HIGHLIGHTER.circleMarkFrame + 1);
+      g.lineStyle(3, HIGHLIGHT, 0.9 * fade).beginPath()
+        .arc(c.x, c.y, HIGHLIGHTER.circleRadiusPx, -Math.PI / 2, -Math.PI / 2 + share * Math.PI * 2, false).strokePath();
     }
   }
 

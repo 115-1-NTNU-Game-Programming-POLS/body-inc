@@ -169,7 +169,7 @@ describe('switch locks', () => {
     const down = run(c, place(s0, 320, 330), NONE);
     expect(down.events).toContainEqual({ type: 'switchChanged', object: 3, on: true, mode: 'hold', by: 'step' });
     expect(down.state.run.switches).toEqual([]);
-    expect(selectSwitches(down.state.game)).toEqual([{ object: 3, mode: 'hold', on: true }]);
+    expect(selectSwitches(down.state.game)).toEqual([{ object: 3, mode: 'hold', on: true, figure: 'none' }]);
     const up = run(c, place(down.state, 320, 200), NONE);
     expect(up.events).toContainEqual({ type: 'switchChanged', object: 3, on: false, mode: 'hold', by: 'step' });
     expect(selectDoorLocks(up.state.game)[0]!.open).toBe(false);
@@ -198,7 +198,7 @@ describe('switch locks', () => {
     const back = run(c, place(inB, 320, 110), { move: { x: 0, y: -1 } }, 20).state;
     expect(back.run.roomId).toBe('lab/a');
     expect(back.game.switches).toEqual([3]);
-    expect(selectSwitches(back.game)).toEqual([{ object: 3, mode: 'toggle', on: true }]);
+    expect(selectSwitches(back.game)).toEqual([{ object: 3, mode: 'toggle', on: true, figure: 'none' }]);
   });
 
   it('a lever thrown after the time clock stays thrown through a forced leave, as a solved puzzle stays solved', () => {

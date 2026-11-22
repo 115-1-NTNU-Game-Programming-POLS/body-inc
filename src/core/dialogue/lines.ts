@@ -2,6 +2,7 @@ import { checkCondition, ConditionError, parseCondition, type Condition, type Co
 import { nameKind, type TagDictionary } from '../tags/dictionary.ts';
 import { wholeMinutes } from '../clock.ts';
 import { isTool, type Tool } from '../tools.ts';
+import { STAMP } from '../combat/frames.ts';
 import { parseCsvRecords } from './csv.ts';
 
 /**
@@ -34,7 +35,9 @@ export type Effect =
   /** `unlock:caffeine` opens a handbook page. */
   | { readonly kind: 'unlock'; readonly id: string }
   /** `grant:stamp` hands the operator a tool for the rest of the run. */
-  | { readonly kind: 'grant'; readonly tool: Tool };
+  | { readonly kind: 'grant'; readonly tool: Tool }
+  /** `gauge:25` adds that much to the rejection gauge, up to its maximum. */
+  | { readonly kind: 'gauge'; readonly points: number };
 
 export interface Line {
   readonly dialogueId: string;
@@ -84,8 +87,12 @@ export type DialogueProblemCode =
   | 'unreachable'
   | 'duplicate-dialogue';
 
-/** `tool`: a grant naming no tool, or in a card, which plays outside the run that would keep it. */
-export type EffectProblemCode = 'syntax' | 'unknown-tag' | 'alias' | 'tag-source' | 'tag-form' | 'minutes' | 'tool' | 'alcohol-set' | 'alcohol-buff';
+/**
+ * `tool`: a grant naming no tool, or in a card, which plays outside the run that would keep it.
+ * `gauge`: a gauge effect whose points are not a whole number from 1 to the gauge's maximum.
+ * `closing`: a gauge effect on a closing card, which only hands tags to the next chapter.
+ */
+export type EffectProblemCode = 'syntax' | 'unknown-tag' | 'alias' | 'tag-source' | 'tag-form' | 'minutes' | 'tool' | 'gauge' | 'closing' | 'alcohol-set' | 'alcohol-buff';
 
 export interface DialogueProblem {
   readonly code: DialogueProblemCode;
@@ -115,6 +122,7 @@ const BODY_TAGS: readonly string[] = ['alcohol', 'caffeine', 'glucose', 'sleep_d
 const MOVE = /^move:([a-z][a-z0-9_]*)>([a-z][a-z0-9_]*)\*(\d+(?:\.\d+)?)$/;
 const CLOCK = /^clock:(.*)$/;
 const GRANT = /^grant:(.*)$/;
+const GAUGE = /^gauge:(.*)$/;
 
 /** The tag sources that let a conversation set a tag: story events, not cards or derived rules. */
 export const DIALOGUE_SOURCES: readonly string[] = ['event', 'chapter'];
@@ -166,6 +174,14 @@ export function parseEffects(text: string, dict: TagDictionary, sources: readonl
       else bad('tool');
       continue;
     }
+    const gauge = GAUGE.exec(part);
+    if (gauge) {
+      const digits = gauge[1]!;
+      const points = Number(digits);
+      if (/^\d{1,3}$/.test(digits) && points >= 1 && points <= STAMP.gaugeMax) effects.push({ kind: 'gauge', points });
+      else bad('gauge');
+      continue;
+    }
     const tag = FLAG_OR_AMOUNT.exec(part);
     if (!tag) {
       bad('syntax');
@@ -187,7 +203,7 @@ export function parseEffects(text: string, dict: TagDictionary, sources: readonl
 /**
  * Design doc 5.1: alcohol is never a combat buff, and only the liver's line lowers it. So no
  * effect sets `alcohol` (setting it to 0 would be a sobering-up cure), and an effect cell that
- * pours a drink cannot also hand out a tool, lower the sleep debt or raise caffeine or glucose,
+ * pours a drink cannot also hand out a tool or gauge, lower the sleep debt or raise caffeine or glucose,
  * which would make the drink the way to a reward.
  */
 function alcoholProblems(effects: readonly Effect[], text: string): EffectProblem[] {
@@ -198,6 +214,7 @@ function alcoholProblems(effects: readonly Effect[], text: string): EffectProble
   if (!effects.some((e) => e.kind === 'amount' && e.name === 'alcohol' && e.mode === 'add' && e.value > 0)) return out;
   for (const e of effects) {
     if (e.kind === 'grant') out.push({ code: 'alcohol-buff', part: `grant:${e.tool}` });
+    else if (e.kind === 'gauge') out.push({ code: 'alcohol-buff', part: partOf('gauge:') });
     else if (e.kind === 'amount' && ((e.name === 'sleep_debt' && e.mode === 'set') || ((e.name === 'caffeine' || e.name === 'glucose') && (e.mode === 'set' || e.value > 0)))) {
       out.push({ code: 'alcohol-buff', part: partOf(`tag:${e.name}`) });
     }

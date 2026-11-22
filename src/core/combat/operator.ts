@@ -1,6 +1,6 @@
 import { moveAndCollide, type Body, type SolidGrid } from '../collision/grid.ts';
 import type { Assists } from './assists.ts';
-import { BUFFER_TICKS, CLING, DODGE, FOLDER, HURT, STAMP, STAPLER, SUGAR_FOG } from './frames.ts';
+import { BUFFER_TICKS, CLING, DODGE, FOLDER, HIGHLIGHTER, HURT, STAMP, STAPLER, SUGAR_FOG } from './frames.ts';
 import { approach, desiredVelocity, facingFor, type Facing, type Vec } from './movement.ts';
 
 /**
@@ -14,7 +14,7 @@ export interface TickInput {
   readonly attackPressed?: boolean;
   readonly dodgePressed?: boolean;
   readonly stampPressed?: boolean;
-  /** Swap the stapler and the folder; a press during an action waits for it to end (OperatorState.swapPending). */
+  /** Put the next tool in hand, in the order of the hand (game.ts handOf); a press during an action waits for it to end (OperatorState.swapPending). */
   readonly swapPressed?: boolean;
   /** The partner's skill (L); it does anything only in a chapter that has a partner with one (OperatorState is untouched). */
   readonly partnerPressed?: boolean;
@@ -35,7 +35,9 @@ export const NO_INPUT: TickInput = { move: { x: 0, y: 0 } };
  * (frame 0 means not started). Stamp frames 1 to STAMP.startupTicks raise it, and it lands on
  * the frame after (STAMP_LAND). A swing of the folder runs frames 1 to FOLDER.swingTicks and hits
  * on FOLDER.hitFrame; a guard runs while the attack key is held, frame 1 being the tick it was
- * raised. `frame` is the frame executed on the latest tick (frames.ts).
+ * raised. A line of the highlighter runs frames 1 to HIGHLIGHTER.lineTicks and hits on its hitFrame;
+ * its circle runs frames 1 to circleTicks and marks on circleMarkFrame. `frame` is the frame
+ * executed on the latest tick (frames.ts).
  */
 export type OperatorAction =
   | { readonly kind: 'free' }
@@ -43,10 +45,12 @@ export type OperatorAction =
   | { readonly kind: 'hurt'; readonly frame: number; readonly dir: Vec }
   | { readonly kind: 'stamp'; readonly frame: number }
   | { readonly kind: 'swing'; readonly frame: number; readonly combo: number }
-  | { readonly kind: 'guard'; readonly frame: number };
+  | { readonly kind: 'guard'; readonly frame: number }
+  | { readonly kind: 'line'; readonly frame: number }
+  | { readonly kind: 'circle'; readonly frame: number };
 
-/** The tool in hand: the stapler, or the folder once the chapter has handed it over (design doc 6.1). */
-export type HeldTool = 'stapler' | 'folder';
+/** The tool in hand: the stapler, or the folder or the highlighter once the chapter has handed it over (design doc 6.1). */
+export type HeldTool = 'stapler' | 'folder' | 'highlighter';
 
 export interface OperatorState {
   readonly x: number;
@@ -97,6 +101,14 @@ export interface OperatorState {
   readonly swapPending: boolean;
   /** Tick of the press that made the swap pending, so an attack pressed before it goes first. */
   readonly swapAt: number;
+  /**
+   * With three tools in hand, how many steps along the hand the pending swap goes, when more than
+   * one: each press is one step, and a press that comes round to the tool in hand takes it back.
+   * Absent with two tools, where a pending swap is always one step.
+   */
+  readonly swapCount?: number;
+  /** The highlighter's circle can be drawn from this tick on (HIGHLIGHTER.circleCooldownTicks); absent before the first. */
+  readonly circleReadyAt?: number;
 }
 
 /** Operator feet box: narrower than the 32 px frame so doorways two tiles wide feel roomy. */
@@ -126,12 +138,17 @@ export function unit(v: Vec): Vec {
   return len === 0 ? { x: 0, y: 0 } : { x: v.x / len, y: v.y / len };
 }
 
-/** Records presses; used every tick, including frozen ones, so input during hit-stop counts. */
-export function bufferInput(op: OperatorState, input: TickInput, now: number): OperatorState {
+const pendingSteps = (op: OperatorState): number => (op.swapPending ? op.swapCount ?? 1 : 0);
+
+/** Records presses; used every tick, including frozen ones, so input during hit-stop counts. `tools` is how many the hand holds. */
+export function bufferInput(op: OperatorState, input: TickInput, now: number, tools = 2): OperatorState {
   if (!input.attackPressed && !input.dodgePressed && !input.stampPressed && !input.swapPressed) return op;
+  const steps = input.swapPressed ? (pendingSteps(op) + 1) % Math.max(1, tools) : pendingSteps(op);
+  const { swapCount: _, ...rest } = op;
   return {
-    ...op,
-    swapPending: input.swapPressed ? !op.swapPending : op.swapPending,
+    ...rest,
+    ...(steps > 1 ? { swapCount: steps } : {}),
+    swapPending: steps > 0,
     swapAt: input.swapPressed && !op.swapPending ? now : op.swapAt,
     bufferedAttack: input.attackPressed ? now : op.bufferedAttack,
     bufferedDodge: input.dodgePressed ? now : op.bufferedDodge,
@@ -169,6 +186,14 @@ export interface OperatorStep {
   readonly guardRaised?: boolean;
   /** The tool in hand after a swap this tick. */
   readonly swapped?: HeldTool;
+  /** A line of the highlighter began this tick. */
+  readonly lined?: boolean;
+  /** The line exists this tick (HIGHLIGHTER.hitFrame); game.ts resolves what it crosses. */
+  readonly lineHit?: boolean;
+  /** The highlighter's circle began this tick. */
+  readonly circleRaised?: boolean;
+  /** The circle is closed this tick (HIGHLIGHTER.circleMarkFrame); game.ts marks what it holds. */
+  readonly circleLanded?: boolean;
   readonly blockedX: boolean;
   readonly blockedY: boolean;
 }
@@ -181,6 +206,13 @@ const wantsGuard = (op: OperatorState, input: TickInput, now: number): boolean =
   op.tool === 'folder' && input.attack === true && op.held >= FOLDER.holdTicks && !live(op.bufferedAttack, now);
 
 /**
+ * The hold that draws the highlighter's circle: on the tick the key, held since the press, reaches
+ * HIGHLIGHTER.holdTicks. One tick only, so a key kept down draws one circle, not one per cooldown.
+ */
+const wantsCircle = (op: OperatorState, input: TickInput, now: number): boolean =>
+  op.tool === 'highlighter' && input.attack === true && op.held === HIGHLIGHTER.holdTicks && now >= (op.circleReadyAt ?? 0);
+
+/**
  * A pending swap waits while an attack pressed before it is still to be done with the tool in
  * hand: a buffered press older than the swap, or a staple already on its way out.
  */
@@ -188,17 +220,26 @@ const attackFirst = (op: OperatorState, now: number): boolean =>
   (live(op.bufferedAttack, now) && op.bufferedAttack! < op.swapAt) || (op.tool === 'stapler' && op.nextShotAt !== null);
 
 /**
- * Puts the other tool in hand. The drawer then keeps attacks and the guard waiting for
- * FOLDER.swapTicks, unless a dodge cancels it (design doc 6.1: 可被閃身取消).
+ * Puts the next tool of the hand in hand, as many steps on as presses are pending. The drawer then
+ * keeps attacks and the guard waiting for FOLDER.swapTicks, unless a dodge cancels it (design doc
+ * 6.1: 可被閃身取消).
  */
-function swapTool(op: OperatorState, now: number, drawer: boolean): OperatorState {
-  const tool: HeldTool = op.tool === 'folder' ? 'stapler' : 'folder';
-  return { ...op, tool, swapPending: false, nextShotAt: null, swapUntil: drawer ? now + FOLDER.swapTicks : now };
+function swapTool(op: OperatorState, now: number, drawer: boolean, hand: readonly HeldTool[]): OperatorState {
+  const at = Math.max(0, hand.indexOf(op.tool));
+  const tool = hand[(at + pendingSteps(op)) % hand.length]!;
+  const { swapCount: _, ...rest } = op;
+  return { ...rest, tool, swapPending: false, nextShotAt: null, swapUntil: drawer ? now + FOLDER.swapTicks : now };
 }
 
-/** Advances the operator one unfrozen tick. `now` is the tick being simulated; `speed` scales how fast the operator walks (1 for none). */
-export function stepOperator(grid: SolidGrid, op0: OperatorState, input: TickInput, now: number, speed = 1): OperatorStep {
-  let op = bufferInput(op0, input, now);
+/** The hand of a game that has not been handed the highlighter: what every caller had before it existed. */
+const TWO_TOOLS: readonly HeldTool[] = ['stapler', 'folder'];
+
+/**
+ * Advances the operator one unfrozen tick. `now` is the tick being simulated; `speed` scales how fast
+ * the operator walks (1 for none); `hand` is the tools the swap key cycles through (game.ts handOf).
+ */
+export function stepOperator(grid: SolidGrid, op0: OperatorState, input: TickInput, now: number, speed = 1, hand: readonly HeldTool[] = TWO_TOOLS): OperatorStep {
+  let op = bufferInput(op0, input, now, hand.length);
   const held = input.attack === true ? op.held + 1 : 0;
   if (held !== op.held) op = { ...op, held };
   const a = op.action;
@@ -214,7 +255,7 @@ export function stepOperator(grid: SolidGrid, op0: OperatorState, input: TickInp
   if (a.kind === 'dodge' && a.frame < DODGE_LAST) {
     // A swap pressed mid-dodge happens at once, the dodge having cancelled the drawer.
     const swap = op.swapPending && !attackFirst(op, now);
-    if (swap) op = swapTool(op, now, false);
+    if (swap) op = swapTool(op, now, false, hand);
     return { ...stepDodge(grid, op, a, a.frame + 1, now), fired: false, dodged: false, ...(swap ? { swapped: op.tool } : {}) };
   }
   if (a.kind === 'stamp' && a.frame < STAMP_LAND) {
@@ -236,6 +277,24 @@ export function stepOperator(grid: SolidGrid, op0: OperatorState, input: TickInp
       fired: false, dodged: false, ...(frame === FOLDER.hitFrame ? { swingHit: a.combo } : {}), blockedX: false, blockedY: false,
     };
   }
+  // The highlighter's line and circle stand still like a swing, and their recovery gives way the same
+  // way: to a dodge, and the line's also to the circle when the hold reaches its tick.
+  const dodgeWaits = live(op.bufferedDodge, now) && now >= op.dodgeReadyAt;
+  if (a.kind === 'line' && a.frame < HIGHLIGHTER.lineTicks && !(a.frame >= HIGHLIGHTER.hitFrame && (dodgeWaits || wantsCircle(op, input, now)))) {
+    const frame = a.frame + 1;
+    return {
+      op: { ...op, vx: 0, vy: 0, action: { kind: 'line', frame } },
+      fired: false, dodged: false, ...(frame === HIGHLIGHTER.hitFrame ? { lineHit: true } : {}), blockedX: false, blockedY: false,
+    };
+  }
+  if (a.kind === 'circle' && a.frame < HIGHLIGHTER.circleTicks && !(a.frame >= HIGHLIGHTER.circleMarkFrame && dodgeWaits)) {
+    const frame = a.frame + 1;
+    const landed = frame === HIGHLIGHTER.circleMarkFrame;
+    return {
+      op: { ...op, vx: 0, vy: 0, action: { kind: 'circle', frame }, ...(landed ? { circleReadyAt: now + HIGHLIGHTER.circleCooldownTicks } : {}) },
+      fired: false, dodged: false, ...(landed ? { circleLanded: true } : {}), blockedX: false, blockedY: false,
+    };
+  }
   const keepGuard = a.kind === 'guard' && op.tool === 'folder' && input.attack === true;
   if (a.kind !== 'free' && !keepGuard) op = { ...op, action: { kind: 'free' } };
 
@@ -248,7 +307,7 @@ export function stepOperator(grid: SolidGrid, op0: OperatorState, input: TickInp
     let started: OperatorState = {
       ...op, bufferedDodge: null, nextShotAt: null, aim: dir, facing: facingFor(dir, op.facing),
     };
-    if (swap) started = swapTool(started, now, false);
+    if (swap) started = swapTool(started, now, false, hand);
     return {
       ...stepDodge(grid, started, { kind: 'dodge', frame: 0, dir, perfect: false }, 1, now), fired: false, dodged: true,
       ...(swap ? { swapped: started.tool } : {}),
@@ -267,7 +326,7 @@ export function stepOperator(grid: SolidGrid, op0: OperatorState, input: TickInp
   // drawer flips for 0.15 s), so walking and dodging go on.
   let swapped: HeldTool | undefined;
   if (op.swapPending && !attackFirst(op, now)) {
-    op = { ...swapTool(op, now, true), action: { kind: 'free' } };
+    op = { ...swapTool(op, now, true, hand), action: { kind: 'free' } };
     swapped = op.tool;
   }
   const lockout = now < op.swapUntil;
@@ -284,6 +343,20 @@ export function stepOperator(grid: SolidGrid, op0: OperatorState, input: TickInp
         comboUntil: now + FOLDER.swingTicks + FOLDER.comboGapTicks,
       },
       fired: false, dodged: false, swung: index, ...(swapped ? { swapped } : {}), blockedX: false, blockedY: false,
+    };
+  }
+  if (op.tool === 'highlighter' && !lockout && swapped === undefined && wantsCircle(op, input, now)) {
+    return {
+      op: { ...op, vx: 0, vy: 0, action: { kind: 'circle', frame: 1 } },
+      fired: false, dodged: false, circleRaised: true, blockedX: false, blockedY: false,
+    };
+  }
+  if (op.tool === 'highlighter' && !lockout && live(op.bufferedAttack, now)) {
+    const stick = unit(input.move);
+    const aim = stick.x === 0 && stick.y === 0 ? op.aim : stick;
+    return {
+      op: { ...op, bufferedAttack: null, vx: 0, vy: 0, aim, facing: facingFor(aim, op.facing), action: { kind: 'line', frame: 1 } },
+      fired: false, dodged: false, lined: true, ...(swapped ? { swapped } : {}), blockedX: false, blockedY: false,
     };
   }
   const guard = swapped === undefined && op.tool === 'folder' && (keepGuard || (!lockout && wantsGuard(op, input, now)));

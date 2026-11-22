@@ -31,10 +31,11 @@ export function patrolTags(floor: string, tags: TagState, dict: TagDictionary): 
  */
 export function patrolGoals(ctx: ChapterContent, state: ChapterState): PatrolGoals {
   const side = flag(state.run.tags, ctx.dict, 'patrol_side');
-  if (state.run.roomId !== `${ctx.chapter.id}/${CORE_ROOM}`) return { core: false, side };
+  const read = ctx.chapter.patrol === 'liver' && flag(state.run.tags, ctx.dict, 'patrol_liver_read') ? { read: true } : {};
+  if (state.run.roomId !== `${ctx.chapter.id}/${CORE_ROOM}`) return { core: false, side, ...read };
   switch (ctx.chapter.patrol) {
     case 'brain': return { core: state.game.enemies.filter((e) => e.clings).every((e) => e.phase === 'closed'), side };
-    case 'liver': return { core: acetaldehydeCrates(state.run.tags, ctx.dict) === 0, side };
+    case 'liver': return { core: acetaldehydeCrates(state.run.tags, ctx.dict) === 0, side, ...read };
     default: return { core: false, side };
   }
 }

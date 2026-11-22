@@ -74,11 +74,24 @@ export const OBJECT_CLASSES: Readonly<Record<string, ClassSpec>> = {
     lock: enumOf('Lock', ['none', 'key', 'switch', 'clock', 'resource']),
     lockParam: { type: 'string', default: '' },
   },
+  /**
+   * `toggle` is a lever (the interact key or a staple), `hold` a pressure plate. `reveal` is something
+   * only the highlighter's health check finds (design doc 7.7, issue #76): its line or circle turns it
+   * on for good, it cannot be used or shot, and until then it is not drawn, so a door it unlocks looks
+   * like wall. A room with one lists `highlighter` in its `needs`.
+   */
   Switch: {
-    target: { type: 'object', required: true },
-    mode: enumOf('SwitchMode', ['toggle', 'hold']),
+    target: { type: 'object', required: false },
+    mode: enumOf('SwitchMode', ['toggle', 'hold', 'reveal']),
     /** Toggle only: the map check rejects it on a hold switch, which has nothing to cool. */
     cooldownSeconds: { type: 'int', default: 0, min: 0 },
+    /** Reveal only: a conversation that opens once it is lit, such as the liver's sticky note when found out. */
+    dialogueId: { type: 'ref', ref: 'dialogue', required: false },
+    /**
+     * Reveal only: a figure drawn over it once lit. `liver_overtime` is the hours the first line still has to work through,
+     * `liver_load` the semester's liver load in its patrol (design doc 8.6).
+     */
+    figure: enumOf('RevealFigure', ['none', 'liver_overtime', 'liver_load']),
   },
   Conveyor: {
     direction: enumOf('Direction', SOCKETS, 'E'),

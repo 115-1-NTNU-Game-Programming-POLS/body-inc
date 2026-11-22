@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  BURDEN_REWARD, burdenOf, COURSES, creditsOf, isCommitted, OPEN_COURSES, playDay, reviewPoints, selectionProblem, startSemester, thresholdMult,
+  BURDEN_REWARD, burdenOf, COURSES, creditsOf, isCommitted, OPEN_COURSES, playDay, selectionProblem, startSemester, thresholdMult,
   type Course, type SemesterContext, type SemesterState, type Strategy,
 } from '../../src/core/index.ts';
 import { contextFor } from '../../sim/semester/scenario.ts';
@@ -36,8 +36,6 @@ describe('the course selection (design doc 8.3)', () => {
   it('puts the burden at 12, 15 and 18 credits, with the reward of the design doc', () => {
     expect([9, 12, 13, 15, 16, 18, 19, 22].map(burdenOf)).toEqual(['light', 'light', 'standard', 'standard', 'heavy', 'heavy', 'full', 'full']);
     expect(BURDEN_REWARD).toEqual({ light: 1, standard: 1.15, heavy: 1.35, full: 1.6 });
-    expect(reviewPoints(80, 13)).toBeCloseTo(92);
-    expect(reviewPoints(80, 9)).toBe(80);
   });
 
   it('moves the exam thresholds 8% a credit below the 12 they are tuned for and 4% a credit above', () => {

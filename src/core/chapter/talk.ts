@@ -7,7 +7,7 @@ import type { Effect } from '../dialogue/lines.ts';
 import { TALK_REST_TICKS, type GameState } from '../game.ts';
 import { holds } from '../tags/store.ts';
 import type { ChapterContent, ChapterEvent, ChapterState, Run } from './chapter.ts';
-import { applyEffects, type EffectSource } from './effects.ts';
+import { applyEffects, raisedGauge, type EffectSource } from './effects.ts';
 
 /**
  * Conversations inside a chapter (build plan P5). While one is open the room is frozen and the
@@ -29,12 +29,26 @@ export function applyToRun(ctx: ChapterContent, run: Run, game: GameState, effec
 }
 
 /**
- * Hands over the tools the events grant. The stamp arrives charged, so the very next thing the
- * operator can do is try it, which is how the prologue teaches it (design doc 7.3).
+ * Hands over the tools the events grant and adds the gauge they raise. The stamp arrives charged,
+ * so the very next thing the operator can do is try it, which is how the prologue teaches it
+ * (design doc 7.3).
  */
 export function withTools(a: Applied): Applied {
   let { run, game } = a;
+  const events: ChapterEvent[] = [];
   for (const e of a.events) {
+    if (e.type === 'gaugeRaised') {
+      // Reported as what it really added, so a full gauge raises nothing and sounds nothing; filling it
+      // sounds the same ready cue as charging by hits (game.ts), which would otherwise never play for this fill.
+      const before = game.operator.gauge;
+      const after = raisedGauge(before, [e]);
+      if (after === before) continue;
+      game = { ...game, operator: { ...game.operator, gauge: after } };
+      events.push({ type: 'gaugeRaised', points: after - before });
+      if (after >= STAMP.gaugeMax) events.push({ type: 'gaugeFull' });
+      continue;
+    }
+    events.push(e);
     if (e.type !== 'toolGranted' || run.tools.includes(e.tool)) continue;
     run = { ...run, tools: [...run.tools, e.tool] };
     if (e.tool === 'stamp') {
@@ -44,9 +58,11 @@ export function withTools(a: Applied): Applied {
       // It stays in the pocket until the swap key takes it out (design doc 6.1).
       const { folderLocked: _, ...open } = game;
       game = open;
+    } else if (e.tool === 'highlighter') {
+      game = { ...game, highlighter: true };
     }
   }
-  return { run, game, events: a.events };
+  return { run, game, events };
 }
 
 /** True when a press this tick confirms: interact, attack or dodge (docs/authoring/rooms-and-dialogue.md). */
