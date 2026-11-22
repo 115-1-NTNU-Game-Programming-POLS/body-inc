@@ -21,7 +21,12 @@
   "pixel-cleanup": "江兆耘手修（眼睛、嘴、帳單）",
   "style-board-check": "待審"
  },
- "hours": null,
+ "hours": {
+  "cleanup_minutes": 10,
+  "generation_minutes": 0,
+  "hand_estimate_minutes": null,
+  "note": "作者於 PR 回報；腺苷計時含迷你版。"
+ },
  "status": "hand-finished",
  "processed": {
   "outputs": [
