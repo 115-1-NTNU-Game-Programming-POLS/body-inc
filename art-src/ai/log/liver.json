@@ -18,10 +18,15 @@
   "outline": "沿用暫代圖的墨藍描邊",
   "quantize": "全部在 body-inc-pixel.gpl 內",
   "remove-text": "n/a",
-  "pixel-cleanup": "江兆耘手修（待機、跳躍、技能三格）；便利貼顏色由腳本把淡米色 F2DCC8 換成便利貼黃 FFF1A8（肝體上的淡色直帶不動）",
+  "pixel-cleanup": "江兆耘手修（待機、跳躍、技能三格）；維護者將跳躍格改為朝右的單眼側面；便利貼顏色由腳本把淡米色 F2DCC8 換成便利貼黃 FFF1A8（肝體上的淡色直帶不動）",
   "style-board-check": "待審"
  },
- "hours": null,
+ "hours": {
+  "cleanup_minutes": 15,
+  "generation_minutes": 0,
+  "hand_estimate_minutes": null,
+  "note": "作者於 PR 回報。"
+ },
  "status": "hand-finished",
  "processed": {
   "outputs": [

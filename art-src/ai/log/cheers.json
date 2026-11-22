@@ -1,0 +1,41 @@
+{
+ "id": "cheers",
+ "title": "乾杯小弟 9 格像素圖集（身體格沿用顧問西裝範本；啤酒杯頭、小旗與臂章由程式繪製，江兆耘手修）",
+ "batch": "cheers-from-suit-base",
+ "tool": "ChatGPT (gpt-image)（間接：身體格沿用 suit-base 的 AI 姿勢底稿，見 suit-base.json；本次沒有新的 AI 生成，杯頭、小旗與臂章為程式繪製）",
+ "model": "n/a",
+ "date": "2026-11-15",
+ "template": "suit-base-pose-sheet-v1",
+ "prompt": [
+  "本角色沒有新的 AI 生成：身體格取自 main 上的 suit-base 九格。",
+  "杯頭：以腳本把 suit-base 的頭去掉，貼上 11 像素寬的啤酒杯（頂上一圈泡沫、琥珀色杯身、一側把手、描邊 #0C2D5E），臉為 2 眼 + 微笑，受擊格為圓眼 + O 嘴；不臉紅、不醉態。",
+  "小旗：由腳本在角色左手旁加旗桿與空白三角旗。走路三格皆拿旗；預備、受擊及正面攻擊拿旗，側面攻擊伸手至畫布邊緣並收起旗子。旗面只畫色塊、不畫字，「乾啦」的喊聲由浮字 cheers.toasted 承擔。",
+  "臂章：由腳本在近身袖子加一塊淺灰藍色塊，位置在胸前徽章之外，不畫「公關部」字。之後由江兆耘手修。"
+ ],
+ "references": "suit-base 九格；美術指南 §5.4（道具不得蓋住胸前徽章）、§5.4 乾杯小弟規格；concept-cheers（杯頭造型參考）",
+ "candidates": null,
+ "selected": "n/a",
+ "source_name": "n/a",
+ "post": {
+  "select": true,
+  "outline": "江兆耘手修；之後由 Isaries 依美術指南第 4 節在小旗碰到透明處的外側補 1 像素 #0C2D5E 描邊（七格共 30 像素；作者後續移除出招側面的旗子碎片，並補上側面走路的旗子），並補上出招側面 1 像素的描邊針孔",
+  "quantize": "全部在 body-inc-pixel.gpl 內（共 15 色）；之後由 Isaries 把杯身的員工黃暗面 E09A2E（保留色，美術指南 3.1 節）與同色階的 EBBD74 換成肝臟章的酒精琥珀：EBBD74 → D9A441、E09A2E → A08349；泡沫與旗面的 FDD98B 不是保留色，維持不變，全圖仍為 15 色",
+  "remove-text": "n/a",
+  "pixel-cleanup": "江兆耘手修（頭的傾斜、旗與臂章位置）；之後由 Isaries 刪除受擊側面杯外 2 像素沿用自 suit-base O 形嘴的 6E1A27 雜點",
+  "style-board-check": "待審"
+ },
+ "hours": {
+  "cleanup_minutes": 30,
+  "generation_minutes": 0,
+  "hand_estimate_minutes": null,
+  "note": "手修約 30 分鐘（作者自述，PR #125）；本次沒有新的 AI 生成，身體格沿用 suit-base；杯頭、小旗、臂章的繪圖腳本時間未記錄；維護者補正未計時"
+ },
+ "status": "hand-finished",
+ "processed": {
+  "outputs": [
+   "public/assets/atlases/cheers.png",
+   "public/assets/atlases/cheers.json"
+  ],
+  "png_colors": 15
+ }
+}
