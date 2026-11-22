@@ -26,7 +26,7 @@ export type StringTable = StringsFile;
 
 /** A Record keyed by the union, so adding an event to core without listing it here fails to compile. */
 const ALL_EVENTS: Record<GameEvent['type'], true> = {
-  bumpWall: true, fire: true, swing: true, toolSwapped: true, guardRaised: true, blocked: true, parry: true,
+  bumpWall: true, fire: true, swing: true, toolSwapped: true, guardRaised: true, blocked: true, parry: true, lineDrawn: true, circleDrawn: true, marked: true,
   toasted: true, refused: true, backedOff: true, shieldBlocked: true, shieldBroken: true, refusalSaid: true, canTaken: true, teaTaken: true, orderThrown: true, orderReturned: true, palpitation: true, canDisco: true, pieRaised: true, pieBlocked: true, unloadRaised: true, chunkDissolved: true,
   dodge: true, perfectDodge: true, telegraph: true, hit: true, caseClosed: true, bound: true,
   dispersed: true, reformed: true, respawned: true, immuneBounce: true, heartLost: true, freeze: true, forcedLeave: true,
@@ -36,7 +36,7 @@ const ALL_EVENTS: Record<GameEvent['type'], true> = {
   fellAsleep: true, sleepInterrupted: true, sleepFilled: true,
   triggerEntered: true, talk: true, bedUse: true,
   roomChanged: true, dialogueOpened: true, dialogueClosed: true, handbookUnlocked: true, bedRefused: true, napped: true, handsFull: true,
-  checkpointSaved: true, clockAdvanced: true, cardOpened: true, cardChosen: true, toolGranted: true, glucoseRefilled: true, dizzyChanged: true,
+  checkpointSaved: true, clockAdvanced: true, cardOpened: true, cardChosen: true, toolGranted: true, gaugeRaised: true, glucoseRefilled: true, dizzyChanged: true,
   rescueOpened: true, rescueStep: true, rescueDone: true,
   examStarted: true, examQuestion: true, examAnswered: true, examBreak: true, examFinished: true, proofStamped: true, bonusShown: true, examHit: true, examStacked: true,
   examForecast: true, examResult: true, examClosed: true,

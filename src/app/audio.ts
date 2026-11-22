@@ -8,8 +8,8 @@ import { fillKey, noteKeys, type FeedbackTable, type NoteFields, type StringTabl
  */
 export type AudioTable = AudioFile;
 
-/** The cues scenes play by name, apart from the events: the menus and handbook, a conversation moving on, and the ticking clock of the last heart. */
-export const UI = { move: 'move', confirm: 'choose', cancel: 'back', page: 'page', advance: 'blip', lowHeart: 'tick' } as const;
+/** Cues that scenes play directly for interface feedback and scripted moments. */
+export const UI = { move: 'move', confirm: 'choose', cancel: 'back', page: 'page', advance: 'blip', lowHeart: 'tick', liverTyping: 'liver.typing' } as const;
 
 /** What a volume setting does to the level. A square, so the middle step sounds like a middle and not like 90%. */
 export const levelOf = (volume: number): number => volume * volume;

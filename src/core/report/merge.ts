@@ -29,6 +29,7 @@ function groupOf(members: readonly PlacedFact[], days: readonly number[], form: 
     lastDay: days[days.length - 1]!,
     at: first.fact.at,
     parent: sorted.some((m) => m.fact.parent === true),
+    voted: sorted.every((m) => m.fact.voted === true),
   };
 }
 

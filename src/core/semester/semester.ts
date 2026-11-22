@@ -18,7 +18,7 @@ import { contributions, GRADES, nextLoad, strikes, type DayFacts } from './load.
 import { isFailed, type PatrolResult } from './patrol.ts';
 import { examPerformance, gradeFor } from './rating.ts';
 import type {
-  Assignment, DayRecord, DayView, HomeworkDay, PatrolRecord, SemesterContext, SemesterEvent, SemesterParams, SemesterState, SemesterSummary, Strategy, WelfareView,
+  Assignment, DayRecord, DayView, HomeworkDay, Illness, LiverReading, PatrolRecord, SemesterContext, SemesterEvent, SemesterParams, SemesterState, SemesterSummary, Strategy, WelfareView,
 } from './types.ts';
 import { EARLY_START_DAYS, minutesProgress, patrolKit, STOP_BY, welfareOffer } from './welfare.ts';
 
@@ -80,11 +80,9 @@ export function startSemester(ctx: SemesterContext, seed: number): SemesterState
   for (const [day, ids] of Object.entries(ctx.scenario)) {
     for (const id of ids) if (!ctx.events.has(id)) throw new RangeError(`scenario day ${day} names the unknown event "${id}"`);
   }
-  let tags = EMPTY_TAGS;
-  if ((ctx.startDebt ?? 0) > 0) {
-    const [t, cause] = source(tags, 'rule', 'semester.start', 0);
-    tags = setAmount(t, ctx.dict, 'sleep_debt', ctx.startDebt!, cause, 0);
-  }
+  const [started, start] = source(EMPTY_TAGS, 'rule', 'semester.start', 0);
+  let tags = setAmount(started, ctx.dict, 'stress', ctx.params.stress0, start, 0);
+  if ((ctx.startDebt ?? 0) > 0) tags = setAmount(tags, ctx.dict, 'sleep_debt', ctx.startDebt!, start, 0);
   let rng = seedStreams(seed);
   const homework: Assignment[] = [];
   // The debugging hours are fixed by the seed, so starting early or late cannot reroll them (design doc 8.3).
@@ -96,7 +94,7 @@ export function startSemester(ctx: SemesterContext, seed: number): SemesterState
     }
   }
   return {
-    day: 1, wake: ctx.params.wake, tags, progress: 0, staging: 0, rank: 0, project: 0, graded: 0, loads: EMPTY_LOADS, loadCauses: mapFloors(() => []), cupsHist: [], zeroCupDays: 0, liverOrders: [],
+    day: 1, wake: ctx.params.wake, tags, progress: 0, staging: 0, rank: 0, project: 0, graded: 0, loads: EMPTY_LOADS, loadCauses: mapFloors(() => []), cupsHist: [], zeroCupDays: 0, liverOrders: [], workOrders: [],
     hospitals: 0, homework, bankrupt: false, rng, history: [], ended: false,
   };
 }
@@ -117,6 +115,10 @@ function homeworkDelta(before: readonly Assignment[], after: readonly Assignment
 }
 
 type Activity = 'study' | 'rest' | 'class' | 'meal' | 'exam' | 'work' | 'project';
+type StressKey = keyof SemesterParams['stressPerHour'];
+
+/** The rows of `stressPerHour` the semester's hours are charged at; a free hour is leisure. */
+const STRESS_OF: Readonly<Record<Activity, StressKey>> = { study: 'study', project: 'study', rest: 'leisure', class: 'class', meal: 'meal', exam: 'exam', work: 'work' };
 
 /** One day in progress: the state it is rebuilding and what the day has done so far. */
 interface DayRun {
@@ -130,10 +132,16 @@ interface DayRun {
   readonly paper: number;
   readonly morningLoads: SemesterState['loads'];
   cups: number;
+  /** Hours the day's cups were drunk at. */
+  coffee: number[];
+  /** The patrol's welfare offer was drawn again today. */
+  rerolled: boolean;
   alcoholCups: number;
   fasting: boolean;
   deadline: boolean;
   lateSnack: boolean;
+  /** The latest reading of the liver's load today; undefined until something reads it. */
+  reading: LiverReading | undefined;
   workLeft: number;
   /** Hours of the day still to be spent writing the assignment at index `writeIdx` of the state. */
   writeLeft: number;
@@ -152,12 +160,21 @@ interface DayRun {
   studyHours: number;
   /** Hours between the end of the evening and bedtime spent studying. */
   lateStudy: number;
+  /** The roommate had a cold this evening, and whether the host caught it (roommateCold). */
+  roommate: boolean;
+  caught: boolean;
   /** The events of the day behind each floor's contribution tonight, for the causal log. */
   evidence: Record<'brain' | 'stomach' | 'liver', number[]>;
   pending: SemesterEvent[];
   played: { id: string; option: string }[];
   /** Progress the day's patrols added through 會議紀錄. */
   minutes: number;
+  /** Stress through the day, kept within 0 to 100 after every charge as the old sim's was (design doc 9.1). */
+  stress: number;
+  /** Hours of the next charge that a compiler walk takes, at the walking rate instead of the hour's own. */
+  walked: number;
+  /** The events behind the day's stress, for the causal log. */
+  stressCauses: number[];
 }
 
 const examOn = (day: number, ctx: SemesterContext): 'mid' | 'fin' | null =>
@@ -185,12 +202,14 @@ const gradeOpen = (ctx: SemesterContext, s: SemesterState): { readonly day: bool
 };
 
 /** The welfare cards in hand and what the night just gone gives the patrol; the salt is the run's own, which no stream of the day draws. */
-function welfareView(s: SemesterState): WelfareView {
+function welfareView(s: SemesterState, today: boolean): WelfareView {
   const held = s.welfare ?? [];
   const night = s.history[s.history.length - 1];
   const last = night?.slept === undefined ? undefined : { slept: night.slept, stopped: night.contestStop === true };
-  return { held, kit: patrolKit(held, last), ...(last ? { last } : {}), salt: s.rng.setting };
+  return { held, kit: patrolKit(held, last), ...(last ? { last } : {}), salt: s.rng.setting, rerolled: today || rerolledBefore(s) };
 }
+
+const rerolledBefore = (s: SemesterState): boolean => s.history.some((r) => r.rerolled === true);
 
 /** 提早開工: the debugging hours a second draw gives assignment `i`, fixed by the run like the first so the card cannot reroll them. */
 const earlyDebug = (s: SemesterState, i: number): number => debugHoursFor(nextFloat((s.rng.setting + Math.imul(i + 1, 0x9e3779b1)) >>> 0)[0]);
@@ -207,15 +226,20 @@ function viewOf(d: DayRun): DayView {
     exam: d.exam,
     examTomorrow: examOn(s.day + 1, ctx) !== null,
     sleepDebt: amount(s.tags, ctx.dict, 'sleep_debt'),
+    stress: amount(s.tags, ctx.dict, 'stress'),
+    chronicStress: flag(s.tags, ctx.dict, 'chronic_stress'),
+    ...(s.illness !== undefined ? { illness: s.illness.stage } : {}),
     S: d.S,
     caffeine: caffeineOf(s.tags, ctx.dict),
     progress: s.progress,
     staging: s.staging,
     bedDelay: d.bedDelay + d.overtimeDelay,
     hospitals: s.hospitals,
-    welfare: welfareView(s),
+    welfare: welfareView(s, d.rerolled),
     panel: elevatorPanel(d.morningLoads, k),
-    liverClues: liverClues(d.morningLoads.liver, s.liverOrders, k),
+    liverClues: liverClues(d.morningLoads.liver, s.liverOrders, k, s.day, s.rng.setting),
+    workOrders: s.workOrders,
+    ...readingOf(d),
     modifiers: activeModifiers(s.tags, ctx.dict),
     homework: workable(s).map(({ a, i }) => ({
       n: i + 1, due: a.due, written: a.written, debugged: a.debugged, ...(a.written >= WRITE_HOURS ? { debug: a.debug } : {}),
@@ -226,6 +250,13 @@ function viewOf(d: DayRun): DayView {
       : {}),
     ...(grading === undefined ? {} : { grade: { done: s.graded, need: GRADE_HOURS, due: gradeDays(k).to, open: grading.day, night: grading.night } }),
   };
+}
+
+/** Today's reading of the liver if there is one, else the latest of the days gone. */
+function readingOf(d: DayRun): { liverReading?: LiverReading & { day: number } } {
+  if (d.reading !== undefined) return { liverReading: { ...d.reading, day: d.s.day } };
+  const last = [...d.s.history].reverse().find((r) => r.liverReading !== undefined);
+  return last ? { liverReading: { ...last.liverReading!, day: last.day } } : {};
 }
 
 function roll(d: DayRun): number {
@@ -245,13 +276,16 @@ function applyEvents(d: DayRun, upTo: number, before = false): void {
     if (opt === undefined) throw new RangeError(`strategy chose "${pick}" for event "${ev.id}"; its options are ${keys.join(', ')}`);
     const at = minuteOf(d.s.day, upTo);
     // Every choice is logged, even one that changes nothing, so the report can tell what was chosen.
-    let [tags, cause] = source(d.s.tags, 'event', `event.${ev.id}.${pick}`, at, { cups: opt.alcohol ?? 0 });
+    const voted = d.strategy.voted?.(ev.id) === true;
+    let [tags, cause] = source(d.s.tags, 'event', `event.${ev.id}.${pick}`, at, { cups: opt.alcohol ?? 0, ...(voted ? { vote: true } : {}) });
     let orders = d.s.liverOrders;
+    let workOrders = d.s.workOrders;
     if (opt.alcohol !== undefined && opt.alcohol > 0) {
       tags = addAmount(tags, dict, 'alcohol', opt.alcohol, cause, at);
       d.alcoholCups += opt.alcohol;
       d.evidence.liver.push(cause);
       orders = [...orders, d.s.day];
+      workOrders = [...workOrders, { day: d.s.day, event: ev.id, option: pick }];
     }
     if (opt.fasting) {
       tags = setFlag(tags, dict, 'fasting', true, cause, at);
@@ -267,10 +301,16 @@ function applyEvents(d: DayRun, upTo: number, before = false): void {
       d.lateSnack = true;
       d.evidence.stomach.push(cause);
     }
+    if (opt.stress !== undefined && opt.stress > 0) {
+      addStress(d, opt.stress);
+      d.stressCauses.push(cause);
+    }
+    // Loads move only in the night settlement, so the afternoon's load is the morning's.
+    if (opt.bloodTest) d.reading = { load: d.morningLoads.liver, by: 'blood_test' };
     d.workLeft += opt.workHours ?? 0;
     d.bedDelay += opt.bedDelay ?? 0;
     d.played.push({ id: ev.id, option: pick });
-    d.s = { ...d.s, tags, liverOrders: orders };
+    d.s = { ...d.s, tags, liverOrders: orders, workOrders };
   }
 }
 
@@ -306,13 +346,22 @@ function activityAt(d: DayRun, h: number, rest: ReadonlySet<number>): Activity {
   return rest.has(h) ? 'rest' : 'study';
 }
 
+function addStress(d: DayRun, x: number): void {
+  d.stress = Math.min(100, Math.max(0, d.stress + x));
+}
+
 /** Spends `dur` hours on an activity; study moves the semester's progress, the paper-exam part of it into the staging pile, and the project a share of it at once. */
-function spend(d: DayRun, dur: number, activity: Activity, effort = 1): void {
+function spend(d: DayRun, dur: number, activity: Activity, effort = 1, stressAs: StressKey = STRESS_OF[activity]): void {
   const { dict, params: k } = d.ctx;
+  addStress(d, k.stressPerHour.walk * d.walked);
+  addStress(d, k.stressPerHour[stressAs] * (dur - d.walked));
+  d.walked = 0;
   let { tags, progress, staging, project } = d.s;
   if (activity === 'study' || activity === 'project') {
     const boost = caffeineBoost(caffeineOf(tags, dict), flag(tags, dict, 'caffeine_tolerant'), k);
-    const efficiency = d.S * boost * (flag(tags, dict, 'withdrawal') ? k.withdrawal : 1) * (d.brainStrike ? k.floorStrikeStudyMult : 1);
+    const ill = d.s.illness?.stage;
+    const sick = ill === 'cold' ? k.coldStudy : ill === 'fever' ? k.feverStudy : 1;
+    const efficiency = d.S * boost * (flag(tags, dict, 'withdrawal') ? k.withdrawal : 1) * (d.brainStrike ? k.floorStrikeStudyMult : 1) * sick;
     const gain = efficiency * dur * effort;
     if (activity === 'project') {
       project += gain;
@@ -343,6 +392,7 @@ function sitting(d: DayRun, activity: Activity, dur: number): number {
   if (d.walk && d.sit >= SIT_LIMIT) {
     d.sit = 0;
     effort = 1 - (1 - WALK_EFFORT) / dur;
+    d.walked = 1 - WALK_EFFORT;
   }
   if (d.sit >= SIT_LIMIT) effort *= STUCK_MULT;
   d.sit += dur;
@@ -355,6 +405,7 @@ function drinkCup(d: DayRun, h: number): void {
   const [tags, cause] = source(d.s.tags, 'card', 'coffee', at, { cups: 1 });
   d.s = { ...d.s, tags: addAmount(tags, dict, 'caffeine', k.cup, cause, at) };
   d.cups += 1;
+  d.coffee.push(h);
 }
 
 function sitExam(d: DayRun, kind: 'mid' | 'fin'): number {
@@ -362,7 +413,8 @@ function sitExam(d: DayRun, kind: 'mid' | 'fin'): number {
   const load = d.ctx.courses === undefined ? 1 : thresholdMult(creditsOf(d.ctx.courses));
   const threshold = (kind === 'mid' ? k.passMid : k.passFin * (d.ctx.finMult ?? 1)) * load;
   const result = scoreExam({
-    kind: 'regular', progress: d.s.progress, sExamDay: d.S, passThreshold: threshold, ...examPerformance(d.ctx.skill, roll(d), k),
+    // examDiscount off is the breakage of design doc 9.6 that the archetype checks must catch.
+    kind: 'regular', progress: d.s.progress, sExamDay: k.examDiscount ? d.S : 1, passThreshold: threshold, ...examPerformance(d.ctx.skill, roll(d), k),
   });
   let percent = result.examPercent;
   if (kind === 'fin') {
@@ -379,6 +431,10 @@ function patrol(d: DayRun, floor: FloorId, overtime: boolean, played?: PatrolRes
   // Drawn even when the rooms were played, so the stream the rest of the semester draws from stays where a skill-drawn patrol leaves it.
   const drawn = gradeFor(d.ctx.skill, roll(d), d.ctx.params);
   if (played === undefined) return { floor, grade: drawn, overtime };
+  if (played.liverRead === true) {
+    if (floor !== 'liver') throw new RangeError(`the highlighter read the liver in the patrol of ${floor}`);
+    d.reading = { load: d.morningLoads.liver, by: 'highlighter' };
+  }
   if (isFailed(played)) return { floor, grade: 'C', overtime, failed: true };
   if (!GRADES.includes(played.grade)) throw new RangeError(`"${String(played.grade)}" is not a rating`);
   const records = played.records ?? 0;
@@ -415,6 +471,11 @@ interface Outcome {
   readonly crisis?: NonNullable<DayRecord['crisis']>;
   readonly archive?: NonNullable<DayRecord['archive']>;
   readonly slept: number;
+  readonly stress: number;
+  readonly chronicStress?: true;
+  readonly illness?: Illness;
+  readonly roommate?: true;
+  readonly caught?: true;
 }
 
 const nodeOf = (tags: TagState, name: string): number[] => (tags.values[name] ? [tags.values[name]!.node] : []);
@@ -450,6 +511,125 @@ function explainDebt(d: DayRun, tags: TagState, n: Night, residual: number, alco
   return { ...tags, log: addCauses(tags.log, tags.values['sleep_debt']!.node, why, at) };
 }
 
+/**
+ * A roll in [0, 1) for `day` and `n` (0 or 1) that draws from no stream, so the cold does not move any other draw of the
+ * semester. Day d's n = 2 would be day d + 1's n = 0, so another source of rolls takes its own `salt` instead of more n.
+ */
+const illnessRoll = (salt: number, day: number, n: 0 | 1): number => nextFloat((salt ^ Math.imul(day * 2 + n + 1, 0x85ebca6b)) >>> 0)[0];
+/** Salts the roommate's rolls apart from the campus ones; no two days' inputs differ by it (checked for days 1 to 1000). */
+const ROOMMATE_SALT = 0x9e3779b9;
+
+/**
+ * The chance of catching a cold on an exposure (design doc 9.1): infBase, raised by the immune floor's load, by chronic stress,
+ * by a sleep debt of debtInfAt hours or more and while the immune floor strikes, and never above 1.
+ */
+export function infectionChance(immune: number, chronic: boolean, debt: number, immuneStriking: boolean, k: SemesterParams): number {
+  const p = k.infBase * (1 + immune / 100) * (chronic ? k.chronicInf : 1) * (debt >= k.debtInfAt ? k.debtInf : 1) * (immuneStriking ? k.immuneStrikeInf : 1);
+  return Math.min(1, p);
+}
+
+/**
+ * The morning's exposure on campus and the infection it may bring (design doc 9.1). A host who has a cold already, or spends
+ * the day in hospital, catches nothing. The infection cites what raised its chance.
+ */
+function catchCold(d: DayRun, hospitalDay: boolean): boolean {
+  const { dict, params: k } = d.ctx;
+  const s = d.s;
+  if (hospitalDay || s.illness !== undefined) return false;
+  if (illnessRoll(s.rng.setting, s.day, 0) >= k.campusExposure) return false;
+  const chronic = flag(s.tags, dict, 'chronic_stress');
+  const debt = amount(s.tags, dict, 'sleep_debt');
+  const chance = infectionChance(s.loads.immune, chronic, debt, strikes('immune', s.loads.immune, k), k);
+  if (illnessRoll(s.rng.setting, s.day, 1) >= chance) return false;
+  const at = minuteOf(s.day, s.wake);
+  // The exposure is a rule entry, so the infection is always an effect the report can word, citing what raised its chance.
+  const [exposed, exposure] = source(s.tags, 'rule', 'campus.exposure', at);
+  const causes = [exposure, ...s.loadCauses.immune, ...(chronic ? nodeOf(s.tags, 'chronic_stress') : []), ...(debt >= k.debtInfAt ? nodeOf(s.tags, 'sleep_debt') : [])];
+  const [tags, node] = derive(exposed, 'infection', at, causes, { chance });
+  d.s = { ...s, tags, illness: { stage: 'throat', nights: k.throatDays, node } };
+  return true;
+}
+
+/**
+ * The roommate's cold of the evening (design doc 9.1 and its event table: 15% a day for a host in the dorm). It is rolled when
+ * the evening begins, before the strategy picks a bedtime, so a sore throat caught from the roommate shows in the view while
+ * the early night that stops it can still be chosen, as the old sim's evening roommate_cold came before the plan. The contact
+ * loads the immune floor that night whether or not the host catches it (design doc 8.4); a host already ill catches nothing.
+ */
+function roommateCold(d: DayRun): void {
+  const { dict, params: k } = d.ctx;
+  const s = d.s;
+  if (illnessRoll(s.rng.setting ^ ROOMMATE_SALT, s.day, 0) >= k.roommateExposure) return;
+  const at = minuteOf(s.day, k.bedMin);
+  const [sourced, contact] = source(s.tags, 'event', 'event.roommate_cold.contact', at);
+  const tags = setFlag(sourced, dict, 'roommate_cold', true, contact, at);
+  d.s = { ...s, tags };
+  d.roommate = true;
+  if (s.illness !== undefined) return;
+  const chronic = flag(tags, dict, 'chronic_stress');
+  const debt = amount(tags, dict, 'sleep_debt');
+  const chance = infectionChance(s.loads.immune, chronic, debt, strikes('immune', s.loads.immune, k), k);
+  if (illnessRoll(s.rng.setting ^ ROOMMATE_SALT, s.day, 1) >= chance) return;
+  const causes = [...nodeOf(tags, 'roommate_cold'), ...s.loadCauses.immune, ...(chronic ? nodeOf(tags, 'chronic_stress') : []), ...(debt >= k.debtInfAt ? nodeOf(tags, 'sleep_debt') : [])];
+  const [infected, node] = derive(tags, 'infection.roommate', at, causes, { chance });
+  d.s = { ...d.s, tags: infected, illness: { stage: 'throat', nights: k.throatDays, node } };
+  d.caught = true;
+}
+
+/**
+ * Tonight's step of the cold (design doc 9.1, the old sim's ladder): an early night of restEff or more ends a sore throat, which
+ * otherwise becomes a cold; a night under feverIfEffBelow turns a cold into a fever, and a night of coldFastSleep or more counts
+ * twice; each stage ends when its nights run out. The cold and fever tags follow the stage, each citing the one before.
+ */
+function settleIllness(d: DayRun, tags0: TagState, bedEnd: number, effective: number, at: number): [TagState, SemesterState['illness']] {
+  const { dict, params: k } = d.ctx;
+  const ill = d.s.illness;
+  let tags = tags0;
+  if (ill === undefined) return [tags, undefined];
+  const well = (): [TagState, undefined] => [setFlag(setFlag(tags, dict, 'cold', false, ill.node, at), dict, 'fever', false, ill.node, at), undefined];
+  const become = (stage: Illness, nights: number, cause: number): [TagState, SemesterState['illness']] => {
+    tags = setFlag(tags, dict, stage === 'fever' ? 'cold' : 'fever', false, cause, at);
+    tags = setFlag(tags, dict, stage, true, cause, at);
+    return [tags, { stage, nights, node: ill.node }];
+  };
+  if (ill.stage === 'throat') {
+    if (bedEnd <= k.restBed && effective >= k.restEff) return well();
+    const nights = ill.nights - 1;
+    return nights > 0 ? [tags, { ...ill, nights }] : become('cold', k.coldDays, ill.node);
+  }
+  if (ill.stage === 'cold') {
+    if (effective < k.feverIfEffBelow) return become('fever', k.feverDays, tags.values['cold']?.node ?? ill.node);
+    const nights = ill.nights - (effective >= k.coldFastSleep ? 2 : 1);
+    return nights > 0 ? [tags, { ...ill, nights }] : well();
+  }
+  const nights = ill.nights - 1;
+  return nights > 0 ? [tags, { ...ill, nights }] : well();
+}
+
+/**
+ * Tonight's stress (design doc 9.1): the day's hours and events raise it, every hour of effective sleep takes stressSleep off, and
+ * it stays within 0 to 100. Chronic stress begins after chronicDays settlements in a row above chronicAt and ends after
+ * chronicClearNights in a row under chronicClear.
+ */
+function settleStress(d: DayRun, tags0: TagState, rule: number, effective: number, at: number): TagState {
+  const { dict, params: k } = d.ctx;
+  let tags = tags0;
+  let cause = rule;
+  if (d.stressCauses.length > 0) [tags, cause] = derive(tags, 'stress.events', at, d.stressCauses);
+  const after = Math.max(0, d.stress + k.stressSleep * effective);
+  tags = setAmount(tags, dict, 'stress', after, cause, at);
+  const before = d.s.history.flatMap((r) => (r.stress === undefined ? [] : [r.stress]));
+  const run = (n: number): number[] | undefined => (before.length >= n - 1 ? [...before.slice(before.length - (n - 1)), after] : undefined);
+  const chronicBefore = flag(tags, dict, 'chronic_stress');
+  if (!chronicBefore && run(k.chronicDays)?.every((x) => x > k.chronicAt) === true) {
+    const [t, node] = derive(tags, 'stress.chronic', at, nodeOf(tags, 'stress'));
+    tags = setFlag(t, dict, 'chronic_stress', true, node, at);
+  } else if (chronicBefore && run(k.chronicClearNights)?.every((x) => x < k.chronicClear) === true) {
+    tags = setFlag(tags, dict, 'chronic_stress', false, rule, at);
+  }
+  return tags;
+}
+
 /** The night settlement: sleep, debt, floor loads, strikes, a trip to the emergency room, waking up. */
 function settle(d: DayRun, n: Night): Outcome {
   const { dict, params: k } = d.ctx;
@@ -458,9 +638,19 @@ function settle(d: DayRun, n: Night): Outcome {
   const sleepHours = Math.max(0, 24 + n.nextWake - n.bedEnd);
   const residual = caffeineOf(d.s.tags, dict);
   const alcoholAtBed = amount(d.s.tags, dict, 'alcohol') > 0;
-  const mult = caffeineSleepCoef(residual, k) * (alcoholAtBed ? k.alcoholSleep : 1) * (d.lateSnack ? k.snackSleep : 1);
+  const chronicAtBed = flag(d.s.tags, dict, 'chronic_stress');
+  const mult = caffeineSleepCoef(residual, k) * (alcoholAtBed ? k.alcoholSleep : 1) * (d.lateSnack ? k.snackSleep : 1) * (chronicAtBed ? k.chronicSleep : 1);
   const effective = sleepHours * mult;
   let [tags, rule] = source(d.s.tags, 'rule', 'sleep', at, { bed: n.bedEnd, sleep: sleepHours, effective });
+  const { roommate, caught } = d;
+  tags = settleStress(d, tags, rule, effective, at);
+  const chronic = flag(tags, dict, 'chronic_stress');
+  let illness: SemesterState['illness'];
+  // The load and the emergency room read the stage the day had, as the old sim did; tonight's step only sets tomorrow's.
+  // A sore throat caught from the roommate this evening is not a stage the day had.
+  const dayStage = caught ? undefined : d.s.illness?.stage;
+  const dayIllness = dayStage === 'cold' || dayStage === 'fever' ? nodeOf(tags, dayStage) : [];
+  [tags, illness] = settleIllness(d, tags, n.bedEnd, effective, at);
 
   const debtBefore = amount(tags, dict, 'sleep_debt');
   const debtAfter = nextSleepDebt(debtBefore, effective, k);
@@ -469,7 +659,7 @@ function settle(d: DayRun, n: Night): Outcome {
 
   const facts: DayFacts = {
     debtAfter, deadline: d.deadline, tolerant: flag(tags, dict, 'caffeine_tolerant'), lateSnack: d.lateSnack,
-    alcoholCups: d.alcoholCups, fasting: d.fasting,
+    alcoholCups: d.alcoholCups, fasting: d.fasting, chronic, roommate, ...(dayStage !== undefined ? { illness: dayStage } : {}),
   };
   const add = contributions(facts, k);
   // A failed patrol still looked after the floor, so the neglect bonus is waived, but it cuts nothing.
@@ -487,14 +677,19 @@ function settle(d: DayRun, n: Night): Outcome {
     : strikes(f, loads[f], k)));
   // Design doc 8.6: a struck liver plus an empty stomach is the dizzy-and-sweating crisis.
   const crisisNight = struck.includes('liver') && d.fasting;
-  const er = struck.length >= 2 || crisisNight;
+  // Design doc 8.11: one floor on strike with a crisis tag is enough; the fever is the cold's (the old sim's crisis tag).
+  const feverNight = struck.length >= 1 && dayStage === 'fever';
+  const er = struck.length >= 2 || crisisNight || feverNight;
 
   // A load is a running sum, so a floor's causes accumulate until it is calm again (under the yellow line).
   const tonight: Record<FloorId, number[]> = {
-    brain: [...(debtAfter > 0 ? nodeOf(tags, 'sleep_debt') : []), ...(facts.tolerant ? nodeOf(tags, 'caffeine_tolerant') : []), ...d.evidence.brain],
+    brain: [
+      ...(debtAfter > 0 ? nodeOf(tags, 'sleep_debt') : []), ...(facts.tolerant ? nodeOf(tags, 'caffeine_tolerant') : []), ...(chronic ? nodeOf(tags, 'chronic_stress') : []),
+      ...d.evidence.brain,
+    ],
     stomach: d.evidence.stomach,
     liver: d.evidence.liver,
-    immune: [],
+    immune: [...(chronic ? nodeOf(tags, 'chronic_stress') : []), ...(roommate ? nodeOf(tags, 'roommate_cold') : []), ...dayIllness],
     gut: [],
   };
   const behind = mapFloors((f) => [...new Set([...d.s.loadCauses[f], ...tonight[f]])]);
@@ -513,9 +708,9 @@ function settle(d: DayRun, n: Night): Outcome {
   let crisis: Outcome['crisis'];
   if (er) {
     hospitals += 1;
-    const [log, node] = record(tags.log, { kind: 'crisis', key: 'er', at, causes: strikeNodes });
+    const [log, node] = record(tags.log, { kind: 'crisis', key: 'er', at, causes: [...strikeNodes, ...(feverNight ? dayIllness : [])] });
     tags = { ...tags, log };
-    crisis = { node, at, fasting: crisisNight };
+    crisis = { node, at, fasting: crisisNight, ...(feverNight ? { fever: true as const } : {}) };
     if (hospitals >= 2) {
       bankrupt = true;
     } else {
@@ -524,6 +719,11 @@ function settle(d: DayRun, n: Night): Outcome {
       tags = setAmount(tags, dict, 'sleep_debt', nextSleepDebt(halved, k.hospitalSleep, k), rule, at);
       loads = mapFloors((f) => Math.min(loads[f], k.hospitalFloorLoad));
       hospitalDay = day + 1;
+      // The hospital treats the cold, as the old sim's did.
+      if (illness !== undefined) {
+        tags = setFlag(setFlag(tags, dict, 'cold', false, rule, at), dict, 'fever', false, rule, at);
+        illness = undefined;
+      }
       residualHours = k.hospitalSleep;
     }
   }
@@ -549,8 +749,9 @@ function settle(d: DayRun, n: Night): Outcome {
   const archived = staged * rate;
 
   const loadCauses = mapFloors((f) => (loads[f] < k.floorYellowAt ? [] : behind[f]));
+  const { illness: _before, ...kept } = d.s;
   d.s = {
-    ...d.s, tags, loads, loadCauses, progress: d.s.progress + archived, staging: (staged - archived) * UNARCHIVED_KEPT, cupsHist, zeroCupDays, hospitals, bankrupt, day: day + 1, wake: er && !bankrupt ? k.wake : n.nextWake,
+    ...kept, tags, loads, loadCauses, ...(illness !== undefined ? { illness } : {}), progress: d.s.progress + archived, staging: (staged - archived) * UNARCHIVED_KEPT, cupsHist, zeroCupDays, hospitals, bankrupt, day: day + 1, wake: er && !bankrupt ? k.wake : n.nextWake,
     ...(hospitalDay !== undefined ? { hospitalDay } : {}),
   };
   return {
@@ -559,6 +760,11 @@ function settle(d: DayRun, n: Night): Outcome {
     loadsSettled,
     // The first emergency-room night counts as good sleep for the debt, so for the early-sleep bonus too.
     slept: hospitalDay !== undefined ? k.hospitalSleep : effective,
+    stress: amount(tags, dict, 'stress'),
+    ...(chronic ? { chronicStress: true as const } : {}),
+    ...(illness !== undefined ? { illness: illness.stage } : {}),
+    ...(roommate ? { roommate: true as const } : {}),
+    ...(caught ? { caught: true as const } : {}),
     ...(staged > 0 ? { archive: { staged, rate, archived } } : {}),
     ...(struck.includes('liver') ? { liverStrike: { alcoholAtBed, dupMedication, orderBefore } } : {}),
     ...(crisis ? { crisis } : {}),
@@ -576,11 +782,14 @@ export function playDay(from: SemesterState, ctx: SemesterContext, strategy: Str
   const debt = amount(s0.tags, dict, 'sleep_debt');
   const d: DayRun = {
     s: s0, ctx, strategy, exam, S: sleepFactor(debt, k), brainStrike: strikes('brain', s0.loads.brain, k), paper: ctx.courses === undefined ? 0 : paperShare(ctx.courses), morningLoads: s0.loads,
-    cups: 0, alcoholCups: 0, fasting: false, deadline: false, lateSnack: false, workLeft: 0, writeLeft: 0, writeIdx: -1, projectLeft: 0, projectHours: 0, gradeLeft: 0, walk: false, sit: 0, bedDelay: 0, overtimeDelay: 0, studyHours: 0, lateStudy: 0,
+    cups: 0, coffee: [], rerolled: false, alcoholCups: 0, fasting: false, deadline: false, lateSnack: false, reading: hospitalDay || day !== 1 ? undefined : { load: s0.loads.liver, by: 'checkup' }, workLeft: 0, writeLeft: 0, writeIdx: -1, projectLeft: 0, projectHours: 0, gradeLeft: 0, walk: false, sit: 0, bedDelay: 0, overtimeDelay: 0, studyHours: 0, lateStudy: 0, roommate: false, caught: false,
     evidence: { brain: [], stomach: [], liver: [] },
     pending: hospitalDay ? [] : (ctx.scenario[day] ?? []).map((id) => ctx.events.get(id)!).sort((a, b) => a.hour - b.hour),
     played: [],
     minutes: 0,
+    stress: Math.min(100, amount(s0.tags, dict, 'stress') + (hospitalDay ? k.hospitalStress : 0)),
+    walked: 0,
+    stressCauses: [],
   };
   const panel = elevatorPanel(s0.loads, k);
   const header = {
@@ -606,6 +815,7 @@ export function playDay(from: SemesterState, ctx: SemesterContext, strategy: Str
     return { ...d.s, history: [...d.s.history, rec] };
   }
 
+  const infected = catchCold(d, hospitalDay);
   const view0 = viewOf(d);
   const plan = hospitalDay ? { coffee: [], rest: [] } : strategy.plan(view0);
   const rest = new Set(plan.rest);
@@ -641,7 +851,7 @@ export function playDay(from: SemesterState, ctx: SemesterContext, strategy: Str
 
   for (let h = d.s.wake; h < k.bedMin; h++) {
     if (hospitalDay) {
-      spend(d, 1, 'rest');
+      spend(d, 1, 'rest', 1, 'hospital');
       continue;
     }
     applyEvents(d, h);
@@ -656,7 +866,7 @@ export function playDay(from: SemesterState, ctx: SemesterContext, strategy: Str
   const patrols: PatrolRecord[] = [];
   let cardTaken: string | undefined;
   if (!hospitalDay && exam === null) {
-    const choice = strategy.floor(viewOf(d), d.s.tags);
+    const choice = strategy.floor(viewOf(d), d.s.tags, d.morningLoads.liver);
     const rooms = 1 + (choice.overtime === undefined ? 0 : 1);
     if (choice.played !== undefined && choice.played.length !== rooms) {
       throw new RangeError(`${choice.played.length} played patrols were given for ${rooms} chosen`);
@@ -664,9 +874,19 @@ export function playDay(from: SemesterState, ctx: SemesterContext, strategy: Str
     const first = choice.played?.[0] ?? undefined;
     patrols.push(patrol(d, choice.patrol, false, first));
     // The card is taken before the overtime patrol, which then has it.
+    if (choice.reroll === true && choice.card === undefined) throw new RangeError('an offer drawn again must have a card picked from it');
     if (choice.card !== undefined) {
       if (first === undefined || isFailed(first)) throw new RangeError('a welfare card was picked, and only a played patrol that was not failed offers any');
-      const offer = welfareOffer({ salt: d.s.rng.setting, day, floor: choice.patrol, grade: first.grade, held: d.s.welfare ?? [], courses: ctx.courses });
+      const request = { salt: d.s.rng.setting, day, floor: choice.patrol, grade: first.grade, held: d.s.welfare ?? [], courses: ctx.courses };
+      let offer = welfareOffer(request);
+      if (choice.reroll === true) {
+        if (ctx.reroll !== true) throw new RangeError('an offer can only be drawn again with the career node 開局重抽');
+        if (rerolledBefore(d.s)) throw new RangeError('the semester has drawn an offer again already');
+        const again = welfareOffer({ ...request, instead: offer });
+        if (again.length < offer.length) throw new RangeError(`only ${again.length} cards are left to draw again in place of ${offer.length}`);
+        offer = again;
+        d.rerolled = true;
+      }
       if (!offer.includes(choice.card)) throw new RangeError(`"${choice.card}" is not among the cards the patrol offered (${offer.join(', ') || 'none'})`);
       d.s = { ...d.s, welfare: [...(d.s.welfare ?? []), choice.card] };
       cardTaken = choice.card;
@@ -678,6 +898,7 @@ export function playDay(from: SemesterState, ctx: SemesterContext, strategy: Str
     }
   }
 
+  if (!hospitalDay) roommateCold(d);
   const night = hospitalDay
     ? { bed: k.bed, nextWake: k.wake, lateNight: 'rest' as const }
     : strategy.night(viewOf(d));
@@ -722,7 +943,8 @@ export function playDay(from: SemesterState, ctx: SemesterContext, strategy: Str
     const late = t < bedBase && night.lateNight === 'study';
     if (late) d.lateStudy += STEP;
     const activity = late ? 'study' : 'rest';
-    spend(d, STEP, activity, sitting(d, activity, STEP));
+    // Past the planned bedtime the hours went to what kept the player up: the debugging, the grading, the contest, an overtime patrol, an event.
+    spend(d, STEP, activity, sitting(d, activity, STEP), hospitalDay ? 'hospital' : t >= bedBase ? 'work' : STRESS_OF[activity]);
   }
 
   // An event in the night can use up the room the plan saw, and the clamp then takes those hours off the bedtime. Only the hours
@@ -733,6 +955,7 @@ export function playDay(from: SemesterState, ctx: SemesterContext, strategy: Str
   const gradeSpent = Math.min(gradeHours, fit - debugSpent);
   const rankSpent = fit - debugSpent - gradeSpent;
   if (gradeSpent > 0) d.s = { ...d.s, graded: d.s.graded + gradeSpent };
+  const gradeNight = gradeSpent;
   if (toDebug !== undefined && debugSpent > 0) {
     const debugged = toDebug.a.debugged + debugSpent;
     const done = debugged >= toDebug.a.debug;
@@ -749,18 +972,23 @@ export function playDay(from: SemesterState, ctx: SemesterContext, strategy: Str
   const bedEnd = Math.max(bedEndAt(), k.bedMin);
   // A delay can carry bedtime past the planned wake-up hour; the day never starts before the night ends.
   const woke = Math.max(nextWake, Math.ceil(bedEnd) - 24);
-  const outcome = settle(d, { bedEnd, ...(d.lateStudy > 0 ? { studyEnd: k.bedMin + d.lateStudy } : {}), nextWake: woke, patrols, hospitalDay });
+  const { caught, ...outcome } = settle(d, { bedEnd, ...(d.lateStudy > 0 ? { studyEnd: k.bedMin + d.lateStudy } : {}), nextWake: woke, patrols, hospitalDay });
   const rec: DayRecord = {
     ...header,
     bedEnd,
     kind: hospitalDay ? 'hospital' : exam !== null ? 'exam' : 'normal',
     settled: true,
     patrols, events: d.played, loadsAfter: d.s.loads, studyHours: d.studyHours, homework: homeworkDelta(from.homework, d.s.homework), ...(rankDone ? { rank: rankDone } : {}),
+    ...(d.reading !== undefined ? { liverReading: d.reading } : {}),
     ...(d.projectHours > 0 ? { project: { hours: d.projectHours, gain: d.s.project - from.project, done: from.project < PROJECT_NEED && d.s.project >= PROJECT_NEED } } : {}),
     ...(d.s.graded > from.graded ? { grade: { hours: d.s.graded - from.graded, done: from.graded < GRADE_HOURS && d.s.graded >= GRADE_HOURS } } : {}),
     ...(rankSpent > 0 && bedEnd <= STOP_BY ? { contestStop: true as const } : {}),
+    ...(d.coffee.length > 0 ? { coffee: [...d.coffee] } : {}),
+    ...(gradeNight > 0 ? { gradeNight } : {}),
+    ...(d.rerolled ? { rerolled: true as const } : {}),
     ...(cardTaken !== undefined ? { card: cardTaken } : {}),
     ...(d.minutes > 0 ? { minutes: d.minutes } : {}),
+    ...(infected ? { infected: 'campus' as const } : caught ? { infected: 'roommate' as const } : {}),
     ...outcome,
   };
   const ended = d.s.bankrupt;

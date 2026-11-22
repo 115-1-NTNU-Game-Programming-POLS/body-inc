@@ -55,6 +55,10 @@
   },
   "ignore": [
     "rule:*",
+    "tag:stress",
+    "event:event.roommate_cold.contact",
+    "effect:stress.events",
+    "effect:stress.chronic",
     "tag:caffeine",
     "tag:alcohol",
     "tag:fasting",
@@ -125,6 +129,30 @@
       "score": "tag", "theme": "sleep",
       "single": ["report.tag.sleep_debt.single.1", "report.tag.sleep_debt.single.2"]
     },
+    "tag:chronic_stress": {
+      "score": "tag", "theme": "sleep",
+      "single": ["report.tag.chronic_stress.single.1", "report.tag.chronic_stress.single.2"]
+    },
+    "effect:infection": {
+      "score": "effect", "theme": "sleep",
+      "single": ["report.effect.infection.single.1", "report.effect.infection.single.2"]
+    },
+    "effect:infection.roommate": {
+      "score": "effect", "theme": "sleep",
+      "single": ["report.effect.infection.roommate.single.1", "report.effect.infection.roommate.single.2"]
+    },
+    "tag:roommate_cold": {
+      "score": "tag", "theme": "sleep",
+      "single": ["report.tag.roommate_cold.single.1", "report.tag.roommate_cold.single.2"]
+    },
+    "tag:cold": {
+      "score": "tag", "theme": "sleep",
+      "single": ["report.tag.cold.single.1", "report.tag.cold.single.2"]
+    },
+    "tag:fever": {
+      "score": "tag", "theme": "sleep",
+      "single": ["report.tag.fever.single.1", "report.tag.fever.single.2"]
+    },
     "strike": {
       "score": "effect",
       "single": ["report.strike.single.1", "report.strike.single.2"]
@@ -171,6 +199,7 @@
     "explain": "report.doc.explain",
     "incidentHead": "report.doc.incident_head",
     "incidentItem": "report.doc.incident_item",
+    "voted": "report.doc.voted",
     "copyTo": "report.doc.copy_to",
     "copyCc": "report.doc.copy_cc",
     "chair": "report.doc.chair",
@@ -178,6 +207,7 @@
     "causeSingle": "report.doc.cause_single",
     "causeMulti": "report.doc.cause_multi",
     "causeLiverFasting": "report.doc.cause_liver_fasting",
+    "causeFever": "report.doc.cause_fever",
     "unlockNew": "report.doc.unlock_new",
     "unlockKnown": "report.doc.unlock_known",
     "examMid": "report.doc.exam_mid",

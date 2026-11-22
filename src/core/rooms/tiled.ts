@@ -118,6 +118,14 @@ export type RoomProblemCode =
   | 'fork-same'
   /** A hold switch (a plate) with `cooldownSeconds`: a plate is down only while something stands on it, so it has nothing to cool. */
   | 'cooldown-hold'
+  /** A reveal switch with `cooldownSeconds`: it is lit once for good, so it has nothing to cool. */
+  | 'cooldown-reveal'
+  /** A lever or a plate aimed at nothing; only a reveal switch may stand alone, for its conversation or figure. */
+  | 'switch-untargeted'
+  /** A reveal switch in a room whose `needs` does not list `highlighter`, the only thing that lights it. */
+  | 'reveal-needs'
+  /** `dialogueId` or `figure` on a lever or a plate, which never reads them. */
+  | 'reveal-only'
   /** A door with a switch lock that no Switch is aimed at. */
   | 'switch-missing'
   /** A key lock whose lockParam names no Pickup in the room. */
@@ -472,6 +480,14 @@ export function readRoom(id: string, map: TiledMap, dict: TagDictionary): ReadRe
       if (switchesFor(objects, o.id).length === 0) problems.push({ code: 'fork-switch', object: o.id });
     }
     if (o.kind === 'Switch' && o.props['mode'] === 'hold' && Number(o.props['cooldownSeconds']) > 0) problems.push({ code: 'cooldown-hold', object: o.id });
+    if (o.kind === 'Switch' && o.props['mode'] === 'reveal') {
+      if (Number(o.props['cooldownSeconds']) > 0) problems.push({ code: 'cooldown-reveal', object: o.id });
+      const needs = String(room.props['needs'] ?? '').split(',').map((n) => n.trim());
+      if (!needs.includes('highlighter')) problems.push({ code: 'reveal-needs', object: o.id });
+    } else if (o.kind === 'Switch') {
+      if (typeof o.props['target'] !== 'number' || o.props['target'] === 0) problems.push({ code: 'switch-untargeted', object: o.id });
+      if (String(o.props['dialogueId'] ?? '').trim() !== '' || (o.props['figure'] ?? 'none') !== 'none') problems.push({ code: 'reveal-only', object: o.id });
+    }
     if (o.kind === 'Port' || o.kind === 'ColdStore') {
       // The game takes a box in by the tile centre rule, so one covering no centre has no tile.
       const port = o.kind === 'Port';

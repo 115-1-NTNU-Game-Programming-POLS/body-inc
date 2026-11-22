@@ -127,12 +127,19 @@ describe('merging facts (ux-spec 4.6)', () => {
     const [g] = merged([fact('a', 3, 25.5)]);
     expect([g!.firstDay, g!.members[0]!.minute]).toEqual([3, 25 * 60 + 30]);
   });
+
+  it('calls a group decided by a show of hands only when every one of its facts was', () => {
+    const [all] = merged([fact('a', 4, 20, { voted: true }), fact('a', 5, 20, { voted: true })]);
+    const [mixed] = merged([fact('a', 4, 20, { voted: true }), fact('a', 5, 20)]);
+    const [none] = merged([fact('a', 4, 20)]);
+    expect([all!.voted, mixed!.voted, none!.voted]).toEqual([true, false, false]);
+  });
 });
 
 describe('choosing the five (ux-spec 4.6)', () => {
   const group = (key: string, day: number, extra: { parent?: boolean; n?: number } = {}): SentenceGroup => {
     const members = Array.from({ length: extra.n ?? 1 }, () => ({ fact: { key, at: at(day, 12) }, day, minute: 12 * 60 }));
-    return { key, form: 'single', members, days: [day], firstDay: day, lastDay: day, at: at(day, 12), parent: extra.parent ?? false };
+    return { key, form: 'single', members, days: [day], firstDay: day, lastDay: day, at: at(day, 12), parent: extra.parent ?? false, voted: false };
   };
   const score: Record<string, number> = { choice: 5, warning: 4, tag: 3, external: 2, effect: 1 };
   const by = (g: SentenceGroup): number => score[g.key.split('.')[0]!]!;
@@ -345,6 +352,18 @@ describe('the report of a closure and of a bankruptcy', () => {
       '正本：營運長',
       '副本：大腦董事長、全體部門、夜班清潔隊',
     ]);
+  });
+
+  it('names the fever when one floor struck while the host had one (design doc 8.11), and only then', () => {
+    const fever = { struck: ['brain'], fasting: false, fever: true, facts: [{ key: 'strike', scope: 'brain', at: at(4, 22.5), parent: true }] };
+    expect(lines(fever)).toContain('主旨：本公司因大腦董事長室罷工，且宿主發燒，於第 5 天停業整頓一日，即日起復工，請查照。');
+    expect(lines({ ...fever, fever: false })).toContain('主旨：本公司因大腦董事長室罷工，於第 5 天停業整頓一日，即日起復工，請查照。');
+    const l = lines({
+      kind: 'bankruptcy', at: at(7, 22.5), hospital: undefined as never, struck: ['brain', 'immune'], fasting: false,
+      previous: { at: at(4, 22.5), struck: ['brain'], fasting: false, fever: true },
+      facts: [{ key: 'strike', scope: 'brain', at: at(7, 22.5), parent: true }],
+    });
+    expect(l).toContain('前案：第 4 天大腦董事長室罷工，且宿主發燒，停業整頓一日（人體急字第 0422 號）');
   });
 
   it('sets it into the frame of a bankruptcy report, with the case it follows', () => {
@@ -619,7 +638,8 @@ describe('from the causal log to facts', () => {
     const nodes = end.tags.log.nodes;
     const crisis = nodes[end.history[3]!.crisis!.node]!;
     const facts = nodeFacts(nodes.filter((n) => n.at <= crisis.at), CFG, new Set(crisis.causes.map((c) => c.node)));
-    expect(new Set(facts.map((f) => f.key))).toEqual(new Set(['choice:coffee', 'choice:drink_fasting', 'tag:sleep_debt', 'activity:stayed_up', 'strike', 'effect:caffeine_insomnia', 'effect:alcohol_sleep'].filter((k) => facts.some((f) => f.key === k))));
+    // The roommate's cold of some evening loads the immune floor too; it is not the liver's story but it is traced.
+    expect(new Set(facts.map((f) => f.key))).toEqual(new Set(['choice:coffee', 'choice:drink_fasting', 'tag:sleep_debt', 'activity:stayed_up', 'strike', 'effect:caffeine_insomnia', 'effect:alcohol_sleep', 'tag:roommate_cold', 'effect:infection.roommate'].filter((k) => facts.some((f) => f.key === k))));
     expect(facts.some((f) => f.key.startsWith('rule:') || f.key === 'tag:alcohol')).toBe(false);
     const strike = facts.find((f) => f.key === 'strike')!;
     expect([strike.scope, strike.parent]).toEqual(['liver', true]);
@@ -628,8 +648,8 @@ describe('from the causal log to facts', () => {
   });
 
   it('keeps an entry that has no bank key as a fact worded by the fallback, labelled', () => {
-    const odd = [{ id: 0, kind: 'tag' as const, key: 'cold', at: 100, causes: [] }];
-    expect(nodeFacts(odd, CFG, new Set())).toEqual([{ key: 'tag:cold', at: 100, vars: { label: 'cold' } }]);
+    const odd = [{ id: 0, kind: 'tag' as const, key: 'flu_vaccine', at: 100, causes: [] }];
+    expect(nodeFacts(odd, CFG, new Set())).toEqual([{ key: 'tag:flu_vaccine', at: 100, vars: { label: 'flu_vaccine' } }]);
   });
 
   it('rounds the caffeine left at bedtime for the sentence', () => {
@@ -804,7 +824,9 @@ describe('what the operator did and left undone', () => {
 
 describe('the input of each report', () => {
   const opts = { cfg: CFG, text, seed: 1 };
-  const crunch = contextFor(0.5, 1, { scenario: crunchWeek(1) });
+  const crunch0 = contextFor(0.5, 1, { scenario: crunchWeek(1) });
+  // The pinned cram week is about a strike of two floors, so no cold is caught on campus.
+  const crunch = { ...crunch0, params: { ...crunch0.params, campusExposure: 0, roommateExposure: 0 } };
   const crammed = runSemester(crunch, ARCHETYPES.crammer, 1);
 
   it('puts a visit on the ninth day into a stay on the final exam, issued that same day', () => {

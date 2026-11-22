@@ -15,6 +15,13 @@
     "boss": "boss"
   },
   "cues": {
+    "liver.typing": { "trimDb": 18, "voices": [
+      { "kind": "noise", "filter": "bandpass", "cutoff": 740, "q": 0.8, "dur": 0.043, "gain": 0.38 },
+      { "kind": "noise", "filter": "bandpass", "cutoff": 900, "q": 1.2, "at": 0.086, "dur": 0.033, "gain": 0.35 },
+      { "kind": "noise", "filter": "bandpass", "cutoff": 810, "q": 0.9, "at": 0.157, "dur": 0.040, "gain": 0.42 },
+      { "kind": "noise", "filter": "bandpass", "cutoff": 940, "q": 1.1, "at": 0.281, "dur": 0.038, "gain": 0.37 },
+      { "kind": "noise", "filter": "bandpass", "cutoff": 780, "q": 1.2, "at": 0.374, "dur": 0.042, "gain": 0.40 },
+      { "kind": "noise", "filter": "bandpass", "cutoff": 660, "q": 0.8, "at": 0.460, "dur": 0.052, "gain": 0.48 } ] },
     "staple": { "trimDb": 12, "minGapMs": 40, "voices": [
       { "kind": "noise", "filter": "bandpass", "cutoff": 2600, "q": 2.5, "dur": 0.016, "gain": 0.5 },
       { "kind": "tone", "wave": "triangle", "freq": 1300, "to": 800, "dur": 0.02, "gain": 0.12 },
@@ -23,6 +30,12 @@
     "swing": { "trimDb": 6.5, "semitoneBy": "combo", "voices": [
       { "kind": "noise", "filter": "bandpass", "cutoff": 600, "cutoffTo": 1800, "q": 1.4, "attack": 0.05, "dur": 0.15, "gain": 0.6 },
       { "kind": "noise", "filter": "lowpass", "cutoff": 1200, "attack": 0.04, "dur": 0.12, "gain": 0.2 } ] },
+    "stroke": { "trimDb": 6.5, "voices": [
+      { "kind": "noise", "filter": "bandpass", "cutoff": 600, "cutoffTo": 1800, "q": 1.4, "attack": 0.05, "dur": 0.15, "gain": 0.6 },
+      { "kind": "noise", "filter": "lowpass", "cutoff": 1200, "attack": 0.04, "dur": 0.12, "gain": 0.2 } ] },
+    "circle": { "trimDb": 10.5, "voices": [
+      { "kind": "noise", "cutoff": 900, "cutoffTo": 300, "dur": 0.18, "gain": 0.3 },
+      { "kind": "tone", "freq": 140, "to": 110, "dur": 0.2, "gain": 0.1 } ] },
     "swap": { "trimDb": 5.5, "voices": [
       { "kind": "tone", "wave": "triangle", "freq": 700, "to": 1000, "dur": 0.06, "gain": 0.14 },
       { "kind": "tone", "wave": "triangle", "freq": 1000, "to": 1400, "at": 0.05, "dur": 0.06, "gain": 0.12 } ] },

@@ -371,7 +371,7 @@ describe('chapter check (build plan P0)', () => {
   const check = (rooms: Record<string, TiledMap>, links = AB, chapter: Partial<{
     id: string; start: string; next: string; intro: string; carry: string[]; archive: { held: string; hands: number; desk: string; total: number; into: string };
     climax: { flag: string; summonFactor?: number; archiveFactor?: number };
-    closedCases: Record<string, string>; caseDrops: Record<string, string>; partner: 'chairman' | 'logistics';
+    closedCases: Record<string, string>; caseDrops: Record<string, string>; partner: 'chairman' | 'logistics'; tools: ('stamp' | 'folder' | 'highlighter')[];
   }> = {}) => {
     const dir = join(root, `maps${n++}`);
     mkdirSync(join(dir, 'lab'), { recursive: true });
@@ -382,6 +382,18 @@ describe('chapter check (build plan P0)', () => {
 
   it('passes a healthy two-room chapter', () => {
     expect(check({ a: a(), b: b() })).toEqual([]);
+  });
+
+  it('a room that needs a tool the chapter never hands over fails, unless the chapter starts with it or a conversation in it grants it', () => {
+    const needy = () => map([start, northDoor()], { props: [...ROOM_PROPS, prop('needs', 'highlighter')] });
+    const message = expect.stringContaining('needs 列了 highlighter');
+    expect(check({ a: a(), b: needy() })).toEqual([message]);
+    expect(check({ a: a(), b: needy() }, AB, { tools: ['stamp', 'folder', 'highlighter'] })).toEqual([]);
+    const counter = { type: 'NPC', x: 200, y: 200, properties: [prop('npcId', 'clerk'), prop('dialogueId', 'liver.clerk')] };
+    expect(check({ a: map([start, southDoor(), counter]), b: needy() })).toEqual([]);
+    // A grant of another tool does not count.
+    const folderDesk = { ...counter, properties: [prop('npcId', 'clerk'), prop('dialogueId', 'brain.clerk')] };
+    expect(check({ a: map([start, southDoor(), folderDesk]), b: needy() })).toEqual([message]);
   });
 
   it('passes the greybox chapter in the real maps', () => {
@@ -710,6 +722,25 @@ describe('room parser: forks and lever cooldowns (the stomach sorting center)', 
   it('reports a cooldown on a pressure plate, which is down only while something stands on it', () => {
     expect(codes(map([fork(), lever(1, [prop('cooldownSeconds', 5)], 'hold')]))).toEqual(['cooldown-hold']);
     expect(codes(map([fork(), lever(1, [prop('cooldownSeconds', 0)], 'hold')]))).toEqual([]);
+  });
+
+  it('takes a reveal switch only in a room that needs the highlighter, the one thing that lights it', () => {
+    const needs = { props: [...ROOM_PROPS, prop('needs', 'highlighter')] };
+    const found = (extra: ReturnType<typeof prop>[] = []): Partial<TiledObject> =>
+      ({ id: 2, type: 'Switch', x: 300, y: 300, width: 32, height: 32, properties: [prop('mode', 'reveal'), ...extra] });
+    expect(codes(map([found([prop('dialogueId', 'liver.office.found'), prop('figure', 'liver_overtime')])], needs))).toEqual([]);
+    expect(codes(map([fork(), found([prop('target', 1)])], needs))).toEqual([]);
+    expect(codes(map([found()]))).toEqual(['reveal-needs']);
+    expect(codes(map([found([prop('cooldownSeconds', 5)])], needs))).toEqual(['cooldown-reveal']);
+  });
+
+  it('keeps a target on levers and plates, and the reveal fields off them', () => {
+    const bare = (mode: string, extra: ReturnType<typeof prop>[] = []): Partial<TiledObject> =>
+      ({ id: 2, type: 'Switch', x: 300, y: 300, properties: [prop('mode', mode), ...extra] });
+    expect(codes(map([bare('toggle')]))).toEqual(['switch-untargeted']);
+    expect(codes(map([bare('hold')]))).toEqual(['switch-untargeted']);
+    expect(codes(map([fork(), lever(1, [prop('dialogueId', 'liver.office.found')])]))).toEqual(['reveal-only']);
+    expect(codes(map([fork(), lever(1, [prop('figure', 'liver_overtime')], 'hold')]))).toEqual(['reveal-only']);
   });
 
   it('refuses a negative cooldown', () => {

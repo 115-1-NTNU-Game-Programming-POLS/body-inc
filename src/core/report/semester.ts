@@ -1,5 +1,5 @@
 import type { ReportFile } from '../content/generated.ts';
-import { liverClues, minuteOf, type DayRecord, type FloorId, type SemesterContext, type SemesterState } from '../semester/index.ts';
+import { minuteOf, stomachConveyorJammed, type DayRecord, type FloorId, type SemesterContext, type SemesterState } from '../semester/index.ts';
 import { trace, type CausalNode } from '../tags/causal.ts';
 import { composeReport } from './document.ts';
 import type { ReportFact, ReportDocument, ReportInput, StringLookup } from './types.ts';
@@ -37,7 +37,7 @@ export function nodeFacts(nodes: readonly CausalNode[], cfg: ReportFile, parents
     }
     if (entry === undefined) vars['label'] = n.key;
     const scope = typeof n.data?.['floor'] === 'string' ? n.data['floor'] : undefined;
-    out.push({ key, ...(scope !== undefined ? { scope } : {}), at: n.at, vars, ...(parents.has(n.id) ? { parent: true } : {}) });
+    out.push({ key, ...(scope !== undefined ? { scope } : {}), at: n.at, vars, ...(parents.has(n.id) ? { parent: true } : {}), ...(n.data?.['vote'] === true ? { voted: true as const } : {}) });
   }
   return out;
 }
@@ -72,7 +72,7 @@ export function operationFacts(
     const orders = state.liverOrders.filter((d) => d <= rec.day).length;
     const first = rec.patrols.find((p) => !p.overtime);
     if (orders > 0 && first) out.push({ key: 'ops:patrol_orders', scope: first.floor, at: evening, vars: { orders } });
-    if (liverClues(rec.loadsBefore.liver, state.liverOrders, k).stomachJam) out.push({ key: 'ops:liver_clue', scope: 'stomach', at: morning });
+    if (stomachConveyorJammed(rec.loadsBefore.liver, k)) out.push({ key: 'ops:liver_clue', scope: 'stomach', at: morning });
   }
   return out;
 }
@@ -104,7 +104,7 @@ export function semesterInputs(state: SemesterState, ctx: SemesterContext, o: Se
       ...nodeFacts(trace(state.tags.log, crisis.id), o.cfg, parents),
       ...operationFacts(state.history, state, ctx, struck, o.text, o.cfg, previous?.day ?? 0, rec.day),
     ];
-    const common = { seed: o.seed, wakes, at: rec.crisis.at, facts, struck: rec.strikes, fasting: rec.crisis.fasting, known: o.known ?? new Set<string>() };
+    const common = { seed: o.seed, wakes, at: rec.crisis.at, facts, struck: rec.strikes, fasting: rec.crisis.fasting, ...(rec.crisis.fever === true ? { fever: true } : {}), known: o.known ?? new Set<string>() };
     return i === 0
       ? {
         ...common, kind: 'notice',
@@ -117,7 +117,7 @@ export function semesterInputs(state: SemesterState, ctx: SemesterContext, o: Se
           ...(rec.day + 1 === k.midDay ? { missedExam: 'mid' as const } : rec.day + 1 === k.finDay ? { missedExam: 'fin' as const } : {}),
         },
       }
-      : { ...common, kind: 'bankruptcy', previous: { at: previous!.crisis.at, struck: previous!.strikes, fasting: previous!.crisis.fasting } };
+      : { ...common, kind: 'bankruptcy', previous: { at: previous!.crisis.at, struck: previous!.strikes, fasting: previous!.crisis.fasting, ...(previous!.crisis.fever === true ? { fever: true } : {}) } };
   });
 }
 

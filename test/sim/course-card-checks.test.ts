@@ -32,7 +32,20 @@ async function failingUnderClauses(broken: (real: Clauses) => Partial<Clauses>):
   return courseCardChecks(100).filter((c) => !c.pass).map((c) => c.name);
 }
 
+/** The names of the perk checks that fail with `path` (relative to this file) mocked by `broken`. */
+async function perksFailingUnder(path: string, broken: (real: Record<string, unknown>) => Record<string, unknown>): Promise<string[]> {
+  vi.resetModules();
+  vi.doMock(path, async (importOriginal) => {
+    const real = await importOriginal<Record<string, unknown>>();
+    return { ...real, ...broken(real) };
+  });
+  const { perkChecks } = await import('../../sim/semester/perks.ts');
+  return perkChecks(30).filter((c) => !c.pass).map((c) => `${c.name}: ${c.detail}`);
+}
+
 afterEach(() => {
+  vi.doUnmock('../../src/core/semester/welfare.ts');
+  vi.doUnmock('../../src/core/spirit.ts');
   vi.doUnmock('../../src/core/semester/courses.ts');
   vi.doUnmock('../../src/core/semester/clauses.ts');
   vi.resetModules();
@@ -119,5 +132,28 @@ describe('the course card checks of design doc 9.6 (issue 45)', () => {
     // The cap reads the base credits when the module loads, so a base that is the top limit lets every selection through.
     const failing = await failingUnder(() => ({ BASE_CREDITS: 22 }));
     expect(failing).toContain('clauses: the responsive player passes every selection level 2 lets stand');
+  }, 60_000);
+});
+
+describe('the perk checks of design doc 9.6', () => {
+  it('hold for the cards and nodes as they are', async () => {
+    vi.resetModules();
+    const { perkChecks } = await import('../../sim/semester/perks.ts');
+    const results = perkChecks(100);
+    expect(results.length).toBe(3);
+    expect(results.filter((c) => !c.pass), results.map((c) => `${c.name}: ${c.detail}`).join('\n')).toEqual([]);
+  }, 120_000);
+
+  it('fail when 會議紀錄 counts every record, and name the card', async () => {
+    const failing = await perksFailingUnder('../../src/core/semester/welfare.ts', (real) => ({
+      minutesProgress: (held: readonly string[], records: number) => (held.includes('minutes') ? Math.floor(records / (real.RECORDS_PER_MINUTE as number)) * (real.MINUTE_PROGRESS as number) : 0),
+    }));
+    expect(failing.length).toBeGreaterThan(0);
+    for (const f of failing) expect(f).toContain('(minutes,');
+  }, 60_000);
+
+  it('fail when sleep debt stops lowering the exam', async () => {
+    const failing = await perksFailingUnder('../../src/core/spirit.ts', () => ({ sleepFactor: () => 1 }));
+    expect(failing.length).toBe(3);
   }, 60_000);
 });

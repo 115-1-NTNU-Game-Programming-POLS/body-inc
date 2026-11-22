@@ -17,7 +17,7 @@ function caseNumber(at: number, wakes: readonly number[]): { number: string; day
 const listOf = (names: readonly string[]): string =>
   names.length <= 1 ? (names[0] ?? '') : `${names.slice(0, -1).join('、')}與${names[names.length - 1]}`;
 
-function causePhrase(struck: readonly string[], fasting: boolean, env: RenderEnv): string {
+function causePhrase(struck: readonly string[], fasting: boolean, fever: boolean, env: RenderEnv): string {
   const { cfg, text } = env;
   const names = struck.map((s) => {
     const scope = cfg.scopes[s];
@@ -26,6 +26,7 @@ function causePhrase(struck: readonly string[], fasting: boolean, env: RenderEnv
   });
   const list = listOf(names);
   if (struck.length === 1 && struck[0] === 'liver' && fasting) return fillTemplate(text(cfg.doc.causeLiverFasting), { list });
+  if (struck.length === 1 && fever) return fillTemplate(text(cfg.doc.causeFever), { list });
   return fillTemplate(text(struck.length === 1 ? cfg.doc.causeSingle : cfg.doc.causeMulti), { list });
 }
 
@@ -63,7 +64,8 @@ function candidates(input: ReportInput, env: RenderEnv): SentenceGroup[] {
 
 function lineOf(g: SentenceGroup, prev: SentenceGroup | undefined, env: RenderEnv): IncidentLine {
   const r = renderGroup(g, prev, env);
-  return { key: g.key, ...(g.scope !== undefined ? { scope: g.scope } : {}), form: g.form, text: r.text, firstDay: g.firstDay, lastDay: g.lastDay, at: g.at, generic: r.generic };
+  const said = g.voted ? fillTemplate(env.text(env.cfg.doc.voted), { text: r.text }) : r.text;
+  return { key: g.key, ...(g.scope !== undefined ? { scope: g.scope } : {}), form: g.form, text: said, firstDay: g.firstDay, lastDay: g.lastDay, at: g.at, generic: r.generic };
 }
 
 /**
@@ -93,7 +95,7 @@ export function composeReport(input: ReportInput, env: RenderEnv): ReportDocumen
   const t = cfg.themes[theme]!;
   const page = text(`handbook.${t.page}.title`);
   const unlock = text(input.known.has(t.page) ? doc.unlockKnown : doc.unlockNew);
-  const cause = causePhrase(input.struck, input.fasting, env);
+  const cause = causePhrase(input.struck, input.fasting, input.fever === true, env);
   const here = caseNumber(input.at, input.wakes);
   const liverNote = input.struck.includes('liver') ? [text(doc.liverNote)] : [];
   const pool = input.struck.includes('liver') ? cfg.opinions.afterStrike : theme === 'alcohol' ? cfg.opinions.hangover : cfg.opinions.default;
@@ -133,7 +135,7 @@ export function composeReport(input: ReportInput, env: RenderEnv): ReportDocumen
       say(doc.bankruptDate, { day: String(here.day), time: hhmm(here.minute) }),
       say(doc.bankruptNumber, { number: here.number }),
       text(doc.recipient),
-      ...(prev && before ? [say(doc.bankruptPrevious, { day: String(before.day), cause: causePhrase(prev.struck, prev.fasting, env), number: before.number })] : []),
+      ...(prev && before ? [say(doc.bankruptPrevious, { day: String(before.day), cause: causePhrase(prev.struck, prev.fasting, prev.fever === true, env), number: before.number })] : []),
       '',
       say(doc.bankruptSubject, { cause }),
       '',

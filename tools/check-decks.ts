@@ -20,7 +20,7 @@ import { modelMeasure } from '../src/view/text/measure.ts';
 import { CARD, TEXT_SCALES } from '../src/view/text/styles.ts';
 import { wrapCJK } from '../src/view/text/wrap.ts';
 import { schemaMessage } from './check-content.ts';
-import { alcoholMessage } from './check-dialogue.ts';
+import { alcoholMessage, EFFECT_FORMS, gaugeMessage } from './check-dialogue.ts';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -38,7 +38,6 @@ export interface DeckCheck {
   readonly report: string[];
 }
 
-const EFFECT_FORMS = '可寫 tag:標籤、tag:標籤=數字、tag:標籤+數字、clock:分鐘 或 unlock:手冊頁代號，多個效果用分號隔開';
 
 function deckMessage(file: string, p: DeckProblem): string {
   if (p.code === 'schema') return `${file} ${p.schema!.path || '（整個檔案）'}：${schemaMessage(p.schema!)}`;
@@ -58,6 +57,8 @@ function deckMessage(file: string, p: DeckProblem): string {
         case 'tag-form': return `${at}：effect「${part}」寫法和標籤型別不符：布林標籤寫 tag:${tag}，數值標籤寫 tag:${tag}=數字 或 tag:${tag}+數字`;
         case 'tool': return `${at}：effect「${part}」不行；grant:stamp 只能寫在對話或事件卡，章首卡與章末卡不能發工具`;
         case 'minutes': return `${at}：effect「${part}」的 clock: 後面必須是分鐘數，1 到 4 位數的整數`;
+        case 'gauge': return `${at}：${gaugeMessage(part)}`;
+        case 'closing': return `${at}：章末卡不能寫 gauge:；章末卡只把標籤交給下一章，駁回量表帶不過去，請改寫在章首卡`;
         case 'alcohol-set':
         case 'alcohol-buff': return `${at}：${alcoholMessage(p.effect, part)}`;
         default: return `${at}：effect「${part}」有誤`;

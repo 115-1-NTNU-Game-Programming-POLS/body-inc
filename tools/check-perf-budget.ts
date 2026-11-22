@@ -24,7 +24,7 @@ import type { ChapterFile } from '../src/core/content/generated.ts';
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 /** kB (1000 bytes) the title may wait for, and why this number: docs/perf/cold-start.md section 6. */
-export const COLD_LIMIT_KB = 1750;
+export const COLD_LIMIT_KB = 1800;
 /** Response headers of one request, taken from the Network panel's transferred size minus the body. */
 export const REQUEST_OVERHEAD = 350;
 

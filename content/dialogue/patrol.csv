@@ -12,3 +12,6 @@ patrol.liver.lobby,2,liver,normal,乙醛的箱子要優先送進第二條線，�
 patrol.liver.lobby,3,liver,normal,電梯在產線的東邊。,,,,
 patrol.liver.clerk,1,narrator,normal,倉庫角落的職員抱著一疊工單，不知道該往哪裡送。,,,,
 patrol.liver.clerk,2,narrator,normal,你告訴他排隊的規則，他鬆了一口氣，把工單歸好。,,tag:patrol_side,,
+patrol.liver.found,1,narrator,normal,螢光筆畫過肝的頭上，出現一行小字：今天的負荷。,,tag:patrol_liver_read,,
+patrol.liver.found,2,liver,normal,被你發現了啊。,,,,
+patrol.liver.found,3,narrator,normal,電梯上的燈不會告訴你這個數字，只有檢查才看得到。,,,,20

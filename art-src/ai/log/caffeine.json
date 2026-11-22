@@ -1,0 +1,46 @@
+{
+ "id": "caffeine",
+ "title": "卡費因 Boss 10 格像素圖集（AI 產生造型定稿與姿勢底稿，縮成 64×64 後統一色號；杯頭程式繪製；身體與手由江兆耘手繪修整）",
+ "batch": "caffeine-boss-poses",
+ "tool": "ChatGPT (gpt-image)",
+ "model": "不在憑證中",
+ "date": "2026-11-15",
+ "template": "caffeine-boss-pose-sheet-v1",
+ "prompt": [
+  "【提示詞 1：造型定稿，ChatGPT】Generate exactly ONE image: a single character, front view, standing, full body, centered. Not a sheet, not multiple variations.",
+  "Style: chunky pixel-art-friendly character, thick 1-pixel-equivalent dark navy outline (#0C2D5E), flat colors, one-step shading only, no gradients, no texture, crisp square pixels, simple readable shapes that will still read when shrunk to 64x64 pixels.",
+  "Subject: a big, imposing corporate boss monster, 'the Refill Manager'. Broad shoulders, wide stance, much larger and bulkier than a normal office worker (about 1.5 times the body width of a regular chibi enemy). His head is a giant takeaway coffee cup: cream cup body (#F4EBDD), a brown dark lid (#6B4A3A) with a small round sticker on the lid, and a brown cardboard sleeve (#8B5A3C) around the lower half of the cup with a credit-card design on it: a dark magnetic stripe and a small square chip. His face is drawn on the upper cup: wide round eyes and a big confident grin, very caffeinated and overconfident. He wears a charcoal suit (#3B3F4A), white shirt, wine-red necktie (#9B2335). On the left chest a small plain gold lightning-bolt pin (#FFC83D) with a navy ring around it. In his left hand he holds a large loyalty punch card with a grid of squares, partly stamped. Powerful, smug, slightly menacing but still cute and funny, not scary, no blood.",
+  "Background: plain solid pure white, no floor, no shadow, no scenery.",
+  "Avoid: text, letters, numbers, Chinese characters, fake writing, logos, watermark, blush, red face, drunk expression, weapons, realistic anatomy, 3D render, photo, gradients, glossy highlights, multiple panels.",
+  "【提示詞 2：姿勢表，附提示詞 1 選定的圖當參考】The attached image is my pixel-art game boss. Keep this character EXACTLY as attached: same giant takeaway coffee cup head, same cup sleeve with credit-card stripe and chip, same charcoal suit, wine-red tie, gold lightning pin on the chest, same thick navy outline, same flat colors, same proportions and size.",
+  "Generate exactly ONE image: a horizontal sprite sheet with 8 poses of the SAME character in a single row, same size, feet on the same baseline, plain solid pure white background, no floor, no shadow.",
+  "Poses, left to right: 1. idle, front view, standing confidently with the punch card held at his side. 2. idle, side view facing right. 3. throw, front view: winding up to throw the punch card, one arm pulled back, upright torso. 4. throw, side view facing right: arm swung forward, card released. 5. drink, front view: lifting a small paper coffee cup toward his cup-lid mouth area, smug. 6. propose, front view: holding up a big blank folded proposal document in both hands in front of his chest, leaning forward slightly, but the document must NOT cover the chest pin. 7. surprised, front view: wide round eyes, open round mouth, both hands raised, same cup head. 8. review, front view: sitting on the floor cross-legged, hugging a blank proposal document with a stamp mark on it, cup head tilted down tired.",
+  "No text, no letters, no numbers, no motion lines, no sparkles, no sweat drops, no effects."
+ ],
+  "references": "造型定稿檔名：咖啡補給經理像素 Boss.jpg；姿勢表檔名：咖啡杯頭商人的八種姿態.png（ChatGPT 下載的原始檔名）；美術指南 §5.5 與 §14.4（Boss 剪影規則：提案姿勢最高、審核中最矮）",
+ "candidates": 8,
+ "selected": "各姿勢各選 1 張（生成圖未入庫）",
+ "source_name": "ChatGPT 下載的 webp",
+ "post": {
+  "select": true,
+  "outline": "程式補成連續的 #0C2D5E 外框後由江兆耘手修；之後由 Isaries 補上 13 個描邊缺口（提案格手臂右緣 8 像素與另 2 像素、丟擲正面、喝、驚訝各 1 像素，改為 #0C2D5E）",
+  "quantize": "縮成 64×64，西裝統一為 3B3F4A / 2C2F38、鞋 393237、徽章 FFC83D，全部在 body-inc-pixel.gpl 內（共 13 色）",
+  "remove-text": "n/a",
+  "pixel-cleanup": "杯頭與外框由 Python 腳本在本機一次性繪製（腳本未入庫）；身體、手、集點卡、文件由江兆耘手修；之後由 Isaries 依美術指南第 4 節把待機兩格、丟擲正面、喝、提案、驚訝共六格胸前的四芒星（拾取物符號）塗回西裝 3B3F4A，改蓋 tools/art/make_stopgaps.py 的 5 × 6 閃電徽章（FFC83D，四鄰補 #0C2D5E 外圈，只落在西裝上）；作者之後將審查兩格的提案書與手下移 5 列，補全胸前閃電徽章；審查兩格整格下移 1 像素，讓腳落在錨點列 62",
+  "style-board-check": "待審"
+ },
+ "hours": {
+  "cleanup_minutes": 70,
+  "generation_minutes": null,
+  "hand_estimate_minutes": null,
+  "note": "手修約 70 分鐘（作者自述，PR #126）；生圖時間未記錄；杯頭與外框的繪圖腳本未入庫，時間未記錄；維護者補正未計時"
+ },
+ "status": "hand-finished",
+ "processed": {
+  "outputs": [
+   "public/assets/atlases/caffeine.png",
+   "public/assets/atlases/caffeine.json"
+  ],
+  "png_colors": 13
+ }
+}
