@@ -43,3 +43,7 @@ public/assets/atlases/toast-boss.png,敬酒部長 Boss 圖集（7 格）,江兆�
 public/assets/atlases/toast-boss.json,敬酒部長 Boss 圖集資料,江兆耘,,team-original,,none,,,,江兆耘,2026-11-21,
 public/assets/atlases/exam.png,期中考卷臉圖集（6 格）,江兆耘,,team-original,,none,,,6 格臉由程式繪製，江兆耘審定,江兆耘,2026-11-21,
 public/assets/atlases/exam.json,期中考卷臉圖集資料,江兆耘,,team-original,,none,,,,江兆耘,2026-11-21,
+public/assets/atlases/adenosine.png,腺苷漂浮圖集（2 格）,江兆耘,,team-original,,ai-generated,ChatGPT（gpt-image，頭像經暫代圖轉為像素底）,art-src/ai/log/adenosine.json,暫代圖為底；江兆耘手修眼睛、嘴與帳單；輪廓由腳本改為紫色虛線,江兆耘,2026-11-21,
+public/assets/atlases/adenosine.json,腺苷漂浮圖集資料,江兆耘,,team-original,,none,,,,江兆耘,2026-11-21,
+public/assets/atlases/adenosine-mini.png,腺苷黏身迷你圖集（1 格）,江兆耘,,team-original,,ai-generated,ChatGPT（gpt-image，頭像經暫代圖轉為像素底）,art-src/ai/log/adenosine-mini.json,暫代圖為底；輪廓由腳本改為紫色虛線並加兩個點眼,江兆耘,2026-11-21,
+public/assets/atlases/adenosine-mini.json,腺苷黏身迷你圖集資料,江兆耘,,team-original,,none,,,,江兆耘,2026-11-21,
