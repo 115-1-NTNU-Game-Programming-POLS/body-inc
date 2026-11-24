@@ -39,6 +39,7 @@ import {
   ALCOHOL_CRATE, boxCentre, crateOnTile, crateTiles, isFactory, isSpawnedCrate, linesOf, MIST, onIntake, outletTile,
 } from './liver/factory.ts';
 import { playerStart, type RoomObject } from './rooms/tiled.ts';
+import { enemiesById, waveKey, type Tick } from './tick/tick.ts';
 import { TICK_HZ, TILE } from './time.ts';
 
 export { NO_INPUT, OPERATOR_BODY, OPERATOR_HURT, type HeldTool, type OperatorAction, type OperatorState, type TickInput } from './combat/operator.ts';
@@ -1508,7 +1509,6 @@ export function step(state: GameState, pressed: TickInput): StepResult {
   const arrivals: Shot[] = [];
   // A ring is one wave: once any of its shots is refused or lands, the rest of it is spent.
   const settled = new Set<string>();
-  const waveKey = (sh: Shot): string | undefined => (sh.wave === undefined ? undefined : `${sh.owner}:${sh.wave}`);
   const settle = (sh: Shot): void => {
     const k = waveKey(sh);
     if (k !== undefined) settled.add(k);
@@ -1678,30 +1678,48 @@ export function step(state: GameState, pressed: TickInput): StepResult {
     events.push(...r.events);
   }
 
+  return settleTick({
+    state, pressed, input, now, examining, events, roomEvents,
+    op, enemies, flying, movedShots, settled, zones, nextId, rng, clock, freeze, grid,
+    touchingNow: onNow.map((o) => o.id), carried, switches, doorsOpen: doorsOpenNow, taken, boxes, push,
+    delivered: moved.delivered, chilled: moved.chilled, room: roomNow, dissolved, cooling, orderSerial,
+    pie, unload, factory, mixer: mixerNow, sleep, bind, boostUntil,
+  });
+}
+
+/**
+ * The last phase of a tick: the next state from the working set, then what reads the whole tick.
+ * The interact rest counts down, the exam reads what this tick did and moves its own clock, and
+ * a lethal tick sends the operator back instead. Only fields that are set are written, so a room
+ * without a pie, a factory or a sleep bar keeps the same state, and hash, as before.
+ */
+function settleTick(t: Tick): StepResult {
+  const { state, events, op } = t;
   const { cooling: _cooled, ...uncooled } = state;
   let next: GameState = restTick({
-    ...uncooled, tick: now + 1, roomTicks: state.roomTicks + 1, rng, clock, operator: op, enemies: byId(), projectiles: flying,
-    shots: settled.size === 0 ? movedShots : movedShots.map((sh) => (settled.has(waveKey(sh) ?? '') ? { ...sh, spent: true } : sh)),
-    zones: [...zones.values()].sort((a, b) => a.id - b.id), nextId, freeze,
+    ...uncooled, tick: t.now + 1, roomTicks: state.roomTicks + 1, rng: t.rng, clock: t.clock, operator: op, enemies: enemiesById(t), projectiles: t.flying,
+    shots: t.settled.size === 0 ? t.movedShots : t.movedShots.map((sh) => (t.settled.has(waveKey(sh) ?? '') ? { ...sh, spent: true } : sh)),
+    zones: [...t.zones.values()].sort((a, b) => a.id - b.id), nextId: t.nextId, freeze: t.freeze,
     // What the door check saw, not a fresh count: a lever pinned by a staple after the check must
     // still count as newly opened next tick for an operator already pressed against its door.
-    touching: onNow.map((o) => o.id), carried, switches, doorsOpen: doorsOpenNow, taken, boxes, push, delivered: moved.delivered, chilled: moved.chilled,
-    ...(roomNow === state.room ? {} : { room: roomNow, dissolved }),
-    ...(pie ? { pie } : {}),
-    ...(unload ? { unload } : {}),
-    ...(factory ? { factory } : {}),
-    ...(mixerNow ? { mixer: mixerNow } : {}),
-    ...(orderSerial > 0 ? { orderSerial } : {}),
-    ...(cooling.length > 0 ? { cooling } : {}),
-    ...(sleep ? { sleep } : {}),
-    ...(bind ? { bind } : {}),
-    ...(boostUntil !== undefined ? { boostUntil } : {}),
-  }, pressed.interactPressed === true);
+    touching: t.touchingNow, carried: t.carried, switches: t.switches, doorsOpen: t.doorsOpen, taken: t.taken, boxes: t.boxes, push: t.push,
+    delivered: t.delivered, chilled: t.chilled,
+    ...(t.room === state.room ? {} : { room: t.room, dissolved: t.dissolved }),
+    ...(t.pie ? { pie: t.pie } : {}),
+    ...(t.unload ? { unload: t.unload } : {}),
+    ...(t.factory ? { factory: t.factory } : {}),
+    ...(t.mixer ? { mixer: t.mixer } : {}),
+    ...(t.orderSerial > 0 ? { orderSerial: t.orderSerial } : {}),
+    ...(t.cooling.length > 0 ? { cooling: t.cooling } : {}),
+    ...(t.sleep ? { sleep: t.sleep } : {}),
+    ...(t.bind ? { bind: t.bind } : {}),
+    ...(t.boostUntil !== undefined ? { boostUntil: t.boostUntil } : {}),
+  }, t.pressed.interactPressed === true);
   // The exam reads what this tick did (hits, answered cases, a stack failure) and moves its own clock.
-  if (examining && next.exam && next.examDef) {
+  if (t.examining && next.exam && next.examDef) {
     const r = stepExam(next.examDef, {
-      exam: next.exam, grid, enemies: next.enemies, rng: next.rng, nextId: next.nextId, operator: op,
-      interact: input.interactPressed === true, happened: events,
+      exam: next.exam, grid: t.grid, enemies: next.enemies, rng: next.rng, nextId: next.nextId, operator: op,
+      interact: t.input.interactPressed === true, happened: events,
     });
     next = withExam(next, r);
     events.push(...r.events);
@@ -1711,11 +1729,11 @@ export function step(state: GameState, pressed: TickInput): StepResult {
     // The room is already reset by now, so a door, trigger or bed touched on the lethal tick would
     // be read against the wrong place and state; dying wins.
     // A bar filled on that tick does not count either: the chapter must not end and go back to the checkpoint at once.
-    const settled = events.filter((e) => !roomEvents.includes(e) && e.type !== 'sleepFilled');
-    settled.push({ type: 'forcedLeave' });
-    return { state: forcedLeave(next), events: settled };
+    const kept = events.filter((e) => !t.roomEvents.includes(e) && e.type !== 'sleepFilled');
+    kept.push({ type: 'forcedLeave' });
+    return { state: forcedLeave(next), events: kept };
   }
-  if (freeze > 0) events.push({ type: 'freeze', frames: freeze });
+  if (t.freeze > 0) events.push({ type: 'freeze', frames: t.freeze });
   return { state: next, events };
 }
 
