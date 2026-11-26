@@ -81,6 +81,22 @@ function seatedExam(): GameState {
   return s.game;
 }
 
+/**
+ * The exam's written test, its first proof question open, the operator standing on the first step with the interact rest running.
+ * The rest swallows the interact key for the room (`input`) but not for `restTick` (`pressed`), so the exam must read `input`:
+ * the step is never stamped while the key is held. Read `pressed` instead and the first tick stamps it.
+ */
+function proofUnderInteractRest(): GameState {
+  const ctx = chapterContent('midterm');
+  const g = seatedExam();
+  // A break that has run its course hands the next tick to the second segment, the written test, and lays out its steps.
+  const waiting: GameState = { ...g, exam: { ...g.exam!, part: 'break', segment: 0, ticks: 1e6 } };
+  const laid = step(waiting, { move: { x: 0, y: 0 } }).state;
+  const first = laid.exam?.steps[0];
+  if (!first || laid.exam?.part !== 'run') throw new Error(`the proof question did not open in ${ctx.chapter.id}`);
+  return { ...laid, touching: [], interactRest: 30, operator: { ...laid.operator, x: first.x, y: first.y } };
+}
+
 /** An open 20 x 12 room with a one-tile border, the operator at (160, 192), and the given spawns. */
 function bareRoom(spawns: readonly { readonly type: string; readonly x: number; readonly y: number }[], pen?: { readonly x: number; readonly y: number; readonly width: number; readonly height: number }): EnteredRoom {
   const cols = 20;
@@ -374,6 +390,7 @@ const SCENARIOS: readonly Scenario[] = [
   { name: 'snack boss in his second stage: large portions', start: () => bossAt({ chapter: 'stomach', room: 'stomach/boss-arena' }, 60), ticks: 3600, style: { seed: 34, folderFirst: true, guardDeliveries: true, fire: 0.02, swap: 0 } },
   { name: 'night lab with a full gauge: stamps among orders and crates', start: () => open({ chapter: 'stomach', room: 'stomach/night-lab', gauge: 100 }), ticks: 3000, style: { seed: 27, stamp: 0.02, fire: 0.1 } },
   { name: 'liver factory with a full gauge: stamps by the crates', start: () => open({ chapter: 'liver', room: 'liver/factory', tags: 'alcohol:3', gauge: 100 }), ticks: 1500, style: { seed: 28, stamp: 0.05, modes: [5], goals: ['Line', 'Conveyor'] } },
+  { name: 'midterm written test with the interact key held under the interact rest', start: proofUnderInteractRest, ticks: 300, style: { seed: 35, interact: 1, modes: [4], fire: 0, dodge: 0, react: 0, swap: 0, partner: 0, stamp: 0 } },
 ];
 
 /** The chain of one scenario: the running hash of every tick's state and events, kept every EVERY ticks and at the end. */
