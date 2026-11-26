@@ -2,20 +2,24 @@ import type { SolidGrid } from '../collision/grid.ts';
 import type { EnemyState } from '../combat/actors.ts';
 import type { Shot, Zone } from '../combat/hazards.ts';
 import type { OperatorState, TickInput } from '../combat/operator.ts';
+import type { Perks } from '../combat/perks.ts';
+import type { Assists } from '../combat/assists.ts';
+import type { Box } from '../collision/boxes.ts';
+import type { stepOperator } from '../combat/operator.ts';
 import type { DomainEvent, GameState, Projectile } from '../game.ts';
 
 /**
  * The working set of one tick of `step` (src/core/game.ts): the values its phases read and write
- * on the way from one `GameState` to the next. Issue #75 moves the phases of `step` out one at a
- * time (docs/reviews/game-step.md, section 4); each phase will take this object and change only
- * the fields it owns, and `step` will be the ordered list of those calls.
+ * on the way from one `GameState` to the next. `step` is the ordered list of phases, and each one
+ * takes this object and changes only the fields it owns (docs/reviews/game-step.md, section 4):
+ * `beginTick` (the operator, the partner, `stepRoom`), `stepEnemies`, `stepWeapons`, `stepHits`,
+ * `stepAftermath`, then `settleTick` in game.ts, which builds the next state.
  *
- * It is mutable on purpose. `step` already works this way inside, with `let`s and Maps that later
- * phases see changed; the object only gives those variables one name. What `step` returns stays
- * a new, immutable `GameState`.
- *
- * For now only the last phase, `settleTick`, takes it, so the fields are the ones it reads. The
- * next steps of the refactor add the fields of the phases they move.
+ * It is mutable on purpose. A phase copies the fields it uses into locals on the way in, so its
+ * closures keep the shape they had inside `step`, and writes back what it changed on the way out:
+ * a field a phase changes and does not write back is lost to the phases after it, and only the
+ * step characterization (test/core/step-characterization.test.ts) notices. What `step` returns
+ * stays a new, immutable `GameState`.
  */
 export interface Tick {
   /** The state the tick started from. */
@@ -28,6 +32,12 @@ export interface Tick {
   readonly now: number;
   /** An exam question is being answered in this room this tick. */
   readonly examining: boolean;
+  /** What the operator's own step did this tick: the swing, the stamp, the line and the circle that landed, the staple fired. */
+  readonly stepped: ReturnType<typeof stepOperator>;
+  readonly assists: Assists;
+  readonly perks: Perks;
+  /** How far an adenosine senses the operator this tick. */
+  readonly senseRange: number;
   /** Everything that happened this tick, in order. */
   readonly events: DomainEvent[];
   /** The events of doors, triggers and beds touched this tick; a lethal tick drops them. */
@@ -43,6 +53,12 @@ export interface Tick {
   /** Waves (`owner:wave`) that reached the operator this tick: every shot of them is spent. */
   settled: Set<string>;
   zones: Map<number, Zone>;
+  /** Staples in the air as the tick began, plus the one fired this tick; moved by the weapons. */
+  projectiles: Projectile[];
+  /** The enemies' shots in play, those of this tick's spawns included. */
+  shots: Shot[];
+  /** The operator's hurtbox as the hits are judged, which is also the box the fog reads: nothing before the hits moves the operator, and a knockback comes after. */
+  readonly hurt: Box;
   nextId: number;
   rng: GameState['rng'];
   clock: GameState['clock'];

@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { BOSSES, DECKS, DIALOGUES, ENEMIES, EXAMS, PARAMS, RESCUES, TAGS } from '../../src/app/content.ts';
 import { tagsFromQuery } from '../../src/app/session.ts';
 import {
-  BASE_PERKS, createGame, FOLDER, KEY_POINTS, LOCK_TICKS, parseRoom, proposalOpen, readContent, roomsOf, selectGauge, startChapter, stateHash, step, stepChapter, STURDY_WRAP, TILE,
+  BASE_PERKS, createGame, newOrder, FOLDER, KEY_POINTS, LOCK_TICKS, parseRoom, proposalOpen, readContent, roomsOf, selectGauge, startChapter, stateHash, step, stepChapter, STURDY_WRAP, TILE,
   type Assists, type ChapterContent, type Shot, type ChapterState, type EnteredRoom, type GameState, type Perks, type TickInput, type TiledMap,
 } from '../../src/core/index.ts';
 
@@ -95,6 +95,19 @@ function proofUnderInteractRest(): GameState {
   const first = laid.exam?.steps[0];
   if (!first || laid.exam?.part !== 'run') throw new Error(`the proof question did not open in ${ctx.chapter.id}`);
   return { ...laid, touching: [], interactRest: 30, operator: { ...laid.operator, x: first.x, y: first.y } };
+}
+
+/** The stomach night lab with a full gauge and a courier's order resting a tile from the operator: the stamp sends it back. */
+function orderBesideOperator(): GameState {
+  const g = open({ chapter: 'stomach', room: 'stomach/night-lab', gauge: 100 });
+  const order = newOrder(900, { col: Math.floor(g.operator.x / TILE) + 1, row: Math.floor(g.operator.y / TILE) });
+  return { ...g, boxes: [...g.boxes, order] };
+}
+
+/** The brain's open office entered with two clinging stacks carried in, so the first adenosine to latch on makes the third. */
+function carryingTwoStacks(): GameState {
+  const g = open({ chapter: 'brain', room: 'brain/open-office' });
+  return { ...g, carried: 2, operator: { ...g.operator, stacks: 2 } };
 }
 
 /** An open 20 x 12 room with a one-tile border, the operator at (160, 192), and the given spawns. */
@@ -391,6 +404,8 @@ const SCENARIOS: readonly Scenario[] = [
   { name: 'night lab with a full gauge: stamps among orders and crates', start: () => open({ chapter: 'stomach', room: 'stomach/night-lab', gauge: 100 }), ticks: 3000, style: { seed: 27, stamp: 0.02, fire: 0.1 } },
   { name: 'liver factory with a full gauge: stamps by the crates', start: () => open({ chapter: 'liver', room: 'liver/factory', tags: 'alcohol:3', gauge: 100 }), ticks: 1500, style: { seed: 28, stamp: 0.05, modes: [5], goals: ['Line', 'Conveyor'] } },
   { name: 'midterm written test with the interact key held under the interact rest', start: proofUnderInteractRest, ticks: 300, style: { seed: 35, interact: 1, modes: [4], fire: 0, dodge: 0, react: 0, swap: 0, partner: 0, stamp: 0 } },
+  { name: 'the stamp sends an order back to its courier', start: orderBesideOperator, ticks: 120, style: { seed: 36, stamp: 1, fire: 0, dodge: 0, react: 0, swap: 0, partner: 0, interact: 0, modes: [4] } },
+  { name: 'two stacks carried in make a forced nap at the first latch', start: carryingTwoStacks, ticks: 900, style: { seed: 37, modes: [0], fire: 0, dodge: 0, react: 0, swap: 0, partner: 0, interact: 0, stamp: 0 } },
 ];
 
 /** The chain of one scenario: the running hash of every tick's state and events, kept every EVERY ticks and at the end. */
