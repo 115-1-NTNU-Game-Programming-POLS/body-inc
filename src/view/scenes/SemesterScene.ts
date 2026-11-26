@@ -600,7 +600,7 @@ export class SemesterScene extends Phaser.Scene {
   /** A screen of text lines, left until Enter. The lines close up when there are too many for the prompt to stay on the canvas. */
   private page(title: string, lines: readonly string[], next: string, go: () => void): void {
     this.clear();
-    const step = Math.min(48, Math.floor((this.scale.height - 230 - 80) / Math.max(1, lines.length)));
+    const step = Math.min(48, Math.floor((this.scale.height - 230 - 150) / Math.max(1, lines.length)));
     this.lines.push(addText(this, this.scale.width / 2, 130, title, { role: 'hand', weight: 700, size: 44, color: PAPER }).setOrigin(0.5, 0));
     lines.forEach((line, i) => {
       this.lines.push(addText(this, this.scale.width / 2, 230 + i * step, line, { role: 'print', weight: 400, size: 26, color: PAPER }).setOrigin(0.5, 0));
