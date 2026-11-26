@@ -1,45 +1,47 @@
-import { boxAt, centeredBox, overlaps, type Box } from './collision/boxes.ts';
-import { isSolid, moveAndCollide } from './collision/grid.ts';
-import { backOff, ENEMY_BODY, enemyCenter, enemyFrom, enemyHurtbox, isBound, isHittable, isMelee, recoverTicksOf, reshield, shieldCovers, stepEnemy, strikeBox, type EnemyState } from './combat/actors.ts';
+import { boxAt } from './collision/boxes.ts';
+import { enemyFrom, reshield, type EnemyState } from './combat/actors.ts';
 import { newBossState, type BossDef, type BossTable, type ToastState } from './combat/bosses/boss.ts';
-import { proposalOpen, stepCaffeine } from './combat/bosses/caffeine.ts';
-import { sleepShare, snackExposed, snackFloor, snackProtested, stepSnack } from './combat/bosses/snack.ts';
-import { breathing, stepToast } from './combat/bosses/toast.ts';
+import { sleepShare, snackExposed } from './combat/bosses/snack.ts';
+import { breathing } from './combat/bosses/toast.ts';
 import type { EnemyTable } from './combat/enemies.ts';
-import { BASE_HALVES, BIND, BOSS, CLING, COURIER, DODGE, ENEMY_HIT_FREEZE, FOLDER, GAUGE, heartCap, HIGHLIGHTER, HURT, MANAGER, PARRY_BOOST, SALESMAN, STAMP, STAPLER, SUGAR_FOG } from './combat/frames.ts';
-import { circleCentre, inCircle, isMarked, lineCrosses } from './combat/highlighter.ts';
+import { BASE_HALVES, BIND, CLING, FOLDER, heartCap, STAMP, STAPLER } from './combat/frames.ts';
+import { circleCentre, isMarked } from './combat/highlighter.ts';
 import { guardCovers, parryOpen, swingBox } from './combat/folder.ts';
-import { chip, NO_ASSISTS, owing } from './combat/assists.ts';
-import { BASE_PERKS, type Perks } from './combat/perks.ts';
-import { pieCovers, PIE_READY, stepPie, sleepOfSpirit, type PieState } from './combat/pie.ts';
-import { stepUnload, UNLOAD, UNLOAD_READY, unloadAge, unloadBox, type UnloadState } from './combat/unload.ts';
-import { circleTouchesBox, shotBox, zoneContinues, zoneLive, type Shot, type ShotSpec, type Zone, type ZoneSpec } from './combat/hazards.ts';
+import { type Perks } from './combat/perks.ts';
+import { PIE_READY, sleepOfSpirit, type PieState } from './combat/pie.ts';
+import { UNLOAD_READY, unloadAge, unloadBox, type UnloadState } from './combat/unload.ts';
+import { type Shot, type Zone } from './combat/hazards.ts';
 import type { Vec } from './combat/movement.ts';
-import { bufferInput, gaugeFull, hurtOperator, inDodgeIframes, isInvincible, newOperator, OPERATOR_BODY, OPERATOR_HURT, stepOperator, unit, type HeldTool, type OperatorState, type TickInput } from './combat/operator.ts';
+import { bufferInput, gaugeFull, newOperator, OPERATOR_BODY, OPERATOR_HURT, type HeldTool, type OperatorState, type TickInput } from './combat/operator.ts';
 import { advance, startClock, type RuleClock } from './clock.ts';
-import { sitting, startExam, stepExam, type ExamDef, type ExamKind, type ExamState, type ExamTally, type ExamTick } from './exam/fight.ts';
+import { startExam, stepExam, type ExamDef, type ExamKind, type ExamState, type ExamTally, type ExamTick } from './exam/fight.ts';
 import { seedStreams, type RngStreams } from './rng.ts';
-import { boxPixel, canEnter, conveyorRunning, conveyorsOf, filledPorts, flowName, mixerOf, mixerOutlet, liveGate, nearest, onPort, portOf, portOpenAt, portTicksLeft, PUSH, settleBoxes, tileBox, withBoxes, type BoxState, type Occupants, type Tile } from './rooms/boxes.ts';
-import { boxTypeOf, EMPTY_MIXER, isDelivery, PORTION_SECONDS, portionOf, takeDelivery, type MixerEvent, type MixerState, type Portion } from './stomach/mixer.ts';
-import { docksOf, mouthOf } from './stomach/docks.ts';
-import { isOrder, newOrder, orderId, orderSpot } from './stomach/orders.ts';
+import { boxPixel, canEnter, conveyorRunning, conveyorsOf, filledPorts, flowName, mixerOf, mixerOutlet, liveGate, nearest, onPort, portOf, portOpenAt, portTicksLeft, PUSH, settleBoxes, withBoxes, type BoxState, type Occupants, type Tile } from './rooms/boxes.ts';
+import { boxTypeOf, EMPTY_MIXER, PORTION_SECONDS, portionOf, type MixerEvent, type MixerState, type Portion } from './stomach/mixer.ts';
 import { CHUNK, chunksOf, chunksUnder, withoutChunks } from './stomach/chunks.ts';
 import type { EnteredRoom } from './rooms/entry.ts';
-import { cooldownTicks, coolingLeft, startCooling, type Cooling } from './rooms/cooling.ts';
-import { asleep, stepSleep, type SleepEvent, type SleepState } from './rooms/sleep.ts';
-import { leverAt, objectBox, platesUnder, reachableObject, touchedObjects } from './rooms/interact.ts';
+import { cooldownTicks, coolingLeft, type Cooling } from './rooms/cooling.ts';
+import { asleep, type SleepEvent, type SleepState } from './rooms/sleep.ts';
+import { platesUnder, reachableObject, touchedObjects } from './rooms/interact.ts';
 import { doorOpen } from './rooms/locks.ts';
-import { ALCOHOL_CRATE, boxCentre, crateOnTile, crateTiles, isFactory, isSpawnedCrate, linesOf, MIST, onIntake, outletTile } from './liver/factory.ts';
+import { ALCOHOL_CRATE, crateTiles, isFactory, isSpawnedCrate, linesOf, onIntake, outletTile } from './liver/factory.ts';
 import { playerStart, type RoomObject } from './rooms/tiled.ts';
 import { enemiesById, waveKey, type Tick } from './tick/tick.ts';
-import { TICK_HZ, TILE } from './time.ts';
-import { ascending, hiddenDoor, occupantsOf, openDoors, platesUnderBoxes, stepRoom, switchMode } from './tick/room.ts';
+import { stepEnemies } from './tick/enemies.ts';
+import { stepWeapons } from './tick/weapons.ts';
+import { stepHits } from './tick/hits.ts';
+import { stepAftermath } from './tick/aftermath.ts';
+import { damage, handOf, stackHome, withStacks } from './tick/rules.ts';
+import { beginTick } from './tick/begin.ts';
+import { TICK_HZ } from './time.ts';
+import { ascending, hiddenDoor, occupantsOf, openDoors, platesUnderBoxes, switchMode } from './tick/room.ts';
 
 export { NO_INPUT, OPERATOR_BODY, OPERATOR_HURT, type HeldTool, type OperatorAction, type OperatorState, type TickInput } from './combat/operator.ts';
 export { guardCovers, parryOpen, swingBox } from './combat/folder.ts';
 export { circleCentre, isMarked, lineOf } from './combat/highlighter.ts';
 export type { EnemyPhase, EnemyState } from './combat/actors.ts';
 export type { Shot, Zone } from './combat/hazards.ts';
+export { handOf, inMist, unrevealed } from './tick/rules.ts';
 
 export interface PushState {
   readonly box: number;
@@ -61,13 +63,6 @@ export interface Projectile {
   readonly reflected?: true;
   /** Half the side of the box a parried delivery was, so it is drawn as that box. Its hitbox stays a staple's: it flies straight at the boss. */
   readonly boxHalf?: number;
-}
-
-/** How a weapon reaches an enemy, for the shield of a manager: where it comes from, and what it can break. */
-interface Strike {
-  /** A vector from the target towards the attacker; for a shot, against its velocity. */
-  readonly from: Vec;
-  readonly breaks: 'reflect' | 'folder' | undefined;
 }
 
 export interface GameState {
@@ -348,9 +343,6 @@ export function spawnHomes(o: RoomObject): { x: number; y: number }[] {
   return Array.from({ length: count }, (_, i) => ({ x: o.x + (i - (count - 1) / 2) * COPY_SPACING, y: o.y }));
 }
 
-const STAPLE_HALF = 2;
-const STAPLE_LIFE = Math.ceil(STAPLER.rangePx / STAPLER.speed);
-
 /**
  * Enemies come from the Spawns enterRoom kept, so inactive variants and failed `when`s never
  * reach here. Ids come from the shared counter, taken in object id order, so no Spawn count
@@ -484,10 +476,6 @@ const lasting = (room: EnteredRoom, id: number): boolean => {
   return mode === 'toggle' || mode === 'reveal';
 };
 
-/** Reveal switches the highlighter has not lit yet (issue #76): their objects are not there for the player. */
-export const unrevealed = (room: Pick<EnteredRoom, 'objects'>, switches: readonly number[]): RoomObject[] =>
-  room.objects.filter((o) => o.kind === 'Switch' && o.props['mode'] === 'reveal' && !switches.includes(o.id));
-
 
 
 
@@ -578,25 +566,6 @@ export function createGame(entered: EnteredRoom, seed: number, table: EnemyTable
   };
 }
 
-/** Soft lock (design doc 5.2): the nearest defeatable target within 25 degrees of aim and 7 tiles. */
-function aimFrom(op: OperatorState, origin: Vec, enemies: readonly EnemyState[]): Vec {
-  const cos = Math.cos((STAPLER.lockHalfAngleDeg * Math.PI) / 180);
-  let best: { e: EnemyState; d: number } | undefined;
-  for (const e of enemies) {
-    if (e.category !== 'defeatable' || !isHittable(e)) continue;
-    const c = enemyCenter(e);
-    const dx = c.x - origin.x;
-    const dy = c.y - origin.y;
-    const d = Math.hypot(dx, dy);
-    if (d === 0 || d > STAPLER.lockRangePx) continue;
-    if ((dx * op.aim.x + dy * op.aim.y) / d < cos) continue;
-    if (!best || d < best.d) best = { e, d };
-  }
-  if (!best) return op.aim;
-  const c = enemyCenter(best.e);
-  return unit({ x: c.x - origin.x, y: c.y - origin.y });
-}
-
 /**
  * Back to the last checkpoint: room enemies reset, nothing is taken away (design doc 5.6). The
  * gauge stays, and so do clinging stacks: only sleep clears adenosine, not a retry. A boss
@@ -653,104 +622,13 @@ function forcedLeave(before: GameState): GameState {
   };
 }
 
-/** A clinging stack goes back to where it spawned and reforms there; nothing is removed. */
-const stackHome = (e: EnemyState): EnemyState =>
-  e.phase === 'attached' ? { ...e, phase: 'dispersed', phaseTicks: 0, x: e.homeX, y: e.homeY } : e;
-
 /** Sleep clears the stacks, not the adenosine: a nap on a bed does what the forced nap does. */
 export function sendStacksHome(state: GameState): GameState {
   const enemies = state.enemies.map(stackHome);
   return { ...state, enemies, carried: 0, operator: withStacks(state.operator, enemies, 0) };
 }
 
-const stackCount = (enemies: Iterable<EnemyState>, carried: number): number =>
-  carried + [...enemies].filter((e) => e.phase === 'attached').length;
 
-function withStacks(op: OperatorState, enemies: Iterable<EnemyState>, carried: number): OperatorState {
-  const stacks = stackCount(enemies, carried);
-  return op.stacks === stacks ? op : { ...op, stacks };
-}
-
-/** Adds charge times P; rounded so that 125 staples at P = 1 fill the gauge exactly. */
-function charge(op: OperatorState, amount: number, p: number, events: DomainEvent[]): OperatorState {
-  if (gaugeFull(op)) return op;
-  const gauge = Math.min(STAMP.gaugeMax, Math.round((op.gauge + amount * p) * 1e6) / 1e6);
-  if (gauge >= STAMP.gaugeMax) events.push({ type: 'gaugeFull' });
-  return { ...op, gauge };
-}
-
-/** How much a hit on a boss counts: 1.5 times under review (design doc 5.4), the toast boss's breath factor while he breathes (7.7). */
-function bossFactor(e: EnemyState, bosses: Readonly<Record<string, BossDef>>): number {
-  const b = e.boss;
-  if (!b) return 1;
-  if (b.behaviour === 'caffeine') return b.review > 0 ? BOSS.reviewDamageFactor : 1;
-  if (b.behaviour !== 'toast') return 1;
-  const def = bosses[b.def]!;
-  return def.behaviour === 'toast' && breathing(b) ? def.breathDamageFactor : 1;
-}
-
-/**
- * Damage to a defeatable enemy. A boss has no hit-stop; the hit-stop of any other enemy does not
- * stretch its telegraph either (`stepEnemy`).
- * The toast boss is not beaten when his budget runs out: he gives up (design doc 7.7).
- */
-function damage(e: EnemyState, amount: number, freeze: number, events: DomainEvent[], bosses: Readonly<Record<string, BossDef>>): EnemyState {
-  const def = e.boss ? bosses[e.boss.def] : undefined;
-  // Before his lights out the stomach boss holds at its budget, so every fight reaches the stage the stamp ends.
-  const floor = def?.behaviour === 'snack' && e.boss?.behaviour === 'snack' ? snackFloor(def, e.boss) : 0;
-  const hp = Math.max(floor, Math.round((e.hp - amount * bossFactor(e, bosses)) * 1e6) / 1e6);
-  // Already at the floor, waiting for a telegraph to finish before his next stage: the blow takes nothing, so it is no hit.
-  if (floor > 0 && amount > 0 && hp >= e.hp) {
-    events.push({ type: 'snackShrugged', target: e.id });
-    return e;
-  }
-  if (hp <= 0) {
-    if (e.boss?.behaviour === 'toast') {
-      events.push({ type: 'bossConceded', target: e.id, enemy: e.type });
-      return { ...e, hp: 0, phase: 'closed', phaseTicks: 0, frozen: 0, boss: { ...e.boss, move: null } };
-    }
-    if (e.boss) {
-      events.push({ type: 'bossDefeated', target: e.id, enemy: e.type });
-      return { ...e, hp: 0, phase: 'closed', phaseTicks: 0, frozen: 0, boss: { ...e.boss, move: null } };
-    }
-    events.push({ type: 'caseClosed', target: e.id, enemy: e.type });
-    return { ...e, hp: 0, phase: 'closed', phaseTicks: 0, frozen: 0 };
-  }
-  events.push({ type: 'hit', target: e.id, enemy: e.type, hpLeft: hp });
-  // A hit never cuts short a longer freeze already running, such as a parry's stun or the stamp's.
-  return { ...e, hp, frozen: e.boss ? 0 : Math.max(e.frozen, freeze) };
-}
-
-
-
-/** One tick off the sugar fatigue fog; the field goes once it runs out, as if never drunk. */
-function tire(op: OperatorState): OperatorState {
-  if (op.fatigue === undefined) return op;
-  const { fatigue, ...rest } = op;
-  return fatigue > 1 ? { ...rest, fatigue: fatigue - 1 } : rest;
-}
-
-const penCache = new WeakMap<readonly RoomObject[], readonly Box[]>();
-/** The rest areas of a room, boxed once for as long as its object list lives: `step` asks every tick. */
-const pensOf = (objects: readonly RoomObject[]): readonly Box[] => {
-  let boxes = penCache.get(objects);
-  if (boxes === undefined) {
-    boxes = objects.filter((o) => o.kind === 'Pen').map(objectBox);
-    penCache.set(objects, boxes);
-  }
-  return boxes;
-};
-
-/**
- * Whether moving from `from` to `to` brings the operator onto a door it was not on. The arrival
- * spot sits at the edge of a door's touch margin and a knockback is a tile, so a hit on arrival
- * would otherwise carry the operator back through the door just entered (#79).
- */
-function ontoDoor(room: EnteredRoom, from: Vec, to: Vec): boolean {
-  const doorsAt = (p: Vec) => touchedObjects(room, boxAt(OPERATOR_BODY, p.x, p.y)).filter((o) => o.kind === 'Door').map((o) => o.id);
-  const before = doorsAt(from);
-  return doorsAt(to).some((id) => !before.includes(id));
-}
 
 /**
  * The interact rest after a conversation closes (0.5 s). Someone pressing through text keeps
@@ -781,696 +659,12 @@ export function step(state: GameState, pressed: TickInput): StepResult {
     return { state: { ...state, tick: now + 1, freeze: state.freeze - 1, operator: bufferInput(state.operator, input, now, handOf(state).length) }, events };
   }
 
-  const gate = liveGate(state.room, state.delivered);
-  if (gate && state.roomTicks > 0) {
-    const open = portOpenAt(gate, state.roomTicks);
-    if (open !== portOpenAt(gate, state.roomTicks - 1)) events.push({ type: open ? 'portOpened' : 'portClosed', object: gate.id });
-  }
-
-  const assists = input.assists ?? NO_ASSISTS;
-  const room = state.room;
-  let grid = withBoxes(room.grid, state.boxes);
-  const senseRange = Math.min(CLING.senseRangePx, state.senseCapPx ?? CLING.senseRangePx);
-  const perks = state.perks ?? BASE_PERKS;
-  let bind = state.bind;
-  let boostUntil = state.boostUntil;
-  const s = stepOperator(grid, state.operator, input, now, boostUntil !== undefined && now < boostUntil ? PARRY_BOOST.factor : 1, handOf(state));
-  let op = tire(s.op);
-  // A door is passed by walking into it, never by being knocked into it: the knockback step is dropped instead.
-  const knocked = state.operator.action.kind === 'hurt' && state.operator.action.frame < HURT.knockbackTicks;
-  if (knocked && ontoDoor(room, state.operator, op)) op = { ...op, x: state.operator.x, y: state.operator.y };
-  if (s.blockedX) events.push({ type: 'bumpWall', axis: 'x' });
-  if (s.blockedY) events.push({ type: 'bumpWall', axis: 'y' });
-  if (s.dodged) events.push({ type: 'dodge' });
-  if (s.stampRaised) events.push({ type: 'stampRaised' });
-  if (s.swapped) events.push({ type: 'toolSwapped', tool: s.swapped });
-  if (s.swung !== undefined) events.push({ type: 'swing', combo: s.swung });
-  if (s.guardRaised) events.push({ type: 'guardRaised' });
-  if (s.lined) events.push({ type: 'lineDrawn' });
-  // The partner's skill can be raised in any state but a hurt one, and does not touch the operator's own action.
-  let pie = state.pie;
-  if (pie) {
-    const r = stepPie(pie, input.partnerPressed === true && op.action.kind !== 'hurt', state.p);
-    pie = r.pie;
-    if (r.raised) events.push({ type: 'pieRaised', radiusPx: pie.radiusPx, seconds: pie.ticksLeft / TICK_HZ, sleepy: sleepOfSpirit(state.p) < 1 });
-  }
-  // The acid is spat on the same rules: any state but a hurt one, and the operator's own action goes on.
-  let unload = state.unload;
-  let dissolved = state.dissolved;
-  let roomNow = state.room;
-  if (unload) {
-    const r = stepUnload(unload, input.partnerPressed === true && op.action.kind !== 'hurt', { x: op.x, y: op.y }, op.aim);
-    unload = r.unload;
-    if (r.raised) events.push({ type: 'unloadRaised', x: unload.x, y: unload.y, dir: unload.dir });
-  }
-
-  const roomStep = stepRoom(state, input, op, grid, events);
-  op = roomStep.op;
-  grid = roomStep.grid;
-  const { moved, push, doorsOpenNow, onNow, roomEvents } = roomStep;
-  // Orders come and go inside the tick: the courier throws one on, the stamp takes them off.
-  let boxes = moved.boxes;
-  let switches = roomStep.switches;
-  let cooling = roomStep.cooling;
-  let taken = roomStep.taken;
-
-  // Ids only ever grow, and every loop below runs in id order, so results never depend on
-  // where an entity sits in its array.
-  let nextId = state.nextId;
-  let rng = state.rng;
-  const projectiles: Projectile[] = [...state.projectiles];
-  if (s.fired) {
-    const origin = { x: op.x, y: op.y - 4 };
-    const dir = aimFrom(op, origin, state.enemies);
-    projectiles.push({ id: nextId++, x: origin.x, y: origin.y, vx: dir.x * STAPLER.speed, vy: dir.y * STAPLER.speed, ticksLeft: STAPLE_LIFE });
-    events.push({ type: 'fire', weapon: 'stapler' });
-  }
-
-  // Zones age before new ones join, so a zone's first tick is its age 1.
-  const zones = new Map<number, Zone>(state.zones.map((z) => [z.id, { ...z, age: z.age + 1 }]));
-  const newShots: ShotSpec[] = [];
-  const newZones: ZoneSpec[] = [];
-  let orderSerial = state.orderSerial ?? 0;
-  const throws: { readonly source: number; readonly x: number; readonly y: number }[] = [];
-  const target = { x: op.x, y: op.y };
-  const enemies = new Map<number, EnemyState>();
-  const ordered = [...state.enemies].sort((a, b) => a.id - b.id);
-  for (const e of ordered) {
-    if (e.boss && e.phase !== 'closed') {
-      const def = state.bosses[e.boss.def]!;
-      if (def.behaviour === 'toast') {
-        const r = stepToast(e, def, target);
-        enemies.set(e.id, r.enemy);
-        events.push(...r.events);
-        newShots.push(...r.shots);
-        continue;
-      }
-      if (def.behaviour === 'snack') {
-        const mouth = mouthOf(room);
-        // His boxes digest like an order and leave no parcel: one on its last tick went out in this tick's mixer step.
-        // Only his own wake him; a courier's order is digested too but is not his overtime.
-        const digested = (state.mixer?.batches ?? []).filter((b) => isDelivery(b) && b.left === 1).length;
-        const r = stepSnack(e, def, docksOf(room), mouth ?? target, digested, state.paceScale ?? 1);
-        enemies.set(e.id, r.enemy);
-        events.push(...r.events);
-        newShots.push(...r.shots);
-        continue;
-      }
-      const summoned = ordered.filter((x) => x.summoner === e.id).length;
-      const r = stepCaffeine(e, { grid, def, target, rng, summoned, summonScale: state.summonScale ?? 1 });
-      rng = r.rng;
-      enemies.set(e.id, r.enemy);
-      events.push(...r.events);
-      newShots.push(...r.shots);
-      newZones.push(...r.zones);
-      for (const at of r.summons) {
-        const id = nextId++;
-        enemies.set(id, enemyFrom(def.summon.enemy, id, at.x, at.y, 0, { summoner: e.id }));
-      }
-      if (r.powerCut) {
-        // The adenosine at his feet piles onto him (design doc 7.4); what clings to the operator stays.
-        for (const [id, z] of zones) if (z.owner === e.id) zones.delete(id);
-        for (const x of ordered) {
-          if (x.summoner === e.id && x.phase === 'idle') enemies.set(x.id, { ...x, phase: 'pinned', phaseTicks: 0, x: r.enemy.x, y: r.enemy.y });
-        }
-      }
-      if (r.powerBack) {
-        // They fall off as fluff and reform where they were summoned: the count never drops.
-        for (const x of ordered) {
-          if (x.summoner === e.id && x.phase === 'pinned') enemies.set(x.id, { ...x, phase: 'dispersed', phaseTicks: 0, x: x.homeX, y: x.homeY });
-        }
-      }
-      continue;
-    }
-    if (enemies.has(e.id)) continue;
-    // A courier throws at a belt, not at the operator, and only winds up while one will take the order.
-    let aim: Vec = target;
-    let ready = true;
-    if (e.archetype === 'courier' && e.phase === 'idle') {
-      const spot = orderSpot(room, boxes, occupantsOf(op, state.enemies), switches, e.x, e.y);
-      ready = spot !== undefined && boxes.filter(isOrder).length < COURIER.maxOrders;
-      if (spot) aim = { x: (spot.col + 0.5) * TILE, y: (spot.row + 0.5) * TILE };
-    }
-    const r = stepEnemy(grid, e, aim, senseRange, ready);
-    enemies.set(e.id, r.enemy);
-    newShots.push(...r.shots);
-    if (r.order) throws.push({ source: e.id, x: r.enemy.x, y: r.enemy.y });
-    if (r.telegraph) events.push({ type: 'telegraph', source: e.id, tier: 1 });
-    if (r.reformed) events.push({ type: 'reformed', target: e.id, enemy: e.type });
-    if (r.respawned) events.push({ type: 'respawned', target: e.id, enemy: e.type });
-  }
-  // Orders land once every enemy has moved, in id order. The cap and the head tile are judged on what
-  // the floor and the bodies are now: a windup began on a floor that other couriers are filling in this
-  // same tick, and a walker may have stepped onto the head after the courier's turn in the loop. An
-  // order that finds no room is lost, as when the head was taken during the windup.
-  if (throws.length > 0) {
-    for (const t of throws) {
-      if (boxes.filter(isOrder).length >= COURIER.maxOrders) break;
-      const spot = orderSpot(room, boxes, occupantsOf(op, enemies.values()), switches, t.x, t.y);
-      if (!spot) continue;
-      const box = newOrder(orderSerial++, spot);
-      boxes = [...boxes, box].sort((a, b) => a.id - b.id);
-      events.push({ type: 'orderThrown', source: t.source, object: box.id, col: spot.col, row: spot.row });
-    }
-    grid = withBoxes(room.grid, boxes);
-  }
-  for (const z of newZones) zones.set(nextId, { ...z, id: nextId++, age: 1, spent: false });
-  // The rest area locks what drifts into it: the answer to adenosine that cannot be beaten (design doc 8.5).
-  const pens = pensOf(state.room.objects);
-  if (pens.length > 0) {
-    for (const e of enemies.values()) {
-      if (!e.clings || e.phase !== 'idle' || e.frozen > 0) continue;
-      const c = enemyCenter(e);
-      if (!pens.some((b) => c.x >= b.left && c.x < b.right && c.y >= b.top && c.y < b.bottom)) continue;
-      enemies.set(e.id, { ...e, phase: 'closed', phaseTicks: 0, respawnTicks: 0 });
-      events.push({ type: 'caseClosed', target: e.id, enemy: e.type });
-    }
-  }
-  let shots: Shot[] = [...state.shots, ...newShots.map((sh) => ({ ...sh, id: nextId++, spent: false }))];
-  // Within a tick enemies are only added, never removed, so the sorted ids change only with the size.
-  let order: number[] = [];
-  const byId = (): EnemyState[] => {
-    if (order.length !== enemies.size) order = [...enemies.keys()].sort((a, b) => a - b);
-    return order.map((id) => enemies.get(id)!);
-  };
-
-  // Hitting a cheers kid is no answer (design doc 7.7): he only backs off, and nothing is charged,
-  // so he cannot be farmed for the gauge. Only refusals close his case.
-  const shoo = (e: EnemyState): void => {
-    const off = backOff(e);
-    if (off === e) return;
-    enemies.set(e.id, off);
-    events.push({ type: 'backedOff', target: e.id, enemy: e.type });
-  };
-
-  // The stamp covers every hittable enemy whose feet are within the radius of the operator's.
-  // Only defeatable ones take damage; on the rest it is void, and the gauge is gone either way.
-  if (s.stampLanded) {
-    events.push({ type: 'stampLanded', x: op.x, y: op.y, radius: STAMP.radiusPx });
-    for (const e of byId()) {
-      if (!isHittable(e) || Math.hypot(e.x - op.x, e.y - op.y) > STAMP.radiusPx) continue;
-      if (e.category !== 'defeatable') {
-        events.push({ type: 'stampVoid', target: e.id, enemy: e.type, solution: e.solution ?? '' });
-        continue;
-      }
-      if (e.archetype === 'cheers') {
-        shoo(e);
-        continue;
-      }
-      if (!e.boss) {
-        enemies.set(e.id, damage(e, STAMP.damage, STAMP.hitFreeze, events, state.bosses));
-        continue;
-      }
-      const def = state.bosses[e.boss.def]!;
-      if (def.behaviour === 'snack' && e.boss.behaviour === 'snack' && e.boss.stage === 3) {
-        // In the lights out only the stamp ends him, and only once he has slept and the stomach is quiet (design doc 7.5).
-        if (snackExposed(def, e.boss, moved.mixer)) enemies.set(e.id, damage(e, BOSS.stampDamage, 0, events, state.bosses));
-        else events.push({ type: 'snackStampRefused', target: e.id });
-        continue;
-      }
-      const rejected = def.behaviour === 'caffeine' && e.boss.behaviour === 'caffeine' && proposalOpen(def, e.boss);
-      let hit = damage(e, BOSS.stampDamage, 0, events, state.bosses);
-      if (rejected && hit.phase !== 'closed' && hit.boss?.behaviour === 'caffeine') {
-        // The proposal is stamped: the move is cancelled and the boss sits under review.
-        for (const [id, z] of zones) if (z.owner === e.id) zones.delete(id);
-        hit = { ...hit, boss: { ...hit.boss, move: null, review: BOSS.reviewTicks } };
-        events.push({ type: 'proposalRejected', target: e.id });
-      }
-      enemies.set(e.id, hit);
-    }
-    // An order within the radius is sent back to the courier (退貨); the others are on their way to the mixer.
-    const sent = boxes.filter((b) => isOrder(b) && Math.hypot(boxCentre(b).x - op.x, boxCentre(b).y - op.y) <= STAMP.radiusPx);
-    if (sent.length > 0) {
-      const gone = new Set(sent.map((b) => b.id));
-      boxes = boxes.filter((b) => !gone.has(b.id));
-      for (const b of sent) events.push({ type: 'orderReturned', object: b.id, col: b.col, row: b.row });
-    }
-    // Alcohol crates in reach take the grey stamp like any immune object; one note for the dock.
-    const f = state.factory;
-    if (f && crateTiles(room, f.waiting).some((t) => Math.hypot((t.col + 0.5) * TILE - op.x, (t.row + 0.5) * TILE - op.y) <= STAMP.radiusPx)) {
-      events.push({ type: 'stampVoid', target: linesOf(room).receiving!.id, enemy: ALCOHOL_CRATE, solution: f.solution });
-    }
-  }
-
-  // A weapon landing on a hittable enemy. The flag decides what it does, not a large health pool
-  // (design doc 5.1, 5.5): immune ones bounce it with no hit-stop and no damage, reforming ones
-  // scatter, the rest lose `amount`. `gain` is the gauge the hit charges before P, 0 for none.
-  // `strike` says where the weapon comes from (a vector from the target towards the attacker) and
-  // whether it can break a manager's shield; the rest of the weapons never reach a shield.
-  // `marks` is whether the highlighter's mark doubles the hit: true for the stapler and the folder.
-  const hitEnemy = (target: EnemyState, amount: number, freeze: number, gain: number, binds = 0, strike?: Strike, marks = false): void => {
-    if (target.archetype === 'cheers') {
-      shoo(target);
-    } else if (target.boss?.behaviour === 'snack' && (strike?.breaks !== 'reflect' || target.boss.stage === 3)) {
-      events.push({ type: 'snackShrugged', target: target.id });
-    } else if (target.category === 'immune') {
-      events.push({ type: 'immuneBounce', target: target.id, enemy: target.type, solution: target.solution ?? '' });
-    } else if (target.category === 'reforming') {
-      enemies.set(target.id, { ...target, phase: 'dispersed', phaseTicks: 0, frozen: 0 });
-      events.push({ type: 'dispersed', target: target.id, enemy: target.type });
-      if (gain > 0) op = charge(op, gain, state.p, events);
-    } else {
-      const shielded = strike !== undefined && shieldCovers(target, strike.from);
-      if (shielded && strike.breaks === undefined) {
-        events.push({ type: 'shieldBlocked', target: target.id, enemy: target.type });
-        return;
-      }
-      if (gain > 0) op = charge(op, gain, state.p, events);
-      const wasBound = isBound(target);
-      let hit = damage(target, marks && isMarked(target, now) ? amount * HIGHLIGHTER.markFactor : amount, freeze, events, state.bosses);
-      if (shielded && hit.phase !== 'closed') {
-        // The hit landed and the bash he was winding up is off: he wakes into the last tick of his pause, so the stun is all of it.
-        events.push({ type: 'shieldBroken', target: target.id, enemy: target.type, by: strike.breaks! });
-        hit = {
-          ...hit, broken: MANAGER.breakTicks, frozen: Math.max(hit.frozen, MANAGER.breakStunTicks),
-          phase: 'recover', phaseTicks: recoverTicksOf(hit) - 1, strikeSpent: true,
-        };
-      }
-      enemies.set(target.id, binds > 0 ? bindHit(hit, binds) : hit);
-      if (wasBound && perks.bindSplash > 0) splash(target);
-    }
-  };
-
-  // 裝訂: staple hits in a row on one enemy add up to a pin. A different target, a lapse of
-  // BIND.windowTicks, or a boss (which is never frozen) ends the run.
-  const bindHit = (e: EnemyState, count: number): EnemyState => {
-    if (e.phase === 'closed' || e.boss) return e;
-    const run = bind !== undefined && bind.target === e.id && now - bind.at <= BIND.windowTicks ? bind.hits : 0;
-    const hits = run + count;
-    if (hits < perks.bindHits) {
-      bind = { target: e.id, hits, at: now };
-      return e;
-    }
-    bind = { target: e.id, hits: 0, at: now };
-    events.push({ type: 'bound', target: e.id, enemy: e.type });
-    return { ...e, frozen: Math.max(e.frozen, perks.pinTicks), pin: perks.pinTicks };
-  };
-
-  // 裝訂大師: a hit on a bound enemy chips the ordinary enemies around it. The splash binds nothing and splashes nothing.
-  const splash = (centre: EnemyState): void => {
-    for (const o of byId()) {
-      const near = Math.hypot(o.x - centre.x, o.y - centre.y) <= BIND.splashPx;
-      if (o.id === centre.id || !near || !isHittable(o) || o.category !== 'defeatable' || o.archetype === 'cheers' || o.boss) continue;
-      enemies.set(o.id, damage(o, perks.bindSplash, ENEMY_HIT_FREEZE, events, state.bosses));
-    }
-  };
-
-  // The folder's swing has a box on one frame and covers every hittable enemy in it, lowest id first.
-  // Alcohol crates in the dock only wobble under it, like under a staple: no tool shortens the wait.
-  if (s.swingHit !== undefined) {
-    const box = swingBox(op);
-    // Read each enemy afresh: an earlier hit's splash (裝訂大師) may have changed the ones beside it.
-    for (const { id } of byId()) {
-      const e = enemies.get(id)!;
-      if (isHittable(e) && overlaps(box, enemyHurtbox(e))) {
-        const heavy = s.swingHit === FOLDER.finisher;
-        hitEnemy(e, FOLDER.damage[s.swingHit]!, FOLDER.hitFreeze[s.swingHit]!, GAUGE.folder, 0, { from: { x: op.x - e.x, y: op.y - e.y }, breaks: heavy ? 'folder' : undefined }, true);
-      }
-    }
-    const f = state.factory;
-    if (f && crateTiles(room, f.waiting).some((t) => overlaps(box, tileBox(t)))) {
-      events.push({ type: 'immuneBounce', target: linesOf(room).receiving!.id, enemy: ALCOHOL_CRATE, solution: f.solution });
-    }
-  }
-
-  // The health check (design doc 7.7): a reveal switch the line crosses or the circle touches is lit
-  // for good, in id order. A door it unlocks opens on the next tick, as after a staple's lever.
-  const reveal = (meets: (b: Box) => boolean): void => {
-    for (const o of unrevealed(state.room, switches)) {
-      if (!meets(objectBox(o))) continue;
-      switches = ascending([...switches, o.id]);
-      events.push({ type: 'switchChanged', object: o.id, on: true, mode: 'reveal', by: 'highlighter' });
-    }
-  };
-
-  // The highlighter's line pierces: every hittable enemy it crosses takes the hit, lowest id first,
-  // on the stapler's terms (a manager's shield stops it, immune ones bounce it, reforming ones
-  // scatter). Its own hits are never doubled by a mark (issue #76, decision 3). Alcohol crates only wobble.
-  if (s.lineHit) {
-    for (const { id } of byId()) {
-      const e = enemies.get(id)!;
-      if (isHittable(e) && lineCrosses(op, enemyHurtbox(e))) {
-        hitEnemy(e, HIGHLIGHTER.damage, HIGHLIGHTER.hitFreeze, GAUGE.highlighter, 0, { from: { x: op.x - e.x, y: op.y - e.y }, breaks: undefined });
-      }
-    }
-    const f = state.factory;
-    if (f && crateTiles(room, f.waiting).some((t) => lineCrosses(op, tileBox(t)))) {
-      events.push({ type: 'immuneBounce', target: linesOf(room).receiving!.id, enemy: ALCOHOL_CRATE, solution: f.solution });
-    }
-    reveal((b) => lineCrosses(op, b));
-  }
-
-  // The circle marks the defeatable enemies standing in it; it is no hit, so it charges nothing and
-  // a shield does not stop it. An immune one bounces it and a reforming one scatters, so only an
-  // enemy that can be beaten ever carries a mark. The cheers kid is closed only by refusals and ignores it.
-  if (s.circleLanded) {
-    const centre = circleCentre(op);
-    events.push({ type: 'circleDrawn', x: centre.x, y: centre.y, radius: HIGHLIGHTER.circleRadiusPx });
-    reveal((b) => circleTouchesBox(centre.x, centre.y, HIGHLIGHTER.circleRadiusPx, b));
-    for (const { id } of byId()) {
-      const e = enemies.get(id)!;
-      if (!isHittable(e) || e.archetype === 'cheers' || !inCircle(centre, e)) continue;
-      if (e.category === 'immune') {
-        events.push({ type: 'immuneBounce', target: e.id, enemy: e.type, solution: e.solution ?? '' });
-      } else if (e.category === 'reforming') {
-        enemies.set(e.id, { ...e, phase: 'dispersed', phaseTicks: 0, frozen: 0 });
-        events.push({ type: 'dispersed', target: e.id, enemy: e.type });
-      } else {
-        enemies.set(e.id, { ...e, markedUntil: now + perks.markTicks });
-        events.push({ type: 'marked', target: e.id, enemy: e.type });
-      }
-    }
-  }
-
-  // 強制卸貨: while the acid lies, an ordinary defeatable enemy in it is shoved along it and, on the
-  // acid's rhythm, loses performance. A pinned enemy is held where it is, a manager's shield does not
-  // meet spit, and the rest (immune, reforming, the cheers kid, bosses) are left alone.
-  if (unload && unload.ticksLeft > 0) {
-    const area = unloadBox(unload);
-    const bite = (unloadAge(unload) - 1) % UNLOAD.damageEveryTicks === 0;
-    for (const { id } of byId()) {
-      const e = enemies.get(id)!;
-      if (!isHittable(e) || e.category !== 'defeatable' || e.archetype === 'cheers' || e.boss || !overlaps(area, enemyHurtbox(e))) continue;
-      const m = isBound(e) ? { x: e.x, y: e.y } : moveAndCollide(grid, ENEMY_BODY, e.x, e.y, unload.dir.x * UNLOAD.shovePx, unload.dir.y * UNLOAD.shovePx);
-      const shoved: EnemyState = { ...e, x: m.x, y: m.y };
-      enemies.set(id, bite ? damage(shoved, UNLOAD.damage, 0, events, state.bosses) : shoved);
-    }
-    // The acid is a fixed rectangle, so a chunk it covers is covered for as long as it lies and only the clock matters. The tiles open at the end of the tick.
-    if (unloadAge(unload) === CHUNK.dissolveTicks) {
-      const gone = chunksUnder(state.room, state.dissolved, area).map((c) => c.object.id);
-      if (gone.length > 0) {
-        dissolved = ascending([...dissolved, ...gone]);
-        roomNow = withoutChunks(state.room, dissolved);
-        for (const object of gone) events.push({ type: 'chunkDissolved', object });
-      }
-    }
-  }
-
-  // Staples: move, pin a lever they reach (design doc 6.1 shoots far switches), stop at walls,
-  // hit the lowest-id hittable enemy they overlap. Levers come before walls because they are
-  // usually mounted on one. A staple only ever turns a lever on: held fire would otherwise flick
-  // it on and off six times a second. A shot the folder sent back flies like a staple but throws
-  // no lever and charges no gauge.
-  const flying: Projectile[] = [];
-  for (const p0 of projectiles.sort((a, b) => a.id - b.id)) {
-    const p = { ...p0, x: p0.x + p0.vx, y: p0.y + p0.vy, ticksLeft: p0.ticksLeft - 1 };
-    if (p.ticksLeft < 0) continue;
-    const box = centeredBox(p.x, p.y, STAPLE_HALF, STAPLE_HALF);
-    const lever = p.reflected ? undefined : leverAt(state.room, box);
-    if (lever) {
-      // A crate may sit on a lever (only doors and the like are kept clear), and then it takes the staple.
-      // Only a crate over the lever itself counts: one beside it must not eat a staple that grazes it.
-      const leverBox = objectBox(lever);
-      const covers = (t: Box) => overlaps(box, t) && overlaps(leverBox, t);
-      const crated = boxes.some((b) => covers(tileBox(b)) || (b.carried === true && b.from !== undefined && covers(tileBox(b.from))));
-      if (!crated && !switches.includes(lever.id) && coolingLeft(cooling, lever.id) === 0) {
-        switches = ascending([...switches, lever.id]);
-        cooling = startCooling(cooling, lever.id, cooldownTicks(lever));
-        events.push({ type: 'switchChanged', object: lever.id, on: true, mode: 'toggle', by: 'staple' });
-      }
-      continue;
-    }
-    const col = Math.floor(p.x / TILE);
-    const row = Math.floor(p.y / TILE);
-    if (state.factory && crateOnTile(room, state.factory.waiting, col, row)) {
-      // An alcohol crate only wobbles (design doc 7.7): the bounce of an immune object, never a hit.
-      events.push({ type: 'immuneBounce', target: linesOf(room).receiving!.id, enemy: ALCOHOL_CRATE, solution: state.factory.solution });
-      continue;
-    }
-    if (isSolid(grid, col, row)) continue;
-    const target = byId().find((e) => isHittable(e) && overlaps(box, enemyHurtbox(e)));
-    if (!target) { flying.push(p); continue; }
-    hitEnemy(target, p.damage ?? STAPLER.damage, ENEMY_HIT_FREEZE, p.reflected ? 0 : GAUGE.staple, p.reflected ? perks.parryBind : 1,
-      { from: { x: -p.vx, y: -p.vy }, breaks: p.reflected ? 'reflect' : undefined }, true);
-  }
-
-  // A closed boss stops attacking at once: its shots and areas go with it. A closed ordinary
-  // enemy's shot already in the air still flies.
-  const closed = new Set(byId().filter((e) => e.boss && e.phase === 'closed').map((e) => e.id));
-  for (const [id, z] of zones) if (closed.has(z.owner)) zones.delete(id);
-  shots = shots.filter((sh) => !closed.has(sh.owner));
-
-  // Hits on the operator: at most one lands per tick. Strikes, then shots, then areas, each in
-  // id order. Dodge i-frames absorb any of them; the first six i-frames make it perfect.
-  let freeze = 0;
-  const hurt = boxAt(OPERATOR_HURT, op.x, op.y);
-  /** How an attack meets the operator before it can land: dodged through, passed by invincibility, or `undefined` when it lands. */
-  const evade = (source: number): 'dodged' | 'ignored' | undefined => {
-    const a = op.action;
-    if (inDodgeIframes(a)) {
-      const timed = a.frame <= DODGE.perfectLast;
-      if ((timed || assists.autoPerfect) && !a.perfect) {
-        op = { ...op, action: { ...a, perfect: true } };
-        events.push(timed ? { type: 'perfectDodge', source } : { type: 'perfectDodge', source, assisted: true });
-        op = charge(op, GAUGE.perfectDodge, state.p, events);
-      }
-      return 'dodged';
-    }
-    if (isInvincible(op, now) || freeze > 0) return 'ignored';
-    return undefined;
-  };
-  // In an exam a hit still knocks back and freezes, but costs no heart: it counts against the performance.
-  const examining = sitting(state.exam);
-  const absorb = (source: number, halves: number, from: Vec, cause: string): 'dodged' | 'ignored' | 'hit' => {
-    const slipped = evade(source);
-    if (slipped) return slipped;
-    // An exam hit costs no heart, so it neither halves nor owes anything.
-    const paid = examining ? { cost: 0, owed: op.halfCarry ?? 0 } : chip(halves, op.halfCarry ?? 0, assists);
-    op = owing(hurtOperator(op, paid.cost, from, now), paid.owed);
-    freeze = HURT.freezeTicks;
-    events.push(examining ? { type: 'examHit', source, cause } : { type: 'heartLost', halves: paid.cost, cause });
-    return 'hit';
-  };
-  const typeOf = (id: number) => enemies.get(id)?.type ?? 'unknown';
-
-  // The guard faces the way the operator aims. A strike or shot that comes from inside its 120
-  // degrees is caught: a parry (退件) in the first FOLDER.parryFrames, a plain block after. Areas
-  // are never caught, so a boss move stays avoidable by dodging alone (design doc 5.3).
-  const caught = (from: Vec): 'parry' | 'block' | undefined => {
-    if (op.action.kind !== 'guard' || !guardCovers(op.aim, from)) return undefined;
-    return parryOpen(op.action) ? 'parry' : 'block';
-  };
-  // 退件加速: with the card, a parry starts the speed-up, and a later parry renews it.
-  const speedUp = (): void => {
-    if (perks.parryBoost) boostUntil = now + PARRY_BOOST.ticks;
-  };
-
-  for (const e of byId()) {
-    if (!isMelee(e) || e.phase !== 'strike' || e.strikeSpent || isBound(e) || !overlaps(strikeBox(e), hurt)) continue;
-    const c = caught({ x: e.x - op.x, y: e.y - op.y });
-    if (c) {
-      events.push({ type: c === 'parry' ? 'parry' : 'blocked', source: e.id, kind: 'strike' });
-      // The stunned enemy wakes into the last tick of its recovery, so the stun is the whole pause.
-      const stunned = c === 'parry' ? { frozen: FOLDER.parryStunTicks, phase: 'recover' as const, phaseTicks: recoverTicksOf(e) - 1 } : {};
-      enemies.set(e.id, { ...e, strikeSpent: true, ...stunned });
-      if (c === 'parry') {
-        op = charge(op, GAUGE.parry, state.p, events);
-        speedUp();
-      }
-      continue;
-    }
-    const halves = e.archetype === 'manager' ? MANAGER.damageHalves : SALESMAN.damageHalves;
-    if (absorb(e.id, halves, { x: e.x, y: e.y }, e.type) !== 'ignored') enemies.set(e.id, { ...e, strikeSpent: true });
-  }
-
-  // 婉拒 (design doc 7.7): a cheers kid's performance counts refusals, not hits, and the last one
-  // sends him off, which closes his case. A wave still in the air after he has gone is refused all the same.
-  const refuse = (owner: number, parry: boolean): void => {
-    events.push({ type: 'refused', source: owner, parry });
-    if (parry) op = charge(op, GAUGE.parry, state.p, events);
-    if (parry) speedUp();
-    const kid = enemies.get(owner);
-    if (!kid || kid.archetype !== 'cheers' || kid.phase === 'closed') return;
-    const hp = kid.hp - 1;
-    if (hp > 0) {
-      enemies.set(owner, { ...kid, hp });
-      return;
-    }
-    enemies.set(owner, { ...kid, hp: 0, phase: 'closed', phaseTicks: 0, frozen: 0 });
-    events.push({ type: 'caseClosed', target: owner, enemy: kid.type });
-  };
-
-  const movedShots: Shot[] = [];
-  // Deliveries that flew to the end of their range: the mixer takes them in after the loop, in id order.
-  const arrivals: Shot[] = [];
-  // A ring is one wave: once any of its shots is refused or lands, the rest of it is spent.
-  const settled = new Set<string>();
-  const settle = (sh: Shot): void => {
-    const k = waveKey(sh);
-    if (k !== undefined) settled.add(k);
-  };
-  for (const sh0 of shots.sort((a, b) => a.id - b.id)) {
-    const sh = { ...sh0, x: sh0.x + sh0.vx, y: sh0.y + sh0.vy, ticksLeft: sh0.ticksLeft - 1 };
-    // A delivery that has flown its whole way is at the hopper: dodged through or not, it lands.
-    if (sh.ticksLeft < 0 && sh0.delivery !== undefined) {
-      arrivals.push(sh0);
-      continue;
-    }
-    if (sh.ticksLeft < 0 || isSolid(grid, Math.floor(sh.x / TILE), Math.floor(sh.y / TILE))) continue;
-    // The pie stops any shot that has come inside it; areas and strikes are not shots and pass.
-    if (!sh.spent && pieCovers(pie, op, sh)) {
-      events.push({ type: 'pieBlocked', source: sh.owner });
-      continue;
-    }
-    if (sh.cups !== undefined) {
-      // A toast wave costs no heart and is never an ordinary shot, even once its ring is settled.
-      // Any guard frame refuses it, and nothing flies back; landing adds cups.
-      const live = !sh.spent && !settled.has(waveKey(sh) ?? '');
-      if (!live || !overlaps(shotBox(sh), hurt)) {
-        movedShots.push(sh);
-        continue;
-      }
-      const c = caught({ x: -sh.vx, y: -sh.vy });
-      if (c) {
-        refuse(sh.owner, c === 'parry');
-        settle(sh);
-        continue;
-      }
-      const r = evade(sh.owner);
-      if (r === 'dodged') movedShots.push({ ...sh, spent: true });
-      else if (r === 'ignored') movedShots.push(sh);
-      else {
-        events.push({ type: 'toasted', source: sh.owner, cups: sh.cups });
-        settle(sh);
-      }
-      continue;
-    }
-    if (!sh.spent && overlaps(shotBox(sh), hurt)) {
-      const c = caught({ x: -sh.vx, y: -sh.vy });
-      if (c) {
-        events.push({ type: c === 'parry' ? 'parry' : 'blocked', source: sh.owner, kind: 'shot' });
-        if (c === 'parry') {
-          op = charge(op, GAUGE.parry, state.p, events);
-          speedUp();
-          // Back at the thrower; if it is gone, back the way it came.
-          const owner = enemies.get(sh.owner);
-          const toOwner = owner ? unit({ x: owner.x - sh.x, y: owner.y - 8 - sh.y }) : { x: 0, y: 0 };
-          const back = toOwner.x !== 0 || toOwner.y !== 0 ? toOwner : unit({ x: -sh.vx, y: -sh.vy });
-          const speed = Math.hypot(sh.vx, sh.vy);
-          // A box sent back is not a staple with a range: from a far dock it must still reach the one who threw it.
-          const reach = sh.returnDamage !== undefined && owner ? Math.max(STAPLER.rangePx, Math.hypot(owner.x - sh.x, owner.y - 8 - sh.y) + 16) : STAPLER.rangePx;
-          flying.push({
-            id: nextId++, x: sh.x, y: sh.y, vx: back.x * speed, vy: back.y * speed, ticksLeft: Math.ceil(reach / speed),
-            damage: sh.returnDamage ?? FOLDER.reflectDamage, reflected: true,
-            ...(sh.delivery !== undefined ? { boxHalf: sh.half } : {}),
-          });
-        }
-        continue;
-      }
-      if (sh.drink) {
-        // A drink is drunk, not taken as a hit: no knockback, no freeze, no heart.
-        const r = evade(sh.owner);
-        if (r !== undefined) movedShots.push(r === 'dodged' ? { ...sh, spent: true } : sh);
-        else if (sh.drink === 'can') events.push({ type: 'canTaken', source: sh.owner });
-        else {
-          events.push({ type: 'teaTaken', source: sh.owner });
-          op = { ...op, fatigue: SUGAR_FOG.ticks };
-        }
-        continue;
-      }
-      const r = absorb(sh.owner, sh.halves, { x: sh.x - sh.vx, y: sh.y - sh.vy }, typeOf(sh.owner));
-      if (r === 'hit') continue;
-      if (r === 'dodged') { movedShots.push({ ...sh, spent: true }); continue; }
-    }
-    movedShots.push(sh);
-  }
-
-  // The mixer takes the deliveries in. One box over its capacity makes it protest: it empties and
-  // throws an area round the hopper that warns for a tier-3 telegraph first (design doc 7.5, 胃抗議).
-  let mixerNow = moved.mixer;
-  const hopper = arrivals.length > 0 ? mixerOf(room) : undefined;
-  const mouth = arrivals.length > 0 ? mouthOf(room) : undefined;
-  for (const sh of arrivals) {
-    if (!mixerNow || !hopper || !mouth) break;
-    const boxId = orderId(orderSerial++);
-    const capacity = Number(hopper.props['capacity']);
-    const held = mixerNow.batches.filter(isDelivery).length;
-    const taken = takeDelivery(mixerNow, capacity, boxId, sh.delivery!);
-    mixerNow = taken.mixer;
-    if (!taken.jammed) {
-      events.push({ type: 'mixerFed', object: boxId, mixer: hopper.id, portion: sh.delivery!, count: taken.count, capacity });
-      continue;
-    }
-    events.push({ type: 'mixerProtest', mixer: hopper.id, x: mouth.x, y: mouth.y });
-    const boss = enemies.get(sh.owner);
-    const def = boss?.boss ? state.bosses[boss.boss.def] : undefined;
-    if (def?.behaviour !== 'snack') continue;
-    enemies.set(sh.owner, snackProtested(def, boss!, held, events));
-    const id = nextId++;
-    zones.set(id, {
-      id, owner: sh.owner, move: 'protest', tier: 3, x: mouth.x, y: mouth.y, radius: def.protest.radius,
-      telegraphTicks: def.protest.telegraphTicks, activeTicks: def.protest.activeTicks, halves: def.protest.halves, age: 1, spent: false,
-    });
-    // Announced as an area and not as tier 3, whose caption says the move can be stamped back; this one cannot.
-    events.push({ type: 'telegraph', source: sh.owner, tier: 2, move: 'protest', ticks: def.protest.telegraphTicks });
-  }
-
-  for (const z of [...zones.values()].sort((a, b) => a.id - b.id)) {
-    if (!z.spent && zoneLive(z) && circleTouchesBox(z.x, z.y, z.radius, hurt)) {
-      if (absorb(z.owner, z.halves, { x: z.x, y: z.y }, typeOf(z.owner)) !== 'ignored') zones.set(z.id, { ...z, spent: true });
-    }
-    if (!zoneContinues(zones.get(z.id)!)) zones.delete(z.id);
-  }
-
-  // Acetaldehyde fog (design doc 7.7) is a place, not an attack: a dodge does not pass through it,
-  // and it neither knocks back nor freezes. Only taking the crate to the second line clears it.
-  let factory = state.factory;
-  if (factory) {
-    const inFog = inMist(boxes, hurt);
-    let mist = inFog ? factory.mist + 1 : 0;
-    if (mist >= MIST.intervalTicks) {
-      mist = 0;
-      const paid = chip(MIST.halves, op.halfCarry ?? 0, assists);
-      op = owing({ ...op, halves: op.halves - paid.cost }, paid.owed);
-      events.push({ type: 'heartLost', halves: paid.cost, cause: MIST.cause });
-    }
-    if (mist !== factory.mist) factory = { ...factory, mist };
-  }
-
-  // Clinging: at most one enemy latches on per tick, and never through i-frames, so a dodge
-  // through a crowd is still the answer. Reaching the cap is a forced nap (design doc 5.5); in
-  // an exam it fails the question being answered instead, and the clock does not move.
-  let clock = state.clock;
-  let carried = state.carried;
-  // Under a full cloak they cannot see the operator, so they do not grab either (design doc 7.4).
-  if (!isInvincible(op, now) && senseRange > 0) {
-    const body = boxAt(OPERATOR_BODY, op.x, op.y);
-    const clinger = byId().find((e) => e.clings && e.phase === 'idle' && e.frozen === 0 && overlaps(enemyHurtbox(e), body));
-    if (clinger) {
-      enemies.set(clinger.id, { ...clinger, phase: 'attached', phaseTicks: 0 });
-      const stacks = stackCount(enemies.values(), carried);
-      events.push({ type: 'clung', target: clinger.id, enemy: clinger.type, stacks });
-      if (stacks >= CLING.maxStacks) {
-        // The stacks go home and reform there: the nap clears the stacks, not the adenosine.
-        for (const e of byId()) enemies.set(e.id, stackHome(e));
-        carried = 0;
-        if (examining) events.push({ type: 'examStacked' });
-        else {
-          clock = advance(clock, CLING.napMinutes);
-          events.push({ type: 'forcedNap', minutes: CLING.napMinutes });
-        }
-      }
-    }
-  }
-  op = withStacks(op, enemies.values(), carried);
-  // The hit above has already knocked back and frozen the fight; the assist only keeps the last half heart.
-  if (assists.neverEmpty && op.halves < 1) op = { ...op, halves: 1 };
-  let sleep = state.sleep;
-  if (sleep) {
-    // Anything that lands on the operator wakes them, not only a heart lost: a sleeper cannot dodge, so clinging would otherwise run up to a forced nap.
-    const struck = events.some((e) => e.type === 'heartLost' || e.type === 'clung' || e.type === 'toasted' || e.type === 'canTaken' || e.type === 'teaTaken');
-    const r = stepSleep(sleep, mixerNow?.batches.some((b) => b.left > 0) === true, struck);
-    sleep = r.sleep;
-    events.push(...r.events);
-  }
-
-  return settleTick({
-    state, pressed, input, now, examining, events, roomEvents,
-    op, enemies, flying, movedShots, settled, zones, nextId, rng, clock, freeze, grid,
-    touchingNow: onNow.map((o) => o.id), carried, switches, doorsOpen: doorsOpenNow, taken, boxes, push,
-    delivered: moved.delivered, chilled: moved.chilled, room: roomNow, dissolved, cooling, orderSerial,
-    pie, unload, factory, mixer: mixerNow, sleep, bind, boostUntil,
-  });
+  const t = beginTick(state, pressed, input, events);
+  stepEnemies(t);
+  stepWeapons(t);
+  stepHits(t);
+  stepAftermath(t);
+  return settleTick(t);
 }
 
 /**
@@ -1566,11 +760,6 @@ export const selectClock = (s: GameState): RuleClock => s.clock;
 export const selectTool = (s: GameState): { readonly tool: HeldTool; readonly canSwap: boolean } =>
   ({ tool: s.operator.tool, canSwap: handOf(s).length > 1 });
 
-/** The tools the swap key cycles through, in the order it visits them (issue #76, decision 2). */
-export function handOf(s: { readonly folderLocked?: boolean | undefined; readonly highlighter?: boolean | undefined }): readonly HeldTool[] {
-  if (s.highlighter) return s.folderLocked ? ['stapler', 'highlighter'] : ['stapler', 'folder', 'highlighter'];
-  return s.folderLocked ? ['stapler'] : ['stapler', 'folder'];
-}
 /** The partner's pie shield for the HUD: whether it is up, cooling or ready, the seconds left on that, and S. Absent without a partner. */
 export function selectPie(s: GameState): { readonly phase: 'ready' | 'up' | 'cooling'; readonly seconds: number; readonly scale: number } | undefined {
   const p = s.pie;
@@ -1627,10 +816,6 @@ export function selectBoxes(s: GameState): readonly { readonly object: number; r
 export function selectPortions(s: GameState): readonly { readonly object: number; readonly portion: Portion }[] {
   return s.boxes.filter((b) => boxTypeOf(s.room, b) === 'food').map((b) => ({ object: b.id, portion: portionOf(s.room, b.id) }));
 }
-/** Whether a hurtbox touches the fog of any acetaldehyde crate (design doc 7.7). */
-export const inMist = (boxes: readonly BoxState[], hurt: Box): boolean =>
-  boxes.some((b) => isSpawnedCrate(b) && circleTouchesBox(boxCentre(b).x, boxCentre(b).y, MIST.radiusPx, hurt));
-
 /** The factory for drawing it: the dock and the crates on it, and the second line. */
 export function selectFactory(s: GameState): {
   readonly receiving: RoomObject; readonly intake: RoomObject | undefined; readonly crates: readonly Tile[];
