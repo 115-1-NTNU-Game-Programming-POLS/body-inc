@@ -62,16 +62,20 @@
 | `pick` | 撿起東西的上行音 | `canTaken`, `teaTaken`, `pickedUp`, `parcelOut` |
 | `click` | 開關 | `switchChanged` |
 | `thunk` | 箱子或貨物落位 | `boxDelivered`, `boxChilled`, `portFilled`, `crateTaken`, `mixerFed`, `orderThrown`, `deliveryThrown` |
-| `punch` | 打卡 | `checkpointSaved` |
+| `punch` | 打卡；章節結束也是下班打卡，所以 `chapterEnded` 用同一聲 | `checkpointSaved`, `chapterEnded` |
+| `clock.pass` | 時間過去：兩下輕的木質滴答，第二下音高略高 | `clockAdvanced`（對話效果讓章內時鐘走了幾分鐘） |
+| `glucose` | 補血糖：吞嚥的悶聲接兩個往上滑的泡泡聲，最後一個亮音 | `glucoseRefilled` |
+| `rested` | 睡飽了：三個下行的輕柔三角波，像哄睡的尾音；之後緊接著章節結束的 `punch` | `sleepFilled` |
 | `unlock` | 解鎖：四個上行音 | `handbookUnlocked`, `toolGranted`, `gaugeRaised`, `bonusShown`, `portOpened`, `chunkDissolved`, `snackRested` |
 | `card` | 翻開卡牌 | `cardOpened` |
 | `choose` | 選定一個選項 | `cardChosen`，選單確認 |
 | `rescue.step` | 救援一步做對：三個上行音 | `rescueStep`，`outcome` 為 `step` |
-| `rescue.early` | 步驟太早：兩個下行短音 | `rescueStep`，`outcome` 為 `early` |
-| `rescue.myth` | 迷思做法：三個下行音 | `rescueStep`，`outcome` 為 `myth` |
-| `exam.solved` | 答對一題的短促上行音 | `examAnswered`，`how` 為 `solved` |
-| `exam.time` | 時間到：兩個下行短音 | `examAnswered`，`how` 為 `time` |
-| `exam.stacks` | 腺苷黏滿，本題失敗：兩個下行短音 | `examAnswered`，`how` 為 `stacks` |
+| `rescue.early` | 步驟太早：一個下滑的短音，比 `nope` 的兩個音短 | `rescueStep`，`outcome` 為 `early` |
+| `rescue.myth` | 迷思做法：兩個交疊的下滑三角波，前面墊一聲悶響，像走錯方向的音 | `rescueStep`，`outcome` 為 `myth` |
+| `exam.solved` | 答對一題：兩個明亮的上行短音（784、1047 Hz） | `examAnswered`，`how` 為 `solved` |
+| `exam.time` | 時間到：兩下滴答接一聲低沉的方波嗡 | `examAnswered`，`how` 為 `time` |
+| `exam.end` | 考試結束：兩下鐘響（1175 Hz 三角波，帶一點泛音）；接著才是結算的 `done` | `examFinished` |
+| `exam.stacks` | 腺苷黏滿，本題失敗：低沉黏稠的下滑音疊一聲悶響，像被塞滿 | `examAnswered`，`how` 為 `stacks` |
 | `done` | 完成：四個上行音 | `rescueDone`, `examResult`, `bossDefeated`, `bossConceded` |
 | `bad` | 失敗：三個下行音 | `bedRefused`, `mixerJammed`, `mixerProtest` |
 | `proof.true` | 證明為真的蓋章加上行雙音 | `proofStamped`（`ok` 為真） |
@@ -83,16 +87,16 @@
 | `woke.mixer` | 鬧鐘：高低交替的四聲方波短嗶，胃的攪拌機在睡眠中響起的警報 | `sleepInterrupted`（cause 為 `mixer`）, `snackWoken` |
 | `woke.hurt` | 驚醒：一聲短促上揚的三角波，挨打的受傷音之外只提示「醒了」，不放鬧鐘 | `sleepInterrupted`（cause 為 `hurt`） |
 | `dizzy.true` | 暈眩：下行的搖晃音 | `dizzyChanged`，`dizzy` 為真 |
-| `dizzy.false` | 恢復：上行雙音 | `dizzyChanged`，`dizzy` 為假 |
+| `dizzy.false` | 恢復：兩個圓潤的上行音（392、587 Hz），比撿東西的 `pick` 柔和 | `dizzyChanged`，`dizzy` 為假 |
 | `disco` | 迪斯可罐頭 | `canDisco` |
 | `breath` | Boss 喘氣 | `bossBreath` |
 | `shield` | 餡餅盾 | `pieRaised`, `pieBlocked` |
 
 設計文件 5.8 規定音效全部取文具的聲音（釘書機的喀擦、公文夾的啪、印章的碰），連段時音高每段升半音；目前的聲音是合成的近似，不是錄音。升半音只接在 `swing`，因為只有 `swing` 事件帶連擊數。剩一顆心時是時鐘的滴答，不是心跳，因為設計文件把心跳留給能量飲料的心悸。婉拒（`refuse`）有專屬的聲音，因為設計文件要求格擋拒絕比喝下去更有成就感。
 
-救援、暈眩與考試作答的 cue 以結果命名（`rescue.step`、`dizzy.true`、`exam.time` 等），`content/feedback.json` 用 `{outcome}`、`{dizzy}`、`{how}` 這樣的佔位符依事件的結果選聲音，所以做對和做錯聽起來不同。`rescue.early` 與 `exam.time`、`exam.stacks` 目前共用 `nope` 的配方，`rescue.myth` 共用 `bad`，`dizzy.false` 共用 `pick`；它們各有自己的 id，是為了日後單獨改，不是疏漏。考試結算（`examResult`）不論分數都播 `done`，因為事件本身只帶總分，沒有及格與否，而結算畫面已經顯示分數；要讓不同分數聽起來不同，需要規則層先把及格與否放進事件。蓋章命中 Boss 的提案時會同時發出 `stampLanded` 與 `proposalRejected`，聲音與字幕只由 `stampLanded` 負責，否則同一下蓋章會出現兩行相同的字幕。
+救援、暈眩與考試作答的 cue 以結果命名（`rescue.step`、`dizzy.true`、`exam.time` 等），`content/feedback.json` 用 `{outcome}`、`{dizzy}`、`{how}` 這樣的佔位符依事件的結果選聲音，所以做對和做錯聽起來不同。`rescue.early`、`rescue.myth`、`exam.solved`、`exam.time`、`exam.stacks` 和 `dizzy.false` 原本借用 `nope`、`bad`、`choose`、`pick` 的配方，2026-11-28 各自有了配方（見上表），沒有人用耳朵聽過，是依「做對的往上、做錯的往下、每種錯法質地不同」寫的，聽完覺得不對再改。考試結算（`examResult`）不論分數都播 `done`，因為事件本身只帶總分，沒有及格與否，而結算畫面已經顯示分數；要讓不同分數聽起來不同，需要規則層先把及格與否放進事件。蓋章命中 Boss 的提案時會同時發出 `stampLanded` 與 `proposalRejected`，聲音與字幕只由 `stampLanded` 負責，否則同一下蓋章會出現兩行相同的字幕。
 
-目前沒有聲音的事件共 19 個：`marked`、`refusalSaid`、`freeze`、`proposalRejected`、`boxMoved`、`triggerEntered`、`roomChanged`、`dialogueClosed`、`clockAdvanced`、`glucoseRefilled`、`rescueOpened`、`examStarted`、`examQuestion`、`examFinished`、`examForecast`、`examClosed`、`outerRequested`、`returnedToCheckpoint`、`chapterEnded`。其中換房間、記帳和面板開關這類事件由跟著發生的另一個事件負責聲音（進門有 `doorEntered`，螢光筆的標記有 `circleDrawn`），戰鬥相關的幾個已在 #73 決定（見下方「戰鬥音效驗收」），其餘是尚未決定要不要配聲音；要補的話在 `content/feedback.json` 加 `sound` 欄位即可，內容檢查會確認 cue 存在。
+目前沒有聲音的事件共 15 個：`marked`、`refusalSaid`、`freeze`、`proposalRejected`、`boxMoved`、`fellAsleep`、`triggerEntered`、`roomChanged`、`dialogueClosed`、`rescueOpened`、`examStarted`、`examForecast`、`examClosed`、`outerRequested`、`returnedToCheckpoint`。其中 `fellAsleep` 由同時發生的 `bedUse`（`yawn`）負責。`clockAdvanced`、`glucoseRefilled`、`examQuestion`、`examFinished`、`sleepFilled` 和 `chapterEnded` 是試玩者在 #13 要求過的，2026-11-28 補上聲音（#122）。其中換房間、記帳和面板開關這類事件由跟著發生的另一個事件負責聲音（進門有 `doorEntered`，螢光筆的標記有 `circleDrawn`），戰鬥相關的幾個已在 #73 決定（見下方「戰鬥音效驗收」），其餘是尚未決定要不要配聲音；要補的話在 `content/feedback.json` 加 `sound` 欄位即可，內容檢查會確認 cue 存在。
 
 與 issue #13 的差異：該 issue 假設音效是檔案，所以要求的欄位是檔案、長度、來源和負責人。音效改成合成配方之後沒有檔案可列，來源一律是 `content/audio.json` 的配方；音樂的檔案、大小與來源在上方的表和 `docs/art/asset-license.csv`。負責人欄沒有填：設計文件第 15 節把打擊與文具的聲音交給楊成宇，`staple`、`swing`、`hit`、`parry`、`stampDown` 等是否採用要由他確認。
 
@@ -138,13 +142,13 @@
 
 ## 預警與字幕
 
-三個預警等級各有自己的聲音，聽起來不會混在一起：一級是單一高音的叮，二級是兩下掃過的唰唰，三級是影印機式的滾動噪音加四下悶響。
+三個預警等級各有自己的聲音，聽起來不會混在一起：一級是單一高音的叮，二級是兩下掃過的唰唰，三級是影印機式的滾動噪音加六下悶響。二級長約 0.8 秒，第二下在 0.5 秒才開始、音量較大，對應美術指南「第二下隨預警填滿」；三級長約 1.35 秒，滾動噪音一路持續到招式落下的時間（美術指南 10 節要求 1.2 到 1.5 秒）。
 
 | cue | 聽感 | 事件 | 字幕 |
 | --- | --- | --- | --- |
 | `telegraph.1` | 1568 Hz 的叮 | `telegraph`，`tier` 為 1 | 【叮】出招 |
-| `telegraph.2` | 兩下上掃的唰唰 | `telegraph`，`tier` 為 2 | 【唰唰】範圍攻擊 |
-| `telegraph.3` | 影印機：滾動噪音加四下悶響 | `telegraph`，`tier` 為 3 | 【影印機】Boss 大招：可駁回 |
+| `telegraph.2` | 兩下上掃的唰唰，第二下較晚、較響，約 0.8 秒 | `telegraph`，`tier` 為 2 | 【唰唰】範圍攻擊 |
+| `telegraph.3` | 影印機：滾動噪音加六下悶響，約 1.35 秒 | `telegraph`，`tier` 為 3 | 【影印機】Boss 大招：可駁回 |
 
 字幕是彈性工時的一個選項「預警音效加字幕」（設定檔的 `captions`，預設關）。開啟後，上表的警告、剩一顆心的滴答、駁回量表滿、退件、婉拒、破防和蓋章會寫成方括號字幕，顯示在畫面下方中央，同時最多三行。警告字幕停留的時間等於它的前搖（一級 30 tick、二級 48 tick，三級依招式在 72 到 90 tick 之間，取中間值 81 tick）；其他字幕停留一秒。同一行字幕再次出現時只延長時間，不重複。聲音來自敵人時，字幕前面有一個黃色箭頭指向敵人相對營運長的方向，來源在營運長身上（距離不到 24 像素）或沒有來源時不畫箭頭。幾個敵人同時發出同一階的預警時只顯示一行，箭頭指向最後一個；這是刻意的取捨，三行上限不夠每個敵人各佔一行。換房間時字幕全部清掉，因為箭頭指的是舊房間裡的敵人。
 
@@ -169,7 +173,7 @@
 | `move` | 標題、暫停選單、選課的游標移動 |
 | `choose` | 確定一項、改變一個設定值（改音效音量時在改完之後播放，所以聽到的是新的音量） |
 | `back` | 離開暫停選單的上一頁、返回 |
-| `page` | 員工手冊開啟、翻頁與關閉；也是 `examBreak` 與 `orderReturned`（退貨：翻紙退回去） |
+| `page` | 員工手冊開啟、翻頁與關閉；也是 `examBreak`、`examQuestion`（翻到下一題）與 `orderReturned`（退貨：翻紙退回去） |
 | `blip` | 對話逐句前進與選定回覆（第一句由 `dialogueOpened` 的嗶聲負責） |
 | `liver.typing` | 學期模式第一次選層前電梯停在肝樓層、開門時從辦公室傳來的一小串打字聲，畫面同時顯示文字提示。這是給玩家的線索而不是選單回饋，所以和 `tick` 一樣不算選單類，校準到一般效果的目標 |
 

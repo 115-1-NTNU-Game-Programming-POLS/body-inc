@@ -123,15 +123,23 @@
     "telegraph.1": { "trimDb": 7.5, "caption": "caption.telegraph.1", "minGapMs": 80, "voices": [
       { "kind": "tone", "freq": 1568, "dur": 0.2, "gain": 0.3 },
       { "kind": "tone", "freq": 3136, "dur": 0.12, "gain": 0.08 } ] },
-    "telegraph.2": { "trimDb": 16, "caption": "caption.telegraph.2", "minGapMs": 80, "voices": [
-      { "kind": "noise", "filter": "bandpass", "cutoff": 700, "cutoffTo": 2600, "q": 1, "dur": 0.16, "gain": 0.5 },
-      { "kind": "noise", "filter": "bandpass", "cutoff": 700, "cutoffTo": 2600, "q": 1, "at": 0.22, "dur": 0.16, "gain": 0.5 } ] },
+    "telegraph.2": { "trimDb": 13, "caption": "caption.telegraph.2", "minGapMs": 80, "voices": [
+      { "kind": "noise", "filter": "bandpass", "cutoff": 700, "cutoffTo": 2600, "q": 1, "dur": 0.3, "gain": 0.35 },
+      { "kind": "noise", "filter": "bandpass", "cutoff": 900, "cutoffTo": 3400, "q": 1, "at": 0.5, "dur": 0.3, "gain": 0.55 } ] },
     "telegraph.3": { "trimDb": 12, "caption": "caption.telegraph.3", "minGapMs": 80, "voices": [
-      { "kind": "noise", "filter": "bandpass", "cutoff": 400, "cutoffTo": 1800, "q": 1.5, "dur": 0.5, "gain": 0.3 },
-      { "kind": "noise", "cutoff": 300, "dur": 0.06, "gain": 0.4 }, { "kind": "noise", "cutoff": 300, "at": 0.22, "dur": 0.06, "gain": 0.4 },
-      { "kind": "noise", "cutoff": 300, "at": 0.44, "dur": 0.06, "gain": 0.4 }, { "kind": "noise", "cutoff": 300, "at": 0.66, "dur": 0.06, "gain": 0.4 },
-      { "kind": "tone", "wave": "square", "freq": 90, "dur": 0.05, "gain": 0.2 }, { "kind": "tone", "wave": "square", "freq": 90, "at": 0.22, "dur": 0.05, "gain": 0.2 },
-      { "kind": "tone", "wave": "square", "freq": 90, "at": 0.44, "dur": 0.05, "gain": 0.2 }, { "kind": "tone", "wave": "square", "freq": 90, "at": 0.66, "dur": 0.05, "gain": 0.2 } ] },
+      { "kind": "noise", "filter": "bandpass", "cutoff": 400, "cutoffTo": 1800, "q": 1.5, "dur": 1.35, "gain": 0.3 },
+      { "kind": "noise", "cutoff": 300, "dur": 0.06, "gain": 0.4 },
+      { "kind": "noise", "cutoff": 300, "at": 0.22, "dur": 0.06, "gain": 0.4 },
+      { "kind": "noise", "cutoff": 300, "at": 0.44, "dur": 0.06, "gain": 0.4 },
+      { "kind": "noise", "cutoff": 300, "at": 0.66, "dur": 0.06, "gain": 0.4 },
+      { "kind": "noise", "cutoff": 300, "at": 0.88, "dur": 0.06, "gain": 0.4 },
+      { "kind": "noise", "cutoff": 300, "at": 1.1, "dur": 0.06, "gain": 0.4 },
+      { "kind": "tone", "wave": "square", "freq": 90, "dur": 0.05, "gain": 0.2 },
+      { "kind": "tone", "wave": "square", "freq": 90, "at": 0.22, "dur": 0.05, "gain": 0.2 },
+      { "kind": "tone", "wave": "square", "freq": 90, "at": 0.44, "dur": 0.05, "gain": 0.2 },
+      { "kind": "tone", "wave": "square", "freq": 90, "at": 0.66, "dur": 0.05, "gain": 0.2 },
+      { "kind": "tone", "wave": "square", "freq": 90, "at": 0.88, "dur": 0.05, "gain": 0.2 },
+      { "kind": "tone", "wave": "square", "freq": 90, "at": 1.1, "dur": 0.05, "gain": 0.2 } ] },
     "door": { "trimDb": 7.5, "voices": [
       { "kind": "noise", "filter": "bandpass", "cutoff": 500, "cutoffTo": 200, "dur": 0.2, "gain": 0.35 },
       { "kind": "tone", "freq": 160, "to": 100, "dur": 0.15, "gain": 0.2 } ] },
@@ -165,20 +173,23 @@
     "rescue.step": { "trimDb": 6.5, "voices": [
       { "kind": "tone", "wave": "triangle", "freq": 523, "dur": 0.18, "gain": 0.16 }, { "kind": "tone", "wave": "triangle", "freq": 659, "at": 0.09, "dur": 0.18, "gain": 0.16 },
       { "kind": "tone", "wave": "triangle", "freq": 784, "at": 0.18, "dur": 0.18, "gain": 0.16 } ] },
-    "rescue.early": { "trimDb": 9.5, "voices": [
-      { "kind": "tone", "wave": "triangle", "freq": 330, "dur": 0.09, "gain": 0.15 },
-      { "kind": "tone", "wave": "triangle", "freq": 247, "at": 0.1, "dur": 0.16, "gain": 0.15 } ] },
-    "rescue.myth": { "trimDb": 7, "voices": [
-      { "kind": "tone", "wave": "triangle", "freq": 392, "dur": 0.22, "gain": 0.14 }, { "kind": "tone", "wave": "triangle", "freq": 330, "at": 0.12, "dur": 0.22, "gain": 0.14 },
-      { "kind": "tone", "wave": "triangle", "freq": 262, "at": 0.24, "dur": 0.3, "gain": 0.14 } ] },
-    "exam.solved": { "trimDb": 8.5, "voices": [
-      { "kind": "tone", "wave": "triangle", "freq": 660, "to": 880, "dur": 0.07, "gain": 0.2 } ] },
+    "rescue.early": { "trimDb": 10, "voices": [
+      { "kind": "tone", "wave": "triangle", "freq": 294, "to": 233, "dur": 0.18, "gain": 0.16 } ] },
+    "rescue.myth": { "trimDb": 8, "voices": [
+      { "kind": "tone", "wave": "triangle", "freq": 392, "to": 311, "dur": 0.25, "gain": 0.14 },
+      { "kind": "tone", "wave": "triangle", "freq": 349, "to": 277, "at": 0.18, "dur": 0.3, "gain": 0.14 },
+      { "kind": "noise", "cutoff": 500, "dur": 0.05, "gain": 0.1 } ] },
+    "exam.solved": { "trimDb": 9.5, "voices": [
+      { "kind": "tone", "wave": "triangle", "freq": 784, "dur": 0.07, "gain": 0.17 },
+      { "kind": "tone", "wave": "triangle", "freq": 1047, "at": 0.06, "dur": 0.12, "gain": 0.17 } ] },
     "exam.time": { "trimDb": 9.5, "voices": [
-      { "kind": "tone", "wave": "triangle", "freq": 330, "dur": 0.09, "gain": 0.15 },
-      { "kind": "tone", "wave": "triangle", "freq": 247, "at": 0.1, "dur": 0.16, "gain": 0.15 } ] },
-    "exam.stacks": { "trimDb": 9.5, "voices": [
-      { "kind": "tone", "wave": "triangle", "freq": 330, "dur": 0.09, "gain": 0.15 },
-      { "kind": "tone", "wave": "triangle", "freq": 247, "at": 0.1, "dur": 0.16, "gain": 0.15 } ] },
+      { "kind": "noise", "filter": "bandpass", "cutoff": 1400, "q": 2, "dur": 0.03, "gain": 0.4 },
+      { "kind": "noise", "filter": "bandpass", "cutoff": 1400, "q": 2, "at": 0.15, "dur": 0.03, "gain": 0.4 },
+      { "kind": "tone", "wave": "square", "freq": 98, "at": 0.3, "dur": 0.25, "gain": 0.1 } ] },
+    "exam.stacks": { "trimDb": 4, "voices": [
+      { "kind": "tone", "freq": 180, "to": 110, "dur": 0.25, "gain": 0.2 },
+      { "kind": "noise", "cutoff": 300, "dur": 0.2, "gain": 0.2 },
+      { "kind": "tone", "freq": 150, "to": 90, "at": 0.15, "dur": 0.25, "gain": 0.15 } ] },
     "done": { "trimDb": 4.5, "voices": [
       { "kind": "tone", "wave": "triangle", "freq": 523, "dur": 0.2, "gain": 0.16 }, { "kind": "tone", "wave": "triangle", "freq": 659, "at": 0.12, "dur": 0.2, "gain": 0.16 },
       { "kind": "tone", "wave": "triangle", "freq": 784, "at": 0.24, "dur": 0.2, "gain": 0.16 }, { "kind": "tone", "wave": "triangle", "freq": 1047, "at": 0.36, "dur": 0.5, "gain": 0.18 } ] },
@@ -211,9 +222,9 @@
     "dizzy.true": { "trimDb": 3.5, "voices": [
       { "kind": "tone", "freq": 280, "to": 180, "dur": 0.4, "gain": 0.15 },
       { "kind": "tone", "freq": 330, "to": 210, "at": 0.1, "dur": 0.4, "gain": 0.12 } ] },
-    "dizzy.false": { "trimDb": 6.5, "voices": [
-      { "kind": "tone", "freq": 520, "to": 780, "dur": 0.09, "gain": 0.2 },
-      { "kind": "tone", "freq": 780, "to": 1040, "at": 0.06, "dur": 0.12, "gain": 0.18 } ] },
+    "dizzy.false": { "trimDb": 6, "voices": [
+      { "kind": "tone", "freq": 392, "dur": 0.1, "gain": 0.16 },
+      { "kind": "tone", "freq": 587, "at": 0.08, "dur": 0.25, "gain": 0.16 } ] },
     "disco": { "trimDb": 10.5, "voices": [
       { "kind": "tone", "wave": "square", "freq": 523, "dur": 0.08, "gain": 0.1 }, { "kind": "tone", "wave": "square", "freq": 659, "at": 0.1, "dur": 0.08, "gain": 0.1 },
       { "kind": "tone", "wave": "square", "freq": 523, "at": 0.2, "dur": 0.08, "gain": 0.1 }, { "kind": "tone", "wave": "square", "freq": 784, "at": 0.3, "dur": 0.12, "gain": 0.1 } ] },
@@ -222,6 +233,25 @@
       { "kind": "noise", "filter": "bandpass", "cutoff": 3200, "dur": 0.04, "gain": 0.45 },
       { "kind": "tone", "wave": "square", "freq": 330, "to": 110, "dur": 0.16, "gain": 0.18 },
       { "kind": "tone", "wave": "triangle", "freq": 988, "at": 0.05, "dur": 0.12, "gain": 0.14 } ] },
+    "clock.pass": { "trimDb": 15, "voices": [
+      { "kind": "noise", "filter": "bandpass", "cutoff": 1400, "q": 2, "dur": 0.03, "gain": 0.4 },
+      { "kind": "noise", "filter": "bandpass", "cutoff": 1400, "q": 2, "at": 0.14, "dur": 0.03, "gain": 0.4 },
+      { "kind": "tone", "wave": "triangle", "freq": 330, "dur": 0.08, "gain": 0.08 },
+      { "kind": "tone", "wave": "triangle", "freq": 392, "at": 0.14, "dur": 0.12, "gain": 0.08 } ] },
+    "glucose": { "trimDb": 7, "voices": [
+      { "kind": "noise", "cutoff": 700, "dur": 0.1, "gain": 0.2 },
+      { "kind": "tone", "freq": 300, "to": 500, "dur": 0.12, "gain": 0.18 },
+      { "kind": "tone", "freq": 500, "to": 750, "at": 0.1, "dur": 0.12, "gain": 0.16 },
+      { "kind": "tone", "wave": "triangle", "freq": 1047, "at": 0.22, "dur": 0.3, "gain": 0.12 } ] },
+    "exam.end": { "trimDb": 7.5, "voices": [
+      { "kind": "tone", "wave": "triangle", "freq": 1175, "dur": 0.5, "gain": 0.13 },
+      { "kind": "tone", "wave": "triangle", "freq": 1760, "dur": 0.35, "gain": 0.05 },
+      { "kind": "tone", "wave": "triangle", "freq": 1175, "at": 0.3, "dur": 0.5, "gain": 0.13 },
+      { "kind": "tone", "wave": "triangle", "freq": 1760, "at": 0.3, "dur": 0.35, "gain": 0.05 } ] },
+    "rested": { "trimDb": 7, "voices": [
+      { "kind": "tone", "wave": "triangle", "freq": 659, "dur": 0.5, "gain": 0.11 },
+      { "kind": "tone", "wave": "triangle", "freq": 523, "at": 0.25, "dur": 0.5, "gain": 0.11 },
+      { "kind": "tone", "wave": "triangle", "freq": 392, "at": 0.5, "dur": 0.9, "gain": 0.11 } ] },
     "shield": { "trimDb": 9, "voices": [
       { "kind": "noise", "filter": "bandpass", "cutoff": 2000, "dur": 0.05, "gain": 0.2 },
       { "kind": "tone", "freq": 880, "dur": 0.15, "gain": 0.15 } ] }
