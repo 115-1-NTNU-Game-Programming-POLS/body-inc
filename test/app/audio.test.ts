@@ -11,10 +11,11 @@ import { FixedStepLoop } from '../../src/app/loop.ts';
 import { SETTINGS, TELEGRAPH, TICK_HZ, type Cue, type GameEvent } from '../../src/core/index.ts';
 
 const FIELDS = noteFields(ENEMIES);
+const BOSSES = ['caffeine', 'toast', 'snack'];
 const CHAPTERS = ['prologue', 'brain', 'greybox', 'liver', 'midterm', 'wall', 'patrol-brain', 'patrol-liver', 'stomach'];
 
 const problems = (audio: AudioTable = AUDIO, feedback: FeedbackTable = FEEDBACK): string[] =>
-  audioProblems(audio, feedback, STRINGS, FIELDS, Object.values(UI), CHAPTERS);
+  audioProblems(audio, feedback, STRINGS, FIELDS, Object.values(UI), CHAPTERS, BOSSES);
 
 const withCue = (id: string, cue: Cue): AudioTable => ({ ...AUDIO, cues: { ...AUDIO.cues, [id]: cue } });
 const tone = (gain: number, at = 0, dur = 0.1): Cue['voices'][number] => ({ kind: 'tone', freq: 440, at, dur, gain });
@@ -96,9 +97,16 @@ describe('what an event sounds like', () => {
 
 describe('the music', () => {
   it('a boss fight wins over the chapter, and a chapter over the scene it sits in', () => {
-    expect(musicFor(AUDIO, { chapter: 'brain', boss: true })).toBe(AUDIO.music.boss);
+    expect(musicFor(AUDIO, { chapter: 'brain', boss: 'toast' })).toBe(AUDIO.music.boss);
     expect(musicFor(AUDIO, { chapter: 'brain' })).toBe(AUDIO.music.chapters.brain);
     expect(musicFor(AUDIO, { scene: 'Title' })).toBe(AUDIO.music.scenes.Title);
+  });
+
+  it('a boss with a theme of its own plays it, and any other boss plays the shared one', () => {
+    const themed = { ...AUDIO, music: { ...AUDIO.music, bosses: { toast: 'liver' } } };
+    expect(musicFor(themed, { chapter: 'liver', boss: 'toast' })).toBe('liver');
+    expect(musicFor(themed, { chapter: 'brain', boss: 'caffeine' })).toBe(AUDIO.music.boss);
+    expect(musicFor(themed, { chapter: 'liver' })).toBe(AUDIO.music.chapters.liver);
   });
 
   it('a scene or chapter the music is not tied to leaves it as it is', () => {
@@ -203,7 +211,7 @@ describe('what the check refuses', () => {
   });
 
   it('a cue a scene plays by name that content/audio.json does not have', () => {
-    const run = (used: readonly string[]) => audioProblems(AUDIO, FEEDBACK, STRINGS, FIELDS, used, CHAPTERS).join('\n');
+    const run = (used: readonly string[]) => audioProblems(AUDIO, FEEDBACK, STRINGS, FIELDS, used, CHAPTERS, BOSSES).join('\n');
     expect(run([...Object.values(UI), 'ghost'])).toMatch(/scene cue "ghost" is not a cue of content\/audio.json/);
     expect(run(Object.values(UI))).toBe('');
   });
@@ -234,6 +242,15 @@ describe('what the check refuses', () => {
     expect(problems({ ...AUDIO, music: chapters }).join('\n')).toMatch(/names chapter "ghost"/);
     const tracks = { ...AUDIO.music, tracks: { ...AUDIO.music.tracks, extra: AUDIO.music.tracks.brain! } };
     expect(problems({ ...AUDIO, music: tracks }).join('\n')).toMatch(/track "extra" is played nowhere/);
+  });
+
+  it('a boss theme names a track that is there, for an enemy that is a boss', () => {
+    const ghostTrack = { ...AUDIO.music, bosses: { toast: 'missing' } };
+    expect(problems({ ...AUDIO, music: ghostTrack }).join('\n')).toMatch(/music for "boss toast" names track "missing"/);
+    const notBoss = { ...AUDIO.music, bosses: { adenosine: 'brain' } };
+    expect(problems({ ...AUDIO, music: notBoss }).join('\n')).toMatch(/names boss "adenosine", which is not a boss/);
+    const fine = { ...AUDIO.music, bosses: { toast: 'liver' } };
+    expect(problems({ ...AUDIO, music: fine })).toEqual([]);
   });
 
   it('SOUND_FIELDS lists the telegraph tiers the cue ids are built from', () => {

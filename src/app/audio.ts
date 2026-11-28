@@ -88,12 +88,13 @@ export function soundFor(table: FeedbackTable, audio: AudioTable, event: GameEve
 export interface MusicWhere {
   readonly scene?: string;
   readonly chapter?: string;
-  readonly boss?: boolean;
+  /** The enemy type of the boss that is fighting; any string without a theme of its own gets `music.boss`. */
+  readonly boss?: string;
 }
 
 /** The track id for a place, or undefined to leave the music as it is (a scene the music is not tied to). */
 export function musicFor(audio: AudioTable, where: MusicWhere): string | undefined {
-  if (where.boss) return audio.music.boss;
+  if (where.boss !== undefined) return audio.music.bosses?.[where.boss] ?? audio.music.boss;
   if (where.chapter !== undefined) return audio.music.chapters[where.chapter];
   return where.scene === undefined ? undefined : audio.music.scenes[where.scene];
 }
@@ -141,10 +142,10 @@ export const SOUND_FIELDS: NoteFields = {
 
 /**
  * Problems in content/audio.json and in the sounds content/feedback.json names, in English like the
- * feedback check. `used` lists the cues scenes play by name, which no event names.
+ * feedback check. `used` lists the cues scenes play by name, which no event names; `bossTypes` the enemy types that are bosses.
  */
 export function audioProblems(
-  audio: AudioTable, feedback: FeedbackTable, strings: StringTable, fields: NoteFields, used: readonly string[], chapters: readonly string[],
+  audio: AudioTable, feedback: FeedbackTable, strings: StringTable, fields: NoteFields, used: readonly string[], chapters: readonly string[], bossTypes: readonly string[],
 ): string[] {
   const out: string[] = [];
   const named = new Set<string>(used);
@@ -175,10 +176,11 @@ export function audioProblems(
     if (peakSum(cue) > 1) out.push(`cue "${id}": voices at one moment add up to ${peakSum(cue).toFixed(2)}, over 1`);
   }
   const tracks = new Set(Object.keys(audio.music.tracks));
-  const wanted = [['boss', audio.music.boss], ...Object.entries(audio.music.scenes), ...Object.entries(audio.music.chapters)] as const;
+  const wanted = [['boss', audio.music.boss], ...Object.entries(audio.music.bosses ?? {}).map(([id, t]) => [`boss ${id}`, t] as const), ...Object.entries(audio.music.scenes), ...Object.entries(audio.music.chapters)] as const;
   for (const [where, track] of wanted) if (!tracks.has(track)) out.push(`music for "${where}" names track "${track}", which is not in tracks`);
   for (const id of Object.keys(audio.music.chapters)) if (!chapters.includes(id)) out.push(`music names chapter "${id}", which is not a chapter file`);
-  const usedTracks = new Set<string>([audio.music.boss, ...Object.values(audio.music.scenes), ...Object.values(audio.music.chapters)]);
+  const usedTracks = new Set<string>([audio.music.boss, ...Object.values(audio.music.bosses ?? {}), ...Object.values(audio.music.scenes), ...Object.values(audio.music.chapters)]);
+  for (const id of Object.keys(audio.music.bosses ?? {})) if (!bossTypes.includes(id)) out.push(`music names boss "${id}", which is not a boss`);
   for (const id of tracks) if (!usedTracks.has(id)) out.push(`track "${id}" is played nowhere`);
   return out;
 }
