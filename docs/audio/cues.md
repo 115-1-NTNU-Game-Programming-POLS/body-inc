@@ -6,17 +6,24 @@
 
 ## 音樂
 
-七首曲目各自以代號登記在 `content/audio.json` 的 `music.tracks`，`scenes`、`chapters` 和 `boss` 決定哪裡播哪一首。換曲時舊曲淡出、新曲淡入（各 0.8 秒），要求同一首曲子不會重新開始。Boss 戰（有 Boss 且尚未擊敗）蓋過章節的曲子，預設播 `boss`；`music.bosses` 可以讓某個 Boss（以敵人類型 `caffeine`、`toast`、`snack` 為鍵）有自己的戰鬥曲，沒有登記的 Boss 仍播 `boss`。內容檢查會確認登記的曲目存在、鍵是 Boss，且每首曲子至少有一處播放（#120）。每首曲子都限制在 1.5 MB 以內（美術指南 13.7），並正規化到 -18 LUFS，所以換曲時不會忽大忽小。
+十二首曲目各自以代號登記在 `content/audio.json` 的 `music.tracks`，`scenes`、`chapters` 和 `boss` 決定哪裡播哪一首。換曲時舊曲淡出、新曲淡入（各 0.8 秒），要求同一首曲子不會重新開始。Boss 戰（有 Boss 且尚未擊敗）蓋過章節的曲子，預設播 `boss`；`music.bosses` 可以讓某個 Boss（以敵人類型 `caffeine`、`toast`、`snack` 為鍵）有自己的戰鬥曲，沒有登記的 Boss 仍播 `boss`。內容檢查會確認登記的曲目存在、鍵是 Boss，且每首曲子至少有一處播放（#120）。每首曲子都限制在 1.5 MB 以內（美術指南 13.7），並正規化到 -18 LUFS，所以換曲時不會忽大忽小。
 
 | 代號 | 曲名 | 用在哪裡 | 檔案 |
 | --- | --- | --- | --- |
 | `title` | Lobby Time | 標題畫面、輸入宿主名字 | `lobby-time.mp3`，單聲道 56 kbps，1.35 MB |
-| `prologue` | Comfortable Mystery | 序章、胃章（在胃章有自己的曲子前暫用） | `comfortable-mystery.mp3`，單聲道 48 kbps，1.42 MB |
+| `prologue` | Comfortable Mystery | 序章 | `comfortable-mystery.mp3`，單聲道 48 kbps，1.42 MB |
 | `brain` | Monkeys Spinning Monkeys | 大腦章、灰盒測試房、大腦巡視 | `monkeys-spinning-monkeys.mp3`，立體聲 80 kbps，1.25 MB |
 | `liver` | Quirky Dog | 肝臟章、肝臟巡視 | `quirky-dog.mp3`，立體聲 64 kbps，1.19 MB |
-| `boss` | Run Amok | 期中考章、任何 Boss 戰 | `run-amok.mp3`，立體聲 96 kbps，1.29 MB |
+| `boss` | Run Amok | 沒有自己戰鬥曲的 Boss 戰（目前三個 Boss 都有，所以只是備用） | `run-amok.mp3`，立體聲 96 kbps，1.29 MB |
 | `cards` | Easy Lemon | 開場與結尾卡牌、證據牆 | `easy-lemon.mp3`，立體聲 80 kbps，1.26 MB |
 | `semester` | Local Forecast - Elevator | 選課、學期畫面 | `local-forecast-elevator.mp3`，單聲道 56 kbps，1.32 MB |
+| `stomach` | Zazie | 胃章四個房間（90 BPM，輕鬆的酒吧風，挑它是因為深夜、有點滑稽而不緊張） | `zazie.mp3`，單聲道 48 kbps，1.28 MB |
+| `midterm` | I Can Feel it Coming | 期中考章，含走廊與考試（94 BPM，目錄標為緊張填充；考試與走廊共用一首，需要分開時由考試戰蓋過章節曲，如同 Boss 戰） | `i-can-feel-it-coming.mp3`，單聲道 48 kbps，1.29 MB |
+| `boss-caffeine` | Raving Energy (faster) | 卡費因 Boss 戰（134 BPM，目錄形容「過度興奮」） | `raving-energy-faster.mp3`，單聲道 48 kbps，1.46 MB |
+| `boss-toast` | Bet You Can | 敬酒部長 Boss 戰（92 BPM，學童嗆聲旋律；節拍的對照見下方「敬酒部長的節拍」） | `bet-you-can.mp3`，單聲道 56 kbps，1.39 MB |
+| `boss-snack` | Dreamer | 報復性宵夜部長 Boss 戰（100 BPM，柔和的鋼琴，貼近「你值得」的說服感） | `dreamer.mp3`，單聲道 56 kbps，1.43 MB |
+
+敬酒部長的節拍。`Bet You Can` 是 92 BPM，一拍 0.652 秒。`content/bosses/toast.json` 三輪的 `beatSeconds` 是 1.6、1.3、1.0 秒，換算成拍數是 2.45、2.0、1.53：第二輪剛好是兩拍，第一輪和第三輪各與 2.5 拍（1.630 秒）、1.5 拍（0.978 秒）差約 2%。所以三輪一輪比一輪快半拍，聽起來是越唱越趕，但還沒有精確對上，第一輪每句差約 30 毫秒會累積。就算把數值改成 1.630、1.304、0.978，歌也不是從戰鬥開始那一刻起算（曲子在進房間時就開始播），所以只能對上速度、對不上拍點，這件事留給有試玩回饋時再決定要不要改（#120）。`boss-caffeine` 和 `boss-snack` 沒有這類要求。
 
 出處和授權的逐首紀錄在 `docs/art/asset-license.csv`，標示文字依 incompetech 的要求寫成「曲名 Kevin MacLeod (incompetech.com) Licensed under Creative Commons: By Attribution 4.0 https://creativecommons.org/licenses/by/4.0/」。標題畫面底部有一行鳴謝，寫明作者、授權、更動方式和倉庫網址（倉庫是公開的），`README.md` 有逐首的完整名單。這是 CC BY 4.0 允許的「以連結指向完整資訊」的做法；若要在遊戲內列出七首曲名，需要另做一個鳴謝畫面。
 
