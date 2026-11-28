@@ -8,10 +8,16 @@
       "liver": { "file": "quirky-dog.mp3", "title": "Quirky Dog", "artist": "Kevin MacLeod", "sourceUrl": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Quirky%20Dog.mp3" },
       "boss": { "file": "run-amok.mp3", "title": "Run Amok", "artist": "Kevin MacLeod", "sourceUrl": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Run%20Amok.mp3" },
       "cards": { "file": "easy-lemon.mp3", "title": "Easy Lemon", "artist": "Kevin MacLeod", "sourceUrl": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Easy%20Lemon.mp3" },
-      "semester": { "file": "local-forecast-elevator.mp3", "title": "Local Forecast - Elevator", "artist": "Kevin MacLeod", "sourceUrl": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Local%20Forecast%20-%20Elevator.mp3" }
+      "semester": { "file": "local-forecast-elevator.mp3", "title": "Local Forecast - Elevator", "artist": "Kevin MacLeod", "sourceUrl": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Local%20Forecast%20-%20Elevator.mp3" },
+      "stomach": { "file": "zazie.mp3", "title": "Zazie", "artist": "Kevin MacLeod", "sourceUrl": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Zazie.mp3" },
+      "boss-caffeine": { "file": "raving-energy-faster.mp3", "title": "Raving Energy (faster)", "artist": "Kevin MacLeod", "sourceUrl": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Raving%20Energy%20(faster).mp3" },
+      "boss-toast": { "file": "bet-you-can.mp3", "title": "Bet You Can", "artist": "Kevin MacLeod", "sourceUrl": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Bet%20You%20Can.mp3" },
+      "boss-snack": { "file": "dreamer.mp3", "title": "Dreamer", "artist": "Kevin MacLeod", "sourceUrl": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Dreamer.mp3" },
+      "midterm": { "file": "i-can-feel-it-coming.mp3", "title": "I Can Feel it Coming", "artist": "Kevin MacLeod", "sourceUrl": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/I%20Can%20Feel%20it%20Coming.mp3" }
     },
     "scenes": { "Title": "title", "Opening": "cards", "Courses": "semester", "Semester": "semester", "Name": "title" },
-    "chapters": { "prologue": "prologue", "brain": "brain", "greybox": "brain", "liver": "liver", "midterm": "boss", "wall": "cards", "patrol-brain": "brain", "patrol-liver": "liver", "stomach": "prologue" },
+    "chapters": { "prologue": "prologue", "brain": "brain", "greybox": "brain", "liver": "liver", "midterm": "midterm", "wall": "cards", "patrol-brain": "brain", "patrol-liver": "liver", "stomach": "stomach" },
+    "bosses": { "caffeine": "boss-caffeine", "toast": "boss-toast", "snack": "boss-snack" },
     "boss": "boss"
   },
   "cues": {

@@ -3,7 +3,8 @@
  * Each track of content/audio.json is normalized to the same loudness (design doc 13.6) and encoded
  * as MP3 under the size budget of art direction 13.7. Needs ffmpeg with libmp3lame on the PATH.
  *
- *   node tools/audio/build-music.ts <folder with the original .mp3 files>
+ *   node tools/audio/build-music.ts <folder with the original .mp3 files> [--only id,id]
+ *                                      --only builds just those tracks, for when the others' originals are no longer at hand
  *   node tools/audio/build-music.ts --verify      measures what is already built; exit 1 if off target
  *
  * A track longer than the budget allows at stereo 64 kbps goes to mono, and the bitrate is the
@@ -90,7 +91,11 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   if (!arg) { console.error('usage: node tools/audio/build-music.ts <folder of originals> | --verify'); process.exit(2); }
   if (arg !== '--verify') {
     mkdirSync(OUT, { recursive: true });
-    for (const [, t] of tracks) {
+    const onlyArg = process.argv.indexOf('--only') > 0 ? process.argv[process.argv.indexOf('--only') + 1] : undefined;
+    const only = onlyArg === undefined ? undefined : new Set(onlyArg.split(','));
+    for (const id of only ?? []) if (!tracks.some(([t]) => t === id)) throw new Error(`--only names track "${id}", which is not in content/audio.json`);
+    for (const [id, t] of tracks) {
+      if (only && !only.has(id)) continue;
       const source = join(arg, decodeURIComponent(basename(new URL(t.sourceUrl).pathname)));
       if (!existsSync(source)) throw new Error(`the original ${source} is not there; download it from ${t.sourceUrl}`);
       build(source, join(OUT, t.file), t);

@@ -97,7 +97,8 @@ describe('what an event sounds like', () => {
 
 describe('the music', () => {
   it('a boss fight wins over the chapter, and a chapter over the scene it sits in', () => {
-    expect(musicFor(AUDIO, { chapter: 'brain', boss: 'toast' })).toBe(AUDIO.music.boss);
+    expect(musicFor(AUDIO, { chapter: 'brain', boss: 'toast' })).toBe(AUDIO.music.bosses?.toast);
+    expect(musicFor(AUDIO, { chapter: 'brain', boss: 'no-such-boss' })).toBe(AUDIO.music.boss);
     expect(musicFor(AUDIO, { chapter: 'brain' })).toBe(AUDIO.music.chapters.brain);
     expect(musicFor(AUDIO, { scene: 'Title' })).toBe(AUDIO.music.scenes.Title);
   });
@@ -245,12 +246,11 @@ describe('what the check refuses', () => {
   });
 
   it('a boss theme names a track that is there, for an enemy that is a boss', () => {
-    const ghostTrack = { ...AUDIO.music, bosses: { toast: 'missing' } };
+    const ghostTrack = { ...AUDIO.music, bosses: { ...AUDIO.music.bosses, toast: 'missing' } };
     expect(problems({ ...AUDIO, music: ghostTrack }).join('\n')).toMatch(/music for "boss toast" names track "missing"/);
-    const notBoss = { ...AUDIO.music, bosses: { adenosine: 'brain' } };
+    const notBoss = { ...AUDIO.music, bosses: { ...AUDIO.music.bosses, adenosine: 'brain' } };
     expect(problems({ ...AUDIO, music: notBoss }).join('\n')).toMatch(/names boss "adenosine", which is not a boss/);
-    const fine = { ...AUDIO.music, bosses: { toast: 'liver' } };
-    expect(problems({ ...AUDIO, music: fine })).toEqual([]);
+    expect(problems()).toEqual([]);
   });
 
   it('SOUND_FIELDS lists the telegraph tiers the cue ids are built from', () => {
