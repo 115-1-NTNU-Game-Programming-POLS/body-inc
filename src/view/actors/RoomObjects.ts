@@ -1,6 +1,8 @@
 import Phaser from 'phaser';
 import { tagKey, type Manifest } from '../../app/assets.ts';
 import { objectBox, TILE, type EnteredRoom, type RoomObject } from '../../core/index.ts';
+import { str } from '../../app/content.ts';
+import { addText } from '../text/fonts.ts';
 
 const INK = 0x0c2d5e;
 const PAPER = 0xf4efe4;
@@ -87,12 +89,41 @@ function timeClock(scene: Phaser.Scene, o: RoomObject): void {
   g.lineStyle(2, INK, 1).lineBetween(cx, cy, cx, cy - 9).lineBetween(cx, cy, cx + 6, cy + 2);
 }
 
+/**
+ * What tells the three sobering-myth stalls apart (art direction 7.4): a two-character sign
+ * written by the program on a paper label over the counter front, and one prop on the counter.
+ * The frame is 64 px square anchored at its bottom centre; the counter front is the lower left face.
+ */
+function stallDressing(scene: Phaser.Scene, o: RoomObject, kind: string): void {
+  const left = o.x - 32;
+  const top = o.y - 64;
+  const g = scene.add.graphics().setDepth(o.y + 0.1);
+  const WATER = 0x8fb8e8;
+  const COFFEE = 0x6b4226;
+  if (kind === 'coffee') {
+    g.fillStyle(PAPER).fillRect(left + 20, top + 29, 6, 5).lineStyle(1, INK, 1).strokeRect(left + 20, top + 29, 6, 5);
+    g.fillStyle(COFFEE).fillRect(left + 21, top + 30, 4, 1);
+    g.lineStyle(1, INK, 0.7).lineBetween(left + 22, top + 26, left + 22, top + 28).lineBetween(left + 24, top + 25, left + 24, top + 27);
+  } else if (kind === 'shower') {
+    g.fillStyle(GREY).fillRect(left + 20, top + 29, 7, 5).lineStyle(1, INK, 1).strokeRect(left + 20, top + 29, 7, 5);
+    g.fillStyle(WATER).fillRect(left + 21, top + 30, 5, 1);
+    g.fillStyle(WATER).fillRect(left + 23, top + 25, 1, 2).fillRect(left + 25, top + 26, 1, 2);
+  } else {
+    g.fillStyle(PAPER).fillRect(left + 20, top + 31, 7, 2).lineStyle(1, INK, 1).strokeRect(left + 20, top + 31, 7, 2);
+    g.fillStyle(INK).fillRect(left + 26, top + 29, 3, 4);
+    g.fillStyle(WATER).fillRect(left + 31, top + 30, 3, 4).lineStyle(1, INK, 1).strokeRect(left + 31, top + 30, 3, 4);
+  }
+  g.fillStyle(PAPER).fillRect(left + 15, top + 38, 24, 10).lineStyle(1, INK, 1).strokeRect(left + 15, top + 38, 24, 10);
+  addText(scene, left + 27, top + 43, str(`stall.sign.${kind}`), { role: 'print', weight: 700, size: 9, color: '#0c2d5e' }).setOrigin(0.5, 0.5).setDepth(o.y + 0.2);
+}
+
 function npc(scene: Phaser.Scene, o: RoomObject, manifest: Manifest): void {
   const id = String(o.props['npcId']);
   const entry = manifest.entries.find((e) => e.key === id);
   // The three sobering-myth stalls share one night-market stall frame (art direction 9.1).
   if (!entry && id.startsWith('stall-') && scene.textures.exists('atlas-common')) {
     scene.add.image(o.x, o.y, 'atlas-common', 'prop-stall-frame').setOrigin(0.5, 1).setDepth(o.y);
+    stallDressing(scene, o, id.slice('stall-'.length));
     return;
   }
   if (!entry) {
