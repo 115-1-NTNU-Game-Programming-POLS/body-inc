@@ -15,7 +15,8 @@
         "tracks": { "type": "object", "additionalProperties": { "$ref": "#/$defs/Track" } },
         "scenes": { "description": "Scene key to track id, for the scenes that are not a chapter's rooms.", "type": "object", "additionalProperties": { "type": "string", "minLength": 1 } },
         "chapters": { "description": "Chapter id to track id, for the rooms of that chapter.", "type": "object", "additionalProperties": { "type": "string", "minLength": 1 } },
-        "boss": { "description": "Track id while a boss is fighting, over the chapter's own.", "type": "string", "minLength": 1 }
+        "boss": { "description": "Track id while a boss is fighting, over the chapter's own, for a boss that has none of its own in `bosses`.", "type": "string", "minLength": 1 },
+        "bosses": { "description": "Boss enemy type to the track id of that boss's own fight theme, over `boss`.", "type": "object", "additionalProperties": { "type": "string", "minLength": 1 } }
       }
     },
     "cues": { "type": "object", "additionalProperties": { "$ref": "#/$defs/Cue" } }

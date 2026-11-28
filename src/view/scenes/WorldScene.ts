@@ -193,7 +193,7 @@ export class WorldScene extends Phaser.Scene {
   private playMusic(): void {
     const { run, game } = this.loop.state;
     const boss = selectBoss(game);
-    soundIn(this)?.music(musicFor(AUDIO, { chapter: run.chapter, boss: boss !== undefined && !boss.defeated }));
+    soundIn(this)?.music(musicFor(AUDIO, { chapter: run.chapter, ...(boss !== undefined && !boss.defeated ? { boss: boss.type } : {}) }));
   }
 
   override update(time: number, delta: number): void {

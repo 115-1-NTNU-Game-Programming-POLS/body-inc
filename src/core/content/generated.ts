@@ -51,9 +51,17 @@ export const SCHEMAS: { readonly [K in SchemaName]: Schema } = {
             }
           },
           "boss": {
-            "description": "Track id while a boss is fighting, over the chapter's own.",
+            "description": "Track id while a boss is fighting, over the chapter's own, for a boss that has none of its own in `bosses`.",
             "type": "string",
             "minLength": 1
+          },
+          "bosses": {
+            "description": "Boss enemy type to the track id of that boss's own fight theme, over `boss`.",
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "minLength": 1
+            }
           }
         }
       },
@@ -3557,8 +3565,10 @@ export interface AudioFile {
     readonly scenes: Readonly<Record<string, string>>;
     /** Chapter id to track id, for the rooms of that chapter. */
     readonly chapters: Readonly<Record<string, string>>;
-    /** Track id while a boss is fighting, over the chapter's own. */
+    /** Track id while a boss is fighting, over the chapter's own, for a boss that has none of its own in `bosses`. */
     readonly boss: string;
+    /** Boss enemy type to the track id of that boss's own fight theme, over `boss`. */
+    readonly bosses?: Readonly<Record<string, string>>;
   };
   readonly cues: Readonly<Record<string, Cue>>;
 }

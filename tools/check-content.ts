@@ -185,7 +185,7 @@ export function checkContent(contentDir: string): string[] {
       .map((p) => /(?:^|[\\/])chapters[\\/]([a-z][a-z0-9-]*)\.json$/.exec(p)?.[1])
       .filter((id): id is string => id !== undefined);
     for (const [, s] of strings) {
-      for (const p of audioProblems(audio.value, feedback.value, s.value as ContentTypes['strings'], noteFields(enemyTable), Object.values(UI), chapterIds)) {
+      for (const p of audioProblems(audio.value, feedback.value, s.value as ContentTypes['strings'], noteFields(enemyTable), Object.values(UI), chapterIds, [...enemyTable.enemies.values()].filter((e) => e.boss !== undefined).map((e) => e.id))) {
         out.push(`${audio.file}（對照 ${s.file}）：${p}`);
       }
     }
